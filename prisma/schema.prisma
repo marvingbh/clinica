@@ -79,6 +79,11 @@ model Clinic {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Clinic settings
+  defaultSessionDuration Int    @default(50) // in minutes
+  minAdvanceBooking      Int    @default(2)  // minimum hours in advance for booking
+  reminderHours          Int[]  @default([24, 2]) // hours before appointment to send reminders
+
   // Relations
   users                  User[]
   patients               Patient[]
