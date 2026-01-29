@@ -260,7 +260,7 @@
         "Hidden on mobile (bottom nav used instead)"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-001",
         "US-002"
@@ -269,10 +269,11 @@
         "component",
         "navigation",
         "desktop"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-29T19:47:14.899Z"
+    "updatedAt": "2026-01-29T20:11:23.164Z"
   }
 }
