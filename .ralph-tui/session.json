@@ -3,10 +3,10 @@
   "sessionId": "7fd0b88b-a310-4b2c-aa5f-fb61c2094109",
   "status": "running",
   "startedAt": "2026-01-29T10:34:45.891Z",
-  "updatedAt": "2026-01-29T10:52:33.523Z",
-  "currentIteration": 2,
+  "updatedAt": "2026-01-29T10:57:15.993Z",
+  "currentIteration": 3,
   "maxIterations": 10,
-  "tasksCompleted": 2,
+  "tasksCompleted": 3,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -113,8 +113,8 @@
       {
         "id": "US-017",
         "title": "Página pública de confirmação",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-018",
@@ -228,6 +228,16 @@
       "durationMs": 338388,
       "startedAt": "2026-01-29T10:38:06.887Z",
       "endedAt": "2026-01-29T10:43:45.275Z"
+    },
+    {
+      "iteration": 3,
+      "status": "completed",
+      "taskId": "US-017",
+      "taskTitle": "Página pública de confirmação",
+      "taskCompleted": true,
+      "durationMs": 526457,
+      "startedAt": "2026-01-29T10:43:47.060Z",
+      "endedAt": "2026-01-29T10:52:33.517Z"
     }
   ],
   "skippedTaskIds": [],
