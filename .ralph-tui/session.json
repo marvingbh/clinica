@@ -3,10 +3,10 @@
   "sessionId": "7fd0b88b-a310-4b2c-aa5f-fb61c2094109",
   "status": "running",
   "startedAt": "2026-01-29T10:34:45.891Z",
-  "updatedAt": "2026-01-29T11:11:50.719Z",
-  "currentIteration": 5,
+  "updatedAt": "2026-01-29T11:18:28.555Z",
+  "currentIteration": 6,
   "maxIterations": 10,
-  "tasksCompleted": 5,
+  "tasksCompleted": 6,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -95,8 +95,8 @@
       {
         "id": "US-014",
         "title": "Cancelar agendamento (profissional)",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-015",
@@ -258,6 +258,16 @@
       "durationMs": 461082,
       "startedAt": "2026-01-29T10:57:17.859Z",
       "endedAt": "2026-01-29T11:04:58.941Z"
+    },
+    {
+      "iteration": 6,
+      "status": "completed",
+      "taskId": "US-014",
+      "taskTitle": "Cancelar agendamento (profissional)",
+      "taskCompleted": true,
+      "durationMs": 409676,
+      "startedAt": "2026-01-29T11:05:01.034Z",
+      "endedAt": "2026-01-29T11:11:50.710Z"
     }
   ],
   "skippedTaskIds": [],
