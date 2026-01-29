@@ -3,10 +3,10 @@
   "sessionId": "1bcee4bf-f577-4a44-bd35-c1fcbafab9a9",
   "status": "running",
   "startedAt": "2026-01-29T00:26:41.524Z",
-  "updatedAt": "2026-01-29T01:36:01.354Z",
-  "currentIteration": 7,
+  "updatedAt": "2026-01-29T01:45:09.484Z",
+  "currentIteration": 8,
   "maxIterations": 10,
-  "tasksCompleted": 7,
+  "tasksCompleted": 8,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -59,8 +59,8 @@
       {
         "id": "US-008",
         "title": "Bloqueios e exceções de disponibilidade",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-009",
@@ -278,6 +278,16 @@
       "durationMs": 595287,
       "startedAt": "2026-01-29T01:18:38.845Z",
       "endedAt": "2026-01-29T01:28:34.132Z"
+    },
+    {
+      "iteration": 8,
+      "status": "completed",
+      "taskId": "US-008",
+      "taskTitle": "Bloqueios e exceções de disponibilidade",
+      "taskCompleted": true,
+      "durationMs": 445540,
+      "startedAt": "2026-01-29T01:28:35.803Z",
+      "endedAt": "2026-01-29T01:36:01.343Z"
     }
   ],
   "skippedTaskIds": [],
