@@ -3,9 +3,9 @@ import { prisma } from "@/lib/prisma"
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "@/lib/rate-limit"
 
 /**
- * GET /api/public/appointments/lookup?token=xxx
- * Looks up appointment details for the confirmation page
- * Does NOT confirm the appointment - just returns details for display
+ * GET /api/public/appointments/lookup?token=xxx&action=confirm|cancel
+ * Looks up appointment details for the confirmation/cancellation page
+ * Does NOT modify the appointment - just returns details for display
  *
  * This endpoint is public (no auth required) - patients use the token link
  * Rate limited to prevent enumeration attacks
@@ -32,10 +32,18 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const token = searchParams.get("token")
+  const action = searchParams.get("action") || "confirm" // Default to confirm for backwards compatibility
 
   if (!token) {
     return NextResponse.json(
       { error: "Token nao fornecido" },
+      { status: 400 }
+    )
+  }
+
+  if (action !== "confirm" && action !== "cancel") {
+    return NextResponse.json(
+      { error: "Acao invalida" },
       { status: 400 }
     )
   }
@@ -67,7 +75,7 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  if (tokenRecord.action !== "confirm") {
+  if (tokenRecord.action !== action) {
     return NextResponse.json(
       { error: "Link invalido para esta acao" },
       { status: 400 }
@@ -97,18 +105,6 @@ export async function GET(req: NextRequest) {
     modality: appointment.modality,
   }
 
-  // Check if already confirmed
-  if (appointment.status === "CONFIRMADO") {
-    return NextResponse.json(
-      {
-        error: "Este agendamento ja foi confirmado",
-        alreadyConfirmed: true,
-        appointment: appointmentDetails,
-      },
-      { status: 400 }
-    )
-  }
-
   // Check if token was already used
   if (tokenRecord.usedAt) {
     return NextResponse.json(
@@ -117,12 +113,49 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  // Check if appointment is in a valid state for confirmation
-  if (appointment.status !== "AGENDADO") {
-    return NextResponse.json(
-      { error: "Este agendamento nao pode mais ser confirmado" },
-      { status: 400 }
-    )
+  // Action-specific status checks
+  if (action === "confirm") {
+    // Check if already confirmed
+    if (appointment.status === "CONFIRMADO") {
+      return NextResponse.json(
+        {
+          error: "Este agendamento ja foi confirmado",
+          alreadyConfirmed: true,
+          appointment: appointmentDetails,
+        },
+        { status: 400 }
+      )
+    }
+
+    // Check if appointment is in a valid state for confirmation
+    if (appointment.status !== "AGENDADO") {
+      return NextResponse.json(
+        { error: "Este agendamento nao pode mais ser confirmado" },
+        { status: 400 }
+      )
+    }
+  } else if (action === "cancel") {
+    // Check if already cancelled
+    if (appointment.status === "CANCELADO_PACIENTE" ||
+        appointment.status === "CANCELADO_PROFISSIONAL") {
+      return NextResponse.json(
+        {
+          error: "Este agendamento ja foi cancelado",
+          alreadyCancelled: true,
+          appointment: appointmentDetails,
+        },
+        { status: 400 }
+      )
+    }
+
+    // Check if appointment is in a valid state for cancellation
+    // Can cancel if AGENDADO or CONFIRMADO
+    if (appointment.status !== "AGENDADO" && appointment.status !== "CONFIRMADO") {
+      return NextResponse.json(
+        { error: "Este agendamento nao pode mais ser cancelado" },
+        { status: 400 }
+      )
+    }
   }
 
   return NextResponse.json({
