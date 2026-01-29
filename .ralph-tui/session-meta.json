@@ -1,8 +1,8 @@
 {
-  "id": "bee579cb-4ba0-4491-b805-181a375816b2",
-  "status": "completed",
-  "startedAt": "2026-01-29T13:19:27.461Z",
-  "updatedAt": "2026-01-29T13:19:33.921Z",
+  "id": "31f9ccea-6f8c-4825-8fd9-9eb26dc0851b",
+  "status": "running",
+  "startedAt": "2026-01-29T19:08:37.713Z",
+  "updatedAt": "2026-01-29T19:08:37.713Z",
   "agentPlugin": "claude",
   "trackerPlugin": "json",
   "prdPath": "./tasks/prd.json",
@@ -10,6 +10,5 @@
   "maxIterations": 10,
   "totalTasks": 0,
   "tasksCompleted": 0,
-  "cwd": "/mnt/d/personal/clinica/src",
-  "endedAt": "2026-01-29T13:19:33.921Z"
+  "cwd": "/root/personal/clinica"
 }
