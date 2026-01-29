@@ -6,7 +6,6 @@ import { useSession } from "next-auth/react"
 import {
   BottomNavigation,
   FAB,
-  SkeletonAgenda,
   BuildingIcon,
   VideoIcon,
 } from "@/shared/components/ui"
@@ -44,6 +43,7 @@ import {
   RecurrenceIndicator,
   AgendaHeader,
   AgendaTimeline,
+  AgendaPageSkeleton,
 } from "./components"
 
 import {
@@ -189,12 +189,10 @@ export default function AgendaPage() {
   // Loading state
   if (status === "loading" || isLoading) {
     return (
-      <main className="min-h-screen bg-background pb-20">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <SkeletonAgenda />
-        </div>
+      <>
+        <AgendaPageSkeleton />
         <BottomNavigation />
-      </main>
+      </>
     )
   }
 
