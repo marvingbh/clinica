@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth, forbiddenResponse } from "@/lib/api"
 import { createAuditLog } from "@/lib/rbac/audit"
+import { NotificationChannel, NotificationType } from "@/generated/prisma/client"
+import { createAndSendNotification } from "@/lib/notifications"
 
 /**
  * POST /api/appointments/:id/cancel
@@ -142,7 +144,7 @@ export const POST = withAuth(
       userAgent,
     })
 
-    // Create notification record if requested and patient has consent
+    // Create and send notifications if requested and patient has consent
     let notificationCreated = false
     if (notifyPatient) {
       const patient = existing.patient
@@ -161,35 +163,31 @@ export const POST = withAuth(
 
       const notificationContent = `Ola ${patient.name}, seu agendamento com ${professionalName} no dia ${formattedDate} as ${formattedTime} foi cancelado. Motivo: ${cancellationReason}`
 
-      // Create notification for WhatsApp if consent exists
+      // Create and send notification for WhatsApp if consent exists
       if (patient.consentWhatsApp && patient.phone) {
-        await prisma.notification.create({
-          data: {
-            clinicId: user.clinicId,
-            patientId: patient.id,
-            appointmentId: params.id,
-            type: "APPOINTMENT_CANCELLATION",
-            channel: "whatsapp",
-            recipient: patient.phone,
-            content: notificationContent,
-          },
+        await createAndSendNotification({
+          clinicId: user.clinicId,
+          patientId: patient.id,
+          appointmentId: params.id,
+          type: NotificationType.APPOINTMENT_CANCELLATION,
+          channel: NotificationChannel.WHATSAPP,
+          recipient: patient.phone,
+          content: notificationContent,
         })
         notificationCreated = true
       }
 
-      // Create notification for email if consent exists
+      // Create and send notification for email if consent exists
       if (patient.consentEmail && patient.email) {
-        await prisma.notification.create({
-          data: {
-            clinicId: user.clinicId,
-            patientId: patient.id,
-            appointmentId: params.id,
-            type: "APPOINTMENT_CANCELLATION",
-            channel: "email",
-            recipient: patient.email,
-            subject: "Agendamento Cancelado",
-            content: notificationContent,
-          },
+        await createAndSendNotification({
+          clinicId: user.clinicId,
+          patientId: patient.id,
+          appointmentId: params.id,
+          type: NotificationType.APPOINTMENT_CANCELLATION,
+          channel: NotificationChannel.EMAIL,
+          recipient: patient.email,
+          subject: "Agendamento Cancelado",
+          content: notificationContent,
         })
         notificationCreated = true
       }

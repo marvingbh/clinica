@@ -43,6 +43,17 @@ enum NotificationType {
   WELCOME
 }
 
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum NotificationChannel {
+  WHATSAPP
+  EMAIL
+}
+
 enum ConsentType {
   TERMS_OF_SERVICE
   PRIVACY_POLICY
@@ -296,21 +307,26 @@ model AppointmentToken {
 
 /// Notification records (email, SMS, WhatsApp)
 model Notification {
-  id            String           @id @default(cuid())
+  id            String              @id @default(cuid())
   clinicId      String
   patientId     String?
   appointmentId String?
   type          NotificationType
-  channel       String // "email", "sms", "whatsapp"
+  channel       NotificationChannel
+  status        NotificationStatus  @default(PENDING)
   recipient     String // email or phone number
   subject       String?
   content       String
+  attempts      Int                 @default(0)
+  maxAttempts   Int                 @default(3)
+  nextRetryAt   DateTime?
   sentAt        DateTime?
   deliveredAt   DateTime?
   failedAt      DateTime?
   failureReason String?
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   clinic      Clinic       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
@@ -321,8 +337,11 @@ model Notification {
   @@index([patientId])
   @@index([appointmentId])
   @@index([type])
+  @@index([status])
   @@index([sentAt])
+  @@index([nextRetryAt])
   @@index([clinicId, type])
+  @@index([status, nextRetryAt])
 }
 
 /// Audit log for tracking important actions
