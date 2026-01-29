@@ -132,11 +132,12 @@ model ProfessionalProfile {
 
 /// Recurring availability rules for professionals (e.g., every Monday 9-17)
 model AvailabilityRule {
-  id                    String @id @default(cuid())
+  id                    String  @id @default(cuid())
   professionalProfileId String
   dayOfWeek             Int // 0 = Sunday, 6 = Saturday
   startTime             String // HH:mm format
   endTime               String // HH:mm format
+  isActive              Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -146,6 +147,7 @@ model AvailabilityRule {
 
   @@index([professionalProfileId])
   @@index([dayOfWeek])
+  @@index([isActive])
 }
 
 /// Exceptions to regular availability (vacations, specific unavailable dates)
