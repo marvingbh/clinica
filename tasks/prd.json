@@ -146,7 +146,7 @@
         "FAB for primary action if applicable"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-003",
         "US-005",
@@ -155,7 +155,8 @@
       "labels": [
         "page",
         "homepage"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-008",
@@ -270,6 +271,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-29T19:34:28.859Z"
+    "updatedAt": "2026-01-29T19:37:00.739Z"
   }
 }
