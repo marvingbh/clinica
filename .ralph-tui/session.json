@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "sessionId": "1bcee4bf-f577-4a44-bd35-c1fcbafab9a9",
+  "sessionId": "7fd0b88b-a310-4b2c-aa5f-fb61c2094109",
   "status": "running",
-  "startedAt": "2026-01-29T00:26:41.524Z",
-  "updatedAt": "2026-01-29T10:27:43.051Z",
-  "currentIteration": 10,
+  "startedAt": "2026-01-29T10:34:45.891Z",
+  "updatedAt": "2026-01-29T10:38:04.956Z",
+  "currentIteration": 0,
   "maxIterations": 10,
-  "tasksCompleted": 10,
+  "tasksCompleted": 0,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -18,66 +18,66 @@
         "id": "US-001",
         "title": "Setup inicial do projeto Next.js com Docker",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-002",
         "title": "Prisma schema com modelo de dados completo",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-003",
         "title": "Sistema de autenticação com NextAuth.js",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-004",
         "title": "Middleware de autorização RBAC",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-005",
         "title": "API e tela de perfil do usuário logado",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-006",
         "title": "CRUD de profissionais (ADMIN only)",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-007",
         "title": "Configuração de disponibilidade semanal",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-008",
         "title": "Bloqueios e exceções de disponibilidade",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-009",
         "title": "CRUD de pacientes",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-010",
         "title": "Visualização de agenda diária",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-011",
         "title": "Criar novo agendamento",
-        "status": "open",
+        "status": "completed",
         "completedInSession": false
       },
       {
@@ -208,110 +208,9 @@
       }
     ]
   },
-  "iterations": [
-    {
-      "iteration": 1,
-      "status": "completed",
-      "taskId": "US-001",
-      "taskTitle": "Setup inicial do projeto Next.js com Docker",
-      "taskCompleted": true,
-      "durationMs": 426738,
-      "startedAt": "2026-01-29T00:26:49.653Z",
-      "endedAt": "2026-01-29T00:33:56.391Z"
-    },
-    {
-      "iteration": 2,
-      "status": "completed",
-      "taskId": "US-002",
-      "taskTitle": "Prisma schema com modelo de dados completo",
-      "taskCompleted": true,
-      "durationMs": 556347,
-      "startedAt": "2026-01-29T00:33:57.944Z",
-      "endedAt": "2026-01-29T00:43:14.291Z"
-    },
-    {
-      "iteration": 3,
-      "status": "completed",
-      "taskId": "US-003",
-      "taskTitle": "Sistema de autenticação com NextAuth.js",
-      "taskCompleted": true,
-      "durationMs": 566364,
-      "startedAt": "2026-01-29T00:43:15.906Z",
-      "endedAt": "2026-01-29T00:52:42.270Z"
-    },
-    {
-      "iteration": 4,
-      "status": "completed",
-      "taskId": "US-004",
-      "taskTitle": "Middleware de autorização RBAC",
-      "taskCompleted": true,
-      "durationMs": 641209,
-      "startedAt": "2026-01-29T00:52:43.926Z",
-      "endedAt": "2026-01-29T01:03:25.135Z"
-    },
-    {
-      "iteration": 5,
-      "status": "completed",
-      "taskId": "US-005",
-      "taskTitle": "API e tela de perfil do usuário logado",
-      "taskCompleted": true,
-      "durationMs": 473135,
-      "startedAt": "2026-01-29T01:03:26.954Z",
-      "endedAt": "2026-01-29T01:11:20.089Z"
-    },
-    {
-      "iteration": 6,
-      "status": "completed",
-      "taskId": "US-006",
-      "taskTitle": "CRUD de profissionais (ADMIN only)",
-      "taskCompleted": true,
-      "durationMs": 435270,
-      "startedAt": "2026-01-29T01:11:21.908Z",
-      "endedAt": "2026-01-29T01:18:37.178Z"
-    },
-    {
-      "iteration": 7,
-      "status": "completed",
-      "taskId": "US-007",
-      "taskTitle": "Configuração de disponibilidade semanal",
-      "taskCompleted": true,
-      "durationMs": 595287,
-      "startedAt": "2026-01-29T01:18:38.845Z",
-      "endedAt": "2026-01-29T01:28:34.132Z"
-    },
-    {
-      "iteration": 8,
-      "status": "completed",
-      "taskId": "US-008",
-      "taskTitle": "Bloqueios e exceções de disponibilidade",
-      "taskCompleted": true,
-      "durationMs": 445540,
-      "startedAt": "2026-01-29T01:28:35.803Z",
-      "endedAt": "2026-01-29T01:36:01.343Z"
-    },
-    {
-      "iteration": 9,
-      "status": "completed",
-      "taskId": "US-009",
-      "taskTitle": "CRUD de pacientes",
-      "taskCompleted": true,
-      "durationMs": 545090,
-      "startedAt": "2026-01-29T01:36:04.388Z",
-      "endedAt": "2026-01-29T01:45:09.478Z"
-    },
-    {
-      "iteration": 10,
-      "status": "completed",
-      "taskId": "US-010",
-      "taskTitle": "Visualização de agenda diária",
-      "taskCompleted": true,
-      "durationMs": 395745,
-      "startedAt": "2026-01-29T01:45:11.256Z",
-      "endedAt": "2026-01-29T01:51:47.001Z"
-    }
-  ],
+  "iterations": [],
   "skippedTaskIds": [],
   "cwd": "/mnt/d/personal/clinica/src",
   "activeTaskIds": [],
-  "subagentPanelVisible": true
+  "subagentPanelVisible": false
 }

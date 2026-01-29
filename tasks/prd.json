@@ -304,10 +304,11 @@
         "validacao",
         "agendamento"
       ],
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-011"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-013",
@@ -805,6 +806,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-29T10:27:43.048Z"
+    "updatedAt": "2026-01-29T10:38:04.952Z"
   }
 }
