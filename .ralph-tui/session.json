@@ -3,10 +3,10 @@
   "sessionId": "99fc4b79-6159-4fae-9cf2-6fdc7c70d69d",
   "status": "running",
   "startedAt": "2026-01-29T11:42:39.409Z",
-  "updatedAt": "2026-01-29T12:58:57.561Z",
-  "currentIteration": 8,
+  "updatedAt": "2026-01-29T13:04:02.386Z",
+  "currentIteration": 9,
   "maxIterations": 10,
-  "tasksCompleted": 8,
+  "tasksCompleted": 9,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -167,8 +167,8 @@
       {
         "id": "US-026",
         "title": "Lembretes automáticos via Cron",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-027",
@@ -288,6 +288,16 @@
       "durationMs": 692381,
       "startedAt": "2026-01-29T12:39:51.715Z",
       "endedAt": "2026-01-29T12:51:24.096Z"
+    },
+    {
+      "iteration": 9,
+      "status": "completed",
+      "taskId": "US-026",
+      "taskTitle": "Lembretes automáticos via Cron",
+      "taskCompleted": true,
+      "durationMs": 451293,
+      "startedAt": "2026-01-29T12:51:26.262Z",
+      "endedAt": "2026-01-29T12:58:57.555Z"
     }
   ],
   "skippedTaskIds": [],
