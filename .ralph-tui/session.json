@@ -1,0 +1,216 @@
+{
+  "version": 1,
+  "sessionId": "1bcee4bf-f577-4a44-bd35-c1fcbafab9a9",
+  "status": "running",
+  "startedAt": "2026-01-29T00:26:41.524Z",
+  "updatedAt": "2026-01-29T00:33:56.398Z",
+  "currentIteration": 0,
+  "maxIterations": 10,
+  "tasksCompleted": 0,
+  "isPaused": false,
+  "agentPlugin": "claude",
+  "trackerState": {
+    "plugin": "json",
+    "prdPath": "./tasks/prd.json",
+    "totalTasks": 32,
+    "tasks": [
+      {
+        "id": "US-001",
+        "title": "Setup inicial do projeto Next.js com Docker",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-002",
+        "title": "Prisma schema com modelo de dados completo",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-003",
+        "title": "Sistema de autenticação com NextAuth.js",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-004",
+        "title": "Middleware de autorização RBAC",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-005",
+        "title": "API e tela de perfil do usuário logado",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-006",
+        "title": "CRUD de profissionais (ADMIN only)",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-007",
+        "title": "Configuração de disponibilidade semanal",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-008",
+        "title": "Bloqueios e exceções de disponibilidade",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-009",
+        "title": "CRUD de pacientes",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-010",
+        "title": "Visualização de agenda diária",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-011",
+        "title": "Criar novo agendamento",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-012",
+        "title": "Validação anti-conflito de horários",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-013",
+        "title": "Editar agendamento existente",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-014",
+        "title": "Cancelar agendamento (profissional)",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-015",
+        "title": "Marcar status do agendamento",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-016",
+        "title": "Geração de tokens únicos para agendamento",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-017",
+        "title": "Página pública de confirmação",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-018",
+        "title": "Página pública de cancelamento",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-019",
+        "title": "Reenviar links de confirmação",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-020",
+        "title": "Criar agendamento recorrente",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-021",
+        "title": "Cancelar série ou ocorrência única",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-022",
+        "title": "Exceções em recorrência",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-023",
+        "title": "Infraestrutura de notificações",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-024",
+        "title": "Templates de notificação configuráveis",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-025",
+        "title": "Envio automático ao criar agendamento",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-026",
+        "title": "Lembretes automáticos via Cron",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-027",
+        "title": "Sistema de auditoria completo",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-028",
+        "title": "Configurações da clínica",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-029",
+        "title": "Seed de dados para desenvolvimento",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-030",
+        "title": "Responsividade e UX mobile final",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-031",
+        "title": "PWA básico",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-032",
+        "title": "Deploy na Vercel",
+        "status": "open",
+        "completedInSession": false
+      }
+    ]
+  },
+  "iterations": [],
+  "skippedTaskIds": [],
+  "cwd": "/mnt/d/personal/clinica/src",
+  "activeTaskIds": [],
+  "subagentPanelVisible": false
+}

@@ -1,0 +1,800 @@
+{
+  "name": "Sistema de Agenda Mobile-First para Clínica de Psicologia",
+  "branchName": "feature/agenda-clinica-psicologia",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Setup inicial do projeto Next.js com Docker",
+      "description": "As a developer, I want the project scaffolded with Next.js App Router, Tailwind CSS, and Docker Compose so that I have a working development environment.",
+      "acceptanceCriteria": [
+        "Next.js 14+ project created with App Router enabled",
+        "Tailwind CSS configured with custom color palette (minimalista: neutros, bordas sutis)",
+        "Docker Compose file with PostgreSQL (latest version)",
+        ".env.example with required environment variables",
+        "npm run dev starts the app successfully",
+        "docker-compose up starts PostgreSQL successfully",
+        "Project structure follows hybrid approach: /features for domain, /shared for common components",
+        "Base layout with mobile viewport meta tags configured"
+      ],
+      "priority": 1,
+      "labels": [
+        "fase-1",
+        "infraestrutura"
+      ],
+      "passes": true,
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-002",
+      "title": "Prisma schema com modelo de dados completo",
+      "description": "As a developer, I want the complete database schema defined in Prisma so that all entities and relationships are established.",
+      "acceptanceCriteria": [
+        "Prisma initialized with PostgreSQL provider",
+        "Models created: Clinic, User, ProfessionalProfile, AvailabilityRule, AvailabilityException, Patient, Appointment, AppointmentRecurrence, AppointmentToken, Notification, AuditLog",
+        "Multi-tenant structure: all relevant models have clinicId foreign key",
+        "Enum types defined: Role (ADMIN, PROFESSIONAL), AppointmentStatus (AGENDADO, CONFIRMADO, CANCELADO_PACIENTE, CANCELADO_PROFISSIONAL, NAO_COMPARECEU, FINALIZADO), AppointmentModality (ONLINE, PRESENCIAL), NotificationType, ConsentType",
+        "Indexes created for frequently queried fields (clinicId, date ranges, status)",
+        "npx prisma migrate dev runs without errors",
+        "npx prisma generate creates client successfully"
+      ],
+      "priority": 1,
+      "labels": [
+        "fase-1",
+        "infraestrutura",
+        "database"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-001"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Sistema de autenticação com NextAuth.js",
+      "description": "As a professional, I want to log in with email and password so that I can access my clinic's system securely.",
+      "acceptanceCriteria": [
+        "NextAuth.js configured with Credentials provider",
+        "Login page at /login with email/password fields",
+        "Password hashing with bcrypt",
+        "JWT session strategy configured",
+        "Session includes: userId, clinicId, role, professionalProfileId",
+        "Protected API routes return 401 for unauthenticated requests",
+        "Protected pages redirect to /login when not authenticated",
+        "Login form is mobile-friendly (full-width inputs, large touch targets)"
+      ],
+      "priority": 1,
+      "labels": [
+        "fase-1",
+        "autenticacao"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-002"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Middleware de autorização RBAC",
+      "description": "As a system, I want role-based access control so that professionals can only access permitted resources.",
+      "acceptanceCriteria": [
+        "Middleware checks user role on protected routes",
+        "PROFESSIONAL can only access own resources (appointments, profile)",
+        "ADMIN can access all resources within their clinic",
+        "API routes validate permissions before executing actions",
+        "Unauthorized access returns 403 with appropriate message",
+        "AuditLog entry created for permission denied attempts"
+      ],
+      "priority": 1,
+      "labels": [
+        "fase-1",
+        "autenticacao",
+        "seguranca"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "API e tela de perfil do usuário logado",
+      "description": "As a professional, I want to view and edit my profile so that my information is up to date.",
+      "acceptanceCriteria": [
+        "GET /api/me returns current user with professional profile",
+        "PATCH /api/me allows updating profile fields",
+        "Profile page at /profile displays user info",
+        "Editable fields: name, phone, specialty, default session duration",
+        "Form validation with React Hook Form + Zod",
+        "Success/error feedback via toast notification",
+        "Mobile-friendly form layout"
+      ],
+      "priority": 2,
+      "labels": [
+        "fase-1",
+        "perfil"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "CRUD de profissionais (ADMIN only)",
+      "description": "As an admin, I want to manage professionals so that I can add, edit, and deactivate team members.",
+      "acceptanceCriteria": [
+        "GET /api/professionals returns list of professionals (ADMIN only)",
+        "POST /api/professionals creates new professional with User + ProfessionalProfile",
+        "PATCH /api/professionals/:id updates professional data",
+        "DELETE /api/professionals/:id soft-deletes (deactivates) professional",
+        "List page at /admin/professionals with search/filter",
+        "Create/edit form as bottom sheet (mobile pattern)",
+        "Fields: name, email, password (create only), phone, specialty, default session duration, timezone",
+        "Only ADMIN role can access these endpoints and pages"
+      ],
+      "priority": 2,
+      "labels": [
+        "fase-2",
+        "crud",
+        "admin"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Configuração de disponibilidade semanal",
+      "description": "As a professional, I want to configure my weekly availability so that appointments can only be scheduled during my working hours.",
+      "acceptanceCriteria": [
+        "GET /api/availability returns current user's availability rules",
+        "POST /api/availability creates/updates availability rules",
+        "AvailabilityRule model supports: dayOfWeek (0-6), startTime, endTime, isActive",
+        "UI at /settings/availability shows weekly grid",
+        "Can set multiple time blocks per day",
+        "Can toggle days on/off",
+        "ADMIN can manage availability for any professional",
+        "Mobile-friendly time picker (native or custom)"
+      ],
+      "priority": 2,
+      "labels": [
+        "fase-2",
+        "disponibilidade"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-005"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Bloqueios e exceções de disponibilidade",
+      "description": "As a professional, I want to block specific dates/times so that I'm not scheduled during vacations or personal time.",
+      "acceptanceCriteria": [
+        "POST /api/availability/exceptions creates exception (block or override)",
+        "GET /api/availability/exceptions lists exceptions for date range",
+        "DELETE /api/availability/exceptions/:id removes exception",
+        "Exception types: BLOCK (unavailable) and OVERRIDE (available outside normal hours)",
+        "UI to add exception with date picker and optional time range",
+        "Exceptions displayed on availability settings page",
+        "ADMIN can manage exceptions for any professional"
+      ],
+      "priority": 2,
+      "labels": [
+        "fase-2",
+        "disponibilidade"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-007"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "CRUD de pacientes",
+      "description": "As a professional, I want to manage patients so that I can register and update their information.",
+      "acceptanceCriteria": [
+        "GET /api/patients returns paginated list with search",
+        "POST /api/patients creates new patient",
+        "GET /api/patients/:id returns patient details with appointment history",
+        "PATCH /api/patients/:id updates patient data",
+        "Required fields: name, phone (WhatsApp format validation)",
+        "Optional fields: email, notes (administrative observations)",
+        "Consent fields: consentWhatsApp, consentEmail (boolean + timestamp)",
+        "Patient list page at /patients with search",
+        "Patient detail/edit as bottom sheet or separate page",
+        "LGPD: consent checkboxes clearly labeled"
+      ],
+      "priority": 2,
+      "labels": [
+        "fase-2",
+        "crud",
+        "pacientes",
+        "lgpd"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-010",
+      "title": "Visualização de agenda diária",
+      "description": "As a professional, I want to view my daily schedule so that I can see all appointments for a given day.",
+      "acceptanceCriteria": [
+        "GET /api/appointments?date=YYYY-MM-DD returns appointments for date",
+        "Main agenda page at /agenda (default route after login)",
+        "Daily view as default (timeline style)",
+        "Swipe left/right to change days (touch gesture)",
+        "Date picker accessible via header tap",
+        "Appointments colored by status (defined color palette)",
+        "Empty slots visible based on availability",
+        "ADMIN can filter by professional (dropdown)",
+        "Bottom navigation with: Agenda, Pacientes, Configurações"
+      ],
+      "priority": 1,
+      "labels": [
+        "fase-3",
+        "agenda",
+        "ui"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-007",
+        "US-009"
+      ]
+    },
+    {
+      "id": "US-011",
+      "title": "Criar novo agendamento",
+      "description": "As a professional, I want to create appointments so that I can schedule sessions with patients.",
+      "acceptanceCriteria": [
+        "POST /api/appointments creates new appointment",
+        "FAB (floating action button) on agenda opens creation flow",
+        "Required fields: patientId, date, startTime, duration, modality",
+        "Optional fields: notes, price",
+        "Duration defaults to professional's default session duration",
+        "Validates against availability rules",
+        "Validates against existing appointments (no double-booking)",
+        "Validates against availability exceptions (blocks)",
+        "Returns created appointment with generated tokens",
+        "Form as full-screen modal or bottom sheet",
+        "Patient searchable/selectable from list",
+        "Date/time picker mobile-optimized"
+      ],
+      "priority": 1,
+      "labels": [
+        "fase-3",
+        "agenda",
+        "agendamento"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-010"
+      ]
+    },
+    {
+      "id": "US-012",
+      "title": "Validação anti-conflito de horários",
+      "description": "As a system, I want to prevent double-booking so that professionals never have overlapping appointments.",
+      "acceptanceCriteria": [
+        "Before creating/updating appointment, check for conflicts",
+        "Conflict = any appointment where time ranges overlap for same professional",
+        "Consider buffer time if configured (future enhancement, prepare structure)",
+        "Return 409 Conflict with clear error message if conflict exists",
+        "Use database-level locking to prevent race conditions",
+        "Conflict check excludes cancelled appointments",
+        "API response includes conflicting appointment info for debugging"
+      ],
+      "priority": 1,
+      "labels": [
+        "fase-3",
+        "validacao",
+        "agendamento"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-011"
+      ]
+    },
+    {
+      "id": "US-013",
+      "title": "Editar agendamento existente",
+      "description": "As a professional, I want to edit appointments so that I can update details or reschedule.",
+      "acceptanceCriteria": [
+        "PATCH /api/appointments/:id updates appointment",
+        "Tap on appointment in agenda opens detail view",
+        "Edit button opens edit form (pre-filled)",
+        "Can change: date, time, duration, modality, notes, price",
+        "Cannot change patient (must cancel and recreate)",
+        "Validates conflicts on time changes",
+        "Regenerates confirmation tokens if date/time changed",
+        "AuditLog entry for changes",
+        "ADMIN can edit any appointment, PROFESSIONAL only own"
+      ],
+      "priority": 2,
+      "labels": [
+        "fase-3",
+        "agenda",
+        "agendamento"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-012"
+      ]
+    },
+    {
+      "id": "US-014",
+      "title": "Cancelar agendamento (profissional)",
+      "description": "As a professional, I want to cancel appointments so that I can free up the slot when needed.",
+      "acceptanceCriteria": [
+        "POST /api/appointments/:id/cancel with reason",
+        "Status changes to CANCELADO_PROFISSIONAL",
+        "Cancellation reason stored in appointment record",
+        "Confirmation dialog before canceling",
+        "Option to notify patient (triggers notification if consent exists)",
+        "AuditLog entry for cancellation",
+        "Cancelled appointments remain visible (grayed out) but slot becomes free",
+        "ADMIN can cancel any appointment"
+      ],
+      "priority": 2,
+      "labels": [
+        "fase-3",
+        "agenda",
+        "cancelamento"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-013"
+      ]
+    },
+    {
+      "id": "US-015",
+      "title": "Marcar status do agendamento",
+      "description": "As a professional, I want to update appointment status so that I can track attendance.",
+      "acceptanceCriteria": [
+        "PATCH /api/appointments/:id/status updates status",
+        "Allowed transitions: AGENDADO→CONFIRMADO, CONFIRMADO→FINALIZADO, CONFIRMADO→NAO_COMPARECEU, any→CANCELADO_*",
+        "Quick action buttons on appointment detail: Finalizar, Não compareceu",
+        "Status change reflected immediately in UI",
+        "AuditLog entry for status changes",
+        "Color coding updates on agenda view"
+      ],
+      "priority": 2,
+      "labels": [
+        "fase-3",
+        "agenda",
+        "status"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-013"
+      ]
+    },
+    {
+      "id": "US-016",
+      "title": "Geração de tokens únicos para agendamento",
+      "description": "As a system, I want to generate unique tokens for each appointment so that patients can confirm/cancel via secure links.",
+      "acceptanceCriteria": [
+        "On appointment creation, generate 2 tokens: confirmToken, cancelToken",
+        "Tokens are cryptographically random (UUID v4 or similar)",
+        "Tokens stored in AppointmentToken table with expiration",
+        "Token expiration = appointment datetime + 24h (configurable)",
+        "Links format: /confirm?token=xxx, /cancel?token=xxx",
+        "Tokens invalidated after use (one-time use)",
+        "New tokens generated if appointment is rescheduled"
+      ],
+      "priority": 1,
+      "labels": [
+        "fase-4",
+        "tokens",
+        "confirmacao"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-011"
+      ]
+    },
+    {
+      "id": "US-017",
+      "title": "Página pública de confirmação",
+      "description": "As a patient, I want to confirm my appointment via link so that I don't need to log in or call the clinic.",
+      "acceptanceCriteria": [
+        "Public page at /confirm (no auth required)",
+        "Accepts token query parameter",
+        "POST /api/public/appointments/confirm processes confirmation",
+        "Page shows: professional name, date, time, modality (details do agendamento)",
+        "Single Confirmar button prominently displayed",
+        "On success: status → CONFIRMADO, show success message with appointment details",
+        "On expired/invalid token: show friendly error message",
+        "On already confirmed: show já confirmado message",
+        "Mobile-friendly, works in WhatsApp WebView",
+        "Rate limited to prevent abuse"
+      ],
+      "priority": 1,
+      "labels": [
+        "fase-4",
+        "pagina-publica",
+        "confirmacao"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-016"
+      ]
+    },
+    {
+      "id": "US-018",
+      "title": "Página pública de cancelamento",
+      "description": "As a patient, I want to cancel my appointment via link so that I can free up the slot easily.",
+      "acceptanceCriteria": [
+        "Public page at /cancel (no auth required)",
+        "Accepts token query parameter",
+        "POST /api/public/appointments/cancel processes cancellation",
+        "Page shows appointment details before confirming cancellation",
+        "Single Cancelar Agendamento button",
+        "Optional: reason field (not required)",
+        "On success: status → CANCELADO_PACIENTE, show confirmation message",
+        "On expired/invalid token: show friendly error message",
+        "On already cancelled: show já cancelado message",
+        "AuditLog entry for patient-initiated cancellation",
+        "Rate limited"
+      ],
+      "priority": 1,
+      "labels": [
+        "fase-4",
+        "pagina-publica",
+        "cancelamento"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-016"
+      ]
+    },
+    {
+      "id": "US-019",
+      "title": "Reenviar links de confirmação",
+      "description": "As a professional, I want to resend confirmation links so that patients who lost the message can still confirm.",
+      "acceptanceCriteria": [
+        "POST /api/appointments/:id/resend-confirmation triggers resend",
+        "Generates new tokens (invalidates old ones)",
+        "Triggers notification send (WhatsApp/email based on consent)",
+        "Button on appointment detail: Reenviar confirmação",
+        "Cooldown period: cannot resend within 1 hour",
+        "AuditLog entry for resend action"
+      ],
+      "priority": 3,
+      "labels": [
+        "fase-4",
+        "confirmacao",
+        "notificacao"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-017",
+        "US-018"
+      ]
+    },
+    {
+      "id": "US-020",
+      "title": "Criar agendamento recorrente",
+      "description": "As a professional, I want to create recurring appointments so that regular patients are automatically scheduled.",
+      "acceptanceCriteria": [
+        "POST /api/appointments accepts recurrence options",
+        "Recurrence types: WEEKLY, BIWEEKLY, MONTHLY",
+        "Recurrence end: by date or by number of occurrences",
+        "Creates AppointmentRecurrence record linking all instances",
+        "Each instance is a separate Appointment record",
+        "Validates all instances against availability (fails if any conflict)",
+        "UI toggle Agendamento recorrente shows recurrence options",
+        "Preview of dates before confirming",
+        "Maximum 52 occurrences (1 year weekly)"
+      ],
+      "priority": 3,
+      "labels": [
+        "fase-5",
+        "recorrencia",
+        "agendamento"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-012"
+      ]
+    },
+    {
+      "id": "US-021",
+      "title": "Cancelar série ou ocorrência única",
+      "description": "As a professional, I want to cancel recurring appointments flexibly so that I can cancel one session or the entire series.",
+      "acceptanceCriteria": [
+        "When canceling recurring appointment, prompt: Esta ocorrência or Toda a série",
+        "Cancel single: only that Appointment is cancelled",
+        "Cancel series: all future appointments in recurrence are cancelled",
+        "Past appointments in series are not affected",
+        "Cancellation reason applies to all cancelled appointments",
+        "UI clearly indicates appointment is part of recurrence"
+      ],
+      "priority": 3,
+      "labels": [
+        "fase-5",
+        "recorrencia",
+        "cancelamento"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-020"
+      ]
+    },
+    {
+      "id": "US-022",
+      "title": "Exceções em recorrência",
+      "description": "As a professional, I want to skip specific dates in a recurrence so that holidays or exceptions are handled.",
+      "acceptanceCriteria": [
+        "Can mark specific occurrence as exception (skipped)",
+        "Skipped occurrence does not count towards total",
+        "UI shows skipped dates differently in recurrence preview",
+        "Can unskip an exception to restore it",
+        "Exception stored in AppointmentRecurrence.exceptions (date array)"
+      ],
+      "priority": 3,
+      "labels": [
+        "fase-5",
+        "recorrencia",
+        "excecoes"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-020"
+      ]
+    },
+    {
+      "id": "US-023",
+      "title": "Infraestrutura de notificações",
+      "description": "As a system, I want a notification queue so that messages are sent reliably with retry logic.",
+      "acceptanceCriteria": [
+        "Notification model tracks: type, channel (WHATSAPP/EMAIL), status, attempts, appointmentId",
+        "Service layer for sending notifications (interface ready for providers)",
+        "Mock implementation for WhatsApp (logs to console, stores as sent)",
+        "Email implementation with Resend or similar",
+        "Retry logic: 3 attempts with exponential backoff",
+        "Status tracking: PENDING, SENT, FAILED",
+        "Notification log viewable on appointment detail"
+      ],
+      "priority": 2,
+      "labels": [
+        "fase-6",
+        "notificacoes",
+        "infraestrutura"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-011"
+      ]
+    },
+    {
+      "id": "US-024",
+      "title": "Templates de notificação configuráveis",
+      "description": "As an admin, I want to configure notification templates so that messages match the clinic's tone.",
+      "acceptanceCriteria": [
+        "Default templates for: new appointment, reminder, cancellation",
+        "Templates support variables: {{patientName}}, {{professionalName}}, {{date}}, {{time}}, {{confirmLink}}, {{cancelLink}}",
+        "Templates stored per clinic",
+        "Admin UI to edit templates at /admin/settings/notifications",
+        "Preview functionality before saving",
+        "Separate templates for WhatsApp and Email"
+      ],
+      "priority": 3,
+      "labels": [
+        "fase-6",
+        "notificacoes",
+        "templates",
+        "admin"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-023"
+      ]
+    },
+    {
+      "id": "US-025",
+      "title": "Envio automático ao criar agendamento",
+      "description": "As a system, I want to automatically notify patients when appointments are created so that they receive confirmation links.",
+      "acceptanceCriteria": [
+        "After appointment creation, check patient consent",
+        "If consentWhatsApp: queue WhatsApp notification",
+        "If consentEmail: queue email notification",
+        "Notification includes: appointment details + confirm/cancel links",
+        "Notification queued asynchronously (don't block API response)",
+        "Failure to send does not fail appointment creation"
+      ],
+      "priority": 2,
+      "labels": [
+        "fase-6",
+        "notificacoes",
+        "automatico"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-023",
+        "US-016"
+      ]
+    },
+    {
+      "id": "US-026",
+      "title": "Lembretes automáticos via Cron",
+      "description": "As a system, I want to send automatic reminders so that patients don't forget their appointments.",
+      "acceptanceCriteria": [
+        "Vercel Cron job at /api/jobs/send-reminders",
+        "Runs every hour",
+        "Finds appointments needing reminders (configurable: 48h and 2h before)",
+        "Only sends if not already sent (check Notification records)",
+        "Only sends to AGENDADO or CONFIRMADO status",
+        "Respects patient consent preferences",
+        "Logs execution to AuditLog",
+        "Idempotent (safe to run multiple times)"
+      ],
+      "priority": 3,
+      "labels": [
+        "fase-6",
+        "notificacoes",
+        "cron",
+        "lembretes"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-025"
+      ]
+    },
+    {
+      "id": "US-027",
+      "title": "Sistema de auditoria completo",
+      "description": "As an admin, I want audit logs so that I can track all important actions in the system.",
+      "acceptanceCriteria": [
+        "AuditLog records: action, entityType, entityId, userId, clinicId, timestamp, metadata (JSON)",
+        "Actions logged: CREATE, UPDATE, DELETE, STATUS_CHANGE, LOGIN, PERMISSION_DENIED",
+        "Service layer method audit.log(action, entity, metadata)",
+        "All appointment changes logged",
+        "All patient changes logged",
+        "All authentication events logged",
+        "GET /api/admin/audit-logs with filters (ADMIN only)",
+        "Audit log viewer page at /admin/audit"
+      ],
+      "priority": 2,
+      "labels": [
+        "fase-7",
+        "auditoria",
+        "admin"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-028",
+      "title": "Configurações da clínica",
+      "description": "As an admin, I want to configure clinic settings so that the system matches our operations.",
+      "acceptanceCriteria": [
+        "Clinic model includes settings: name, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours[]",
+        "GET /api/admin/settings returns clinic settings",
+        "PATCH /api/admin/settings updates settings",
+        "Settings page at /admin/settings",
+        "Fields editable: clinic name, timezone (America/Sao_Paulo default), default session duration, minimum advance booking (hours), reminder schedule"
+      ],
+      "priority": 2,
+      "labels": [
+        "fase-7",
+        "configuracoes",
+        "admin"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-029",
+      "title": "Seed de dados para desenvolvimento",
+      "description": "As a developer, I want seed data so that I can test the application with realistic data.",
+      "acceptanceCriteria": [
+        "npx prisma db seed populates database",
+        "Creates 1 clinic",
+        "Creates 1 ADMIN user and 2 PROFESSIONAL users",
+        "Creates 10 patients with varied consent settings",
+        "Creates appointments across next 2 weeks",
+        "Creates sample availability rules",
+        "Creates sample notifications",
+        "Seed script is idempotent (can run multiple times)"
+      ],
+      "priority": 2,
+      "labels": [
+        "fase-7",
+        "desenvolvimento",
+        "seed"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-002"
+      ]
+    },
+    {
+      "id": "US-030",
+      "title": "Responsividade e UX mobile final",
+      "description": "As a user, I want the app to feel native on mobile so that I can use it comfortably on my phone.",
+      "acceptanceCriteria": [
+        "All touch targets ≥ 44px",
+        "Bottom navigation implemented (Agenda, Pacientes, Config)",
+        "FAB positioned correctly (bottom right, above nav)",
+        "Bottom sheets for quick actions (not modals)",
+        "Swipe gestures working on agenda",
+        "Loading states with skeleton screens",
+        "Error states with retry actions",
+        "LCP < 2s on simulated 4G",
+        "No horizontal scroll on any page"
+      ],
+      "priority": 2,
+      "labels": [
+        "fase-8",
+        "ux",
+        "mobile",
+        "polish"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-010",
+        "US-011"
+      ]
+    },
+    {
+      "id": "US-031",
+      "title": "PWA básico",
+      "description": "As a user, I want to install the app on my home screen so that I can access it quickly.",
+      "acceptanceCriteria": [
+        "manifest.json configured with app name, icons, colors",
+        "Service worker for offline shell (next-pwa or similar)",
+        "App installable on iOS and Android",
+        "Splash screen configured",
+        "Theme color matches app design"
+      ],
+      "priority": 3,
+      "labels": [
+        "fase-8",
+        "pwa",
+        "mobile"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-030"
+      ]
+    },
+    {
+      "id": "US-032",
+      "title": "Deploy na Vercel",
+      "description": "As a developer, I want the app deployed to Vercel so that it's accessible online.",
+      "acceptanceCriteria": [
+        "Vercel project configured",
+        "Environment variables set in Vercel dashboard",
+        "PostgreSQL provisioned (Vercel Postgres or external)",
+        "Prisma migrations run on deploy",
+        "Cron jobs configured in vercel.json",
+        "Production build passes without errors",
+        "Custom domain configured (optional, can use vercel.app)"
+      ],
+      "priority": 2,
+      "labels": [
+        "fase-8",
+        "deploy",
+        "vercel"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-001",
+        "US-002",
+        "US-026"
+      ]
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-01-29T00:33:56.393Z"
+  }
+}
