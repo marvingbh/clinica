@@ -8,7 +8,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
 import {
-  BottomNavigation,
   FAB,
   SkeletonPage,
   EmptyState,
@@ -318,7 +317,6 @@ export default function PatientsPage() {
         <div className="max-w-4xl mx-auto px-4 py-8">
           <SkeletonPage />
         </div>
-        <BottomNavigation />
       </main>
     )
   }
@@ -735,9 +733,6 @@ export default function PatientsPage() {
       {isAdmin && (
         <FAB onClick={openCreateSheet} label="Novo paciente" />
       )}
-
-      {/* Bottom Navigation */}
-      <BottomNavigation />
     </main>
   )
 }

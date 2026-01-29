@@ -8,7 +8,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 import Link from "next/link"
 import {
-  BottomNavigation,
   FAB,
   SwipeContainer,
   ListIcon,
@@ -617,7 +616,6 @@ function WeeklyAgendaPageContent() {
             <div className="h-[600px] bg-muted rounded" />
           </div>
         </div>
-        <BottomNavigation />
       </main>
     )
   }
@@ -965,9 +963,6 @@ function WeeklyAgendaPageContent() {
         appointment={selectedAppointment}
         onSave={fetchAppointments}
       />
-
-      {/* Bottom Navigation */}
-      <BottomNavigation />
     </main>
   )
 }

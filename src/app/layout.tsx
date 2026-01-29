@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { SessionProvider } from "@/shared/components/session-provider";
+import { DesktopHeader } from "@/shared/components/ui/desktop-header";
+import { BottomNavigation } from "@/shared/components/ui/bottom-navigation";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -60,7 +62,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <SessionProvider>
-          {children}
+          <DesktopHeader />
+          <div className="md:pt-16">
+            {children}
+          </div>
+          <BottomNavigation />
           <Toaster richColors position="top-right" />
         </SessionProvider>
       </body>

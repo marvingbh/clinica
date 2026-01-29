@@ -1,5 +1,6 @@
 export * from "./icons"
 export { BottomNavigation } from "./bottom-navigation"
+export { DesktopHeader } from "./desktop-header"
 export { FAB } from "./fab"
 export { BottomSheet, BottomSheetAction, BottomSheetDivider } from "./bottom-sheet"
 export {

@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import {
-  BottomNavigation,
   FAB,
   BuildingIcon,
   VideoIcon,
@@ -188,12 +187,7 @@ export default function AgendaPage() {
 
   // Loading state
   if (status === "loading" || isLoading) {
-    return (
-      <>
-        <AgendaPageSkeleton />
-        <BottomNavigation />
-      </>
-    )
+    return <AgendaPageSkeleton />
   }
 
   return (
@@ -490,9 +484,6 @@ export default function AgendaPage() {
         appointment={selectedAppointment}
         onSave={refetchAppointments}
       />
-
-      {/* Bottom Navigation */}
-      <BottomNavigation />
     </main>
   )
 }

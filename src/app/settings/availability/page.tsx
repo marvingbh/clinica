@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
-import { BottomNavigation, SkeletonPage } from "@/shared/components/ui"
+import { SkeletonPage } from "@/shared/components/ui"
 
 // Date utilities for Brazilian format
 function toDisplayDateFromDate(date: Date): string {
@@ -72,7 +72,6 @@ function LoadingState() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <SkeletonPage />
       </div>
-      <BottomNavigation />
     </main>
   )
 }
@@ -1095,9 +1094,6 @@ function AvailabilitySettingsContent() {
           </div>
         </>
       )}
-
-      {/* Bottom Navigation */}
-      <BottomNavigation />
     </main>
   )
 }

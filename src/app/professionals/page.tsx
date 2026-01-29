@@ -8,7 +8,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
 import {
-  BottomNavigation,
   FAB,
   EmptyState,
   UsersIcon,
@@ -285,7 +284,6 @@ export default function ProfessionalsPage() {
           {/* Grid Skeleton */}
           <ProfessionalGridSkeleton count={6} />
         </div>
-        <BottomNavigation />
       </main>
     )
   }
@@ -577,9 +575,6 @@ export default function ProfessionalsPage() {
       {isAdmin && (
         <FAB onClick={openCreateSheet} label="Novo profissional" />
       )}
-
-      {/* Bottom Navigation */}
-      <BottomNavigation />
     </main>
   )
 }

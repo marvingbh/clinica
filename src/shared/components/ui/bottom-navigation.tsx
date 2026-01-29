@@ -52,6 +52,12 @@ export function BottomNavigation() {
     return pathname === item.href
   }
 
+  // Don't render on public pages
+  const publicPaths = ["/login", "/confirm", "/cancel"]
+  if (publicPaths.some(p => pathname.startsWith(p))) {
+    return null
+  }
+
   return (
     <nav
       className="fixed bottom-0 inset-x-0 bg-background border-t border-border z-40 safe-area-pb md:hidden"
