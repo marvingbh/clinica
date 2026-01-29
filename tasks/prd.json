@@ -74,7 +74,7 @@
         "Hidden on desktop (use side/top navigation instead)"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-001",
         "US-002"
@@ -83,7 +83,8 @@
         "component",
         "navigation",
         "mobile"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-005",
@@ -266,6 +267,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-29T19:23:34.609Z"
+    "updatedAt": "2026-01-29T19:25:49.049Z"
   }
 }
