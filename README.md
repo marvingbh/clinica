@@ -76,7 +76,7 @@ Isso cria:
 - Um usuario admin
 
 **Credenciais de acesso:**
-- Email: `admin@clinicademo.com`
+- Email: `admin@x.com`
 - Senha: `admin`
 
 ### 6. Iniciar o servidor de desenvolvimento
