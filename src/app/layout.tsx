@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "sonner";
 import { SessionProvider } from "@/shared/components/session-provider";
 import "./globals.css";
 
@@ -39,7 +40,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          {children}
+          <Toaster richColors position="top-right" />
+        </SessionProvider>
       </body>
     </html>
   );

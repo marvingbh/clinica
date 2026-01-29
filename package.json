@@ -14,11 +14,15 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
     "bcrypt": "^6.0.0",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-hook-form": "^7.71.1",
+    "sonner": "^2.0.7",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@prisma/client": "^6.19.2",
