@@ -7,6 +7,13 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
+import {
+  BottomNavigation,
+  FAB,
+  SkeletonAgenda,
+  EmptyState,
+  SwipeContainer,
+} from "@/shared/components/ui"
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
 
@@ -181,10 +188,6 @@ export default function AgendaPage() {
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [appointmentDuration, setAppointmentDuration] = useState(50)
 
-  // Touch gesture handling
-  const touchStartX = useRef<number | null>(null)
-  const touchEndX = useRef<number | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
 
   // Appointment creation state
   const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false)
@@ -689,35 +692,6 @@ export default function AgendaPage() {
     setTimeSlots(slots)
   }, [selectedDate, availabilityRules, availabilityExceptions, appointments, appointmentDuration])
 
-  // Touch gesture handlers
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX
-  }
-
-  function handleTouchMove(e: React.TouchEvent) {
-    touchEndX.current = e.touches[0].clientX
-  }
-
-  function handleTouchEnd() {
-    if (!touchStartX.current || !touchEndX.current) return
-
-    const diff = touchStartX.current - touchEndX.current
-    const threshold = 50 // Minimum swipe distance
-
-    if (Math.abs(diff) > threshold) {
-      if (diff > 0) {
-        // Swipe left - next day
-        goToNextDay()
-      } else {
-        // Swipe right - previous day
-        goToPreviousDay()
-      }
-    }
-
-    touchStartX.current = null
-    touchEndX.current = null
-  }
-
   function goToPreviousDay() {
     setSelectedDate((prev) => {
       const newDate = new Date(prev)
@@ -778,15 +752,9 @@ export default function AgendaPage() {
     return (
       <main className="min-h-screen bg-background pb-20">
         <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="animate-pulse space-y-6">
-            <div className="h-12 w-full bg-muted rounded" />
-            <div className="space-y-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="h-16 bg-muted rounded" />
-              ))}
-            </div>
-          </div>
+          <SkeletonAgenda />
         </div>
+        <BottomNavigation />
       </main>
     )
   }
@@ -875,11 +843,9 @@ export default function AgendaPage() {
       </header>
 
       {/* Timeline Content */}
-      <div
-        ref={containerRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+      <SwipeContainer
+        onSwipeLeft={goToNextDay}
+        onSwipeRight={goToPreviousDay}
         className="max-w-4xl mx-auto px-4 py-4"
       >
         {/* Day navigation hint */}
@@ -889,21 +855,19 @@ export default function AgendaPage() {
 
         {/* No availability message */}
         {timeSlots.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+          <EmptyState
+            title="Sem disponibilidade"
+            message={
+              isAdmin && !selectedProfessionalId
+                ? "Selecione um profissional para ver a agenda"
+                : "Nao ha horarios configurados para este dia"
+            }
+            icon={
               <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-            </div>
-            <h3 className="text-lg font-medium text-foreground mb-2">
-              Sem disponibilidade
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {isAdmin && !selectedProfessionalId
-                ? "Selecione um profissional para ver a agenda"
-                : "Nao ha horarios configurados para este dia"}
-            </p>
-          </div>
+            }
+          />
         )}
 
         {/* Timeline */}
@@ -991,18 +955,10 @@ export default function AgendaPage() {
             ))}
           </div>
         )}
-      </div>
+      </SwipeContainer>
 
       {/* FAB - Floating Action Button */}
-      <button
-        onClick={() => openCreateSheet()}
-        className="fixed right-4 bottom-24 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-all z-30 flex items-center justify-center"
-        aria-label="Novo agendamento"
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-      </button>
+      <FAB onClick={() => openCreateSheet()} label="Novo agendamento" />
 
       {/* Create Appointment Sheet */}
       {isCreateSheetOpen && (
@@ -1583,70 +1539,8 @@ export default function AgendaPage() {
       )}
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 inset-x-0 bg-background border-t border-border z-40">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="flex items-center justify-around h-16">
-            <button
-              className="flex flex-col items-center justify-center gap-1 text-primary"
-              onClick={() => router.push("/agenda")}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <span className="text-xs font-medium">Agenda</span>
-            </button>
+      <BottomNavigation />
 
-            <button
-              className="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => router.push("/patients")}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-              <span className="text-xs">Pacientes</span>
-            </button>
-
-            <button
-              className="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => router.push("/settings/availability")}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <span className="text-xs">Configuracoes</span>
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Animation Styles */}
-      <style jsx>{`
-        @keyframes slide-up {
-          from {
-            transform: translateY(100%);
-          }
-          to {
-            transform: translateY(0);
-          }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
-        }
-        @keyframes scale-in {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-        .animate-scale-in {
-          animation: scale-in 0.2s ease-out;
-        }
-      `}</style>
     </main>
   )
 }

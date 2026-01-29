@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
+import { BottomNavigation, SkeletonPage } from "@/shared/components/ui"
 
 const DAYS_OF_WEEK = [
   { value: 0, label: "Domingo", short: "Dom" },
@@ -43,17 +44,11 @@ interface Professional {
 
 function LoadingState() {
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background pb-20">
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 w-48 bg-muted rounded" />
-          <div className="space-y-4">
-            {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-              <div key={i} className="h-20 bg-muted rounded" />
-            ))}
-          </div>
-        </div>
+        <SkeletonPage />
       </div>
+      <BottomNavigation />
     </main>
   )
 }
@@ -469,29 +464,16 @@ function AvailabilitySettingsContent() {
   }
 
   if (status === "loading" || isLoading) {
-    return (
-      <main className="min-h-screen bg-background">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 w-48 bg-muted rounded" />
-            <div className="space-y-4">
-              {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                <div key={i} className="h-20 bg-muted rounded" />
-              ))}
-            </div>
-          </div>
-        </div>
-      </main>
-    )
+    return <LoadingState />
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background pb-20">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
           <button
             onClick={() => router.back()}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="min-h-[44px] min-w-[44px] flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors touch-manipulation"
           >
             &larr; Voltar
           </button>
@@ -555,14 +537,14 @@ function AvailabilitySettingsContent() {
                     <button
                       type="button"
                       onClick={() => toggleDayActive(day.value)}
-                      className={`relative w-12 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background ${
+                      className={`relative w-14 h-8 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background touch-manipulation ${
                         allActive ? "bg-primary" : "bg-muted"
                       }`}
                       aria-label={`Toggle ${day.label}`}
                     >
                       <span
-                        className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
-                          allActive ? "left-7" : "left-1"
+                        className={`absolute top-1.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                          allActive ? "left-8" : "left-1"
                         }`}
                       />
                     </button>
@@ -579,7 +561,7 @@ function AvailabilitySettingsContent() {
                         key={rule.id || `${day.value}-${index}`}
                         type="button"
                         onClick={() => openBlockEditor(day.value, index)}
-                        className={`px-3 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background ${
+                        className={`min-h-[44px] px-4 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background touch-manipulation ${
                           rule.isActive
                             ? "bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20"
                             : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"
@@ -593,7 +575,7 @@ function AvailabilitySettingsContent() {
                     <button
                       type="button"
                       onClick={() => openBlockEditor(day.value)}
-                      className="px-3 py-2 rounded-md text-sm font-medium border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+                      className="min-h-[44px] px-4 py-2 rounded-md text-sm font-medium border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background touch-manipulation"
                     >
                       + Adicionar
                     </button>
@@ -1037,19 +1019,8 @@ function AvailabilitySettingsContent() {
         </>
       )}
 
-      <style jsx>{`
-        @keyframes slide-up {
-          from {
-            transform: translateY(100%);
-          }
-          to {
-            transform: translateY(0);
-          }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
-        }
-      `}</style>
+      {/* Bottom Navigation */}
+      <BottomNavigation />
     </main>
   )
 }

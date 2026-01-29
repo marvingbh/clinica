@@ -7,6 +7,12 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
+import {
+  BottomNavigation,
+  FAB,
+  SkeletonPage,
+  EmptyState,
+} from "@/shared/components/ui"
 
 // WhatsApp format validation
 const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
@@ -307,27 +313,17 @@ export default function PatientsPage() {
 
   if (status === "loading" || isLoading) {
     return (
-      <main className="min-h-screen bg-background">
+      <main className="min-h-screen bg-background pb-20">
         <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 w-48 bg-muted rounded" />
-            <div className="flex gap-4">
-              <div className="h-12 flex-1 bg-muted rounded" />
-              <div className="h-12 w-32 bg-muted rounded" />
-            </div>
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-20 bg-muted rounded" />
-              ))}
-            </div>
-          </div>
+          <SkeletonPage />
         </div>
+        <BottomNavigation />
       </main>
     )
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background pb-20">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
           <button
@@ -375,11 +371,16 @@ export default function PatientsPage() {
         {/* Patients List */}
         <div className="space-y-4">
           {patients.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              {search || filterActive !== "all"
-                ? "Nenhum paciente encontrado"
-                : "Nenhum paciente cadastrado"}
-            </div>
+            <EmptyState
+              title={search || filterActive !== "all" ? "Nenhum paciente encontrado" : "Nenhum paciente cadastrado"}
+              message={search || filterActive !== "all" ? "Tente ajustar os filtros de busca" : "Adicione seu primeiro paciente para comecar"}
+              action={isAdmin && !search && filterActive === "all" ? { label: "Adicionar paciente", onClick: openCreateSheet } : undefined}
+              icon={
+                <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              }
+            />
           ) : (
             patients.map((patient) => (
               <div
@@ -733,20 +734,13 @@ export default function PatientsPage() {
         </>
       )}
 
-      {/* Animation Styles */}
-      <style jsx>{`
-        @keyframes slide-up {
-          from {
-            transform: translateY(100%);
-          }
-          to {
-            transform: translateY(0);
-          }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
-        }
-      `}</style>
+      {/* FAB for adding patients */}
+      {isAdmin && (
+        <FAB onClick={openCreateSheet} label="Novo paciente" />
+      )}
+
+      {/* Bottom Navigation */}
+      <BottomNavigation />
     </main>
   )
 }
