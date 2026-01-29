@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useState, useMemo } from "react"
-import { useRouter } from "next/navigation"
+import { useCallback, useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -10,47 +10,37 @@ import Link from "next/link"
 import {
   BottomNavigation,
   FAB,
-  SkeletonAgenda,
-  EmptyState,
   SwipeContainer,
 } from "@/shared/components/ui"
 
 import {
-  // Types
   Patient,
   Professional,
-  AvailabilityRule,
-  AvailabilityException,
   Appointment,
-  TimeSlot,
   RecurrenceType,
   RecurrenceEndType,
   CancelType,
   AppointmentFormData,
   EditAppointmentFormData,
-  // Schemas
   appointmentSchema,
   editAppointmentSchema,
-} from "./lib"
+} from "../lib"
 
 import {
   STATUS_LABELS,
   STATUS_COLORS,
-  STATUS_BORDER_COLORS,
   DEFAULT_APPOINTMENT_DURATION,
-} from "./lib/constants"
+} from "../lib/constants"
 
 import {
-  formatTime,
-  formatDateHeader,
   formatPhone,
   toDateString,
   canCancelAppointment,
   canMarkStatus,
   canResendConfirmation,
-  hasNotificationConsent,
-  isDateException,
-} from "./lib/utils"
+  getWeekStart,
+  getWeekEnd,
+} from "../lib/utils"
 
 import {
   Sheet,
@@ -59,21 +49,29 @@ import {
   CancelDialog,
   RecurrenceEditSheet,
   RecurrenceIndicator,
-} from "./components"
+} from "../components"
 
-export default function AgendaPage() {
+import { WeekNavigation, WeeklyGrid } from "./components"
+
+export default function WeeklyAgendaPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: session, status } = useSession()
+
+  // Initialize week from URL or default to current week
+  const [weekStart, setWeekStart] = useState(() => {
+    const dateParam = searchParams.get("date")
+    if (dateParam) {
+      return getWeekStart(new Date(dateParam + "T12:00:00"))
+    }
+    return getWeekStart(new Date())
+  })
 
   // Core state
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedDate, setSelectedDate] = useState(() => new Date())
   const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([])
-  const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([])
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>("")
-  const [showDatePicker, setShowDatePicker] = useState(false)
   const [appointmentDuration, setAppointmentDuration] = useState(DEFAULT_APPOINTMENT_DURATION)
 
   // Create appointment state
@@ -140,6 +138,30 @@ export default function AgendaPage() {
   const watchedStartTime = watch("startTime")
 
   // ============================================================================
+  // Week Navigation
+  // ============================================================================
+
+  function goToPreviousWeek() {
+    setWeekStart((prev) => {
+      const newDate = new Date(prev)
+      newDate.setDate(newDate.getDate() - 7)
+      return newDate
+    })
+  }
+
+  function goToNextWeek() {
+    setWeekStart((prev) => {
+      const newDate = new Date(prev)
+      newDate.setDate(newDate.getDate() + 7)
+      return newDate
+    })
+  }
+
+  function goToToday() {
+    setWeekStart(getWeekStart(new Date()))
+  }
+
+  // ============================================================================
   // Data Fetching
   // ============================================================================
 
@@ -155,11 +177,13 @@ export default function AgendaPage() {
     }
   }, [isAdmin])
 
-  // Individual fetchAppointments for use after create/update operations
   const fetchAppointments = useCallback(async () => {
     if (!activeProfessionalProfileId && !isAdmin) return
     try {
-      const params = new URLSearchParams({ date: toDateString(selectedDate) })
+      const startDate = toDateString(weekStart)
+      const endDate = toDateString(getWeekEnd(weekStart))
+
+      const params = new URLSearchParams({ startDate, endDate })
       if (isAdmin && selectedProfessionalId) {
         params.set("professionalProfileId", selectedProfessionalId)
       }
@@ -177,127 +201,13 @@ export default function AgendaPage() {
     } catch {
       toast.error("Erro ao carregar agenda")
     }
-  }, [selectedDate, activeProfessionalProfileId, isAdmin, selectedProfessionalId, router])
-
-  // ============================================================================
-  // Time Slots Generation (useMemo ensures slots are always derived from current state)
-  // ============================================================================
-
-  const timeSlots = useMemo(() => {
-    const dateStr = toDateString(selectedDate)
-
-    // When viewing all professionals (admin with no specific professional selected),
-    // show a simplified grid of hours (7am-9pm) with appointments
-    if (isAdmin && !selectedProfessionalId) {
-      const slots: TimeSlot[] = []
-      for (let hour = 7; hour < 21; hour++) {
-        for (const min of [0, 30]) {
-          const timeStr = `${hour.toString().padStart(2, "0")}:${min.toString().padStart(2, "0")}`
-          const slotAppointments = appointments.filter((apt) => {
-            const aptTime = new Date(apt.scheduledAt)
-            // Check both date and time match
-            const aptDateStr = toDateString(aptTime)
-            return aptDateStr === dateStr && aptTime.getHours() === hour && aptTime.getMinutes() === min
-          })
-          slots.push({
-            time: timeStr,
-            isAvailable: slotAppointments.length === 0,
-            appointments: slotAppointments,
-            isBlocked: false,
-          })
-        }
-      }
-      return slots
-    }
-
-    // Single professional view - use availability rules
-    const dayOfWeek = selectedDate.getDay()
-
-    const dayRules = availabilityRules.filter(
-      (rule) => rule.dayOfWeek === dayOfWeek && rule.isActive
-    )
-
-    const fullDayException = availabilityExceptions.find(
-      (ex) => toDateString(new Date(ex.date)) === dateStr && !ex.startTime && !ex.isAvailable
-    )
-
-    if (fullDayException || dayRules.length === 0) {
-      return []
-    }
-
-    const slots: TimeSlot[] = []
-    const slotDuration = appointmentDuration
-
-    for (const rule of dayRules) {
-      const [startHour, startMin] = rule.startTime.split(":").map(Number)
-      const [endHour, endMin] = rule.endTime.split(":").map(Number)
-
-      let currentMinutes = startHour * 60 + startMin
-      const endMinutes = endHour * 60 + endMin
-
-      while (currentMinutes + slotDuration <= endMinutes) {
-        const hour = Math.floor(currentMinutes / 60)
-        const min = currentMinutes % 60
-        const timeStr = `${hour.toString().padStart(2, "0")}:${min.toString().padStart(2, "0")}`
-
-        const exception = availabilityExceptions.find((ex) => {
-          if (toDateString(new Date(ex.date)) !== dateStr) return false
-          if (!ex.startTime || !ex.endTime) return false
-          return timeStr >= ex.startTime && timeStr < ex.endTime && !ex.isAvailable
-        })
-
-        const slotAppointments = appointments.filter((apt) => {
-          const aptTime = new Date(apt.scheduledAt)
-          const aptDateStr = toDateString(aptTime)
-          return aptDateStr === dateStr && aptTime.getHours() === hour && aptTime.getMinutes() === min
-        })
-
-        slots.push({
-          time: timeStr,
-          isAvailable: !exception && slotAppointments.length === 0,
-          appointments: slotAppointments,
-          isBlocked: !!exception,
-          blockReason: exception?.reason || undefined,
-        })
-
-        currentMinutes += slotDuration
-      }
-    }
-
-    slots.sort((a, b) => a.time.localeCompare(b.time))
-    return slots
-  }, [selectedDate, availabilityRules, availabilityExceptions, appointments, appointmentDuration, isAdmin, selectedProfessionalId])
-
-  // ============================================================================
-  // Navigation
-  // ============================================================================
-
-  function goToPreviousDay() {
-    setSelectedDate((prev) => {
-      const newDate = new Date(prev)
-      newDate.setDate(newDate.getDate() - 1)
-      return newDate
-    })
-  }
-
-  function goToNextDay() {
-    setSelectedDate((prev) => {
-      const newDate = new Date(prev)
-      newDate.setDate(newDate.getDate() + 1)
-      return newDate
-    })
-  }
-
-  function goToToday() {
-    setSelectedDate(new Date())
-    setShowDatePicker(false)
-  }
+  }, [weekStart, activeProfessionalProfileId, isAdmin, selectedProfessionalId, router])
 
   // ============================================================================
   // Create Appointment
   // ============================================================================
 
-  function openCreateSheet(slotTime?: string) {
+  function openCreateSheet() {
     setSelectedPatient(null)
     setPatientSearch("")
     setIsRecurrenceEnabled(false)
@@ -307,8 +217,8 @@ export default function AgendaPage() {
     setRecurrenceOccurrences(10)
     reset({
       patientId: "",
-      date: toDateString(selectedDate),
-      startTime: slotTime || "",
+      date: toDateString(weekStart),
+      startTime: "",
       modality: "PRESENCIAL",
       notes: "",
     })
@@ -577,7 +487,6 @@ export default function AgendaPage() {
 
       toast.success(result.message)
 
-      // Update local state
       if (selectedAppointment.recurrence) {
         setSelectedAppointment({
           ...selectedAppointment,
@@ -626,35 +535,25 @@ export default function AgendaPage() {
       return
     }
 
-    // Use AbortController to cancel stale fetches (prevents race conditions)
     const abortController = new AbortController()
-    const signal = abortController.signal
 
     async function fetchData() {
       try {
-        const dateStr = toDateString(selectedDate)
+        const startDate = toDateString(weekStart)
+        const endDate = toDateString(getWeekEnd(weekStart))
         const profId = isAdmin && selectedProfessionalId ? selectedProfessionalId : ""
 
-        const appointmentsParams = new URLSearchParams({ date: dateStr })
-        if (profId) appointmentsParams.set("professionalProfileId", profId)
+        const params = new URLSearchParams({ startDate, endDate })
+        if (profId) params.set("professionalProfileId", profId)
 
-        const availabilityParams = new URLSearchParams()
-        if (profId) availabilityParams.set("professionalProfileId", profId)
+        const response = await fetch(`/api/appointments?${params.toString()}`, {
+          signal: abortController.signal,
+        })
 
-        const exceptionsParams = new URLSearchParams({ startDate: dateStr, endDate: dateStr })
-        if (profId) exceptionsParams.set("professionalProfileId", profId)
+        if (abortController.signal.aborted) return
 
-        const [appointmentsRes, availabilityRes, exceptionsRes] = await Promise.all([
-          fetch(`/api/appointments?${appointmentsParams.toString()}`, { signal }),
-          fetch(`/api/availability?${availabilityParams.toString()}`, { signal }),
-          fetch(`/api/availability/exceptions?${exceptionsParams.toString()}`, { signal }),
-        ])
-
-        // Check if aborted before processing results
-        if (signal.aborted) return
-
-        if (!appointmentsRes.ok) {
-          if (appointmentsRes.status === 403) {
+        if (!response.ok) {
+          if (response.status === 403) {
             toast.error("Acesso negado")
             router.push("/login")
             return
@@ -662,20 +561,12 @@ export default function AgendaPage() {
           throw new Error("Failed to fetch appointments")
         }
 
-        const [appointmentsData, availabilityData, exceptionsData] = await Promise.all([
-          appointmentsRes.json(),
-          availabilityRes.ok ? availabilityRes.json() : { rules: [] },
-          exceptionsRes.ok ? exceptionsRes.json() : { exceptions: [] },
-        ])
+        const data = await response.json()
 
-        // Check if aborted before updating state
-        if (signal.aborted) return
+        if (abortController.signal.aborted) return
 
-        setAppointments(appointmentsData.appointments)
-        setAvailabilityRules(availabilityData.rules || [])
-        setAvailabilityExceptions(exceptionsData.exceptions || [])
+        setAppointments(data.appointments)
       } catch (error) {
-        // Ignore abort errors, show toast for other errors
         if (error instanceof Error && error.name === "AbortError") return
         toast.error("Erro ao carregar agenda")
       }
@@ -683,13 +574,11 @@ export default function AgendaPage() {
 
     fetchData()
 
-    // Cleanup: abort fetch when effect re-runs or component unmounts
     return () => {
       abortController.abort()
     }
-  }, [status, selectedDate, activeProfessionalProfileId, isAdmin, selectedProfessionalId, router])
+  }, [status, weekStart, activeProfessionalProfileId, isAdmin, selectedProfessionalId, router])
 
-  // Update appointment duration when professionals data is available
   useEffect(() => {
     if (professionals.length > 0 && activeProfessionalProfileId) {
       const prof = professionals.find(p => p.professionalProfile?.id === activeProfessionalProfileId)
@@ -706,8 +595,11 @@ export default function AgendaPage() {
   if (status === "loading" || isLoading) {
     return (
       <main className="min-h-screen bg-background pb-20">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <SkeletonAgenda />
+        <div className="max-w-6xl mx-auto px-4 py-8">
+          <div className="animate-pulse space-y-4">
+            <div className="h-10 bg-muted rounded w-1/3" />
+            <div className="h-[600px] bg-muted rounded" />
+          </div>
         </div>
         <BottomNavigation />
       </main>
@@ -718,33 +610,23 @@ export default function AgendaPage() {
     <main className="min-h-screen bg-background pb-20">
       {/* Header */}
       <header className="sticky top-0 bg-background/95 backdrop-blur border-b border-border z-30">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between gap-4 mb-3">
-            <button
-              onClick={() => setShowDatePicker(!showDatePicker)}
-              className="flex-1 text-left"
-            >
-              <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                {formatDateHeader(selectedDate)}
-                <svg
-                  className={`w-5 h-5 transition-transform ${showDatePicker ? "rotate-180" : ""}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </h1>
-            </button>
+        <div className="max-w-6xl mx-auto px-4 py-4 space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <WeekNavigation
+              weekStart={weekStart}
+              onPreviousWeek={goToPreviousWeek}
+              onNextWeek={goToNextWeek}
+              onToday={goToToday}
+            />
 
             <Link
-              href={`/agenda/weekly?date=${toDateString(selectedDate)}`}
-              className="flex items-center gap-2 h-10 px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-muted flex-shrink-0"
+              href="/agenda"
+              className="flex items-center gap-2 h-10 px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-muted"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
               </svg>
-              Semana
+              Dia
             </Link>
           </div>
 
@@ -764,140 +646,24 @@ export default function AgendaPage() {
             </select>
           )}
         </div>
-
-        {showDatePicker && (
-          <div className="border-t border-border bg-card">
-            <div className="max-w-4xl mx-auto px-4 py-4">
-              <div className="flex items-center justify-between mb-4">
-                <button onClick={goToPreviousDay} className="h-10 w-10 rounded-md border border-input bg-background flex items-center justify-center hover:bg-muted">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <button onClick={goToToday} className="h-10 px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-muted">
-                  Hoje
-                </button>
-                <button onClick={goToNextDay} className="h-10 w-10 rounded-md border border-input bg-background flex items-center justify-center hover:bg-muted">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-              <input
-                type="date"
-                value={toDateString(selectedDate)}
-                onChange={(e) => {
-                  setSelectedDate(new Date(e.target.value + "T12:00:00"))
-                  setShowDatePicker(false)
-                }}
-                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-          </div>
-        )}
       </header>
 
-      {/* Timeline Content */}
-      <SwipeContainer onSwipeLeft={goToNextDay} onSwipeRight={goToPreviousDay} className="max-w-4xl mx-auto px-4 py-4">
+      {/* Weekly Grid */}
+      <SwipeContainer onSwipeLeft={goToNextWeek} onSwipeRight={goToPreviousWeek} className="max-w-6xl mx-auto px-4 py-4">
         <p className="text-xs text-muted-foreground text-center mb-4">
-          Deslize para esquerda ou direita para mudar o dia
+          Deslize para esquerda ou direita para mudar a semana
         </p>
 
-        {timeSlots.length === 0 && (
-          <EmptyState
-            title="Sem disponibilidade"
-            message="Nao ha horarios configurados para este dia"
-            icon={
-              <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            }
-          />
-        )}
-
-        {timeSlots.length > 0 && (
-          <div className="space-y-2">
-            {timeSlots.map((slot) => (
-              <div key={slot.time} className={`flex items-stretch gap-3 min-h-[4rem] ${slot.isBlocked ? "opacity-50" : ""}`}>
-                <div className="w-14 flex-shrink-0 text-sm text-muted-foreground pt-2">
-                  {formatTime(slot.time)}
-                </div>
-
-                {slot.appointments.length > 0 ? (
-                  <div className={`flex-1 flex gap-2 ${slot.appointments.length > 1 ? 'flex-wrap' : ''}`}>
-                    {slot.appointments.map((appointment) => (
-                      <button
-                        key={appointment.id}
-                        type="button"
-                        onClick={() => openEditSheet(appointment)}
-                        className={`${slot.appointments.length > 1 ? 'flex-1 min-w-[150px]' : 'flex-1'} bg-card border border-border rounded-lg p-3 border-l-4 text-left hover:bg-muted/50 transition-colors cursor-pointer ${
-                          STATUS_BORDER_COLORS[appointment.status] || "border-l-gray-400"
-                        } ${["CANCELADO_PROFISSIONAL", "CANCELADO_PACIENTE"].includes(appointment.status) ? "opacity-50" : ""}`}
-                      >
-                        {/* Professional name - prominent when viewing all */}
-                        {!selectedProfessionalId && (
-                          <p className="text-xs font-medium text-primary mb-1 truncate">
-                            {appointment.professionalProfile.user.name}
-                          </p>
-                        )}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <h4 className="font-medium text-foreground truncate">{appointment.patient.name}</h4>
-                            <p className="text-sm text-muted-foreground">{formatPhone(appointment.patient.phone)}</p>
-                          </div>
-                          <span className={`flex-shrink-0 text-xs px-2 py-1 rounded-full border ${STATUS_COLORS[appointment.status] || "bg-gray-100 text-gray-800"}`}>
-                            {STATUS_LABELS[appointment.status] || appointment.status}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className="text-xs text-muted-foreground">{appointment.modality === "ONLINE" ? "Online" : "Presencial"}</span>
-                          {appointment.recurrence && (
-                            <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                              Recorrente
-                            </span>
-                          )}
-                          {appointment.notes && <span className="text-xs text-muted-foreground truncate">• {appointment.notes}</span>}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                ) : slot.isBlocked ? (
-                  <div className="flex-1 bg-muted/50 border border-dashed border-border rounded-lg p-3 flex items-center">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                      </svg>
-                      <span className="text-sm">{slot.blockReason || "Bloqueado"}</span>
-                    </div>
-                  </div>
-                ) : (
-                  // Only show available slots when a specific professional is selected
-                  selectedProfessionalId || !isAdmin ? (
-                    <button
-                      onClick={() => openCreateSheet(slot.time)}
-                      className="flex-1 border border-dashed border-border rounded-lg p-3 flex items-center justify-center text-muted-foreground hover:bg-muted/50 hover:border-primary/50 hover:text-primary transition-colors"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                      <span className="text-sm">Disponivel</span>
-                    </button>
-                  ) : (
-                    // Empty placeholder when viewing all professionals (no appointments at this time)
-                    <div className="flex-1 border border-dashed border-border/50 rounded-lg p-3" />
-                  )
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        <WeeklyGrid
+          weekStart={weekStart}
+          appointments={appointments}
+          onAppointmentClick={openEditSheet}
+          showProfessional={!selectedProfessionalId && isAdmin}
+        />
       </SwipeContainer>
 
       {/* FAB */}
-      <FAB onClick={() => openCreateSheet()} label="Novo agendamento" />
+      <FAB onClick={openCreateSheet} label="Novo agendamento" />
 
       {/* Create Appointment Sheet */}
       <Sheet isOpen={isCreateSheetOpen} onClose={closeCreateSheet} title="Novo Agendamento">

@@ -135,7 +135,7 @@ export const PATCH = withAuth(
     if (data.name !== undefined) updateData.name = data.name
     if (data.email !== undefined) updateData.email = data.email || null
     if (data.birthDate !== undefined) {
-      updateData.birthDate = data.birthDate ? new Date(data.birthDate) : null
+      updateData.birthDate = data.birthDate ? new Date(data.birthDate + "T00:00:00") : null
     }
     if (data.notes !== undefined) updateData.notes = data.notes || null
     if (data.isActive !== undefined) updateData.isActive = data.isActive

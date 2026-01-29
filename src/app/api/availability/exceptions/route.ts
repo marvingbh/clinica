@@ -54,13 +54,13 @@ export const GET = withAuth(
       return NextResponse.json({ exceptions: [] })
     }
 
-    // Build date filter
+    // Build date filter (parse as local time by appending time component)
     const dateFilter: { gte?: Date; lte?: Date } = {}
     if (startDate) {
-      dateFilter.gte = new Date(startDate)
+      dateFilter.gte = new Date(startDate + "T00:00:00")
     }
     if (endDate) {
-      dateFilter.lte = new Date(endDate)
+      dateFilter.lte = new Date(endDate + "T23:59:59.999")
     }
 
     const exceptions = await prisma.availabilityException.findMany({
@@ -147,10 +147,11 @@ export const POST = withAuth(
     }
 
     // Check for existing exception on the same date with overlapping times
+    // Parse date as local time by appending time component
     const existingExceptions = await prisma.availabilityException.findMany({
       where: {
         professionalProfileId: targetProfileId,
-        date: new Date(date),
+        date: new Date(date + "T00:00:00"),
       },
     })
 
@@ -183,7 +184,7 @@ export const POST = withAuth(
     const exception = await prisma.availabilityException.create({
       data: {
         professionalProfileId: targetProfileId,
-        date: new Date(date),
+        date: new Date(date + "T00:00:00"),
         isAvailable,
         startTime: startTime || null,
         endTime: endTime || null,

@@ -71,28 +71,27 @@ export const GET = withAuth(
     }
 
     // Single date filter (for daily view)
+    // Parse date as local time by appending time component (otherwise "YYYY-MM-DD" is parsed as UTC)
     if (date) {
-      const dayStart = new Date(date)
-      dayStart.setHours(0, 0, 0, 0)
-      const dayEnd = new Date(date)
-      dayEnd.setHours(23, 59, 59, 999)
+      const dayStart = new Date(date + "T00:00:00")
+      const dayEnd = new Date(date + "T23:59:59.999")
       where.scheduledAt = {
         gte: dayStart,
         lte: dayEnd,
       }
     } else {
-      // Range filters
+      // Range filters (also parse as local time)
       if (startDate) {
         where.scheduledAt = {
           ...(where.scheduledAt as Record<string, unknown>),
-          gte: new Date(startDate),
+          gte: new Date(startDate + "T00:00:00"),
         }
       }
 
       if (endDate) {
         where.scheduledAt = {
           ...(where.scheduledAt as Record<string, unknown>),
-          lte: new Date(endDate),
+          lte: new Date(endDate + "T23:59:59.999"),
         }
       }
     }
@@ -220,7 +219,7 @@ export const POST = withAuth(
 
     if (!professional) {
       return NextResponse.json(
-        { error: "Professional not found in your clinic" },
+        { error: "Profissional não encontrado na sua clínica" },
         { status: 404 }
       )
     }
@@ -228,7 +227,7 @@ export const POST = withAuth(
     // If scope is "own", professional can only create appointments for themselves
     if (scope === "own" && targetProfessionalProfileId !== user.professionalProfileId) {
       return NextResponse.json(
-        { error: "You can only create appointments for yourself" },
+        { error: "Você só pode criar agendamentos para si mesmo" },
         { status: 403 }
       )
     }
@@ -252,7 +251,7 @@ export const POST = withAuth(
 
     if (!patient) {
       return NextResponse.json(
-        { error: "Patient not found or inactive in your clinic" },
+        { error: "Paciente não encontrado ou inativo na sua clínica" },
         { status: 404 }
       )
     }
@@ -261,14 +260,15 @@ export const POST = withAuth(
     const appointmentDuration = duration || professional.appointmentDuration
 
     // Validate appointment date is not in the past
+    // Parse date as local time by appending T00:00:00 (otherwise "YYYY-MM-DD" is parsed as UTC)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const appointmentDate = new Date(date)
+    const appointmentDate = new Date(date + "T00:00:00")
     appointmentDate.setHours(0, 0, 0, 0)
 
     if (appointmentDate < today) {
       return NextResponse.json(
-        { error: "Cannot schedule appointments in the past" },
+        { error: "Não é possível agendar consultas no passado" },
         { status: 400 }
       )
     }

@@ -22,6 +22,7 @@
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",
     "@hookform/resolvers": "^5.2.2",
+    "@prisma/client": "^6.19.2",
     "bcrypt": "^6.0.0",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",
@@ -33,7 +34,6 @@
   },
   "devDependencies": {
     "@esbuild/linux-x64": "^0.27.2",
-    "@prisma/client": "^6.19.2",
     "@tailwindcss/postcss": "^4",
     "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",

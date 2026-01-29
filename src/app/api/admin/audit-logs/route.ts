@@ -57,14 +57,14 @@ export const GET = withAuth(
       where.userId = userId
     }
 
-    // Date range filter
+    // Date range filter (parse as local time by appending time component)
     if (startDate || endDate) {
       where.createdAt = {}
       if (startDate) {
-        ;(where.createdAt as Record<string, Date>).gte = new Date(startDate)
+        ;(where.createdAt as Record<string, Date>).gte = new Date(startDate + "T00:00:00")
       }
       if (endDate) {
-        ;(where.createdAt as Record<string, Date>).lte = new Date(endDate)
+        ;(where.createdAt as Record<string, Date>).lte = new Date(endDate + "T23:59:59.999")
       }
     }
 

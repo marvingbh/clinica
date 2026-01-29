@@ -150,7 +150,7 @@ export const POST = withAuth(
         name,
         email: email || null,
         phone: normalizedPhone,
-        birthDate: birthDate ? new Date(birthDate) : null,
+        birthDate: birthDate ? new Date(birthDate + "T00:00:00") : null,
         cpf: normalizedCpf,
         notes: notes || null,
         consentWhatsApp,

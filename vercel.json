@@ -6,6 +6,10 @@
     {
       "path": "/api/jobs/send-reminders",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/jobs/extend-recurrences",
+      "schedule": "0 2 * * 1"
     }
   ]
 }

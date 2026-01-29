@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useCallback, useEffect, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -62,9 +62,13 @@ export default function AvailabilitySettingsPage() {
 }
 
 function AvailabilitySettingsContent() {
+  console.log("=== AvailabilitySettingsContent RENDER ===")
+
   const router = useRouter()
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
+
+  console.log("[Render] status:", status, "session:", !!session)
 
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -95,103 +99,141 @@ function AvailabilitySettingsContent() {
 
   const isAdmin = session?.user?.role === "ADMIN"
 
-  const fetchProfessionals = useCallback(async () => {
-    if (!isAdmin) return
-
-    try {
-      const response = await fetch("/api/professionals?isActive=true")
-      if (response.ok) {
-        const data = await response.json()
-        setProfessionals(data.professionals)
-      }
-    } catch {
-      // Ignore errors for professional list
+  // Effect 1: Handle authentication redirect
+  useEffect(() => {
+    console.log("[Auth Effect] status:", status)
+    if (status === "unauthenticated") {
+      router.push("/login")
     }
-  }, [isAdmin])
+  }, [status, router])
 
-  const fetchExceptions = useCallback(async (profileId?: string | null) => {
-    try {
-      const params = new URLSearchParams()
-      if (profileId) {
-        params.set("professionalProfileId", profileId)
-      }
+  // Effect 2: Fetch data when authenticated
+  useEffect(() => {
+    console.log("[Data Effect] Running. status:", status, "isAdmin:", isAdmin)
 
-      const response = await fetch(`/api/availability/exceptions?${params.toString()}`)
-      if (response.ok) {
-        const data = await response.json()
-        setExceptions(data.exceptions || [])
-      }
-    } catch {
-      // Silently fail for exceptions
+    if (status !== "authenticated") {
+      console.log("[Data Effect] Not authenticated, skipping")
+      return
     }
-  }, [])
 
-  const fetchAvailability = useCallback(async (profileId?: string | null) => {
-    try {
-      const params = new URLSearchParams()
-      if (profileId) {
-        params.set("professionalProfileId", profileId)
-      }
+    // Use AbortController to cancel stale fetches
+    const abortController = new AbortController()
+    const signal = abortController.signal
 
-      const response = await fetch(`/api/availability?${params.toString()}`)
-      if (!response.ok) {
-        if (response.status === 403) {
-          toast.error("Acesso negado")
-          router.push("/")
-          return
+    async function loadData() {
+      console.log("[loadData] Starting fetch...")
+
+      try {
+        let professionalsData: Professional[] = []
+
+        // Fetch professionals if admin
+        if (isAdmin) {
+          console.log("[loadData] Fetching professionals...")
+          const profResponse = await fetch("/api/professionals?isActive=true", { signal })
+          if (signal.aborted) return
+          if (profResponse.ok) {
+            const profData = await profResponse.json()
+            professionalsData = profData.professionals || []
+            setProfessionals(professionalsData)
+          }
         }
+
+        // Determine which profile to fetch availability for
+        let profileId: string | undefined
+
+        if (isAdmin && professionalIdParam) {
+          setSelectedProfessionalId(professionalIdParam)
+          const foundProf = professionalsData.find(
+            (p: Professional) => p.id === professionalIdParam
+          )
+          profileId = foundProf?.professionalProfile?.id
+        }
+
+        if (signal.aborted) return
+
+        // Fetch availability
+        const params = new URLSearchParams()
+        if (profileId) {
+          params.set("professionalProfileId", profileId)
+        }
+
+        console.log("[loadData] Fetching availability and exceptions...")
+        const [availResponse, exceptionsResponse] = await Promise.all([
+          fetch(`/api/availability?${params.toString()}`, { signal }),
+          fetch(`/api/availability/exceptions?${params.toString()}`, { signal }),
+        ])
+
+        if (signal.aborted) return
+
+        if (!availResponse.ok) {
+          if (availResponse.status === 403) {
+            toast.error("Acesso negado")
+            router.push("/")
+            return
+          }
+          throw new Error("Failed to fetch availability")
+        }
+
+        const [availData, exceptionsData] = await Promise.all([
+          availResponse.json(),
+          exceptionsResponse.ok ? exceptionsResponse.json() : { exceptions: [] },
+        ])
+
+        if (signal.aborted) return
+
+        console.log("[loadData] Setting state. rules:", availData.rules?.length, "exceptions:", exceptionsData.exceptions?.length)
+        setRules(availData.rules || [])
+        setExceptions(exceptionsData.exceptions || [])
+      } catch (error) {
+        if (signal.aborted) return
+        console.error("[loadData] Error:", error)
+        toast.error("Erro ao carregar disponibilidade")
+      } finally {
+        if (!signal.aborted) {
+          console.log("[loadData] Setting isLoading to false")
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadData()
+
+    // Cleanup: abort fetch when effect re-runs or component unmounts
+    return () => {
+      console.log("[Data Effect] Cleanup - aborting")
+      abortController.abort()
+    }
+  }, [status, isAdmin, professionalIdParam, router])
+
+  async function fetchAvailabilityForProfessional(profileId?: string | null) {
+    try {
+      const params = new URLSearchParams()
+      if (profileId) {
+        params.set("professionalProfileId", profileId)
+      }
+
+      const [availResponse, exceptionsResponse] = await Promise.all([
+        fetch(`/api/availability?${params.toString()}`),
+        fetch(`/api/availability/exceptions?${params.toString()}`),
+      ])
+
+      if (!availResponse.ok) {
         throw new Error("Failed to fetch availability")
       }
 
-      const data = await response.json()
-      setRules(data.rules || [])
+      const [availData, exceptionsData] = await Promise.all([
+        availResponse.json(),
+        exceptionsResponse.ok ? exceptionsResponse.json() : { exceptions: [] },
+      ])
 
-      // Also fetch exceptions
-      await fetchExceptions(profileId)
+      setRules(availData.rules || [])
+      setExceptions(exceptionsData.exceptions || [])
     } catch {
       toast.error("Erro ao carregar disponibilidade")
     } finally {
       setIsLoading(false)
     }
-  }, [router, fetchExceptions])
-
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-      return
-    }
-
-    if (status === "authenticated") {
-      fetchProfessionals()
-
-      // If ADMIN with professionalId param, use that
-      if (isAdmin && professionalIdParam) {
-        setSelectedProfessionalId(professionalIdParam)
-        // Find the professional profile ID
-        const prof = professionals.find((p) => p.id === professionalIdParam)
-        if (prof?.professionalProfile?.id) {
-          fetchAvailability(prof.professionalProfile.id)
-        } else {
-          // Fetch all professionals first, then get availability
-          fetch("/api/professionals?isActive=true")
-            .then((res) => res.json())
-            .then((data) => {
-              const foundProf = data.professionals?.find(
-                (p: Professional) => p.id === professionalIdParam
-              )
-              if (foundProf?.professionalProfile?.id) {
-                fetchAvailability(foundProf.professionalProfile.id)
-              } else {
-                setIsLoading(false)
-              }
-            })
-            .catch(() => setIsLoading(false))
-        }
-      } else {
-        fetchAvailability()
-      }
-    }
-  }, [status, router, fetchProfessionals, fetchAvailability, isAdmin, professionalIdParam, professionals])
+  }
 
   async function handleProfessionalChange(professionalId: string) {
     setSelectedProfessionalId(professionalId)
@@ -199,9 +241,10 @@ function AvailabilitySettingsContent() {
 
     const prof = professionals.find((p) => p.id === professionalId)
     if (prof?.professionalProfile?.id) {
-      await fetchAvailability(prof.professionalProfile.id)
+      await fetchAvailabilityForProfessional(prof.professionalProfile.id)
     } else {
       setRules([])
+      setExceptions([])
       setIsLoading(false)
     }
   }
