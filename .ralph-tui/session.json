@@ -3,10 +3,10 @@
   "sessionId": "1bcee4bf-f577-4a44-bd35-c1fcbafab9a9",
   "status": "running",
   "startedAt": "2026-01-29T00:26:41.524Z",
-  "updatedAt": "2026-01-29T01:45:09.484Z",
-  "currentIteration": 8,
+  "updatedAt": "2026-01-29T01:51:47.007Z",
+  "currentIteration": 9,
   "maxIterations": 10,
-  "tasksCompleted": 8,
+  "tasksCompleted": 9,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -65,8 +65,8 @@
       {
         "id": "US-009",
         "title": "CRUD de pacientes",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-010",
@@ -288,6 +288,16 @@
       "durationMs": 445540,
       "startedAt": "2026-01-29T01:28:35.803Z",
       "endedAt": "2026-01-29T01:36:01.343Z"
+    },
+    {
+      "iteration": 9,
+      "status": "completed",
+      "taskId": "US-009",
+      "taskTitle": "CRUD de pacientes",
+      "taskCompleted": true,
+      "durationMs": 545090,
+      "startedAt": "2026-01-29T01:36:04.388Z",
+      "endedAt": "2026-01-29T01:45:09.478Z"
     }
   ],
   "skippedTaskIds": [],
