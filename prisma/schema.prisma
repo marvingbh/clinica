@@ -1,0 +1,344 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum Role {
+  ADMIN
+  PROFESSIONAL
+}
+
+enum AppointmentStatus {
+  AGENDADO
+  CONFIRMADO
+  CANCELADO_PACIENTE
+  CANCELADO_PROFISSIONAL
+  NAO_COMPARECEU
+  FINALIZADO
+}
+
+enum AppointmentModality {
+  ONLINE
+  PRESENCIAL
+}
+
+enum NotificationType {
+  APPOINTMENT_REMINDER
+  APPOINTMENT_CONFIRMATION
+  APPOINTMENT_CANCELLATION
+  APPOINTMENT_RESCHEDULED
+  PASSWORD_RESET
+  WELCOME
+}
+
+enum ConsentType {
+  TERMS_OF_SERVICE
+  PRIVACY_POLICY
+  DATA_PROCESSING
+  MARKETING_COMMUNICATIONS
+}
+
+// ============================================================================
+// MODELS
+// ============================================================================
+
+/// Represents a clinic in the multi-tenant system
+model Clinic {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  email     String?
+  phone     String?
+  address   String?
+  logoUrl   String?
+  timezone  String   @default("America/Sao_Paulo")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users                  User[]
+  patients               Patient[]
+  appointments           Appointment[]
+  appointmentRecurrences AppointmentRecurrence[]
+  notifications          Notification[]
+  auditLogs              AuditLog[]
+
+  @@index([slug])
+  @@index([isActive])
+}
+
+/// User account for clinic staff (admins and professionals)
+model User {
+  id            String    @id @default(cuid())
+  clinicId      String
+  email         String
+  passwordHash  String
+  name          String
+  role          Role
+  isActive      Boolean   @default(true)
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  clinic              Clinic               @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile?
+  auditLogs           AuditLog[]
+
+  @@unique([clinicId, email])
+  @@index([clinicId])
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+}
+
+/// Extended profile for professionals (therapists, doctors, etc.)
+model ProfessionalProfile {
+  id                    String  @id @default(cuid())
+  userId                String  @unique
+  specialty             String?
+  registrationNumber    String? // CRP, CRM, etc.
+  bio                   String?
+  appointmentDuration   Int     @default(50) // in minutes
+  bufferBetweenSlots    Int     @default(10) // in minutes
+  allowOnlineBooking    Boolean @default(true)
+  maxAdvanceBookingDays Int     @default(30)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user                   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availabilityRules      AvailabilityRule[]
+  availabilityExceptions AvailabilityException[]
+  appointments           Appointment[]
+  appointmentRecurrences AppointmentRecurrence[]
+
+  @@index([userId])
+}
+
+/// Recurring availability rules for professionals (e.g., every Monday 9-17)
+model AvailabilityRule {
+  id                    String @id @default(cuid())
+  professionalProfileId String
+  dayOfWeek             Int // 0 = Sunday, 6 = Saturday
+  startTime             String // HH:mm format
+  endTime               String // HH:mm format
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+
+  @@index([professionalProfileId])
+  @@index([dayOfWeek])
+}
+
+/// Exceptions to regular availability (vacations, specific unavailable dates)
+model AvailabilityException {
+  id                    String    @id @default(cuid())
+  professionalProfileId String
+  date                  DateTime  @db.Date
+  isAvailable           Boolean   @default(false) // false = blocked, true = extra availability
+  startTime             String? // HH:mm format, null if entire day blocked
+  endTime               String? // HH:mm format, null if entire day blocked
+  reason                String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+
+  @@index([professionalProfileId])
+  @@index([date])
+  @@index([professionalProfileId, date])
+}
+
+/// Patient information
+model Patient {
+  id          String    @id @default(cuid())
+  clinicId    String
+  name        String
+  email       String?
+  phone       String
+  birthDate   DateTime? @db.Date
+  cpf         String? // Brazilian tax ID
+  notes       String?
+  isActive    Boolean   @default(true)
+  lastVisitAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  appointments  Appointment[]
+  notifications Notification[]
+
+  @@unique([clinicId, cpf])
+  @@unique([clinicId, phone])
+  @@index([clinicId])
+  @@index([name])
+  @@index([phone])
+  @@index([email])
+  @@index([isActive])
+}
+
+/// Individual appointment
+model Appointment {
+  id                    String              @id @default(cuid())
+  clinicId              String
+  professionalProfileId String
+  patientId             String
+  recurrenceId          String?
+  scheduledAt           DateTime
+  endAt                 DateTime
+  status                AppointmentStatus   @default(AGENDADO)
+  modality              AppointmentModality
+  meetingUrl            String? // For online appointments
+  notes                 String?
+  cancellationReason    String?
+  cancelledAt           DateTime?
+  confirmedAt           DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  clinic              Clinic                 @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile    @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  patient             Patient                @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  recurrence          AppointmentRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  tokens              AppointmentToken[]
+  notifications       Notification[]
+
+  @@index([clinicId])
+  @@index([professionalProfileId])
+  @@index([patientId])
+  @@index([recurrenceId])
+  @@index([scheduledAt])
+  @@index([status])
+  @@index([clinicId, scheduledAt])
+  @@index([professionalProfileId, scheduledAt])
+  @@index([clinicId, status])
+  @@index([professionalProfileId, status, scheduledAt])
+}
+
+/// Defines a recurring appointment pattern
+model AppointmentRecurrence {
+  id                    String              @id @default(cuid())
+  clinicId              String
+  professionalProfileId String
+  patientId             String
+  modality              AppointmentModality
+  dayOfWeek             Int // 0 = Sunday, 6 = Saturday
+  startTime             String // HH:mm format
+  endTime               String // HH:mm format
+  startDate             DateTime            @db.Date
+  endDate               DateTime?           @db.Date // null = indefinite
+  isActive              Boolean             @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  appointments        Appointment[]
+
+  @@index([clinicId])
+  @@index([professionalProfileId])
+  @@index([isActive])
+}
+
+/// Secure tokens for patient actions (confirm, cancel without login)
+model AppointmentToken {
+  id            String    @id @default(cuid())
+  appointmentId String
+  token         String    @unique
+  action        String // "confirm", "cancel"
+  expiresAt     DateTime
+  usedAt        DateTime?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([appointmentId])
+  @@index([expiresAt])
+}
+
+/// Notification records (email, SMS, WhatsApp)
+model Notification {
+  id            String           @id @default(cuid())
+  clinicId      String
+  patientId     String?
+  appointmentId String?
+  type          NotificationType
+  channel       String // "email", "sms", "whatsapp"
+  recipient     String // email or phone number
+  subject       String?
+  content       String
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  failedAt      DateTime?
+  failureReason String?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  clinic      Clinic       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient     Patient?     @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([appointmentId])
+  @@index([type])
+  @@index([sentAt])
+  @@index([clinicId, type])
+}
+
+/// Audit log for tracking important actions
+model AuditLog {
+  id         String   @id @default(cuid())
+  clinicId   String
+  userId     String?
+  action     String
+  entityType String // "Appointment", "Patient", etc.
+  entityId   String
+  oldValues  Json?
+  newValues  Json?
+  ipAddress  String?
+  userAgent  String?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId])
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([clinicId, createdAt])
+}
