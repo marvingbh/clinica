@@ -3,10 +3,10 @@
   "sessionId": "1bcee4bf-f577-4a44-bd35-c1fcbafab9a9",
   "status": "running",
   "startedAt": "2026-01-29T00:26:41.524Z",
-  "updatedAt": "2026-01-29T00:43:14.298Z",
-  "currentIteration": 1,
+  "updatedAt": "2026-01-29T00:52:42.278Z",
+  "currentIteration": 2,
   "maxIterations": 10,
-  "tasksCompleted": 1,
+  "tasksCompleted": 2,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -23,8 +23,8 @@
       {
         "id": "US-002",
         "title": "Prisma schema com modelo de dados completo",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-003",
@@ -218,10 +218,20 @@
       "durationMs": 426738,
       "startedAt": "2026-01-29T00:26:49.653Z",
       "endedAt": "2026-01-29T00:33:56.391Z"
+    },
+    {
+      "iteration": 2,
+      "status": "completed",
+      "taskId": "US-002",
+      "taskTitle": "Prisma schema com modelo de dados completo",
+      "taskCompleted": true,
+      "durationMs": 556347,
+      "startedAt": "2026-01-29T00:33:57.944Z",
+      "endedAt": "2026-01-29T00:43:14.291Z"
     }
   ],
   "skippedTaskIds": [],
   "cwd": "/mnt/d/personal/clinica/src",
   "activeTaskIds": [],
-  "subagentPanelVisible": false
+  "subagentPanelVisible": true
 }
