@@ -3,10 +3,10 @@
   "sessionId": "1bcee4bf-f577-4a44-bd35-c1fcbafab9a9",
   "status": "running",
   "startedAt": "2026-01-29T00:26:41.524Z",
-  "updatedAt": "2026-01-29T01:03:25.141Z",
-  "currentIteration": 3,
+  "updatedAt": "2026-01-29T01:11:20.096Z",
+  "currentIteration": 4,
   "maxIterations": 10,
-  "tasksCompleted": 3,
+  "tasksCompleted": 4,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -35,8 +35,8 @@
       {
         "id": "US-004",
         "title": "Middleware de autorização RBAC",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-005",
@@ -238,6 +238,16 @@
       "durationMs": 566364,
       "startedAt": "2026-01-29T00:43:15.906Z",
       "endedAt": "2026-01-29T00:52:42.270Z"
+    },
+    {
+      "iteration": 4,
+      "status": "completed",
+      "taskId": "US-004",
+      "taskTitle": "Middleware de autorização RBAC",
+      "taskCompleted": true,
+      "durationMs": 641209,
+      "startedAt": "2026-01-29T00:52:43.926Z",
+      "endedAt": "2026-01-29T01:03:25.135Z"
     }
   ],
   "skippedTaskIds": [],
