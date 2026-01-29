@@ -1,13 +1,30 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/api"
-import { checkConflict, formatConflictError, createAppointmentTokens, buildConfirmLink, buildCancelLink } from "@/lib/appointments"
+import { checkConflict, formatConflictError, createAppointmentTokens, buildConfirmLink, buildCancelLink, validateRecurrenceOptions, calculateRecurrenceDates } from "@/lib/appointments"
 import { createNotification } from "@/lib/notifications"
-import { NotificationChannel, NotificationType } from "@/generated/prisma/client"
+import { NotificationChannel, NotificationType, RecurrenceType, RecurrenceEndType } from "@/generated/prisma/client"
 import { audit, AuditAction } from "@/lib/rbac"
 import { z } from "zod"
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
+
+const recurrenceSchema = z.object({
+  recurrenceType: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]),
+  recurrenceEndType: z.enum(["BY_DATE", "BY_OCCURRENCES"]),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional(),
+  occurrences: z.number().int().min(1).max(52).optional(),
+}).refine((data) => {
+  if (data.recurrenceEndType === "BY_DATE" && !data.endDate) {
+    return false
+  }
+  if (data.recurrenceEndType === "BY_OCCURRENCES" && !data.occurrences) {
+    return false
+  }
+  return true
+}, {
+  message: "End date is required for BY_DATE, occurrences is required for BY_OCCURRENCES",
+})
 
 const createAppointmentSchema = z.object({
   patientId: z.string().min(1, "Patient ID is required"),
@@ -17,6 +34,7 @@ const createAppointmentSchema = z.object({
   duration: z.number().int().min(15).max(480).optional(),
   modality: z.enum(["ONLINE", "PRESENCIAL"]),
   notes: z.string().max(2000).optional().nullable(),
+  recurrence: recurrenceSchema.optional(),
 })
 
 /**
@@ -123,6 +141,11 @@ export const GET = withAuth(
  * - duration: number (minutes, optional - defaults to professional's appointmentDuration)
  * - modality: "ONLINE" | "PRESENCIAL" (required)
  * - notes: string (optional)
+ * - recurrence: object (optional) - for recurring appointments
+ *   - recurrenceType: "WEEKLY" | "BIWEEKLY" | "MONTHLY"
+ *   - recurrenceEndType: "BY_DATE" | "BY_OCCURRENCES"
+ *   - endDate: string (YYYY-MM-DD) - required if BY_DATE
+ *   - occurrences: number (1-52) - required if BY_OCCURRENCES
  *
  * Validations:
  * 1. Professional must exist in the same clinic
@@ -130,6 +153,7 @@ export const GET = withAuth(
  * 3. Time slot must be within professional's availability rules
  * 4. No double-booking (overlapping appointments)
  * 5. No booking during blocked exceptions
+ * 6. For recurring: validates ALL instances against availability (fails if any conflict)
  */
 export const POST = withAuth(
   { resource: "appointment", action: "create" },
@@ -145,7 +169,7 @@ export const POST = withAuth(
       )
     }
 
-    const { patientId, date, startTime, duration, modality, notes } = validation.data
+    const { patientId, date, startTime, duration, modality, notes, recurrence } = validation.data
 
     // Determine professionalProfileId
     let targetProfessionalProfileId = validation.data.professionalProfileId
@@ -224,10 +248,6 @@ export const POST = withAuth(
     // Calculate appointment times
     const appointmentDuration = duration || professional.appointmentDuration
 
-    const scheduledAt = new Date(`${date}T${startTime}:00`)
-    const endAt = new Date(scheduledAt.getTime() + appointmentDuration * 60 * 1000)
-    const endTime = `${String(endAt.getHours()).padStart(2, "0")}:${String(endAt.getMinutes()).padStart(2, "0")}`
-
     // Validate appointment date is not in the past
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -241,176 +261,319 @@ export const POST = withAuth(
       )
     }
 
-    // Get day of week for the appointment
-    const dayOfWeek = new Date(`${date}T12:00:00`).getDay()
+    // Validate recurrence options if provided
+    if (recurrence) {
+      const recurrenceValidation = validateRecurrenceOptions({
+        recurrenceType: recurrence.recurrenceType as RecurrenceType,
+        recurrenceEndType: recurrence.recurrenceEndType as RecurrenceEndType,
+        endDate: recurrence.endDate,
+        occurrences: recurrence.occurrences,
+      })
 
-    // 1. Validate against availability rules
-    const availabilityRules = await prisma.availabilityRule.findMany({
+      if (!recurrenceValidation.valid) {
+        return NextResponse.json(
+          { error: recurrenceValidation.error },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Calculate all dates (single or recurring)
+    const appointmentDates = recurrence
+      ? calculateRecurrenceDates(date, startTime, appointmentDuration, {
+          recurrenceType: recurrence.recurrenceType as RecurrenceType,
+          recurrenceEndType: recurrence.recurrenceEndType as RecurrenceEndType,
+          endDate: recurrence.endDate,
+          occurrences: recurrence.occurrences,
+        })
+      : [{
+          date,
+          scheduledAt: new Date(`${date}T${startTime}:00`),
+          endAt: new Date(new Date(`${date}T${startTime}:00`).getTime() + appointmentDuration * 60 * 1000),
+        }]
+
+    // Validate ALL appointment dates against availability before creating any
+    const allAvailabilityRules = await prisma.availabilityRule.findMany({
       where: {
         professionalProfileId: targetProfessionalProfileId,
-        dayOfWeek,
         isActive: true,
       },
     })
 
-    if (availabilityRules.length === 0) {
-      return NextResponse.json(
-        { error: "Professional is not available on this day" },
-        { status: 400 }
-      )
-    }
+    // Get all exception dates in the range
+    const startDateRange = new Date(appointmentDates[0].date)
+    const endDateRange = new Date(appointmentDates[appointmentDates.length - 1].date)
 
-    // Check if the appointment time falls within any availability rule
-    const isWithinAvailability = availabilityRules.some((rule) => {
-      return startTime >= rule.startTime && endTime <= rule.endTime
-    })
-
-    if (!isWithinAvailability) {
-      return NextResponse.json(
-        { error: "Appointment time is outside of professional's availability hours" },
-        { status: 400 }
-      )
-    }
-
-    // 2. Validate against availability exceptions (blocks)
-    const exceptions = await prisma.availabilityException.findMany({
+    const allExceptions = await prisma.availabilityException.findMany({
       where: {
         professionalProfileId: targetProfessionalProfileId,
-        date: new Date(date),
-        isAvailable: false, // Only check blocks
+        date: {
+          gte: startDateRange,
+          lte: endDateRange,
+        },
+        isAvailable: false,
       },
     })
 
-    for (const exception of exceptions) {
-      // Full-day block
-      if (!exception.startTime || !exception.endTime) {
+    // Validate each appointment date
+    for (let i = 0; i < appointmentDates.length; i++) {
+      const apptDate = appointmentDates[i]
+      const dayOfWeek = apptDate.scheduledAt.getDay()
+      const apptStartTime = `${String(apptDate.scheduledAt.getHours()).padStart(2, "0")}:${String(apptDate.scheduledAt.getMinutes()).padStart(2, "0")}`
+      const apptEndTime = `${String(apptDate.endAt.getHours()).padStart(2, "0")}:${String(apptDate.endAt.getMinutes()).padStart(2, "0")}`
+
+      // Check availability rules for this day
+      const dayRules = allAvailabilityRules.filter(rule => rule.dayOfWeek === dayOfWeek)
+
+      if (dayRules.length === 0) {
         return NextResponse.json(
-          { error: exception.reason || "Professional is not available on this date" },
+          {
+            error: `Profissional nao disponivel em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")} (${["Domingo", "Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado"][dayOfWeek]})`,
+            conflictDate: apptDate.date,
+            occurrenceIndex: i + 1,
+          },
           { status: 400 }
         )
       }
 
-      // Time-specific block - check for overlap
-      if (startTime < exception.endTime && endTime > exception.startTime) {
+      // Check if time is within availability
+      const isWithinAvailability = dayRules.some(rule =>
+        apptStartTime >= rule.startTime && apptEndTime <= rule.endTime
+      )
+
+      if (!isWithinAvailability) {
         return NextResponse.json(
-          { error: exception.reason || "This time slot is blocked" },
+          {
+            error: `Horario fora da disponibilidade em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")}`,
+            conflictDate: apptDate.date,
+            occurrenceIndex: i + 1,
+          },
           { status: 400 }
         )
+      }
+
+      // Check exceptions for this date
+      const dateStr = apptDate.date
+      const dayExceptions = allExceptions.filter(ex => {
+        const exDate = new Date(ex.date)
+        const exDateStr = `${exDate.getFullYear()}-${String(exDate.getMonth() + 1).padStart(2, "0")}-${String(exDate.getDate()).padStart(2, "0")}`
+        return exDateStr === dateStr
+      })
+
+      for (const exception of dayExceptions) {
+        // Full-day block
+        if (!exception.startTime || !exception.endTime) {
+          return NextResponse.json(
+            {
+              error: exception.reason || `Profissional nao disponivel em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")}`,
+              conflictDate: apptDate.date,
+              occurrenceIndex: i + 1,
+            },
+            { status: 400 }
+          )
+        }
+
+        // Time-specific block
+        if (apptStartTime < exception.endTime && apptEndTime > exception.startTime) {
+          return NextResponse.json(
+            {
+              error: exception.reason || `Horario bloqueado em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")}`,
+              conflictDate: apptDate.date,
+              occurrenceIndex: i + 1,
+            },
+            { status: 400 }
+          )
+        }
       }
     }
 
     // Use transaction with database-level locking to prevent race conditions
     const result = await prisma.$transaction(async (tx) => {
-      // 3. Validate against existing appointments (no double-booking) with row-level locking
-      const conflictResult = await checkConflict({
-        professionalProfileId: targetProfessionalProfileId,
-        scheduledAt,
-        endAt,
-        bufferMinutes: professional.bufferBetweenSlots || 0,
-      }, tx)
+      // Check ALL appointments for conflicts before creating any
+      for (let i = 0; i < appointmentDates.length; i++) {
+        const apptDate = appointmentDates[i]
 
-      if (conflictResult.hasConflict && conflictResult.conflictingAppointment) {
-        return { conflict: conflictResult.conflictingAppointment }
+        const conflictResult = await checkConflict({
+          professionalProfileId: targetProfessionalProfileId,
+          scheduledAt: apptDate.scheduledAt,
+          endAt: apptDate.endAt,
+          bufferMinutes: professional.bufferBetweenSlots || 0,
+        }, tx)
+
+        if (conflictResult.hasConflict && conflictResult.conflictingAppointment) {
+          return {
+            conflict: conflictResult.conflictingAppointment,
+            conflictDate: apptDate.date,
+            occurrenceIndex: i + 1,
+          }
+        }
       }
 
-      const newAppointment = await tx.appointment.create({
-        data: {
-          clinicId: user.clinicId,
-          professionalProfileId: targetProfessionalProfileId,
-          patientId,
-          scheduledAt,
-          endAt,
-          modality,
-          notes: notes || null,
-        },
-        include: {
-          patient: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-            },
+      // Create recurrence record if this is a recurring appointment
+      let recurrenceId: string | null = null
+
+      if (recurrence) {
+        const firstDate = appointmentDates[0]
+        const dayOfWeek = firstDate.scheduledAt.getDay()
+        const apptEndTime = `${String(firstDate.endAt.getHours()).padStart(2, "0")}:${String(firstDate.endAt.getMinutes()).padStart(2, "0")}`
+
+        const recurrenceRecord = await tx.appointmentRecurrence.create({
+          data: {
+            clinicId: user.clinicId,
+            professionalProfileId: targetProfessionalProfileId,
+            patientId,
+            modality,
+            dayOfWeek,
+            startTime,
+            endTime: apptEndTime,
+            duration: appointmentDuration,
+            recurrenceType: recurrence.recurrenceType as RecurrenceType,
+            recurrenceEndType: recurrence.recurrenceEndType as RecurrenceEndType,
+            startDate: new Date(appointmentDates[0].date),
+            endDate: recurrence.endDate ? new Date(recurrence.endDate) : null,
+            occurrences: recurrence.occurrences || null,
           },
-          professionalProfile: {
-            select: {
-              id: true,
-              user: {
-                select: {
-                  name: true,
+        })
+        recurrenceId = recurrenceRecord.id
+      }
+
+      // Create all appointments
+      const createdAppointments = []
+      const createdTokens = []
+
+      for (const apptDate of appointmentDates) {
+        const newAppointment = await tx.appointment.create({
+          data: {
+            clinicId: user.clinicId,
+            professionalProfileId: targetProfessionalProfileId,
+            patientId,
+            recurrenceId,
+            scheduledAt: apptDate.scheduledAt,
+            endAt: apptDate.endAt,
+            modality,
+            notes: notes || null,
+          },
+          include: {
+            patient: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+              },
+            },
+            professionalProfile: {
+              select: {
+                id: true,
+                user: {
+                  select: {
+                    name: true,
+                  },
                 },
               },
             },
           },
-        },
-      })
+        })
 
-      // Create tokens for confirm/cancel actions (expires 24h after appointment)
-      const tokens = await createAppointmentTokens(newAppointment.id, scheduledAt, tx)
+        // Create tokens for confirm/cancel actions
+        const tokens = await createAppointmentTokens(newAppointment.id, apptDate.scheduledAt, tx)
 
-      // Update patient's lastVisitAt if this is a future appointment
+        createdAppointments.push(newAppointment)
+        createdTokens.push(tokens)
+      }
+
+      // Update patient's lastVisitAt
       await tx.patient.update({
         where: { id: patientId },
         data: { lastVisitAt: new Date() },
       })
 
-      return { appointment: newAppointment, tokens }
+      return {
+        appointments: createdAppointments,
+        tokens: createdTokens,
+        recurrenceId,
+      }
     })
 
     // Check if conflict was detected within the transaction
     if ("conflict" in result && result.conflict) {
       return NextResponse.json(
-        formatConflictError(result.conflict),
+        {
+          ...formatConflictError(result.conflict),
+          conflictDate: "conflictDate" in result ? result.conflictDate : undefined,
+          occurrenceIndex: "occurrenceIndex" in result ? result.occurrenceIndex : undefined,
+        },
         { status: 409 }
       )
     }
 
-    // Create audit log
-    await audit.log({
-      user,
-      action: AuditAction.APPOINTMENT_CREATED,
-      entityType: "Appointment",
-      entityId: result.appointment.id,
-      newValues: {
-        patientId,
-        patientName: patient.name,
-        professionalProfileId: targetProfessionalProfileId,
-        professionalName: professional.user.name,
-        scheduledAt: scheduledAt.toISOString(),
-        endAt: endAt.toISOString(),
-        modality,
-        notes: notes || null,
-      },
-      request: req,
-    })
+    // Create audit log for each appointment
+    for (let i = 0; i < result.appointments.length; i++) {
+      const appointment = result.appointments[i]
+      await audit.log({
+        user,
+        action: AuditAction.APPOINTMENT_CREATED,
+        entityType: "Appointment",
+        entityId: appointment.id,
+        newValues: {
+          patientId,
+          patientName: patient.name,
+          professionalProfileId: targetProfessionalProfileId,
+          professionalName: professional.user.name,
+          scheduledAt: appointment.scheduledAt.toISOString(),
+          endAt: appointment.endAt.toISOString(),
+          modality,
+          notes: notes || null,
+          recurrenceId: result.recurrenceId,
+          isRecurring: !!recurrence,
+          occurrenceIndex: recurrence ? i + 1 : undefined,
+          totalOccurrences: recurrence ? result.appointments.length : undefined,
+        },
+        request: req,
+      })
+    }
 
-    // Queue notifications asynchronously (don't block API response)
-    // Wrapped in try-catch to ensure notification failures don't fail appointment creation
+    // Queue notifications for first appointment only (for recurring)
+    // Subsequent appointments will get reminders via scheduled jobs
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-      const confirmLink = buildConfirmLink(baseUrl, result.tokens.confirmToken)
-      const cancelLink = buildCancelLink(baseUrl, result.tokens.cancelToken)
+      const firstAppointment = result.appointments[0]
+      const firstTokens = result.tokens[0]
 
-      const professionalName = result.appointment.professionalProfile.user.name
-      const formattedDate = scheduledAt.toLocaleDateString("pt-BR", {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+      const confirmLink = buildConfirmLink(baseUrl, firstTokens.confirmToken)
+      const cancelLink = buildCancelLink(baseUrl, firstTokens.cancelToken)
+
+      const professionalName = firstAppointment.professionalProfile.user.name
+      const formattedDate = firstAppointment.scheduledAt.toLocaleDateString("pt-BR", {
         weekday: "long",
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
       })
-      const formattedTime = scheduledAt.toLocaleTimeString("pt-BR", {
+      const formattedTime = firstAppointment.scheduledAt.toLocaleTimeString("pt-BR", {
         hour: "2-digit",
         minute: "2-digit",
       })
 
-      const notificationContent = `Olá ${patient.name}!\n\nSeu agendamento foi criado com sucesso.\n\n📅 Data: ${formattedDate}\n🕐 Horário: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n📍 Modalidade: ${modality === "ONLINE" ? "Online" : "Presencial"}\n\nPara confirmar seu agendamento, acesse:\n${confirmLink}\n\nPara cancelar, acesse:\n${cancelLink}`
+      let notificationContent = `Ola ${patient.name}!\n\nSeu agendamento foi criado com sucesso.\n\n📅 Data: ${formattedDate}\n🕐 Horario: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n📍 Modalidade: ${modality === "ONLINE" ? "Online" : "Presencial"}`
+
+      if (recurrence) {
+        const recurrenceTypeLabels: Record<string, string> = {
+          WEEKLY: "Semanal",
+          BIWEEKLY: "Quinzenal",
+          MONTHLY: "Mensal",
+        }
+        notificationContent += `\n\n🔁 Agendamento recorrente: ${recurrenceTypeLabels[recurrence.recurrenceType]} (${result.appointments.length} sessoes)`
+      }
+
+      notificationContent += `\n\nPara confirmar seu agendamento, acesse:\n${confirmLink}\n\nPara cancelar, acesse:\n${cancelLink}`
 
       // Queue WhatsApp notification if patient has consent
       if (patient.consentWhatsApp && patient.phone) {
         createNotification({
           clinicId: user.clinicId,
           patientId: patient.id,
-          appointmentId: result.appointment.id,
+          appointmentId: firstAppointment.id,
           type: NotificationType.APPOINTMENT_CONFIRMATION,
           channel: NotificationChannel.WHATSAPP,
           recipient: patient.phone,
@@ -425,11 +588,13 @@ export const POST = withAuth(
         createNotification({
           clinicId: user.clinicId,
           patientId: patient.id,
-          appointmentId: result.appointment.id,
+          appointmentId: firstAppointment.id,
           type: NotificationType.APPOINTMENT_CONFIRMATION,
           channel: NotificationChannel.EMAIL,
           recipient: patient.email,
-          subject: "Agendamento Criado - Confirmação",
+          subject: recurrence
+            ? `Agendamento Recorrente Criado - ${result.appointments.length} sessoes`
+            : "Agendamento Criado - Confirmacao",
           content: notificationContent,
         }).catch(() => {
           // Silently ignore - notification failure should not affect appointment creation
@@ -439,13 +604,28 @@ export const POST = withAuth(
       // Silently ignore notification errors - appointment creation succeeded
     }
 
-    // Return appointment with token info
+    // Return response based on whether it's recurring or single
+    if (recurrence) {
+      return NextResponse.json({
+        appointments: result.appointments,
+        recurrenceId: result.recurrenceId,
+        totalOccurrences: result.appointments.length,
+        tokens: {
+          // Return tokens for first appointment
+          confirm: result.tokens[0].confirmToken,
+          cancel: result.tokens[0].cancelToken,
+          expiresAt: result.tokens[0].expiresAt,
+        },
+      }, { status: 201 })
+    }
+
+    // Single appointment response (backwards compatible)
     return NextResponse.json({
-      appointment: result.appointment,
+      appointment: result.appointments[0],
       tokens: {
-        confirm: result.tokens.confirmToken,
-        cancel: result.tokens.cancelToken,
-        expiresAt: result.tokens.expiresAt,
+        confirm: result.tokens[0].confirmToken,
+        cancel: result.tokens[0].cancelToken,
+        expiresAt: result.tokens[0].expiresAt,
       },
     }, { status: 201 })
   }

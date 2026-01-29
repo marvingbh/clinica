@@ -19,3 +19,11 @@ export {
   type GeneratedTokens,
   type TokenValidationResult,
 } from "./token-service"
+
+export {
+  validateRecurrenceOptions,
+  calculateRecurrenceDates,
+  formatRecurrenceSummary,
+  type RecurrenceOptions,
+  type RecurrenceDate,
+} from "./recurrence"

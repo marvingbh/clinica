@@ -61,6 +61,17 @@ enum ConsentType {
   MARKETING_COMMUNICATIONS
 }
 
+enum RecurrenceType {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+enum RecurrenceEndType {
+  BY_DATE
+  BY_OCCURRENCES
+}
+
 // ============================================================================
 // MODELS
 // ============================================================================
@@ -210,9 +221,10 @@ model Patient {
   updatedAt DateTime @updatedAt
 
   // Relations
-  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  appointments  Appointment[]
-  notifications Notification[]
+  clinic                 Clinic                  @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  appointments           Appointment[]
+  notifications          Notification[]
+  appointmentRecurrences AppointmentRecurrence[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, phone])
@@ -274,8 +286,12 @@ model AppointmentRecurrence {
   dayOfWeek             Int // 0 = Sunday, 6 = Saturday
   startTime             String // HH:mm format
   endTime               String // HH:mm format
+  duration              Int // in minutes
+  recurrenceType        RecurrenceType
+  recurrenceEndType     RecurrenceEndType
   startDate             DateTime            @db.Date
-  endDate               DateTime?           @db.Date // null = indefinite
+  endDate               DateTime?           @db.Date // null = indefinite (used when endType is BY_DATE)
+  occurrences           Int? // Number of occurrences (used when endType is BY_OCCURRENCES)
   isActive              Boolean             @default(true)
 
   createdAt DateTime @default(now())
@@ -284,10 +300,12 @@ model AppointmentRecurrence {
   // Relations
   clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  patient             Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
   appointments        Appointment[]
 
   @@index([clinicId])
   @@index([professionalProfileId])
+  @@index([patientId])
   @@index([isActive])
 }
 
