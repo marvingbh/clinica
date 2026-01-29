@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth, forbiddenResponse } from "@/lib/api"
+import { checkConflict, formatConflictError } from "@/lib/appointments"
 
 /**
  * GET /api/appointments/:id
@@ -49,6 +50,8 @@ export const GET = withAuth(
 /**
  * PATCH /api/appointments/:id
  * Update an appointment - ADMIN can update any in clinic, PROFESSIONAL only their own
+ *
+ * If scheduledAt or endAt are updated, performs conflict check with database-level locking.
  */
 export const PATCH = withAuth(
   {
@@ -62,6 +65,13 @@ export const PATCH = withAuth(
       where: {
         id: params.id,
         clinicId: user.clinicId,
+      },
+      include: {
+        professionalProfile: {
+          select: {
+            bufferBetweenSlots: true,
+          },
+        },
       },
     })
 
@@ -89,30 +99,62 @@ export const PATCH = withAuth(
       updateData.cancelledAt = new Date()
     }
 
-    const appointment = await prisma.appointment.update({
-      where: { id: params.id },
-      data: updateData,
-      include: {
-        patient: {
-          select: {
-            id: true,
-            name: true,
+    // Check if time is being updated - need conflict check
+    const isTimeUpdate = scheduledAt !== undefined || endAt !== undefined
+    const newScheduledAt = scheduledAt ? new Date(scheduledAt) : existing.scheduledAt
+    const newEndAt = endAt ? new Date(endAt) : existing.endAt
+
+    // Use transaction with conflict check if time is being updated
+    const result = await prisma.$transaction(async (tx) => {
+      if (isTimeUpdate) {
+        const conflictResult = await checkConflict({
+          professionalProfileId: existing.professionalProfileId,
+          scheduledAt: newScheduledAt,
+          endAt: newEndAt,
+          excludeAppointmentId: params.id,
+          bufferMinutes: existing.professionalProfile?.bufferBetweenSlots || 0,
+        }, tx)
+
+        if (conflictResult.hasConflict && conflictResult.conflictingAppointment) {
+          return { conflict: conflictResult.conflictingAppointment }
+        }
+      }
+
+      const updatedAppointment = await tx.appointment.update({
+        where: { id: params.id },
+        data: updateData,
+        include: {
+          patient: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
-        },
-        professionalProfile: {
-          select: {
-            id: true,
-            user: {
-              select: {
-                name: true,
+          professionalProfile: {
+            select: {
+              id: true,
+              user: {
+                select: {
+                  name: true,
+                },
               },
             },
           },
         },
-      },
+      })
+
+      return { appointment: updatedAppointment }
     })
 
-    return NextResponse.json({ appointment })
+    // Check if conflict was detected within the transaction
+    if ("conflict" in result && result.conflict) {
+      return NextResponse.json(
+        formatConflictError(result.conflict),
+        { status: 409 }
+      )
+    }
+
+    return NextResponse.json({ appointment: result.appointment })
   }
 )
 

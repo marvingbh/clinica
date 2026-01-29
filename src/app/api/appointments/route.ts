@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/api"
+import { checkConflict, formatConflictError } from "@/lib/appointments"
 import { z } from "zod"
 import { randomBytes } from "crypto"
 
@@ -175,6 +176,7 @@ export const POST = withAuth(
       select: {
         id: true,
         appointmentDuration: true,
+        bufferBetweenSlots: true,
         user: {
           select: {
             name: true,
@@ -292,48 +294,25 @@ export const POST = withAuth(
       }
     }
 
-    // 3. Validate against existing appointments (no double-booking)
-    const existingAppointments = await prisma.appointment.findMany({
-      where: {
-        professionalProfileId: targetProfessionalProfileId,
-        scheduledAt: {
-          gte: new Date(`${date}T00:00:00`),
-          lt: new Date(`${date}T23:59:59`),
-        },
-        status: {
-          notIn: ["CANCELADO_PACIENTE", "CANCELADO_PROFISSIONAL"],
-        },
-      },
-      select: {
-        scheduledAt: true,
-        endAt: true,
-        patient: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    })
-
-    for (const existing of existingAppointments) {
-      const existingStart = existing.scheduledAt
-      const existingEnd = existing.endAt
-
-      // Check for time overlap
-      if (scheduledAt < existingEnd && endAt > existingStart) {
-        return NextResponse.json(
-          { error: "Time slot conflicts with an existing appointment" },
-          { status: 409 }
-        )
-      }
-    }
-
-    // Create the appointment with tokens
+    // Create the appointment with tokens using transaction with conflict check
     const confirmToken = generateToken()
     const cancelToken = generateToken()
     const tokenExpiry = new Date(scheduledAt.getTime() - 60 * 60 * 1000) // 1 hour before appointment
 
-    const appointment = await prisma.$transaction(async (tx) => {
+    // Use transaction with database-level locking to prevent race conditions
+    const result = await prisma.$transaction(async (tx) => {
+      // 3. Validate against existing appointments (no double-booking) with row-level locking
+      const conflictResult = await checkConflict({
+        professionalProfileId: targetProfessionalProfileId,
+        scheduledAt,
+        endAt,
+        bufferMinutes: professional.bufferBetweenSlots || 0,
+      }, tx)
+
+      if (conflictResult.hasConflict && conflictResult.conflictingAppointment) {
+        return { conflict: conflictResult.conflictingAppointment }
+      }
+
       const newAppointment = await tx.appointment.create({
         data: {
           clinicId: user.clinicId,
@@ -390,12 +369,20 @@ export const POST = withAuth(
         data: { lastVisitAt: new Date() },
       })
 
-      return newAppointment
+      return { appointment: newAppointment }
     })
+
+    // Check if conflict was detected within the transaction
+    if ("conflict" in result && result.conflict) {
+      return NextResponse.json(
+        formatConflictError(result.conflict),
+        { status: 409 }
+      )
+    }
 
     // Return appointment with token info
     return NextResponse.json({
-      appointment,
+      appointment: result.appointment,
       tokens: {
         confirm: confirmToken,
         cancel: cancelToken,
