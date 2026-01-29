@@ -13,6 +13,29 @@ export function Skeleton({ className = "" }: SkeletonProps) {
   )
 }
 
+type SkeletonAvatarSize = "sm" | "md" | "lg" | "xl"
+
+const avatarSizeClasses: Record<SkeletonAvatarSize, string> = {
+  sm: "w-8 h-8",
+  md: "w-10 h-10",
+  lg: "w-12 h-12",
+  xl: "w-16 h-16",
+}
+
+export function SkeletonAvatar({
+  size = "md",
+  className = "",
+}: {
+  size?: SkeletonAvatarSize
+  className?: string
+}) {
+  return (
+    <Skeleton
+      className={`rounded-full flex-shrink-0 ${avatarSizeClasses[size]} ${className}`}
+    />
+  )
+}
+
 export function SkeletonText({
   lines = 1,
   className = "",

@@ -4,6 +4,7 @@ export { FAB } from "./fab"
 export { BottomSheet, BottomSheetAction, BottomSheetDivider } from "./bottom-sheet"
 export {
   Skeleton,
+  SkeletonAvatar,
   SkeletonText,
   SkeletonCard,
   SkeletonTimeSlot,
