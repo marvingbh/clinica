@@ -213,6 +213,9 @@ export default function AgendaPage() {
   // Status update state
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
 
+  // Resend confirmation state
+  const [isResendingConfirmation, setIsResendingConfirmation] = useState(false)
+
   const {
     register,
     handleSubmit,
@@ -571,6 +574,43 @@ export default function AgendaPage() {
 
   async function handleNaoCompareceuAppointment() {
     await handleUpdateStatus("NAO_COMPARECEU", "Paciente marcado como não compareceu")
+  }
+
+  async function handleResendConfirmation() {
+    if (!selectedAppointment) return
+
+    setIsResendingConfirmation(true)
+
+    try {
+      const response = await fetch(`/api/appointments/${selectedAppointment.id}/resend-confirmation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        toast.error(result.error || "Erro ao reenviar confirmacao")
+        return
+      }
+
+      const channels = result.notificationsSent?.join(" e ") || "notificacao"
+      toast.success(`Links de confirmacao reenviados via ${channels}`)
+    } catch {
+      toast.error("Erro ao reenviar confirmacao")
+    } finally {
+      setIsResendingConfirmation(false)
+    }
+  }
+
+  // Check if can resend confirmation (has consent and valid status)
+  function canResendConfirmation(appointment: Appointment | null): boolean {
+    if (!appointment) return false
+    if (!["AGENDADO", "CONFIRMADO"].includes(appointment.status)) return false
+    return !!(
+      (appointment.patient.consentWhatsApp && appointment.patient.phone) ||
+      (appointment.patient.consentEmail && appointment.patient.email)
+    )
   }
 
   async function onSubmitAppointment(data: AppointmentFormData) {
@@ -1385,7 +1425,7 @@ export default function AgendaPage() {
                     <button
                       type="button"
                       onClick={handleFinalizarAppointment}
-                      disabled={isUpdatingStatus || isUpdatingAppointment}
+                      disabled={isUpdatingStatus || isUpdatingAppointment || isResendingConfirmation}
                       className="h-12 rounded-md bg-gray-100 text-gray-800 font-medium border border-gray-200 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1396,7 +1436,7 @@ export default function AgendaPage() {
                     <button
                       type="button"
                       onClick={handleNaoCompareceuAppointment}
-                      disabled={isUpdatingStatus || isUpdatingAppointment}
+                      disabled={isUpdatingStatus || isUpdatingAppointment || isResendingConfirmation}
                       className="h-12 rounded-md bg-yellow-100 text-yellow-800 font-medium border border-yellow-200 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1405,6 +1445,21 @@ export default function AgendaPage() {
                       {isUpdatingStatus ? "..." : "Nao compareceu"}
                     </button>
                   </div>
+
+                  {/* Resend Confirmation Button */}
+                  {canResendConfirmation(selectedAppointment) && (
+                    <button
+                      type="button"
+                      onClick={handleResendConfirmation}
+                      disabled={isResendingConfirmation || isUpdatingStatus || isUpdatingAppointment}
+                      className="w-full mt-3 h-12 rounded-md bg-blue-100 text-blue-800 font-medium border border-blue-200 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      {isResendingConfirmation ? "Reenviando..." : "Reenviar confirmacao"}
+                    </button>
+                  )}
                 </div>
               )}
 
