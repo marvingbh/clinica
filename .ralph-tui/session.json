@@ -3,10 +3,10 @@
   "sessionId": "1bcee4bf-f577-4a44-bd35-c1fcbafab9a9",
   "status": "running",
   "startedAt": "2026-01-29T00:26:41.524Z",
-  "updatedAt": "2026-01-29T01:18:37.184Z",
-  "currentIteration": 5,
+  "updatedAt": "2026-01-29T01:28:34.138Z",
+  "currentIteration": 6,
   "maxIterations": 10,
-  "tasksCompleted": 5,
+  "tasksCompleted": 6,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -47,8 +47,8 @@
       {
         "id": "US-006",
         "title": "CRUD de profissionais (ADMIN only)",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-007",
@@ -258,6 +258,16 @@
       "durationMs": 473135,
       "startedAt": "2026-01-29T01:03:26.954Z",
       "endedAt": "2026-01-29T01:11:20.089Z"
+    },
+    {
+      "iteration": 6,
+      "status": "completed",
+      "taskId": "US-006",
+      "taskTitle": "CRUD de profissionais (ADMIN only)",
+      "taskCompleted": true,
+      "durationMs": 435270,
+      "startedAt": "2026-01-29T01:11:21.908Z",
+      "endedAt": "2026-01-29T01:18:37.178Z"
     }
   ],
   "skippedTaskIds": [],
