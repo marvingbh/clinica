@@ -10,10 +10,12 @@ import { toast } from "sonner"
 import {
   BottomNavigation,
   FAB,
-  SkeletonPage,
   EmptyState,
   UsersIcon,
+  Input,
+  SearchIcon,
 } from "@/shared/components/ui"
+import { ProfessionalCard, ProfessionalGridSkeleton } from "./components"
 
 const professionalSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100),
@@ -265,8 +267,23 @@ export default function ProfessionalsPage() {
   if (status === "loading" || isLoading) {
     return (
       <main className="min-h-screen bg-background pb-20">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <SkeletonPage />
+        {/* Header Skeleton */}
+        <div className="bg-gradient-to-br from-primary/5 via-background to-background px-4 pt-12 pb-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="h-4 w-16 bg-muted rounded animate-pulse mb-2" />
+            <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4">
+          {/* Search/Filter Skeleton */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="flex-1 h-12 bg-muted rounded-lg animate-pulse" />
+            <div className="w-full sm:w-40 h-12 bg-muted rounded-lg animate-pulse" />
+          </div>
+
+          {/* Grid Skeleton */}
+          <ProfessionalGridSkeleton count={6} />
         </div>
         <BottomNavigation />
       </main>
@@ -275,133 +292,73 @@ export default function ProfessionalsPage() {
 
   return (
     <main className="min-h-screen bg-background pb-20">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="mb-6">
+      {/* Header Section */}
+      <div className="bg-gradient-to-br from-primary/5 via-background to-background px-4 pt-12 pb-6">
+        <div className="max-w-4xl mx-auto">
           <button
             onClick={() => router.back()}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
           >
             &larr; Voltar
           </button>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
+            Profissionais
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Gerencie a equipe de profissionais da clínica
+          </p>
         </div>
+      </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <h1 className="text-2xl font-semibold text-foreground">Profissionais</h1>
-          {isAdmin && (
-            <button
-              onClick={openCreateSheet}
-              className="h-10 px-4 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-opacity"
-            >
-              + Novo Profissional
-            </button>
-          )}
-        </div>
-
+      <div className="max-w-4xl mx-auto px-4">
         {/* Search and Filter */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="flex-1">
-            <input
-              type="text"
-              placeholder="Buscar por nome, email ou especialidade..."
+            <Input
+              label="Buscar"
+              placeholder="Nome, email ou especialidade..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+              leftIcon={<SearchIcon className="w-5 h-5" />}
+              inputSize="md"
             />
           </div>
-          <select
-            value={filterActive}
-            onChange={(e) => setFilterActive(e.target.value)}
-            className="h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-          >
-            <option value="all">Todos</option>
-            <option value="true">Ativos</option>
-            <option value="false">Inativos</option>
-          </select>
+          <div className="w-full sm:w-40">
+            <select
+              value={filterActive}
+              onChange={(e) => setFilterActive(e.target.value)}
+              className="w-full h-12 px-4 rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-normal"
+            >
+              <option value="all">Todos</option>
+              <option value="true">Ativos</option>
+              <option value="false">Inativos</option>
+            </select>
+          </div>
         </div>
 
-        {/* Professionals List */}
-        <div className="space-y-4">
-          {professionals.length === 0 ? (
-            <EmptyState
-              title={search || filterActive !== "all" ? "Nenhum profissional encontrado" : "Nenhum profissional cadastrado"}
-              message={search || filterActive !== "all" ? "Tente ajustar os filtros de busca" : "Adicione seu primeiro profissional para começar"}
-              action={isAdmin && !search && filterActive === "all" ? { label: "Adicionar profissional", onClick: openCreateSheet } : undefined}
-              icon={<UsersIcon className="w-8 h-8 text-muted-foreground" />}
-            />
-          ) : (
-            professionals.map((professional) => (
-              <div
+        {/* Professionals Grid */}
+        {professionals.length === 0 ? (
+          <EmptyState
+            title={search || filterActive !== "all" ? "Nenhum profissional encontrado" : "Nenhum profissional cadastrado"}
+            message={search || filterActive !== "all" ? "Tente ajustar os filtros de busca" : "Adicione seu primeiro profissional para começar"}
+            action={isAdmin && !search && filterActive === "all" ? { label: "Adicionar profissional", onClick: openCreateSheet } : undefined}
+            icon={<UsersIcon className="w-8 h-8 text-muted-foreground" />}
+          />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {professionals.map((professional) => (
+              <ProfessionalCard
                 key={professional.id}
-                className={`bg-card border border-border rounded-lg p-4 sm:p-6 ${
-                  !professional.isActive ? "opacity-60" : ""
-                }`}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div
-                    className="flex-1 min-w-0 cursor-pointer"
-                    onClick={() => openViewSheet(professional)}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium text-foreground truncate">
-                        {professional.name}
-                      </h3>
-                      {!professional.isActive && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                          Inativo
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {professional.email}
-                    </p>
-                    {professional.professionalProfile?.specialty && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {professional.professionalProfile.specialty}
-                        {professional.professionalProfile.registrationNumber && (
-                          <span className="ml-2">
-                            ({professional.professionalProfile.registrationNumber})
-                          </span>
-                        )}
-                      </p>
-                    )}
-                    {professional.professionalProfile && (
-                      <div className="flex gap-3 mt-2">
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                          {professional.professionalProfile.appointmentDuration} min
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  {isAdmin && (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => openEditSheet(professional)}
-                        className="h-9 px-3 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
-                      >
-                        Editar
-                      </button>
-                      {professional.isActive ? (
-                        <button
-                          onClick={() => handleDeactivate(professional)}
-                          className="h-9 px-3 rounded-md border border-destructive text-destructive text-sm font-medium hover:bg-destructive hover:text-destructive-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
-                        >
-                          Desativar
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleReactivate(professional)}
-                          className="h-9 px-3 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary hover:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
-                        >
-                          Reativar
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+                professional={professional}
+                onClick={() => openViewSheet(professional)}
+                onEdit={() => openEditSheet(professional)}
+                onDeactivate={() => handleDeactivate(professional)}
+                onReactivate={() => handleReactivate(professional)}
+                isAdmin={isAdmin}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Bottom Sheet */}
@@ -430,7 +387,7 @@ export default function ProfessionalsPage() {
                     {isAdmin && (
                       <button
                         onClick={() => openEditSheet(viewingProfessional)}
-                        className="h-9 px-3 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
+                        className="h-9 px-3 rounded-lg border border-input bg-background text-foreground text-sm font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
                       >
                         Editar
                       </button>
@@ -493,7 +450,7 @@ export default function ProfessionalsPage() {
                           {/* Settings */}
                           <div>
                             <label className="text-sm text-muted-foreground mb-2 block">Configurações de Agenda</label>
-                            <div className="grid grid-cols-2 gap-4 bg-muted/50 rounded-lg p-4">
+                            <div className="grid grid-cols-2 gap-4 bg-muted/50 rounded-xl p-4">
                               <div>
                                 <p className="text-xs text-muted-foreground">Duração da sessão</p>
                                 <p className="text-sm font-medium">{viewingProfessional.professionalProfile.appointmentDuration} min</p>
@@ -521,7 +478,7 @@ export default function ProfessionalsPage() {
                         <button
                           type="button"
                           onClick={closeSheet}
-                          className="w-full h-12 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
+                          className="w-full h-12 rounded-xl border border-input bg-background text-foreground font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
                         >
                           Fechar
                         </button>
@@ -539,113 +496,60 @@ export default function ProfessionalsPage() {
                   </h2>
 
                   <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                    <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">
-                        Nome *
-                      </label>
-                      <input
-                        id="name"
-                        type="text"
-                        {...register("name")}
-                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                      />
-                      {errors.name && (
-                        <p className="text-sm text-destructive mt-1">{errors.name.message}</p>
-                      )}
-                    </div>
+                    <Input
+                      label="Nome"
+                      required
+                      {...register("name")}
+                      error={errors.name?.message}
+                    />
+
+                    <Input
+                      label="Email"
+                      type="email"
+                      required
+                      {...register("email")}
+                      error={errors.email?.message}
+                    />
+
+                    <Input
+                      label={editingProfessional ? "Senha (deixe vazio para manter)" : "Senha"}
+                      type="password"
+                      required={!editingProfessional}
+                      {...register("password")}
+                      error={errors.password?.message}
+                    />
+
+                    <Input
+                      label="Especialidade"
+                      placeholder="Ex: Psicologia Clínica"
+                      {...register("specialty")}
+                      error={errors.specialty?.message}
+                    />
+
+                    <Input
+                      label="Registro Profissional"
+                      placeholder="Ex: CRP 06/123456"
+                      {...register("registrationNumber")}
+                      error={errors.registrationNumber?.message}
+                    />
 
                     <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
-                        Email *
-                      </label>
-                      <input
-                        id="email"
-                        type="email"
-                        {...register("email")}
-                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                      />
-                      {errors.email && (
-                        <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
-                        Senha {editingProfessional ? "(deixe vazio para manter)" : "*"}
-                      </label>
-                      <input
-                        id="password"
-                        type="password"
-                        {...register("password")}
-                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                      />
-                      {errors.password && (
-                        <p className="text-sm text-destructive mt-1">{errors.password.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="specialty" className="block text-sm font-medium text-foreground mb-2">
-                        Especialidade
-                      </label>
-                      <input
-                        id="specialty"
-                        type="text"
-                        {...register("specialty")}
-                        placeholder="Ex: Psicologia Clínica"
-                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                      />
-                      {errors.specialty && (
-                        <p className="text-sm text-destructive mt-1">{errors.specialty.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="registrationNumber" className="block text-sm font-medium text-foreground mb-2">
-                        Registro Profissional
-                      </label>
-                      <input
-                        id="registrationNumber"
-                        type="text"
-                        {...register("registrationNumber")}
-                        placeholder="Ex: CRP 06/123456"
-                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                      />
-                      {errors.registrationNumber && (
-                        <p className="text-sm text-destructive mt-1">{errors.registrationNumber.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="appointmentDuration"
-                        className="block text-sm font-medium text-foreground mb-2"
-                      >
-                        Duração padrão da sessão (minutos)
-                      </label>
-                      <input
-                        id="appointmentDuration"
+                      <Input
+                        label="Duração padrão da sessão (minutos)"
                         type="number"
                         min={15}
                         max={180}
                         {...register("appointmentDuration", { valueAsNumber: true })}
-                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                        error={errors.appointmentDuration?.message}
+                        helperText="Tempo padrão para novos agendamentos (15-180 minutos)"
                       />
-                      {errors.appointmentDuration && (
-                        <p className="text-sm text-destructive mt-1">
-                          {errors.appointmentDuration.message}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Tempo padrão para novos agendamentos (15-180 minutos)
-                      </p>
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3 pt-4">
                       <button
                         type="submit"
                         disabled={isSaving}
-                        className="flex-1 h-12 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                        className="flex-1 h-12 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-normal active:scale-[0.98] shadow-md hover:shadow-lg"
                       >
                         {isSaving
                           ? "Salvando..."
@@ -656,7 +560,7 @@ export default function ProfessionalsPage() {
                       <button
                         type="button"
                         onClick={closeSheet}
-                        className="flex-1 sm:flex-initial sm:w-32 h-12 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
+                        className="flex-1 sm:flex-initial sm:w-32 h-12 rounded-xl border border-input bg-background text-foreground font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
                       >
                         Cancelar
                       </button>
