@@ -32,12 +32,13 @@
         "Add transition/animation duration tokens"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "dependsOn": [],
       "labels": [
         "setup",
         "design-system"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-003",
@@ -264,6 +265,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-29T19:19:10.033Z"
+    "updatedAt": "2026-01-29T19:21:32.723Z"
   }
 }
