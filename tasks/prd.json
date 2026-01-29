@@ -239,14 +239,15 @@
         "Respects reduced-motion preferences"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-002"
       ],
       "labels": [
         "animation",
         "ux"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-012",
@@ -274,6 +275,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-29T20:11:23.164Z"
+    "updatedAt": "2026-01-29T20:22:04.697Z"
   }
 }
