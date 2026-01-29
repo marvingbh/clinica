@@ -207,6 +207,9 @@ export default function AgendaPage() {
   const [notifyPatient, setNotifyPatient] = useState(true)
   const [isCancellingAppointment, setIsCancellingAppointment] = useState(false)
 
+  // Status update state
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+
   const {
     register,
     handleSubmit,
@@ -521,6 +524,50 @@ export default function AgendaPage() {
   function hasNotificationConsent(appointment: Appointment | null): boolean {
     if (!appointment) return false
     return !!(appointment.patient.consentWhatsApp || appointment.patient.consentEmail)
+  }
+
+  // Check if appointment can be marked as finalized or no-show
+  function canMarkStatus(appointment: Appointment | null): boolean {
+    if (!appointment) return false
+    return ["AGENDADO", "CONFIRMADO"].includes(appointment.status)
+  }
+
+  // Update appointment status
+  async function handleUpdateStatus(newStatus: string, successMessage: string) {
+    if (!selectedAppointment) return
+
+    setIsUpdatingStatus(true)
+
+    try {
+      const response = await fetch(`/api/appointments/${selectedAppointment.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        toast.error(result.error || "Erro ao atualizar status")
+        return
+      }
+
+      toast.success(successMessage)
+      closeEditSheet()
+      fetchAppointments()
+    } catch {
+      toast.error("Erro ao atualizar status")
+    } finally {
+      setIsUpdatingStatus(false)
+    }
+  }
+
+  async function handleFinalizarAppointment() {
+    await handleUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")
+  }
+
+  async function handleNaoCompareceuAppointment() {
+    await handleUpdateStatus("NAO_COMPARECEU", "Paciente marcado como não compareceu")
   }
 
   async function onSubmitAppointment(data: AppointmentFormData) {
@@ -1208,12 +1255,19 @@ export default function AgendaPage() {
 
             {/* Patient Info (read-only) */}
             <div className="px-4 py-4 bg-muted/30 border-b border-border">
-              <p className="text-sm text-muted-foreground mb-1">Paciente</p>
-              <p className="font-medium text-foreground">{selectedAppointment.patient.name}</p>
-              <p className="text-sm text-muted-foreground">{formatPhone(selectedAppointment.patient.phone)}</p>
-              {selectedAppointment.patient.email && (
-                <p className="text-sm text-muted-foreground">{selectedAppointment.patient.email}</p>
-              )}
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Paciente</p>
+                  <p className="font-medium text-foreground">{selectedAppointment.patient.name}</p>
+                  <p className="text-sm text-muted-foreground">{formatPhone(selectedAppointment.patient.phone)}</p>
+                  {selectedAppointment.patient.email && (
+                    <p className="text-sm text-muted-foreground">{selectedAppointment.patient.email}</p>
+                  )}
+                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-medium border ${statusColors[selectedAppointment.status] || "bg-gray-100 text-gray-800 border-gray-200"}`}>
+                  {statusLabels[selectedAppointment.status] || selectedAppointment.status}
+                </span>
+              </div>
               <p className="text-xs text-muted-foreground mt-2 italic">
                 Para alterar o paciente, cancele este agendamento e crie um novo.
               </p>
@@ -1367,13 +1421,44 @@ export default function AgendaPage() {
                 </div>
               )}
 
+              {/* Quick Actions (for active appointments) */}
+              {canMarkStatus(selectedAppointment) && (
+                <div className="border-t border-border pt-6">
+                  <p className="text-sm font-medium text-foreground mb-3">Acoes Rapidas</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={handleFinalizarAppointment}
+                      disabled={isUpdatingStatus || isUpdatingAppointment}
+                      className="h-12 rounded-md bg-gray-100 text-gray-800 font-medium border border-gray-200 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {isUpdatingStatus ? "..." : "Finalizar"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNaoCompareceuAppointment}
+                      disabled={isUpdatingStatus || isUpdatingAppointment}
+                      className="h-12 rounded-md bg-yellow-100 text-yellow-800 font-medium border border-yellow-200 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                      {isUpdatingStatus ? "..." : "Nao compareceu"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Actions */}
               <div className="flex flex-col sm:flex-row gap-3 pt-4 pb-8">
                 {canCancelAppointment(selectedAppointment) ? (
                   <>
                     <button
                       type="submit"
-                      disabled={isUpdatingAppointment}
+                      disabled={isUpdatingAppointment || isUpdatingStatus}
                       className="flex-1 h-12 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
                     >
                       {isUpdatingAppointment ? "Salvando..." : "Salvar Alteracoes"}
@@ -1381,7 +1466,8 @@ export default function AgendaPage() {
                     <button
                       type="button"
                       onClick={openCancelDialog}
-                      className="flex-1 sm:flex-initial h-12 rounded-md border border-red-300 bg-red-50 text-red-700 font-medium hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-background transition-colors"
+                      disabled={isUpdatingStatus}
+                      className="flex-1 sm:flex-initial h-12 rounded-md border border-red-300 bg-red-50 text-red-700 font-medium hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       Cancelar Agendamento
                     </button>
