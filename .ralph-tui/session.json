@@ -3,10 +3,10 @@
   "sessionId": "7fd0b88b-a310-4b2c-aa5f-fb61c2094109",
   "status": "running",
   "startedAt": "2026-01-29T10:34:45.891Z",
-  "updatedAt": "2026-01-29T10:38:04.956Z",
-  "currentIteration": 0,
+  "updatedAt": "2026-01-29T10:43:45.281Z",
+  "currentIteration": 1,
   "maxIterations": 10,
-  "tasksCompleted": 0,
+  "tasksCompleted": 1,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -83,8 +83,8 @@
       {
         "id": "US-012",
         "title": "Validação anti-conflito de horários",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-013",
@@ -208,7 +208,18 @@
       }
     ]
   },
-  "iterations": [],
+  "iterations": [
+    {
+      "iteration": 1,
+      "status": "completed",
+      "taskId": "US-012",
+      "taskTitle": "Validação anti-conflito de horários",
+      "taskCompleted": true,
+      "durationMs": 193109,
+      "startedAt": "2026-01-29T10:34:51.840Z",
+      "endedAt": "2026-01-29T10:38:04.949Z"
+    }
+  ],
   "skippedTaskIds": [],
   "cwd": "/mnt/d/personal/clinica/src",
   "activeTaskIds": [],
