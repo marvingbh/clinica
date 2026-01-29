@@ -3,10 +3,10 @@
   "sessionId": "7fd0b88b-a310-4b2c-aa5f-fb61c2094109",
   "status": "running",
   "startedAt": "2026-01-29T10:34:45.891Z",
-  "updatedAt": "2026-01-29T11:27:51.384Z",
-  "currentIteration": 7,
+  "updatedAt": "2026-01-29T11:33:04.359Z",
+  "currentIteration": 8,
   "maxIterations": 10,
-  "tasksCompleted": 7,
+  "tasksCompleted": 8,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -149,8 +149,8 @@
       {
         "id": "US-023",
         "title": "Infraestrutura de notificações",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-024",
@@ -278,6 +278,16 @@
       "durationMs": 395766,
       "startedAt": "2026-01-29T11:11:52.781Z",
       "endedAt": "2026-01-29T11:18:28.547Z"
+    },
+    {
+      "iteration": 8,
+      "status": "completed",
+      "taskId": "US-023",
+      "taskTitle": "Infraestrutura de notificações",
+      "taskCompleted": true,
+      "durationMs": 560844,
+      "startedAt": "2026-01-29T11:18:30.534Z",
+      "endedAt": "2026-01-29T11:27:51.378Z"
     }
   ],
   "skippedTaskIds": [],
