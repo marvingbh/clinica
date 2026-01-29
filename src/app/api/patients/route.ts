@@ -1,6 +1,24 @@
 import { NextResponse } from "next/server"
+import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/api"
+
+// WhatsApp format validation: Brazilian format with country code
+// Accepts: +5511999999999, 5511999999999, 11999999999
+const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
+
+const createPatientSchema = z.object({
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(200),
+  phone: z
+    .string()
+    .regex(phoneRegex, "Telefone inválido. Use formato WhatsApp: (11) 99999-9999"),
+  email: z.string().email("Email inválido").optional().nullable().or(z.literal("")),
+  birthDate: z.string().optional().nullable(),
+  cpf: z.string().max(14).optional().nullable().or(z.literal("")),
+  notes: z.string().max(2000).optional().nullable().or(z.literal("")),
+  consentWhatsApp: z.boolean().default(false),
+  consentEmail: z.boolean().default(false),
+})
 
 /**
  * GET /api/patients
@@ -49,8 +67,13 @@ export const GET = withAuth(
         email: true,
         phone: true,
         birthDate: true,
+        notes: true,
         isActive: true,
         lastVisitAt: true,
+        consentWhatsApp: true,
+        consentWhatsAppAt: true,
+        consentEmail: true,
+        consentEmailAt: true,
         createdAt: true,
       },
     })
@@ -67,53 +90,72 @@ export const POST = withAuth(
   { resource: "patient", action: "create" },
   async (req, { user }) => {
     const body = await req.json()
-    const { name, email, phone, birthDate, cpf, notes } = body
+
+    const validation = createPatientSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Dados inválidos", details: validation.error.flatten() },
+        { status: 400 }
+      )
+    }
+
+    const { name, email, phone, birthDate, cpf, notes, consentWhatsApp, consentEmail } =
+      validation.data
+
+    // Normalize phone number (remove non-digits, ensure country code)
+    const normalizedPhone = phone.replace(/\D/g, "")
 
     // Check for duplicate phone within clinic
     const existingPhone = await prisma.patient.findUnique({
       where: {
         clinicId_phone: {
           clinicId: user.clinicId,
-          phone,
+          phone: normalizedPhone,
         },
       },
     })
 
     if (existingPhone) {
       return NextResponse.json(
-        { error: "A patient with this phone number already exists" },
+        { error: "Já existe um paciente com este telefone" },
         { status: 409 }
       )
     }
 
     // Check for duplicate CPF if provided
-    if (cpf) {
+    const normalizedCpf = cpf ? cpf.replace(/\D/g, "") : null
+    if (normalizedCpf) {
       const existingCpf = await prisma.patient.findUnique({
         where: {
           clinicId_cpf: {
             clinicId: user.clinicId,
-            cpf,
+            cpf: normalizedCpf,
           },
         },
       })
 
       if (existingCpf) {
         return NextResponse.json(
-          { error: "A patient with this CPF already exists" },
+          { error: "Já existe um paciente com este CPF" },
           { status: 409 }
         )
       }
     }
 
+    const now = new Date()
     const patient = await prisma.patient.create({
       data: {
         clinicId: user.clinicId,
         name,
         email: email || null,
-        phone,
+        phone: normalizedPhone,
         birthDate: birthDate ? new Date(birthDate) : null,
-        cpf: cpf || null,
+        cpf: normalizedCpf,
         notes: notes || null,
+        consentWhatsApp,
+        consentWhatsAppAt: consentWhatsApp ? now : null,
+        consentEmail,
+        consentEmailAt: consentEmail ? now : null,
       },
     })
 

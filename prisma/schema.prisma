@@ -180,9 +180,15 @@ model Patient {
   phone       String
   birthDate   DateTime? @db.Date
   cpf         String? // Brazilian tax ID
-  notes       String?
+  notes       String? // Administrative observations
   isActive    Boolean   @default(true)
   lastVisitAt DateTime?
+
+  // LGPD Consent fields
+  consentWhatsApp   Boolean   @default(false)
+  consentWhatsAppAt DateTime?
+  consentEmail      Boolean   @default(false)
+  consentEmailAt    DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
