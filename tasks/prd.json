@@ -122,7 +122,7 @@
         "SkeletonAvatar variant for profile images"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-002"
       ],
@@ -130,7 +130,8 @@
         "component",
         "loading",
         "ux"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-007",
@@ -268,6 +269,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-29T19:27:52.120Z"
+    "updatedAt": "2026-01-29T19:30:39.258Z"
   }
 }
