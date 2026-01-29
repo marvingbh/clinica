@@ -136,3 +136,52 @@ npm run prisma:seed
 ```bash
 docker-compose logs -f db
 ```
+
+## Deploy na Vercel
+
+### 1. Configurar projeto na Vercel
+
+1. Conecte seu repositorio GitHub na [Vercel](https://vercel.com)
+2. A Vercel detectara automaticamente que e um projeto Next.js
+
+### 2. Configurar banco de dados
+
+**Opcao A: Vercel Postgres (Recomendado)**
+1. No dashboard da Vercel, va em "Storage"
+2. Crie um novo banco Postgres
+3. Conecte ao projeto - as variaveis serao adicionadas automaticamente
+
+**Opcao B: Banco externo (Neon, Supabase, etc.)**
+1. Crie um banco PostgreSQL no provedor escolhido
+2. Configure a `DATABASE_URL` nas variaveis de ambiente
+
+### 3. Configurar variaveis de ambiente
+
+No dashboard da Vercel, em Settings > Environment Variables, adicione:
+
+| Variavel | Descricao | Exemplo |
+|----------|-----------|---------|
+| `DATABASE_URL` | URL de conexao PostgreSQL | `postgresql://user:pass@host:5432/db` |
+| `AUTH_SECRET` | Segredo do NextAuth | Gere com: `npx auth secret` |
+| `NEXT_PUBLIC_APP_URL` | URL publica da aplicacao | `https://seu-app.vercel.app` |
+| `CRON_SECRET` | Segredo para autenticar Cron Jobs | Gere com: `openssl rand -base64 32` |
+
+### 4. Deploy
+
+O deploy sera automatico apos push para a branch principal.
+
+As migrations do Prisma rodam automaticamente via `vercel-build` script.
+
+### 5. Cron Jobs
+
+O arquivo `vercel.json` configura o cron job para lembretes:
+- **Rota:** `/api/jobs/send-reminders`
+- **Frequencia:** A cada hora (`0 * * * *`)
+
+A Vercel chamara automaticamente o endpoint com o header `Authorization: Bearer ${CRON_SECRET}`.
+
+### 6. Dominio personalizado (opcional)
+
+1. No dashboard da Vercel, va em Settings > Domains
+2. Adicione seu dominio personalizado
+3. Configure o DNS conforme as instrucoes
