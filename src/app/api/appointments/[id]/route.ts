@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth, forbiddenResponse } from "@/lib/api"
-import { checkConflict, formatConflictError } from "@/lib/appointments"
+import { checkConflict, formatConflictError, regenerateAppointmentTokens } from "@/lib/appointments"
 
 /**
  * GET /api/appointments/:id
@@ -143,7 +143,13 @@ export const PATCH = withAuth(
         },
       })
 
-      return { appointment: updatedAppointment }
+      // Regenerate tokens if appointment is rescheduled (time changed)
+      let newTokens = null
+      if (isTimeUpdate) {
+        newTokens = await regenerateAppointmentTokens(params.id, newScheduledAt, tx)
+      }
+
+      return { appointment: updatedAppointment, tokens: newTokens }
     })
 
     // Check if conflict was detected within the transaction
@@ -154,7 +160,17 @@ export const PATCH = withAuth(
       )
     }
 
-    return NextResponse.json({ appointment: result.appointment })
+    // Include new tokens in response if appointment was rescheduled
+    const response: Record<string, unknown> = { appointment: result.appointment }
+    if (result.tokens) {
+      response.tokens = {
+        confirm: result.tokens.confirmToken,
+        cancel: result.tokens.cancelToken,
+        expiresAt: result.tokens.expiresAt,
+      }
+    }
+
+    return NextResponse.json(response)
   }
 )
 

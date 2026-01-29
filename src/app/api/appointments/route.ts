@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/api"
-import { checkConflict, formatConflictError } from "@/lib/appointments"
+import { checkConflict, formatConflictError, createAppointmentTokens } from "@/lib/appointments"
 import { z } from "zod"
-import { randomBytes } from "crypto"
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
 
@@ -16,13 +15,6 @@ const createAppointmentSchema = z.object({
   modality: z.enum(["ONLINE", "PRESENCIAL"]),
   notes: z.string().max(2000).optional().nullable(),
 })
-
-/**
- * Generates a secure token for appointment actions (confirm/cancel)
- */
-function generateToken(): string {
-  return randomBytes(32).toString("hex")
-}
 
 /**
  * GET /api/appointments
@@ -294,11 +286,6 @@ export const POST = withAuth(
       }
     }
 
-    // Create the appointment with tokens using transaction with conflict check
-    const confirmToken = generateToken()
-    const cancelToken = generateToken()
-    const tokenExpiry = new Date(scheduledAt.getTime() - 60 * 60 * 1000) // 1 hour before appointment
-
     // Use transaction with database-level locking to prevent race conditions
     const result = await prisma.$transaction(async (tx) => {
       // 3. Validate against existing appointments (no double-booking) with row-level locking
@@ -345,23 +332,8 @@ export const POST = withAuth(
         },
       })
 
-      // Create tokens for confirm/cancel actions
-      await tx.appointmentToken.createMany({
-        data: [
-          {
-            appointmentId: newAppointment.id,
-            token: confirmToken,
-            action: "confirm",
-            expiresAt: tokenExpiry,
-          },
-          {
-            appointmentId: newAppointment.id,
-            token: cancelToken,
-            action: "cancel",
-            expiresAt: tokenExpiry,
-          },
-        ],
-      })
+      // Create tokens for confirm/cancel actions (expires 24h after appointment)
+      const tokens = await createAppointmentTokens(newAppointment.id, scheduledAt, tx)
 
       // Update patient's lastVisitAt if this is a future appointment
       await tx.patient.update({
@@ -369,7 +341,7 @@ export const POST = withAuth(
         data: { lastVisitAt: new Date() },
       })
 
-      return { appointment: newAppointment }
+      return { appointment: newAppointment, tokens }
     })
 
     // Check if conflict was detected within the transaction
@@ -384,9 +356,9 @@ export const POST = withAuth(
     return NextResponse.json({
       appointment: result.appointment,
       tokens: {
-        confirm: confirmToken,
-        cancel: cancelToken,
-        expiresAt: tokenExpiry,
+        confirm: result.tokens.confirmToken,
+        cancel: result.tokens.cancelToken,
+        expiresAt: result.tokens.expiresAt,
       },
     }, { status: 201 })
   }
