@@ -1,36 +1,138 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Clinica - Sistema de Gestao de Clinicas
 
-## Getting Started
+Sistema multi-tenant para gestao de clinicas com agendamento, notificacoes e auditoria.
 
-First, run the development server:
+## Pre-requisitos
+
+- Node.js 18+
+- Docker e Docker Compose (para o banco de dados)
+
+## Configuracao do Ambiente
+
+### 1. Copiar variaveis de ambiente
+
+```bash
+cp .env.example .env.local
+```
+
+Edite o arquivo `.env.local` e configure:
+
+```env
+# Database Configuration
+POSTGRES_USER=clinica
+POSTGRES_PASSWORD=clinica_dev
+POSTGRES_DB=clinica_dev
+POSTGRES_PORT=5432
+POSTGRES_HOST=localhost
+
+# Database URL for application
+DATABASE_URL=postgresql://clinica:clinica_dev@localhost:5432/clinica_dev
+
+# Next.js Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# NextAuth.js Configuration (gere com: npx auth secret)
+AUTH_SECRET=sua-chave-secreta-aqui
+```
+
+### 2. Instalar dependencias
+
+```bash
+npm install
+```
+
+### 3. Iniciar o banco de dados
+
+```bash
+docker-compose up -d
+```
+
+Aguarde o container iniciar. Verifique com:
+
+```bash
+docker-compose ps
+```
+
+### 4. Executar migrations do Prisma
+
+```bash
+npm run prisma:migrate
+```
+
+Ou para sincronizar o schema sem criar migrations:
+
+```bash
+npm run prisma:push
+```
+
+### 5. Criar usuario admin de teste
+
+```bash
+npm run prisma:seed
+```
+
+Isso cria:
+- Uma clinica demo
+- Um usuario admin
+
+**Credenciais de acesso:**
+- Email: `admin`
+- Senha: `admin`
+
+### 6. Iniciar o servidor de desenvolvimento
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Acesse [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts Disponiveis
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Script | Descricao |
+|--------|-----------|
+| `npm run dev` | Inicia o servidor de desenvolvimento |
+| `npm run build` | Cria build de producao |
+| `npm run start` | Inicia servidor de producao |
+| `npm run lint` | Executa o linter |
+| `npm run prisma:generate` | Gera o Prisma Client |
+| `npm run prisma:migrate` | Executa migrations |
+| `npm run prisma:push` | Sincroniza schema com o banco |
+| `npm run prisma:studio` | Abre o Prisma Studio |
+| `npm run prisma:seed` | Popula banco com dados iniciais |
 
-## Learn More
+## Estrutura do Projeto
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/                 # App Router (Next.js 14+)
+│   ├── api/            # API Routes
+│   └── (pages)/        # Paginas da aplicacao
+├── components/         # Componentes React
+├── lib/                # Utilitarios e configuracoes
+├── generated/          # Prisma Client gerado
+└── prisma/             # Schema e migrations
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Comandos Uteis
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Visualizar dados no banco
 
-## Deploy on Vercel
+```bash
+npm run prisma:studio
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Resetar banco de dados
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+docker-compose down -v
+docker-compose up -d
+npm run prisma:push
+npm run prisma:seed
+```
+
+### Ver logs do container
+
+```bash
+docker-compose logs -f db
+```

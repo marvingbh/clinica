@@ -3,10 +3,10 @@
   "sessionId": "99fc4b79-6159-4fae-9cf2-6fdc7c70d69d",
   "status": "running",
   "startedAt": "2026-01-29T11:42:39.409Z",
-  "updatedAt": "2026-01-29T11:47:48.641Z",
-  "currentIteration": 0,
+  "updatedAt": "2026-01-29T11:52:21.640Z",
+  "currentIteration": 1,
   "maxIterations": 10,
-  "tasksCompleted": 0,
+  "tasksCompleted": 1,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -179,8 +179,8 @@
       {
         "id": "US-028",
         "title": "Configurações da clínica",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-029",
@@ -208,7 +208,18 @@
       }
     ]
   },
-  "iterations": [],
+  "iterations": [
+    {
+      "iteration": 1,
+      "status": "completed",
+      "taskId": "US-028",
+      "taskTitle": "Configurações da clínica",
+      "taskCompleted": true,
+      "durationMs": 307546,
+      "startedAt": "2026-01-29T11:42:41.089Z",
+      "endedAt": "2026-01-29T11:47:48.635Z"
+    }
+  ],
   "skippedTaskIds": [],
   "cwd": "/mnt/d/personal/clinica/src",
   "activeTaskIds": [],
