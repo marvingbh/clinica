@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { SessionProvider } from "@/shared/components/session-provider";
 import { DesktopHeader } from "@/shared/components/ui/desktop-header";
 import { BottomNavigation } from "@/shared/components/ui/bottom-navigation";
+import { PageTransition } from "@/shared/components/ui/page-transition";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -64,7 +65,9 @@ export default function RootLayout({
         <SessionProvider>
           <DesktopHeader />
           <div className="md:pt-16">
-            {children}
+            <PageTransition>
+              {children}
+            </PageTransition>
           </div>
           <BottomNavigation />
           <Toaster richColors position="top-right" />

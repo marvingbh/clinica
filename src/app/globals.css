@@ -489,3 +489,77 @@ textarea {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ============================================
+   PAGE TRANSITIONS
+   ============================================ */
+
+/* Page transition wrapper */
+.page-transition {
+  will-change: opacity, transform;
+}
+
+/* Enter animation - fade in and slide up */
+.page-transition-enter {
+  animation: page-enter var(--duration-slow) var(--ease-out) forwards;
+}
+
+/* Exit animation - fade out and slide down slightly */
+.page-transition-exit {
+  animation: page-exit calc(var(--duration-slow) / 2) var(--ease-in) forwards;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes page-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .page-transition,
+  .page-transition-enter,
+  .page-transition-exit {
+    animation: none;
+    transition: none;
+  }
+
+  .page-transition-enter {
+    opacity: 1;
+    transform: none;
+  }
+
+  .page-transition-exit {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Also disable other animations for reduced motion */
+  .animate-slide-up,
+  .animate-slide-down,
+  .animate-fade-in,
+  .animate-fade-out,
+  .animate-scale-in,
+  .animate-ripple,
+  .animate-slide-in-left,
+  .animate-slide-in-right,
+  .animate-pop-in {
+    animation: none;
+  }
+}
