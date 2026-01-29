@@ -3,10 +3,10 @@
   "sessionId": "7fd0b88b-a310-4b2c-aa5f-fb61c2094109",
   "status": "running",
   "startedAt": "2026-01-29T10:34:45.891Z",
-  "updatedAt": "2026-01-29T11:33:04.359Z",
-  "currentIteration": 8,
+  "updatedAt": "2026-01-29T11:42:15.989Z",
+  "currentIteration": 9,
   "maxIterations": 10,
-  "tasksCompleted": 8,
+  "tasksCompleted": 9,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -161,8 +161,8 @@
       {
         "id": "US-025",
         "title": "Envio automático ao criar agendamento",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-026",
@@ -288,6 +288,16 @@
       "durationMs": 560844,
       "startedAt": "2026-01-29T11:18:30.534Z",
       "endedAt": "2026-01-29T11:27:51.378Z"
+    },
+    {
+      "iteration": 9,
+      "status": "completed",
+      "taskId": "US-025",
+      "taskTitle": "Envio automático ao criar agendamento",
+      "taskCompleted": true,
+      "durationMs": 311088,
+      "startedAt": "2026-01-29T11:27:53.265Z",
+      "endedAt": "2026-01-29T11:33:04.353Z"
     }
   ],
   "skippedTaskIds": [],
