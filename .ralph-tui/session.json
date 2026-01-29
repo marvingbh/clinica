@@ -3,10 +3,10 @@
   "sessionId": "99fc4b79-6159-4fae-9cf2-6fdc7c70d69d",
   "status": "running",
   "startedAt": "2026-01-29T11:42:39.409Z",
-  "updatedAt": "2026-01-29T12:20:09.705Z",
-  "currentIteration": 4,
+  "updatedAt": "2026-01-29T12:29:12.578Z",
+  "currentIteration": 5,
   "maxIterations": 10,
-  "tasksCompleted": 4,
+  "tasksCompleted": 5,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -131,8 +131,8 @@
       {
         "id": "US-020",
         "title": "Criar agendamento recorrente",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-021",
@@ -248,6 +248,16 @@
       "durationMs": 373325,
       "startedAt": "2026-01-29T12:03:37.443Z",
       "endedAt": "2026-01-29T12:09:50.768Z"
+    },
+    {
+      "iteration": 5,
+      "status": "completed",
+      "taskId": "US-020",
+      "taskTitle": "Criar agendamento recorrente",
+      "taskCompleted": true,
+      "durationMs": 616527,
+      "startedAt": "2026-01-29T12:09:53.170Z",
+      "endedAt": "2026-01-29T12:20:09.697Z"
     }
   ],
   "skippedTaskIds": [],

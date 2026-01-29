@@ -539,10 +539,11 @@
         "recorrencia",
         "cancelamento"
       ],
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-020"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-022",
@@ -820,6 +821,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-29T12:20:09.702Z"
+    "updatedAt": "2026-01-29T12:29:12.575Z"
   }
 }
