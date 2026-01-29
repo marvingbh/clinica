@@ -14,6 +14,7 @@ export interface RecurrenceDate {
 }
 
 const MAX_OCCURRENCES = 52 // Maximum 1 year weekly
+const INDEFINITE_WINDOW_MONTHS = 6 // Rolling window for INDEFINITE recurrences
 
 /**
  * Validates recurrence options
@@ -35,6 +36,7 @@ export function validateRecurrenceOptions(options: RecurrenceOptions): { valid: 
       return { valid: false, error: "Data final invalida" }
     }
   }
+  // INDEFINITE type does not require endDate or occurrences
 
   return { valid: true }
 }
@@ -114,6 +116,10 @@ export function calculateRecurrenceDates(
   } else if (options.recurrenceEndType === RecurrenceEndType.BY_DATE && options.endDate) {
     endDate = new Date(options.endDate)
     endDate.setHours(23, 59, 59, 999)
+  } else if (options.recurrenceEndType === RecurrenceEndType.INDEFINITE) {
+    // For INDEFINITE, use rolling window of 6 months from start date
+    endDate = addMonths(new Date(start), INDEFINITE_WINDOW_MONTHS)
+    endDate.setHours(23, 59, 59, 999)
   }
 
   while (count < maxOccurrences) {
@@ -158,6 +164,68 @@ export function formatDate(date: Date): string {
 }
 
 /**
+ * Calculates next window of dates for INDEFINITE recurrences (for cron job extension)
+ */
+export function calculateNextWindowDates(
+  lastGeneratedDate: Date | string,
+  startTime: string,
+  durationMinutes: number,
+  recurrenceType: RecurrenceType,
+  dayOfWeek: number,
+  extensionMonths: number = 3
+): RecurrenceDate[] {
+  const dates: RecurrenceDate[] = []
+  const lastDate = new Date(lastGeneratedDate)
+  lastDate.setHours(0, 0, 0, 0)
+
+  const [hours, minutes] = startTime.split(":").map(Number)
+
+  // Calculate end date (extension window)
+  const endDate = addMonths(lastDate, extensionMonths)
+  endDate.setHours(23, 59, 59, 999)
+
+  const intervalDays = getIntervalDays(recurrenceType)
+  let currentDate = new Date(lastDate)
+  let count = 1
+
+  while (true) {
+    // Calculate next date
+    if (recurrenceType === RecurrenceType.MONTHLY) {
+      currentDate = addMonths(lastDate, count)
+    } else {
+      currentDate = new Date(lastDate.getTime() + count * intervalDays * 24 * 60 * 60 * 1000)
+    }
+
+    // Check end date condition
+    if (currentDate > endDate) {
+      break
+    }
+
+    // Only add if it matches the day of week (for WEEKLY/BIWEEKLY)
+    if (recurrenceType !== RecurrenceType.MONTHLY && currentDate.getDay() !== dayOfWeek) {
+      count++
+      continue
+    }
+
+    // Create scheduled time
+    const scheduled = new Date(currentDate)
+    scheduled.setHours(hours, minutes, 0, 0)
+
+    const end = new Date(scheduled.getTime() + durationMinutes * 60 * 1000)
+
+    dates.push({
+      date: formatDate(currentDate),
+      scheduledAt: scheduled,
+      endAt: end,
+    })
+
+    count++
+  }
+
+  return dates
+}
+
+/**
  * Formats recurrence summary for display
  */
 export function formatRecurrenceSummary(
@@ -179,6 +247,8 @@ export function formatRecurrenceSummary(
   } else if (recurrenceEndType === RecurrenceEndType.BY_DATE && endDate) {
     const end = new Date(endDate)
     summary += ` - ate ${end.toLocaleDateString("pt-BR")}`
+  } else if (recurrenceEndType === RecurrenceEndType.INDEFINITE) {
+    summary += ` - sem data de fim`
   }
 
   return summary

@@ -23,7 +23,9 @@ export {
 export {
   validateRecurrenceOptions,
   calculateRecurrenceDates,
+  calculateNextWindowDates,
   formatRecurrenceSummary,
+  formatDate,
   type RecurrenceOptions,
   type RecurrenceDate,
 } from "./recurrence"

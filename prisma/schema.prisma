@@ -70,6 +70,7 @@ enum RecurrenceType {
 enum RecurrenceEndType {
   BY_DATE
   BY_OCCURRENCES
+  INDEFINITE
 }
 
 // ============================================================================
@@ -294,6 +295,7 @@ model AppointmentRecurrence {
   endDate               DateTime?           @db.Date // null = indefinite (used when endType is BY_DATE)
   occurrences           Int? // Number of occurrences (used when endType is BY_OCCURRENCES)
   exceptions            String[]            @default([]) // Dates (YYYY-MM-DD) to skip in the recurrence
+  lastGeneratedDate     DateTime?           @db.Date // Last date appointments were generated for INDEFINITE recurrences
   isActive              Boolean             @default(true)
 
   createdAt DateTime @default(now())

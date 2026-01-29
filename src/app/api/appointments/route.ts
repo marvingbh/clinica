@@ -11,7 +11,7 @@ const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
 
 const recurrenceSchema = z.object({
   recurrenceType: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]),
-  recurrenceEndType: z.enum(["BY_DATE", "BY_OCCURRENCES"]),
+  recurrenceEndType: z.enum(["BY_DATE", "BY_OCCURRENCES", "INDEFINITE"]),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional(),
   occurrences: z.number().int().min(1).max(52).optional(),
 }).refine((data) => {
@@ -21,6 +21,7 @@ const recurrenceSchema = z.object({
   if (data.recurrenceEndType === "BY_OCCURRENCES" && !data.occurrences) {
     return false
   }
+  // INDEFINITE does not require endDate or occurrences
   return true
 }, {
   message: "End date is required for BY_DATE, occurrences is required for BY_OCCURRENCES",
@@ -428,6 +429,11 @@ export const POST = withAuth(
         const dayOfWeek = firstDate.scheduledAt.getDay()
         const apptEndTime = `${String(firstDate.endAt.getHours()).padStart(2, "0")}:${String(firstDate.endAt.getMinutes()).padStart(2, "0")}`
 
+        // For INDEFINITE recurrences, track the last generated date
+        const lastGeneratedDate = recurrence.recurrenceEndType === "INDEFINITE"
+          ? new Date(appointmentDates[appointmentDates.length - 1].date)
+          : null
+
         const recurrenceRecord = await tx.appointmentRecurrence.create({
           data: {
             clinicId: user.clinicId,
@@ -443,6 +449,7 @@ export const POST = withAuth(
             startDate: new Date(appointmentDates[0].date),
             endDate: recurrence.endDate ? new Date(recurrence.endDate) : null,
             occurrences: recurrence.occurrences || null,
+            lastGeneratedDate,
           },
         })
         recurrenceId = recurrenceRecord.id
