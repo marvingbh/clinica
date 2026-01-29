@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "sessionId": "7fd0b88b-a310-4b2c-aa5f-fb61c2094109",
+  "sessionId": "99fc4b79-6159-4fae-9cf2-6fdc7c70d69d",
   "status": "running",
-  "startedAt": "2026-01-29T10:34:45.891Z",
-  "updatedAt": "2026-01-29T11:42:15.989Z",
-  "currentIteration": 9,
+  "startedAt": "2026-01-29T11:42:39.409Z",
+  "updatedAt": "2026-01-29T11:47:48.641Z",
+  "currentIteration": 0,
   "maxIterations": 10,
-  "tasksCompleted": 9,
+  "tasksCompleted": 0,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -84,43 +84,43 @@
         "id": "US-012",
         "title": "Validação anti-conflito de horários",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-013",
         "title": "Editar agendamento existente",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-014",
         "title": "Cancelar agendamento (profissional)",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-015",
         "title": "Marcar status do agendamento",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-016",
         "title": "Geração de tokens únicos para agendamento",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-017",
         "title": "Página pública de confirmação",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-018",
         "title": "Página pública de cancelamento",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-019",
@@ -150,7 +150,7 @@
         "id": "US-023",
         "title": "Infraestrutura de notificações",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-024",
@@ -162,7 +162,7 @@
         "id": "US-025",
         "title": "Envio automático ao criar agendamento",
         "status": "completed",
-        "completedInSession": true
+        "completedInSession": false
       },
       {
         "id": "US-026",
@@ -173,7 +173,7 @@
       {
         "id": "US-027",
         "title": "Sistema de auditoria completo",
-        "status": "open",
+        "status": "completed",
         "completedInSession": false
       },
       {
@@ -208,100 +208,9 @@
       }
     ]
   },
-  "iterations": [
-    {
-      "iteration": 1,
-      "status": "completed",
-      "taskId": "US-012",
-      "taskTitle": "Validação anti-conflito de horários",
-      "taskCompleted": true,
-      "durationMs": 193109,
-      "startedAt": "2026-01-29T10:34:51.840Z",
-      "endedAt": "2026-01-29T10:38:04.949Z"
-    },
-    {
-      "iteration": 2,
-      "status": "completed",
-      "taskId": "US-016",
-      "taskTitle": "Geração de tokens únicos para agendamento",
-      "taskCompleted": true,
-      "durationMs": 338388,
-      "startedAt": "2026-01-29T10:38:06.887Z",
-      "endedAt": "2026-01-29T10:43:45.275Z"
-    },
-    {
-      "iteration": 3,
-      "status": "completed",
-      "taskId": "US-017",
-      "taskTitle": "Página pública de confirmação",
-      "taskCompleted": true,
-      "durationMs": 526457,
-      "startedAt": "2026-01-29T10:43:47.060Z",
-      "endedAt": "2026-01-29T10:52:33.517Z"
-    },
-    {
-      "iteration": 4,
-      "status": "completed",
-      "taskId": "US-018",
-      "taskTitle": "Página pública de cancelamento",
-      "taskCompleted": true,
-      "durationMs": 280519,
-      "startedAt": "2026-01-29T10:52:35.468Z",
-      "endedAt": "2026-01-29T10:57:15.987Z"
-    },
-    {
-      "iteration": 5,
-      "status": "completed",
-      "taskId": "US-013",
-      "taskTitle": "Editar agendamento existente",
-      "taskCompleted": true,
-      "durationMs": 461082,
-      "startedAt": "2026-01-29T10:57:17.859Z",
-      "endedAt": "2026-01-29T11:04:58.941Z"
-    },
-    {
-      "iteration": 6,
-      "status": "completed",
-      "taskId": "US-014",
-      "taskTitle": "Cancelar agendamento (profissional)",
-      "taskCompleted": true,
-      "durationMs": 409676,
-      "startedAt": "2026-01-29T11:05:01.034Z",
-      "endedAt": "2026-01-29T11:11:50.710Z"
-    },
-    {
-      "iteration": 7,
-      "status": "completed",
-      "taskId": "US-015",
-      "taskTitle": "Marcar status do agendamento",
-      "taskCompleted": true,
-      "durationMs": 395766,
-      "startedAt": "2026-01-29T11:11:52.781Z",
-      "endedAt": "2026-01-29T11:18:28.547Z"
-    },
-    {
-      "iteration": 8,
-      "status": "completed",
-      "taskId": "US-023",
-      "taskTitle": "Infraestrutura de notificações",
-      "taskCompleted": true,
-      "durationMs": 560844,
-      "startedAt": "2026-01-29T11:18:30.534Z",
-      "endedAt": "2026-01-29T11:27:51.378Z"
-    },
-    {
-      "iteration": 9,
-      "status": "completed",
-      "taskId": "US-025",
-      "taskTitle": "Envio automático ao criar agendamento",
-      "taskCompleted": true,
-      "durationMs": 311088,
-      "startedAt": "2026-01-29T11:27:53.265Z",
-      "endedAt": "2026-01-29T11:33:04.353Z"
-    }
-  ],
+  "iterations": [],
   "skippedTaskIds": [],
   "cwd": "/mnt/d/personal/clinica/src",
   "activeTaskIds": [],
-  "subagentPanelVisible": true
+  "subagentPanelVisible": false
 }
