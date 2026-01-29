@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcrypt"
 import { prisma } from "./prisma"
 import { authConfig } from "./auth.config"
+import { logAuthEvent, AuditAction } from "./rbac/audit"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -35,14 +36,36 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         })
 
         if (!user) {
+          // Log failed login attempt (user not found)
+          // We can't log without a clinicId, so we skip audit for unknown users
           return null
         }
 
         const isValidPassword = await bcrypt.compare(password, user.passwordHash)
 
         if (!isValidPassword) {
+          // Log failed login attempt (wrong password)
+          await logAuthEvent({
+            clinicId: user.clinicId,
+            userId: user.id,
+            action: AuditAction.LOGIN_FAILED,
+            email,
+            metadata: { reason: "invalid_password" },
+          }).catch(() => {
+            // Silently ignore audit errors to not affect login flow
+          })
           return null
         }
+
+        // Log successful login
+        await logAuthEvent({
+          clinicId: user.clinicId,
+          userId: user.id,
+          action: AuditAction.LOGIN_SUCCESS,
+          email,
+        }).catch(() => {
+          // Silently ignore audit errors to not affect login flow
+        })
 
         return {
           id: user.id,

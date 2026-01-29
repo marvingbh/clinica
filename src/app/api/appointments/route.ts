@@ -4,6 +4,7 @@ import { withAuth } from "@/lib/api"
 import { checkConflict, formatConflictError, createAppointmentTokens, buildConfirmLink, buildCancelLink } from "@/lib/appointments"
 import { createNotification } from "@/lib/notifications"
 import { NotificationChannel, NotificationType } from "@/generated/prisma/client"
+import { audit, AuditAction } from "@/lib/rbac"
 import { z } from "zod"
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
@@ -363,6 +364,25 @@ export const POST = withAuth(
         { status: 409 }
       )
     }
+
+    // Create audit log
+    await audit.log({
+      user,
+      action: AuditAction.APPOINTMENT_CREATED,
+      entityType: "Appointment",
+      entityId: result.appointment.id,
+      newValues: {
+        patientId,
+        patientName: patient.name,
+        professionalProfileId: targetProfessionalProfileId,
+        professionalName: professional.user.name,
+        scheduledAt: scheduledAt.toISOString(),
+        endAt: endAt.toISOString(),
+        modality,
+        notes: notes || null,
+      },
+      request: req,
+    })
 
     // Queue notifications asynchronously (don't block API response)
     // Wrapped in try-catch to ensure notification failures don't fail appointment creation

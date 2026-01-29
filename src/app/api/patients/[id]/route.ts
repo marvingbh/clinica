@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth, forbiddenResponse } from "@/lib/api"
+import { audit, AuditAction } from "@/lib/rbac"
 
 // WhatsApp format validation: Brazilian format with country code
 const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
@@ -218,6 +219,48 @@ export const PATCH = withAuth(
       },
     })
 
+    // Build old/new values for audit (only changed fields)
+    const oldValues: Record<string, unknown> = {}
+    const newValues: Record<string, unknown> = {}
+
+    if (data.name !== undefined && data.name !== existing.name) {
+      oldValues.name = existing.name
+      newValues.name = data.name
+    }
+    if (data.email !== undefined && (data.email || null) !== existing.email) {
+      oldValues.email = existing.email
+      newValues.email = data.email || null
+    }
+    if (data.phone !== undefined && updateData.phone !== existing.phone) {
+      oldValues.phone = existing.phone
+      newValues.phone = updateData.phone
+    }
+    if (data.isActive !== undefined && data.isActive !== existing.isActive) {
+      oldValues.isActive = existing.isActive
+      newValues.isActive = data.isActive
+    }
+    if (data.consentWhatsApp !== undefined && data.consentWhatsApp !== existing.consentWhatsApp) {
+      oldValues.consentWhatsApp = existing.consentWhatsApp
+      newValues.consentWhatsApp = data.consentWhatsApp
+    }
+    if (data.consentEmail !== undefined && data.consentEmail !== existing.consentEmail) {
+      oldValues.consentEmail = existing.consentEmail
+      newValues.consentEmail = data.consentEmail
+    }
+
+    // Only log if there were actual changes
+    if (Object.keys(newValues).length > 0) {
+      await audit.log({
+        user,
+        action: AuditAction.PATIENT_UPDATED,
+        entityType: "Patient",
+        entityId: params.id,
+        oldValues,
+        newValues,
+        request: req,
+      })
+    }
+
     return NextResponse.json({ patient })
   }
 )
@@ -228,7 +271,7 @@ export const PATCH = withAuth(
  */
 export const DELETE = withAuth(
   { resource: "patient", action: "delete" },
-  async (_req, { user, scope }, params) => {
+  async (req, { user, scope }, params) => {
     // Only ADMIN can delete (clinic scope required)
     if (scope !== "clinic") {
       return forbiddenResponse("Apenas administradores podem desativar pacientes")
@@ -250,6 +293,22 @@ export const DELETE = withAuth(
     await prisma.patient.update({
       where: { id: params.id },
       data: { isActive: false },
+    })
+
+    // Create audit log
+    await audit.log({
+      user,
+      action: AuditAction.PATIENT_DELETED,
+      entityType: "Patient",
+      entityId: params.id,
+      oldValues: {
+        name: existing.name,
+        isActive: existing.isActive,
+      },
+      newValues: {
+        isActive: false,
+      },
+      request: req,
     })
 
     return NextResponse.json({ success: true })

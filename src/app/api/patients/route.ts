@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/api"
+import { audit, AuditAction } from "@/lib/rbac"
 
 // WhatsApp format validation: Brazilian format with country code
 // Accepts: +5511999999999, 5511999999999, 11999999999
@@ -157,6 +158,22 @@ export const POST = withAuth(
         consentEmail,
         consentEmailAt: consentEmail ? now : null,
       },
+    })
+
+    // Create audit log
+    await audit.log({
+      user,
+      action: AuditAction.PATIENT_CREATED,
+      entityType: "Patient",
+      entityId: patient.id,
+      newValues: {
+        name,
+        email: email || null,
+        phone: normalizedPhone,
+        consentWhatsApp,
+        consentEmail,
+      },
+      request: req,
     })
 
     return NextResponse.json({ patient }, { status: 201 })

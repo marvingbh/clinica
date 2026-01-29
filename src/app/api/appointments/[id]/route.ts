@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { Prisma } from "@/generated/prisma/client"
 import { withAuth, forbiddenResponse } from "@/lib/api"
 import { checkConflict, formatConflictError, regenerateAppointmentTokens } from "@/lib/appointments"
-import { createAuditLog } from "@/lib/rbac/audit"
+import { createAuditLog, audit, AuditAction } from "@/lib/rbac/audit"
 
 /**
  * GET /api/appointments/:id
@@ -236,12 +236,22 @@ export const DELETE = withAuth(
     action: "delete",
     getResourceOwnerId: (_req, params) => params?.id,
   },
-  async (_req, { user, scope }, params) => {
+  async (req, { user, scope }, params) => {
     // First, verify the appointment exists and belongs to the clinic
     const existing = await prisma.appointment.findFirst({
       where: {
         id: params.id,
         clinicId: user.clinicId,
+      },
+      include: {
+        patient: {
+          select: { name: true },
+        },
+        professionalProfile: {
+          select: {
+            user: { select: { name: true } },
+          },
+        },
       },
     })
 
@@ -256,6 +266,25 @@ export const DELETE = withAuth(
 
     await prisma.appointment.delete({
       where: { id: params.id },
+    })
+
+    // Create audit log
+    await audit.log({
+      user,
+      action: AuditAction.APPOINTMENT_DELETED,
+      entityType: "Appointment",
+      entityId: params.id,
+      oldValues: {
+        patientId: existing.patientId,
+        patientName: existing.patient.name,
+        professionalProfileId: existing.professionalProfileId,
+        professionalName: existing.professionalProfile.user.name,
+        scheduledAt: existing.scheduledAt.toISOString(),
+        endAt: existing.endAt.toISOString(),
+        status: existing.status,
+        modality: existing.modality,
+      },
+      request: req,
     })
 
     return NextResponse.json({ success: true })
