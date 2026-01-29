@@ -11,8 +11,10 @@ export const GET = withAuth(
   async (req, { user, scope }) => {
     const { searchParams } = new URL(req.url)
     const status = searchParams.get("status")
+    const date = searchParams.get("date") // Single day filter (YYYY-MM-DD)
     const startDate = searchParams.get("startDate")
     const endDate = searchParams.get("endDate")
+    const professionalProfileId = searchParams.get("professionalProfileId")
 
     // Base query always filters by clinic for multi-tenant isolation
     const where: Record<string, unknown> = {
@@ -22,6 +24,9 @@ export const GET = withAuth(
     // If scope is "own", filter to only the professional's appointments
     if (scope === "own" && user.professionalProfileId) {
       where.professionalProfileId = user.professionalProfileId
+    } else if (professionalProfileId && scope === "clinic") {
+      // ADMIN can filter by specific professional
+      where.professionalProfileId = professionalProfileId
     }
 
     // Apply optional filters
@@ -29,17 +34,30 @@ export const GET = withAuth(
       where.status = status
     }
 
-    if (startDate) {
+    // Single date filter (for daily view)
+    if (date) {
+      const dayStart = new Date(date)
+      dayStart.setHours(0, 0, 0, 0)
+      const dayEnd = new Date(date)
+      dayEnd.setHours(23, 59, 59, 999)
       where.scheduledAt = {
-        ...(where.scheduledAt as Record<string, unknown>),
-        gte: new Date(startDate),
+        gte: dayStart,
+        lte: dayEnd,
       }
-    }
+    } else {
+      // Range filters
+      if (startDate) {
+        where.scheduledAt = {
+          ...(where.scheduledAt as Record<string, unknown>),
+          gte: new Date(startDate),
+        }
+      }
 
-    if (endDate) {
-      where.scheduledAt = {
-        ...(where.scheduledAt as Record<string, unknown>),
-        lte: new Date(endDate),
+      if (endDate) {
+        where.scheduledAt = {
+          ...(where.scheduledAt as Record<string, unknown>),
+          lte: new Date(endDate),
+        }
       }
     }
 
