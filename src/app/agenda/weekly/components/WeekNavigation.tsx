@@ -1,5 +1,6 @@
 "use client"
 
+import { ChevronLeftIcon, ChevronRightIcon } from "@/shared/components/ui/icons"
 import { getWeekEnd, formatWeekRange } from "../../lib/utils"
 
 interface WeekNavigationProps {
@@ -22,9 +23,7 @@ export function WeekNavigation({ weekStart, onPreviousWeek, onNextWeek, onToday 
           className="h-10 w-10 rounded-md border border-input bg-background flex items-center justify-center hover:bg-muted"
           aria-label="Semana anterior"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+          <ChevronLeftIcon className="w-5 h-5" />
         </button>
         <button
           type="button"
@@ -39,9 +38,7 @@ export function WeekNavigation({ weekStart, onPreviousWeek, onNextWeek, onToday 
           className="h-10 w-10 rounded-md border border-input bg-background flex items-center justify-center hover:bg-muted"
           aria-label="Proxima semana"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+          <ChevronRightIcon className="w-5 h-5" />
         </button>
       </div>
 

@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
+import { XIcon, CheckIcon } from "@/shared/components/ui/icons"
 
 interface AppointmentDetails {
   id: string
@@ -130,9 +131,7 @@ function ConfirmationContent() {
     return (
       <div className="text-center space-y-4">
         <div className="w-16 h-16 mx-auto rounded-full bg-destructive/10 flex items-center justify-center">
-          <svg className="w-8 h-8 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <XIcon className="w-8 h-8 text-destructive" />
         </div>
         <h2 className="text-xl font-semibold text-foreground">Ops! Algo deu errado</h2>
         <p className="text-muted-foreground">{errorMessage}</p>
@@ -148,9 +147,7 @@ function ConfirmationContent() {
     return (
       <div className="text-center space-y-6">
         <div className="w-16 h-16 mx-auto rounded-full bg-accent flex items-center justify-center">
-          <svg className="w-8 h-8 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+          <CheckIcon className="w-8 h-8 text-foreground" />
         </div>
         <div>
           <h2 className="text-xl font-semibold text-foreground">Agendamento ja confirmado</h2>
@@ -186,9 +183,7 @@ function ConfirmationContent() {
     return (
       <div className="text-center space-y-6">
         <div className="w-16 h-16 mx-auto rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-          <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+          <CheckIcon className="w-8 h-8 text-green-600 dark:text-green-400" />
         </div>
         <div>
           <h2 className="text-xl font-semibold text-foreground">Agendamento confirmado!</h2>

@@ -1,9 +1,10 @@
 "use client"
 
+import { useEffect, useState } from "react"
+import { RefreshCwIcon, CalendarIcon } from "@/shared/components/ui/icons"
 import { RecurrenceType, RecurrenceEndType } from "../lib/types"
 import { RECURRENCE_TYPE_LABELS, MAX_RECURRENCE_OCCURRENCES } from "../lib/constants"
 import { toDateString, addMonthsToDate, toDisplayDate, toIsoDate, toDisplayDateFromDate } from "../lib/utils"
-import { useEffect, useState } from "react"
 
 interface RecurrenceOptionsProps {
   isEnabled: boolean
@@ -117,9 +118,7 @@ export function RecurrenceOptions({
     <div className="border-t border-border pt-6">
       <label className="flex items-center justify-between cursor-pointer">
         <div className="flex items-center gap-3">
-          <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
+          <RefreshCwIcon className="w-5 h-5 text-muted-foreground" />
           <span className="text-sm font-medium text-foreground">Agendamento recorrente</span>
         </div>
         <button
@@ -276,9 +275,7 @@ export function RecurrenceOptions({
             }}
             className="w-full h-10 rounded-md border border-primary/50 bg-primary/5 text-primary text-sm font-medium hover:bg-primary/10 transition-colors flex items-center justify-center gap-2"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
+            <CalendarIcon className="w-4 h-4" />
             Visualizar datas
           </button>
 

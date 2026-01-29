@@ -12,6 +12,7 @@ import {
   FAB,
   SkeletonPage,
   EmptyState,
+  UsersIcon,
 } from "@/shared/components/ui"
 
 // WhatsApp format validation
@@ -375,11 +376,7 @@ export default function PatientsPage() {
               title={search || filterActive !== "all" ? "Nenhum paciente encontrado" : "Nenhum paciente cadastrado"}
               message={search || filterActive !== "all" ? "Tente ajustar os filtros de busca" : "Adicione seu primeiro paciente para comecar"}
               action={isAdmin && !search && filterActive === "all" ? { label: "Adicionar paciente", onClick: openCreateSheet } : undefined}
-              icon={
-                <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              }
+              icon={<UsersIcon className="w-8 h-8 text-muted-foreground" />}
             />
           ) : (
             patients.map((patient) => (

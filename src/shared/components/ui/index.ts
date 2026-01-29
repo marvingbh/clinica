@@ -1,3 +1,4 @@
+export * from "./icons"
 export { BottomNavigation } from "./bottom-navigation"
 export { FAB } from "./fab"
 export { BottomSheet, BottomSheetAction, BottomSheetDivider } from "./bottom-sheet"

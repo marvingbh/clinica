@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from "@/shared/components/ui/icons"
 import { formatDateHeader, toDateString, toDisplayDateFromDate, toIsoDate } from "../lib/utils"
 
 interface DateNavigationProps {
@@ -64,9 +65,7 @@ export function DateNavigation({
         className="p-2 rounded-lg hover:bg-muted transition-colors"
         aria-label="Dia anterior"
       >
-        <svg className="w-6 h-6 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
+        <ChevronLeftIcon className="w-6 h-6 text-foreground" />
       </button>
 
       {/* Date Display */}
@@ -78,9 +77,7 @@ export function DateNavigation({
           <span className="text-lg font-semibold text-foreground">
             {formatDateHeader(selectedDate)}
           </span>
-          <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
+          <CalendarIcon className="w-5 h-5 text-muted-foreground" />
         </button>
 
         {/* Date Picker */}
@@ -114,9 +111,7 @@ export function DateNavigation({
         className="p-2 rounded-lg hover:bg-muted transition-colors"
         aria-label="Proximo dia"
       >
-        <svg className="w-6 h-6 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
+        <ChevronRightIcon className="w-6 h-6 text-foreground" />
       </button>
     </div>
   )

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from "@/shared/components/ui/icons"
 import { formatDateHeader, toDateString, toDisplayDateFromDate, toIsoDate } from "../lib/utils"
 import type { Professional } from "../lib/types"
 
@@ -62,14 +63,7 @@ export function AgendaHeader({
           <button onClick={onToggleDatePicker} className="flex-1 text-left">
             <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
               {formatDateHeader(selectedDate)}
-              <svg
-                className={`w-5 h-5 transition-transform ${showDatePicker ? "rotate-180" : ""}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              <ChevronDownIcon className={`w-5 h-5 transition-transform ${showDatePicker ? "rotate-180" : ""}`} />
             </h1>
           </button>
 
@@ -77,14 +71,7 @@ export function AgendaHeader({
             href={`/agenda/weekly?date=${toDateString(selectedDate)}`}
             className="flex items-center gap-2 h-10 px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-muted flex-shrink-0"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
+            <CalendarIcon className="w-4 h-4" />
             Semana
           </Link>
         </div>
@@ -136,9 +123,7 @@ export function AgendaHeader({
                 onClick={onGoToPrevious}
                 className="h-10 w-10 rounded-md border border-input bg-background flex items-center justify-center hover:bg-muted"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
+                <ChevronLeftIcon className="w-5 h-5" />
               </button>
               <button
                 onClick={onGoToToday}
@@ -150,9 +135,7 @@ export function AgendaHeader({
                 onClick={onGoToNext}
                 className="h-10 w-10 rounded-md border border-input bg-background flex items-center justify-center hover:bg-muted"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                <ChevronRightIcon className="w-5 h-5" />
               </button>
             </div>
             <input

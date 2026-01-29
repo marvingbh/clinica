@@ -1,6 +1,6 @@
 "use client"
 
-import { SwipeContainer, EmptyState } from "@/shared/components/ui"
+import { SwipeContainer, EmptyState, ClockIcon, RefreshCwIcon, BanIcon, PlusIcon } from "@/shared/components/ui"
 import { formatTime, formatPhone } from "../lib/utils"
 import { STATUS_LABELS, STATUS_COLORS, STATUS_BORDER_COLORS } from "../lib/constants"
 import type { TimeSlot, Appointment } from "../lib/types"
@@ -34,16 +34,7 @@ export function AgendaTimeline({
         <EmptyState
           title="Sem disponibilidade"
           message="Nao ha horarios configurados para este dia"
-          icon={
-            <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          }
+          icon={<ClockIcon className="w-8 h-8 text-muted-foreground" />}
         />
       )}
 
@@ -100,14 +91,7 @@ export function AgendaTimeline({
                         </span>
                         {appointment.recurrence && (
                           <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                              />
-                            </svg>
+                            <RefreshCwIcon className="w-3 h-3" />
                             Recorrente
                           </span>
                         )}
@@ -121,14 +105,7 @@ export function AgendaTimeline({
               ) : slot.isBlocked ? (
                 <div className="flex-1 bg-muted/50 border border-dashed border-border rounded-lg p-3 flex items-center">
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
-                      />
-                    </svg>
+                    <BanIcon className="w-4 h-4" />
                     <span className="text-sm">{slot.blockReason || "Bloqueado"}</span>
                   </div>
                 </div>
@@ -138,9 +115,7 @@ export function AgendaTimeline({
                   onClick={() => onSlotClick(slot.time)}
                   className="flex-1 border border-dashed border-border rounded-lg p-3 flex items-center justify-center text-muted-foreground hover:bg-muted/50 hover:border-primary/50 hover:text-primary transition-colors"
                 >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
+                  <PlusIcon className="w-4 h-4 mr-2" />
                   <span className="text-sm">Disponivel</span>
                 </button>
               ) : (
