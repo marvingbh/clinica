@@ -487,11 +487,12 @@
         "confirmacao",
         "notificacao"
       ],
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-017",
         "US-018"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-020",
@@ -818,6 +819,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-29T12:03:35.104Z"
+    "updatedAt": "2026-01-29T12:09:50.772Z"
   }
 }

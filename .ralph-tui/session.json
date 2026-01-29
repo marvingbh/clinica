@@ -3,10 +3,10 @@
   "sessionId": "99fc4b79-6159-4fae-9cf2-6fdc7c70d69d",
   "status": "running",
   "startedAt": "2026-01-29T11:42:39.409Z",
-  "updatedAt": "2026-01-29T12:03:35.108Z",
-  "currentIteration": 2,
+  "updatedAt": "2026-01-29T12:09:50.775Z",
+  "currentIteration": 3,
   "maxIterations": 10,
-  "tasksCompleted": 2,
+  "tasksCompleted": 3,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -191,8 +191,8 @@
       {
         "id": "US-030",
         "title": "Responsividade e UX mobile final",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-031",
@@ -228,6 +228,16 @@
       "durationMs": 270596,
       "startedAt": "2026-01-29T11:47:51.037Z",
       "endedAt": "2026-01-29T11:52:21.633Z"
+    },
+    {
+      "iteration": 3,
+      "status": "completed",
+      "taskId": "US-030",
+      "taskTitle": "Responsividade e UX mobile final",
+      "taskCompleted": true,
+      "durationMs": 670392,
+      "startedAt": "2026-01-29T11:52:24.706Z",
+      "endedAt": "2026-01-29T12:03:35.098Z"
     }
   ],
   "skippedTaskIds": [],
