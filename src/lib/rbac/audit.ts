@@ -33,6 +33,9 @@ export const AuditAction = {
 
   // Authorization
   PERMISSION_DENIED: "PERMISSION_DENIED",
+
+  // Cron Jobs
+  REMINDER_JOB_EXECUTED: "REMINDER_JOB_EXECUTED",
 } as const
 
 export type AuditActionType = (typeof AuditAction)[keyof typeof AuditAction]
