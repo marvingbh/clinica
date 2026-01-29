@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { Prisma } from "@/generated/prisma/client"
 import { withAuth, forbiddenResponse } from "@/lib/api"
 import { checkConflict, formatConflictError, regenerateAppointmentTokens } from "@/lib/appointments"
+import { createAuditLog } from "@/lib/rbac/audit"
 
 /**
  * GET /api/appointments/:id
@@ -51,7 +53,12 @@ export const GET = withAuth(
  * PATCH /api/appointments/:id
  * Update an appointment - ADMIN can update any in clinic, PROFESSIONAL only their own
  *
- * If scheduledAt or endAt are updated, performs conflict check with database-level locking.
+ * Editable fields: scheduledAt, endAt, status, modality, notes, price, cancellationReason
+ * Cannot change: patientId (must cancel and recreate)
+ *
+ * If scheduledAt or endAt are updated:
+ * - Performs conflict check with database-level locking
+ * - Regenerates confirmation tokens
  */
 export const PATCH = withAuth(
   {
@@ -85,16 +92,46 @@ export const PATCH = withAuth(
     }
 
     const body = await req.json()
-    const { scheduledAt, endAt, status, modality, notes, cancellationReason } = body
+    const { scheduledAt, endAt, status, modality, notes, price, cancellationReason } = body
 
+    // Store old values for audit log (only fields being updated)
+    const oldValues: Prisma.JsonObject = {}
+    const newValues: Prisma.JsonObject = {}
     const updateData: Record<string, unknown> = {}
 
-    if (scheduledAt !== undefined) updateData.scheduledAt = new Date(scheduledAt)
-    if (endAt !== undefined) updateData.endAt = new Date(endAt)
-    if (status !== undefined) updateData.status = status
-    if (modality !== undefined) updateData.modality = modality
-    if (notes !== undefined) updateData.notes = notes
+    if (scheduledAt !== undefined) {
+      oldValues.scheduledAt = existing.scheduledAt.toISOString()
+      newValues.scheduledAt = scheduledAt
+      updateData.scheduledAt = new Date(scheduledAt)
+    }
+    if (endAt !== undefined) {
+      oldValues.endAt = existing.endAt.toISOString()
+      newValues.endAt = endAt
+      updateData.endAt = new Date(endAt)
+    }
+    if (status !== undefined) {
+      oldValues.status = existing.status
+      newValues.status = status
+      updateData.status = status
+    }
+    if (modality !== undefined) {
+      oldValues.modality = existing.modality
+      newValues.modality = modality
+      updateData.modality = modality
+    }
+    if (notes !== undefined) {
+      oldValues.notes = existing.notes
+      newValues.notes = notes
+      updateData.notes = notes
+    }
+    if (price !== undefined) {
+      oldValues.price = existing.price?.toString() ?? null
+      newValues.price = price
+      updateData.price = price !== null ? price : null
+    }
     if (cancellationReason !== undefined) {
+      oldValues.cancellationReason = existing.cancellationReason
+      newValues.cancellationReason = cancellationReason
       updateData.cancellationReason = cancellationReason
       updateData.cancelledAt = new Date()
     }
@@ -159,6 +196,21 @@ export const PATCH = withAuth(
         { status: 409 }
       )
     }
+
+    // Create audit log entry for the update
+    const ipAddress = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? undefined
+    const userAgent = req.headers.get("user-agent") ?? undefined
+
+    await createAuditLog({
+      user,
+      action: "APPOINTMENT_UPDATED",
+      entityType: "Appointment",
+      entityId: params.id,
+      oldValues,
+      newValues,
+      ipAddress,
+      userAgent,
+    })
 
     // Include new tokens in response if appointment was rescheduled
     const response: Record<string, unknown> = { appointment: result.appointment }

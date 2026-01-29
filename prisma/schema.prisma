@@ -220,6 +220,7 @@ model Appointment {
   modality              AppointmentModality
   meetingUrl            String? // For online appointments
   notes                 String?
+  price                 Decimal?            @db.Decimal(10, 2) // Session price
   cancellationReason    String?
   cancelledAt           DateTime?
   confirmedAt           DateTime?
