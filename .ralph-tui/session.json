@@ -3,10 +3,10 @@
   "sessionId": "1bcee4bf-f577-4a44-bd35-c1fcbafab9a9",
   "status": "running",
   "startedAt": "2026-01-29T00:26:41.524Z",
-  "updatedAt": "2026-01-29T01:51:47.007Z",
-  "currentIteration": 9,
+  "updatedAt": "2026-01-29T10:27:43.051Z",
+  "currentIteration": 10,
   "maxIterations": 10,
-  "tasksCompleted": 9,
+  "tasksCompleted": 10,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -71,8 +71,8 @@
       {
         "id": "US-010",
         "title": "Visualização de agenda diária",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-011",
@@ -298,6 +298,16 @@
       "durationMs": 545090,
       "startedAt": "2026-01-29T01:36:04.388Z",
       "endedAt": "2026-01-29T01:45:09.478Z"
+    },
+    {
+      "iteration": 10,
+      "status": "completed",
+      "taskId": "US-010",
+      "taskTitle": "Visualização de agenda diária",
+      "taskCompleted": true,
+      "durationMs": 395745,
+      "startedAt": "2026-01-29T01:45:11.256Z",
+      "endedAt": "2026-01-29T01:51:47.001Z"
     }
   ],
   "skippedTaskIds": [],
