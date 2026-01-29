@@ -3,10 +3,10 @@
   "sessionId": "99fc4b79-6159-4fae-9cf2-6fdc7c70d69d",
   "status": "running",
   "startedAt": "2026-01-29T11:42:39.409Z",
-  "updatedAt": "2026-01-29T11:52:21.640Z",
-  "currentIteration": 1,
+  "updatedAt": "2026-01-29T12:03:35.108Z",
+  "currentIteration": 2,
   "maxIterations": 10,
-  "tasksCompleted": 1,
+  "tasksCompleted": 2,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -185,8 +185,8 @@
       {
         "id": "US-029",
         "title": "Seed de dados para desenvolvimento",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-030",
@@ -218,10 +218,20 @@
       "durationMs": 307546,
       "startedAt": "2026-01-29T11:42:41.089Z",
       "endedAt": "2026-01-29T11:47:48.635Z"
+    },
+    {
+      "iteration": 2,
+      "status": "completed",
+      "taskId": "US-029",
+      "taskTitle": "Seed de dados para desenvolvimento",
+      "taskCompleted": true,
+      "durationMs": 270596,
+      "startedAt": "2026-01-29T11:47:51.037Z",
+      "endedAt": "2026-01-29T11:52:21.633Z"
     }
   ],
   "skippedTaskIds": [],
   "cwd": "/mnt/d/personal/clinica/src",
   "activeTaskIds": [],
-  "subagentPanelVisible": false
+  "subagentPanelVisible": true
 }

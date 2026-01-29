@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { PrismaClient } from '../src/generated/prisma/client'
 import bcrypt from 'bcrypt'
 
@@ -66,13 +67,13 @@ async function main() {
     where: {
       clinicId_email: {
         clinicId: clinic.id,
-        email: 'admin',
+        email: 'admin@x.com',
       },
     },
     update: { passwordHash },
     create: {
       clinicId: clinic.id,
-      email: 'admin',
+      email: 'admin@x.com',
       passwordHash,
       name: 'Administrador',
       role: 'ADMIN',
@@ -602,7 +603,7 @@ async function main() {
   console.log('')
   console.log('Created:')
   console.log(`  - 1 Clinic: ${clinic.name}`)
-  console.log(`  - 1 Admin user: admin / admin`)
+  console.log(`  - 1 Admin user: admin@clinicademo.com / admin`)
   console.log(`  - 2 Professional users:`)
   console.log(`      * ${professional1.email} / senha123`)
   console.log(`      * ${professional2.email} / senha123`)
