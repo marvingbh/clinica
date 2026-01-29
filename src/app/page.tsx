@@ -10,7 +10,134 @@ import {
   UserIcon,
   LogOutIcon,
   ChevronRightIcon,
+  PlusIcon,
+  ClockIcon,
+  StethoscopeIcon,
 } from "@/shared/components/ui/icons"
+import { Card, CardContent } from "@/shared/components/ui/card"
+import { Skeleton, SkeletonAvatar, SkeletonText } from "@/shared/components/ui/skeleton"
+import { FAB } from "@/shared/components/ui/fab"
+
+function HomeSkeleton() {
+  return (
+    <main className="min-h-screen bg-background pb-24">
+      {/* Hero Section Skeleton */}
+      <div className="bg-gradient-to-br from-primary/5 via-background to-background px-4 pt-12 pb-8">
+        <div className="max-w-4xl mx-auto">
+          <Skeleton className="h-8 w-24 mb-2" />
+          <Skeleton className="h-6 w-48" />
+        </div>
+      </div>
+
+      {/* Quick Stats Skeleton */}
+      <div className="max-w-4xl mx-auto px-4 -mt-4">
+        <div className="grid grid-cols-2 gap-3 mb-8">
+          {[1, 2].map((i) => (
+            <Card key={i} elevation="md" className="p-4">
+              <Skeleton className="h-8 w-12 mb-2" />
+              <Skeleton className="h-4 w-20" />
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Action Cards Skeleton */}
+      <div className="max-w-4xl mx-auto px-4">
+        <Skeleton className="h-5 w-32 mb-4" />
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} elevation="sm" className="p-4">
+              <div className="flex items-center gap-4">
+                <SkeletonAvatar size="lg" />
+                <div className="flex-1">
+                  <SkeletonText lines={2} />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </main>
+  )
+}
+
+function QuickStatCard({
+  icon: Icon,
+  value,
+  label,
+  color,
+}: {
+  icon: React.ElementType
+  value: string | number
+  label: string
+  color: string
+}) {
+  return (
+    <Card elevation="md" hoverable className="overflow-hidden">
+      <CardContent className="py-4">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl ${color} flex items-center justify-center flex-shrink-0`}>
+            <Icon className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-foreground leading-none">{value}</p>
+            <p className="text-sm text-muted-foreground mt-1">{label}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+interface ActionCardProps {
+  href: string
+  icon: React.ElementType
+  iconBgColor: string
+  iconColor: string
+  title: string
+  description: string
+}
+
+function ActionCard({ href, icon: Icon, iconBgColor, iconColor, title, description }: ActionCardProps) {
+  return (
+    <Link href={href}>
+      <Card elevation="sm" hoverable className="group">
+        <CardContent className="py-4">
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl ${iconBgColor} flex items-center justify-center flex-shrink-0 transition-transform duration-normal group-hover:scale-105`}>
+              <Icon className={`w-6 h-6 ${iconColor}`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-foreground">{title}</p>
+              <p className="text-sm text-muted-foreground truncate">{description}</p>
+            </div>
+            <ChevronRightIcon className="w-5 h-5 text-muted-foreground flex-shrink-0 transition-transform duration-normal group-hover:translate-x-1" />
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  )
+}
+
+function LogoutCard({ onLogout }: { onLogout: () => void }) {
+  return (
+    <button onClick={onLogout} className="w-full text-left">
+      <Card elevation="sm" hoverable className="group">
+        <CardContent className="py-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center flex-shrink-0 transition-transform duration-normal group-hover:scale-105">
+              <LogOutIcon className="w-6 h-6 text-destructive" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-destructive">Sair</p>
+              <p className="text-sm text-muted-foreground">Encerrar sessão</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </button>
+  )
+}
 
 export default function Home() {
   const router = useRouter()
@@ -21,141 +148,157 @@ export default function Home() {
     router.push("/login")
   }
 
-  // Loading state
+  function handleNewAppointment() {
+    router.push("/agenda")
+  }
+
+  // Loading state with skeleton
   if (status === "loading") {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-background">
-        <div className="animate-pulse">
-          <div className="h-8 w-32 bg-muted rounded mb-4" />
-          <div className="h-4 w-48 bg-muted rounded" />
-        </div>
-      </main>
-    )
+    return <HomeSkeleton />
   }
 
   // Not authenticated - show login prompt
   if (status === "unauthenticated") {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-        <h1 className="text-3xl font-semibold text-foreground">Clínica</h1>
-        <p className="mt-2 text-muted-foreground mb-8">Sistema de gestão</p>
-        <Link
-          href="/login"
-          className="w-full max-w-xs h-12 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity flex items-center justify-center"
-        >
-          Entrar
-        </Link>
+      <main className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-background flex flex-col items-center justify-center px-4">
+        <div className="w-full max-w-sm text-center">
+          <div className="mb-8">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <StethoscopeIcon className="w-8 h-8 text-primary" />
+            </div>
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">Clínica</h1>
+            <p className="mt-2 text-muted-foreground">Sistema de gestão de consultas</p>
+          </div>
+
+          <Card elevation="lg" className="p-6">
+            <p className="text-sm text-muted-foreground mb-6">
+              Faça login para acessar sua agenda e gerenciar pacientes.
+            </p>
+            <Link
+              href="/login"
+              className="block w-full h-12 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 transition-all duration-normal active:scale-[0.98] flex items-center justify-center shadow-md hover:shadow-lg"
+            >
+              Entrar
+            </Link>
+          </Card>
+        </div>
       </main>
     )
   }
 
-  // Authenticated - show menu
+  // Get current time greeting
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite"
+  const firstName = session?.user?.name?.split(" ")[0] || "Usuário"
+
   return (
-    <main className="min-h-screen bg-background">
-      <div className="max-w-md mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-semibold text-foreground">Clínica</h1>
-          <p className="text-muted-foreground mt-1">
-            Olá, {session?.user?.name || "Usuário"}
-          </p>
+    <main className="min-h-screen bg-background pb-24">
+      {/* Hero Section */}
+      <div className="bg-gradient-to-br from-primary/5 via-background to-background px-4 pt-12 pb-8">
+        <div className="max-w-4xl mx-auto">
+          <p className="text-muted-foreground text-sm font-medium">{greeting},</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight mt-1">
+            {firstName}
+          </h1>
         </div>
+      </div>
 
-        {/* Menu */}
-        <nav className="space-y-3">
-          <Link
+      {/* Quick Stats */}
+      <div className="max-w-4xl mx-auto px-4 -mt-4">
+        <div className="grid grid-cols-2 gap-3 mb-8">
+          <QuickStatCard
+            icon={CalendarIcon}
+            value="—"
+            label="Hoje"
+            color="bg-info"
+          />
+          <QuickStatCard
+            icon={ClockIcon}
+            value="—"
+            label="Pendentes"
+            color="bg-warning"
+          />
+        </div>
+      </div>
+
+      {/* Action Cards */}
+      <div className="max-w-4xl mx-auto px-4">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
+          Menu Principal
+        </h2>
+
+        <div className="space-y-3">
+          <ActionCard
             href="/agenda"
-            className="flex items-center gap-4 w-full p-4 rounded-lg border border-border bg-card hover:bg-muted transition-colors"
-          >
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <CalendarIcon className="w-5 h-5 text-primary" />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-foreground">Agenda</p>
-              <p className="text-sm text-muted-foreground">Ver e gerenciar agendamentos</p>
-            </div>
-            <ChevronRightIcon className="w-5 h-5 text-muted-foreground" />
-          </Link>
+            icon={CalendarIcon}
+            iconBgColor="bg-primary/10"
+            iconColor="text-primary"
+            title="Agenda"
+            description="Ver e gerenciar agendamentos"
+          />
 
-          <Link
+          <ActionCard
             href="/patients"
-            className="flex items-center gap-4 w-full p-4 rounded-lg border border-border bg-card hover:bg-muted transition-colors"
-          >
-            <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
-              <UsersIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-foreground">Pacientes</p>
-              <p className="text-sm text-muted-foreground">Cadastro e histórico</p>
-            </div>
-            <ChevronRightIcon className="w-5 h-5 text-muted-foreground" />
-          </Link>
+            icon={UsersIcon}
+            iconBgColor="bg-success/10"
+            iconColor="text-success"
+            title="Pacientes"
+            description="Cadastro e histórico"
+          />
 
           {session?.user?.role === "ADMIN" && (
-            <Link
+            <ActionCard
               href="/professionals"
-              className="flex items-center gap-4 w-full p-4 rounded-lg border border-border bg-card hover:bg-muted transition-colors"
-            >
-              <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center">
-                <UsersIcon className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-foreground">Profissionais</p>
-                <p className="text-sm text-muted-foreground">Gerenciar equipe</p>
-              </div>
-              <ChevronRightIcon className="w-5 h-5 text-muted-foreground" />
-            </Link>
+              icon={StethoscopeIcon}
+              iconBgColor="bg-warning/10"
+              iconColor="text-warning"
+              title="Profissionais"
+              description="Gerenciar equipe"
+            />
           )}
 
-          <Link
+          <ActionCard
             href="/settings/availability"
-            className="flex items-center gap-4 w-full p-4 rounded-lg border border-border bg-card hover:bg-muted transition-colors"
-          >
-            <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
-              <SettingsIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-foreground">Configurações</p>
-              <p className="text-sm text-muted-foreground">Disponibilidade e preferências</p>
-            </div>
-            <ChevronRightIcon className="w-5 h-5 text-muted-foreground" />
-          </Link>
+            icon={SettingsIcon}
+            iconBgColor="bg-info/10"
+            iconColor="text-info"
+            title="Configurações"
+            description="Disponibilidade e preferências"
+          />
+        </div>
 
-          <hr className="border-border my-4" />
+        {/* Account Section */}
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-8 mb-4">
+          Conta
+        </h2>
 
-          <Link
+        <div className="space-y-3">
+          <ActionCard
             href="/profile"
-            className="flex items-center gap-4 w-full p-4 rounded-lg border border-border bg-card hover:bg-muted transition-colors"
-          >
-            <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-              <UserIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-foreground">Meu Perfil</p>
-              <p className="text-sm text-muted-foreground">Dados pessoais e profissionais</p>
-            </div>
-            <ChevronRightIcon className="w-5 h-5 text-muted-foreground" />
-          </Link>
+            icon={UserIcon}
+            iconBgColor="bg-gray-100 dark:bg-gray-800"
+            iconColor="text-gray-600 dark:text-gray-400"
+            title="Meu Perfil"
+            description="Dados pessoais e profissionais"
+          />
 
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-4 w-full p-4 rounded-lg border border-border bg-card hover:bg-muted transition-colors text-left"
-          >
-            <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
-              <LogOutIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-red-600 dark:text-red-400">Sair</p>
-              <p className="text-sm text-muted-foreground">Encerrar sessão</p>
-            </div>
-          </button>
-        </nav>
+          <LogoutCard onLogout={handleLogout} />
+        </div>
 
         {/* Footer */}
         <p className="text-center text-xs text-muted-foreground mt-8">
           {session?.user?.email}
         </p>
       </div>
+
+      {/* FAB for primary action - New Appointment */}
+      <FAB
+        onClick={handleNewAppointment}
+        icon={<PlusIcon className="w-6 h-6" />}
+        label="Novo agendamento"
+        color="primary"
+        elevation="lg"
+      />
     </main>
   )
 }
