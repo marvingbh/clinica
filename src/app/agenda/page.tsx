@@ -72,6 +72,15 @@ interface AvailabilityException {
   reason: string | null
 }
 
+interface AppointmentRecurrence {
+  id: string
+  recurrenceType: "WEEKLY" | "BIWEEKLY" | "MONTHLY"
+  recurrenceEndType: "BY_DATE" | "BY_OCCURRENCES"
+  occurrences: number | null
+  endDate: string | null
+  isActive: boolean
+}
+
 interface Appointment {
   id: string
   scheduledAt: string
@@ -82,6 +91,7 @@ interface Appointment {
   price: string | null
   cancellationReason: string | null
   cancelledAt: string | null
+  recurrence: AppointmentRecurrence | null
   patient: {
     id: string
     name: string
@@ -218,6 +228,7 @@ export default function AgendaPage() {
   const [cancelReason, setCancelReason] = useState("")
   const [notifyPatient, setNotifyPatient] = useState(true)
   const [isCancellingAppointment, setIsCancellingAppointment] = useState(false)
+  const [cancelType, setCancelType] = useState<"single" | "series">("single")
 
   // Status update state
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
@@ -489,6 +500,7 @@ export default function AgendaPage() {
   function openCancelDialog() {
     setCancelReason("")
     setNotifyPatient(true)
+    setCancelType("single")
     setIsCancelDialogOpen(true)
   }
 
@@ -496,6 +508,7 @@ export default function AgendaPage() {
     setIsCancelDialogOpen(false)
     setCancelReason("")
     setNotifyPatient(true)
+    setCancelType("single")
   }
 
   async function handleCancelAppointment() {
@@ -515,6 +528,7 @@ export default function AgendaPage() {
         body: JSON.stringify({
           reason: cancelReason.trim(),
           notifyPatient,
+          cancelType,
         }),
       })
 
@@ -525,7 +539,11 @@ export default function AgendaPage() {
         return
       }
 
-      toast.success("Agendamento cancelado com sucesso")
+      if (result.cancelType === "series" && result.cancelledCount > 1) {
+        toast.success(`${result.cancelledCount} agendamentos cancelados com sucesso`)
+      } else {
+        toast.success("Agendamento cancelado com sucesso")
+      }
       if (result.notificationCreated) {
         toast.success("Notificacao enviada ao paciente")
       }
@@ -1081,6 +1099,14 @@ export default function AgendaPage() {
                       <span className="text-xs text-muted-foreground">
                         {slot.appointment.modality === "ONLINE" ? "Online" : "Presencial"}
                       </span>
+                      {slot.appointment.recurrence && (
+                        <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Recorrente
+                        </span>
+                      )}
                       {slot.appointment.notes && (
                         <span className="text-xs text-muted-foreground truncate">
                           • {slot.appointment.notes}
@@ -1570,6 +1596,29 @@ export default function AgendaPage() {
               </p>
             </div>
 
+            {/* Recurrence Indicator */}
+            {selectedAppointment.recurrence && (
+              <div className="px-4 py-3 bg-blue-50 dark:bg-blue-950 border-b border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    Agendamento recorrente
+                  </span>
+                  <span className="text-xs text-blue-600 dark:text-blue-400">
+                    ({
+                      selectedAppointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
+                      selectedAppointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"
+                    })
+                  </span>
+                </div>
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                  Este agendamento faz parte de uma serie recorrente.
+                </p>
+              </div>
+            )}
+
             <form onSubmit={handleSubmitEdit(onSubmitEdit)} className="p-4 space-y-6">
               {/* Date */}
               <div>
@@ -1826,6 +1875,56 @@ export default function AgendaPage() {
                 Voce esta prestes a cancelar o agendamento de <strong>{selectedAppointment.patient.name}</strong>.
                 Esta acao nao pode ser desfeita.
               </p>
+
+              {/* Recurrence indicator and options */}
+              {selectedAppointment.recurrence && (
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                      Agendamento recorrente ({
+                        selectedAppointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
+                        selectedAppointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"
+                      })
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
+                    Este agendamento faz parte de uma serie recorrente. O que deseja cancelar?
+                  </p>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-3 cursor-pointer p-2 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors">
+                      <input
+                        type="radio"
+                        name="cancelType"
+                        value="single"
+                        checked={cancelType === "single"}
+                        onChange={() => setCancelType("single")}
+                        className="w-4 h-4 text-blue-600 border-blue-300 focus:ring-blue-500"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Esta ocorrencia</span>
+                        <p className="text-xs text-blue-600 dark:text-blue-400">Cancelar apenas este agendamento</p>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer p-2 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors">
+                      <input
+                        type="radio"
+                        name="cancelType"
+                        value="series"
+                        checked={cancelType === "series"}
+                        onChange={() => setCancelType("series")}
+                        className="w-4 h-4 text-blue-600 border-blue-300 focus:ring-blue-500"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Toda a serie</span>
+                        <p className="text-xs text-blue-600 dark:text-blue-400">Cancelar todos os agendamentos futuros desta serie</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              )}
 
               {/* Cancellation Reason */}
               <div className="mb-4">

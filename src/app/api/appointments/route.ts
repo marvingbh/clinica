@@ -119,6 +119,16 @@ export const GET = withAuth(
             },
           },
         },
+        recurrence: {
+          select: {
+            id: true,
+            recurrenceType: true,
+            recurrenceEndType: true,
+            occurrences: true,
+            endDate: true,
+            isActive: true,
+          },
+        },
       },
       orderBy: {
         scheduledAt: "asc",
