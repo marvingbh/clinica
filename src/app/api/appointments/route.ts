@@ -127,6 +127,7 @@ export const GET = withAuth(
             occurrences: true,
             endDate: true,
             isActive: true,
+            exceptions: true,
           },
         },
       },

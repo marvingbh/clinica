@@ -79,6 +79,7 @@ interface AppointmentRecurrence {
   occurrences: number | null
   endDate: string | null
   isActive: boolean
+  exceptions: string[]
 }
 
 interface Appointment {
@@ -235,6 +236,9 @@ export default function AgendaPage() {
 
   // Resend confirmation state
   const [isResendingConfirmation, setIsResendingConfirmation] = useState(false)
+
+  // Exception management state
+  const [isManagingException, setIsManagingException] = useState(false)
 
   const {
     register,
@@ -638,6 +642,73 @@ export default function AgendaPage() {
     } finally {
       setIsResendingConfirmation(false)
     }
+  }
+
+  // Handle skip/unskip exception for recurrence
+  async function handleToggleException(action: "skip" | "unskip") {
+    if (!selectedAppointment?.recurrence) return
+
+    const appointmentDate = new Date(selectedAppointment.scheduledAt)
+    const dateStr = appointmentDate.toISOString().split("T")[0]
+
+    setIsManagingException(true)
+
+    try {
+      const response = await fetch(
+        `/api/appointments/recurrences/${selectedAppointment.recurrence.id}/exceptions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date: dateStr, action }),
+        }
+      )
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        toast.error(result.error || `Erro ao ${action === "skip" ? "pular" : "restaurar"} data`)
+        return
+      }
+
+      toast.success(result.message)
+
+      // Update the selected appointment's recurrence exceptions locally
+      if (selectedAppointment.recurrence) {
+        setSelectedAppointment({
+          ...selectedAppointment,
+          recurrence: {
+            ...selectedAppointment.recurrence,
+            exceptions: result.exceptions,
+          },
+          // If skipped, update status locally
+          ...(action === "skip" && {
+            status: "CANCELADO_PROFISSIONAL",
+            cancellationReason: "Excecao na recorrencia - data pulada",
+          }),
+          // If unskipped and was cancelled, restore status
+          ...(action === "unskip" &&
+            selectedAppointment.status === "CANCELADO_PROFISSIONAL" &&
+            selectedAppointment.cancellationReason === "Excecao na recorrencia - data pulada" && {
+              status: "AGENDADO",
+              cancellationReason: null,
+            }),
+        })
+      }
+
+      // Refresh the appointments list
+      fetchAppointments()
+    } catch {
+      toast.error(`Erro ao ${action === "skip" ? "pular" : "restaurar"} data`)
+    } finally {
+      setIsManagingException(false)
+    }
+  }
+
+  // Check if current appointment date is an exception
+  function isCurrentDateException(): boolean {
+    if (!selectedAppointment?.recurrence) return false
+    const dateStr = new Date(selectedAppointment.scheduledAt).toISOString().split("T")[0]
+    return selectedAppointment.recurrence.exceptions?.includes(dateStr) ?? false
   }
 
   // Check if can resend confirmation (has consent and valid status)
@@ -1599,23 +1670,69 @@ export default function AgendaPage() {
             {/* Recurrence Indicator */}
             {selectedAppointment.recurrence && (
               <div className="px-4 py-3 bg-blue-50 dark:bg-blue-950 border-b border-blue-200 dark:border-blue-800">
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                    Agendamento recorrente
-                  </span>
-                  <span className="text-xs text-blue-600 dark:text-blue-400">
-                    ({
-                      selectedAppointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
-                      selectedAppointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"
-                    })
-                  </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                      Agendamento recorrente
+                    </span>
+                    <span className="text-xs text-blue-600 dark:text-blue-400">
+                      ({
+                        selectedAppointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
+                        selectedAppointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"
+                      })
+                    </span>
+                  </div>
+                  {/* Skip/Unskip button for exceptions */}
+                  {selectedAppointment.recurrence.isActive && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleException(isCurrentDateException() ? "unskip" : "skip")}
+                      disabled={isManagingException}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
+                        isCurrentDateException()
+                          ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-300 dark:hover:bg-green-800"
+                          : "bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900 dark:text-orange-300 dark:hover:bg-orange-800"
+                      }`}
+                    >
+                      {isManagingException ? (
+                        "..."
+                      ) : isCurrentDateException() ? (
+                        <>
+                          <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Restaurar
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                          </svg>
+                          Pular data
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                   Este agendamento faz parte de uma serie recorrente.
+                  {selectedAppointment.recurrence.exceptions?.length > 0 && (
+                    <span className="ml-1 text-orange-600 dark:text-orange-400">
+                      ({selectedAppointment.recurrence.exceptions.length} {selectedAppointment.recurrence.exceptions.length === 1 ? "excecao" : "excecoes"})
+                    </span>
+                  )}
                 </p>
+                {isCurrentDateException() && (
+                  <div className="mt-2 flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span className="text-xs font-medium">Esta data foi marcada como excecao (pulada)</span>
+                  </div>
+                )}
               </div>
             )}
 

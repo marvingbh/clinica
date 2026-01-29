@@ -150,7 +150,7 @@ export function calculateRecurrenceDates(
 /**
  * Formats a date as YYYY-MM-DD
  */
-function formatDate(date: Date): string {
+export function formatDate(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, "0")
   const day = String(date.getDate()).padStart(2, "0")
@@ -182,4 +182,75 @@ export function formatRecurrenceSummary(
   }
 
   return summary
+}
+
+/**
+ * Checks if a date is in the exceptions list
+ */
+export function isDateException(date: Date | string, exceptions: string[]): boolean {
+  const dateStr = typeof date === "string" ? date : formatDate(date)
+  return exceptions.includes(dateStr)
+}
+
+/**
+ * Adds a date to the exceptions list (skip a date)
+ * Returns new exceptions array
+ */
+export function addException(date: Date | string, exceptions: string[]): string[] {
+  const dateStr = typeof date === "string" ? date : formatDate(date)
+  if (exceptions.includes(dateStr)) {
+    return exceptions // Already an exception
+  }
+  return [...exceptions, dateStr].sort()
+}
+
+/**
+ * Removes a date from the exceptions list (unskip a date)
+ * Returns new exceptions array
+ */
+export function removeException(date: Date | string, exceptions: string[]): string[] {
+  const dateStr = typeof date === "string" ? date : formatDate(date)
+  return exceptions.filter((d) => d !== dateStr)
+}
+
+/**
+ * Calculates recurrence dates excluding exceptions
+ * Returns dates with an isException flag for display purposes
+ */
+export interface RecurrenceDateWithException extends RecurrenceDate {
+  isException: boolean
+}
+
+export function calculateRecurrenceDatesWithExceptions(
+  startDate: Date | string,
+  startTime: string,
+  durationMinutes: number,
+  options: RecurrenceOptions,
+  exceptions: string[] = []
+): RecurrenceDateWithException[] {
+  const dates = calculateRecurrenceDates(startDate, startTime, durationMinutes, options)
+  return dates.map((d) => ({
+    ...d,
+    isException: isDateException(d.date, exceptions),
+  }))
+}
+
+/**
+ * Counts active (non-exception) occurrences
+ */
+export function countActiveOccurrences(
+  startDate: Date | string,
+  startTime: string,
+  durationMinutes: number,
+  options: RecurrenceOptions,
+  exceptions: string[] = []
+): number {
+  const dates = calculateRecurrenceDatesWithExceptions(
+    startDate,
+    startTime,
+    durationMinutes,
+    options,
+    exceptions
+  )
+  return dates.filter((d) => !d.isException).length
 }
