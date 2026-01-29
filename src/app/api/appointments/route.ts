@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/api"
-import { checkConflict, formatConflictError, createAppointmentTokens } from "@/lib/appointments"
+import { checkConflict, formatConflictError, createAppointmentTokens, buildConfirmLink, buildCancelLink } from "@/lib/appointments"
+import { createNotification } from "@/lib/notifications"
+import { NotificationChannel, NotificationType } from "@/generated/prisma/client"
 import { z } from "zod"
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
@@ -201,6 +203,14 @@ export const POST = withAuth(
         clinicId: user.clinicId,
         isActive: true,
       },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        consentWhatsApp: true,
+        consentEmail: true,
+      },
     })
 
     if (!patient) {
@@ -352,6 +362,61 @@ export const POST = withAuth(
         formatConflictError(result.conflict),
         { status: 409 }
       )
+    }
+
+    // Queue notifications asynchronously (don't block API response)
+    // Wrapped in try-catch to ensure notification failures don't fail appointment creation
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+      const confirmLink = buildConfirmLink(baseUrl, result.tokens.confirmToken)
+      const cancelLink = buildCancelLink(baseUrl, result.tokens.cancelToken)
+
+      const professionalName = result.appointment.professionalProfile.user.name
+      const formattedDate = scheduledAt.toLocaleDateString("pt-BR", {
+        weekday: "long",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      })
+      const formattedTime = scheduledAt.toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+
+      const notificationContent = `Olá ${patient.name}!\n\nSeu agendamento foi criado com sucesso.\n\n📅 Data: ${formattedDate}\n🕐 Horário: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n📍 Modalidade: ${modality === "ONLINE" ? "Online" : "Presencial"}\n\nPara confirmar seu agendamento, acesse:\n${confirmLink}\n\nPara cancelar, acesse:\n${cancelLink}`
+
+      // Queue WhatsApp notification if patient has consent
+      if (patient.consentWhatsApp && patient.phone) {
+        createNotification({
+          clinicId: user.clinicId,
+          patientId: patient.id,
+          appointmentId: result.appointment.id,
+          type: NotificationType.APPOINTMENT_CONFIRMATION,
+          channel: NotificationChannel.WHATSAPP,
+          recipient: patient.phone,
+          content: notificationContent,
+        }).catch(() => {
+          // Silently ignore - notification failure should not affect appointment creation
+        })
+      }
+
+      // Queue email notification if patient has consent
+      if (patient.consentEmail && patient.email) {
+        createNotification({
+          clinicId: user.clinicId,
+          patientId: patient.id,
+          appointmentId: result.appointment.id,
+          type: NotificationType.APPOINTMENT_CONFIRMATION,
+          channel: NotificationChannel.EMAIL,
+          recipient: patient.email,
+          subject: "Agendamento Criado - Confirmação",
+          content: notificationContent,
+        }).catch(() => {
+          // Silently ignore - notification failure should not affect appointment creation
+        })
+      }
+    } catch {
+      // Silently ignore notification errors - appointment creation succeeded
     }
 
     // Return appointment with token info
