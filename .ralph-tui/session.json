@@ -3,10 +3,10 @@
   "sessionId": "31f9ccea-6f8c-4825-8fd9-9eb26dc0851b",
   "status": "running",
   "startedAt": "2026-01-29T19:08:39.197Z",
-  "updatedAt": "2026-01-29T19:37:00.741Z",
-  "currentIteration": 7,
+  "updatedAt": "2026-01-29T19:40:32.682Z",
+  "currentIteration": 8,
   "maxIterations": 10,
-  "tasksCompleted": 7,
+  "tasksCompleted": 8,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -53,8 +53,8 @@
       {
         "id": "US-007",
         "title": "Redesign Homepage with modern layout",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-008",
@@ -158,6 +158,16 @@
       "durationMs": 228591,
       "startedAt": "2026-01-29T19:30:40.267Z",
       "endedAt": "2026-01-29T19:34:28.858Z"
+    },
+    {
+      "iteration": 8,
+      "status": "completed",
+      "taskId": "US-007",
+      "taskTitle": "Redesign Homepage with modern layout",
+      "taskCompleted": true,
+      "durationMs": 150849,
+      "startedAt": "2026-01-29T19:34:29.889Z",
+      "endedAt": "2026-01-29T19:37:00.738Z"
     }
   ],
   "skippedTaskIds": [],
