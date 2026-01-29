@@ -25,6 +25,7 @@ export { Calendar as CalendarIcon } from "lucide-react"
 export { Users as UsersIcon } from "lucide-react"
 export { Settings as SettingsIcon } from "lucide-react"
 export { User as UserIcon } from "lucide-react"
+export { Stethoscope as StethoscopeIcon } from "lucide-react"
 
 // Actions
 export { Plus as PlusIcon } from "lucide-react"
