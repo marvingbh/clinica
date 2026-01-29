@@ -19,7 +19,9 @@ export const authConfig: NextAuthConfig = {
       const isLoggedIn = !!auth?.user
       const isLoginPage = nextUrl.pathname === "/login"
       const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth")
-      const isPublicRoute = isLoginPage || isApiAuthRoute
+      const isPublicApiRoute = nextUrl.pathname.startsWith("/api/public")
+      const isConfirmPage = nextUrl.pathname === "/confirm"
+      const isPublicRoute = isLoginPage || isApiAuthRoute || isPublicApiRoute || isConfirmPage
 
       if (isPublicRoute) {
         if (isLoggedIn && isLoginPage) {
