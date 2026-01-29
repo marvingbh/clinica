@@ -1,0 +1,212 @@
+import { NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+import { withAuth, forbiddenResponse } from "@/lib/api"
+import { createAuditLog } from "@/lib/rbac/audit"
+
+/**
+ * POST /api/appointments/:id/cancel
+ * Cancel an appointment (professional-initiated)
+ *
+ * Request body: { reason: string, notifyPatient?: boolean }
+ *
+ * - ADMIN can cancel any appointment in the clinic
+ * - PROFESSIONAL can only cancel their own appointments
+ * - Creates audit log entry
+ * - Optionally creates notification record if patient has consent
+ */
+export const POST = withAuth(
+  {
+    resource: "appointment",
+    action: "update",
+    getResourceOwnerId: (_req, params) => params?.id,
+  },
+  async (req, { user, scope }, params) => {
+    // Get request body
+    let body: { reason?: string; notifyPatient?: boolean }
+    try {
+      body = await req.json()
+    } catch {
+      return NextResponse.json(
+        { error: "Requisicao invalida" },
+        { status: 400 }
+      )
+    }
+
+    const { reason, notifyPatient } = body
+
+    if (!reason || typeof reason !== "string" || reason.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Motivo do cancelamento e obrigatorio" },
+        { status: 400 }
+      )
+    }
+
+    // Fetch the appointment with patient data for notification
+    const existing = await prisma.appointment.findFirst({
+      where: {
+        id: params.id,
+        clinicId: user.clinicId,
+      },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            consentWhatsApp: true,
+            consentEmail: true,
+          },
+        },
+        professionalProfile: {
+          include: {
+            user: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Agendamento nao encontrado" },
+        { status: 404 }
+      )
+    }
+
+    // Check ownership for "own" scope
+    if (scope === "own" && existing.professionalProfileId !== user.professionalProfileId) {
+      return forbiddenResponse("Voce so pode cancelar seus proprios agendamentos")
+    }
+
+    // Validate that the appointment can be cancelled
+    const cancellableStatuses = ["AGENDADO", "CONFIRMADO"]
+    if (!cancellableStatuses.includes(existing.status)) {
+      return NextResponse.json(
+        { error: `Agendamento com status "${existing.status}" nao pode ser cancelado` },
+        { status: 400 }
+      )
+    }
+
+    const cancellationReason = reason.trim()
+    const now = new Date()
+
+    // Update appointment status
+    const updatedAppointment = await prisma.appointment.update({
+      where: { id: params.id },
+      data: {
+        status: "CANCELADO_PROFISSIONAL",
+        cancellationReason,
+        cancelledAt: now,
+      },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        professionalProfile: {
+          include: {
+            user: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    // Create AuditLog entry
+    const ipAddress = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? undefined
+    const userAgent = req.headers.get("user-agent") ?? undefined
+
+    await createAuditLog({
+      user,
+      action: "PROFESSIONAL_CANCELLATION",
+      entityType: "Appointment",
+      entityId: params.id,
+      oldValues: {
+        status: existing.status,
+      },
+      newValues: {
+        status: "CANCELADO_PROFISSIONAL",
+        cancellationReason,
+        cancelledAt: now.toISOString(),
+      },
+      ipAddress,
+      userAgent,
+    })
+
+    // Create notification record if requested and patient has consent
+    let notificationCreated = false
+    if (notifyPatient) {
+      const patient = existing.patient
+      const professionalName = existing.professionalProfile.user.name
+      const scheduledDate = new Date(existing.scheduledAt)
+      const formattedDate = scheduledDate.toLocaleDateString("pt-BR", {
+        weekday: "long",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      })
+      const formattedTime = scheduledDate.toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+
+      const notificationContent = `Ola ${patient.name}, seu agendamento com ${professionalName} no dia ${formattedDate} as ${formattedTime} foi cancelado. Motivo: ${cancellationReason}`
+
+      // Create notification for WhatsApp if consent exists
+      if (patient.consentWhatsApp && patient.phone) {
+        await prisma.notification.create({
+          data: {
+            clinicId: user.clinicId,
+            patientId: patient.id,
+            appointmentId: params.id,
+            type: "APPOINTMENT_CANCELLATION",
+            channel: "whatsapp",
+            recipient: patient.phone,
+            content: notificationContent,
+          },
+        })
+        notificationCreated = true
+      }
+
+      // Create notification for email if consent exists
+      if (patient.consentEmail && patient.email) {
+        await prisma.notification.create({
+          data: {
+            clinicId: user.clinicId,
+            patientId: patient.id,
+            appointmentId: params.id,
+            type: "APPOINTMENT_CANCELLATION",
+            channel: "email",
+            recipient: patient.email,
+            subject: "Agendamento Cancelado",
+            content: notificationContent,
+          },
+        })
+        notificationCreated = true
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Agendamento cancelado com sucesso",
+      appointment: {
+        id: updatedAppointment.id,
+        status: updatedAppointment.status,
+        cancellationReason: updatedAppointment.cancellationReason,
+        cancelledAt: updatedAppointment.cancelledAt?.toISOString(),
+        patientName: updatedAppointment.patient.name,
+        professionalName: updatedAppointment.professionalProfile.user.name,
+      },
+      notificationCreated,
+    })
+  }
+)

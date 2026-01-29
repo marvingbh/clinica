@@ -84,6 +84,8 @@ export const GET = withAuth(
             name: true,
             email: true,
             phone: true,
+            consentWhatsApp: true,
+            consentEmail: true,
           },
         },
         professionalProfile: {

@@ -73,11 +73,15 @@ interface Appointment {
   modality: string
   notes: string | null
   price: string | null
+  cancellationReason: string | null
+  cancelledAt: string | null
   patient: {
     id: string
     name: string
     email: string | null
     phone: string
+    consentWhatsApp?: boolean
+    consentEmail?: boolean
   }
   professionalProfile: {
     id: string
@@ -196,6 +200,12 @@ export default function AgendaPage() {
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false)
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
   const [isUpdatingAppointment, setIsUpdatingAppointment] = useState(false)
+
+  // Cancel appointment state
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
+  const [cancelReason, setCancelReason] = useState("")
+  const [notifyPatient, setNotifyPatient] = useState(true)
+  const [isCancellingAppointment, setIsCancellingAppointment] = useState(false)
 
   const {
     register,
@@ -446,6 +456,71 @@ export default function AgendaPage() {
     } finally {
       setIsUpdatingAppointment(false)
     }
+  }
+
+  function openCancelDialog() {
+    setCancelReason("")
+    setNotifyPatient(true)
+    setIsCancelDialogOpen(true)
+  }
+
+  function closeCancelDialog() {
+    setIsCancelDialogOpen(false)
+    setCancelReason("")
+    setNotifyPatient(true)
+  }
+
+  async function handleCancelAppointment() {
+    if (!selectedAppointment) return
+
+    if (!cancelReason.trim()) {
+      toast.error("Informe o motivo do cancelamento")
+      return
+    }
+
+    setIsCancellingAppointment(true)
+
+    try {
+      const response = await fetch(`/api/appointments/${selectedAppointment.id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: cancelReason.trim(),
+          notifyPatient,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        toast.error(result.error || "Erro ao cancelar agendamento")
+        return
+      }
+
+      toast.success("Agendamento cancelado com sucesso")
+      if (result.notificationCreated) {
+        toast.success("Notificacao enviada ao paciente")
+      }
+      closeCancelDialog()
+      closeEditSheet()
+      fetchAppointments()
+    } catch {
+      toast.error("Erro ao cancelar agendamento")
+    } finally {
+      setIsCancellingAppointment(false)
+    }
+  }
+
+  // Check if appointment can be cancelled
+  function canCancelAppointment(appointment: Appointment | null): boolean {
+    if (!appointment) return false
+    return ["AGENDADO", "CONFIRMADO"].includes(appointment.status)
+  }
+
+  // Check if patient has notification consent
+  function hasNotificationConsent(appointment: Appointment | null): boolean {
+    if (!appointment) return false
+    return !!(appointment.patient.consentWhatsApp || appointment.patient.consentEmail)
   }
 
   async function onSubmitAppointment(data: AppointmentFormData) {
@@ -806,6 +881,8 @@ export default function AgendaPage() {
                     onClick={() => openEditSheet(slot.appointment!)}
                     className={`flex-1 bg-card border border-border rounded-lg p-3 border-l-4 text-left hover:bg-muted/50 transition-colors cursor-pointer ${
                       statusBorderColors[slot.appointment.status] || "border-l-gray-400"
+                    } ${
+                      (slot.appointment.status === "CANCELADO_PROFISSIONAL" || slot.appointment.status === "CANCELADO_PACIENTE") ? "opacity-50" : ""
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -1271,24 +1348,150 @@ export default function AgendaPage() {
                 )}
               </div>
 
+              {/* Cancellation Info (for cancelled appointments) */}
+              {(selectedAppointment.status === "CANCELADO_PROFISSIONAL" || selectedAppointment.status === "CANCELADO_PACIENTE") && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm font-medium text-red-800 mb-1">
+                    {selectedAppointment.status === "CANCELADO_PROFISSIONAL" ? "Cancelado pelo profissional" : "Cancelado pelo paciente"}
+                  </p>
+                  {selectedAppointment.cancellationReason && (
+                    <p className="text-sm text-red-700">
+                      Motivo: {selectedAppointment.cancellationReason}
+                    </p>
+                  )}
+                  {selectedAppointment.cancelledAt && (
+                    <p className="text-xs text-red-600 mt-1">
+                      Em: {new Date(selectedAppointment.cancelledAt).toLocaleString("pt-BR")}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Actions */}
               <div className="flex flex-col sm:flex-row gap-3 pt-4 pb-8">
+                {canCancelAppointment(selectedAppointment) ? (
+                  <>
+                    <button
+                      type="submit"
+                      disabled={isUpdatingAppointment}
+                      className="flex-1 h-12 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                    >
+                      {isUpdatingAppointment ? "Salvando..." : "Salvar Alteracoes"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openCancelDialog}
+                      className="flex-1 sm:flex-initial h-12 rounded-md border border-red-300 bg-red-50 text-red-700 font-medium hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-background transition-colors"
+                    >
+                      Cancelar Agendamento
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={closeEditSheet}
+                    className="flex-1 h-12 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
+                  >
+                    Fechar
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+        </>
+      )}
+
+      {/* Cancel Confirmation Dialog */}
+      {isCancelDialogOpen && selectedAppointment && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/70 z-[60]"
+            onClick={closeCancelDialog}
+          />
+
+          {/* Dialog */}
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="bg-background rounded-lg shadow-xl max-w-md w-full p-6 animate-scale-in">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-foreground">
+                  Cancelar Agendamento
+                </h3>
+              </div>
+
+              <p className="text-sm text-muted-foreground mb-4">
+                Voce esta prestes a cancelar o agendamento de <strong>{selectedAppointment.patient.name}</strong>.
+                Esta acao nao pode ser desfeita.
+              </p>
+
+              {/* Cancellation Reason */}
+              <div className="mb-4">
+                <label htmlFor="cancelReason" className="block text-sm font-medium text-foreground mb-2">
+                  Motivo do cancelamento *
+                </label>
+                <textarea
+                  id="cancelReason"
+                  rows={3}
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Informe o motivo do cancelamento..."
+                  className="w-full px-4 py-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors resize-none"
+                />
+              </div>
+
+              {/* Notify Patient Option */}
+              {hasNotificationConsent(selectedAppointment) && (
+                <div className="mb-6">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={notifyPatient}
+                      onChange={(e) => setNotifyPatient(e.target.checked)}
+                      className="w-5 h-5 rounded border-input text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm text-foreground">
+                      Notificar paciente sobre o cancelamento
+                    </span>
+                  </label>
+                  <p className="text-xs text-muted-foreground mt-1 ml-8">
+                    O paciente sera notificado via {selectedAppointment.patient.consentWhatsApp && selectedAppointment.patient.consentEmail ? "WhatsApp e email" : selectedAppointment.patient.consentWhatsApp ? "WhatsApp" : "email"}
+                  </p>
+                </div>
+              )}
+
+              {!hasNotificationConsent(selectedAppointment) && (
+                <div className="mb-6 p-3 bg-muted/50 rounded-md">
+                  <p className="text-xs text-muted-foreground">
+                    O paciente nao possui consentimento para receber notificacoes.
+                  </p>
+                </div>
+              )}
+
+              {/* Dialog Actions */}
+              <div className="flex gap-3">
                 <button
-                  type="submit"
-                  disabled={isUpdatingAppointment}
-                  className="flex-1 h-12 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                  type="button"
+                  onClick={closeCancelDialog}
+                  disabled={isCancellingAppointment}
+                  className="flex-1 h-11 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 transition-colors"
                 >
-                  {isUpdatingAppointment ? "Salvando..." : "Salvar Alteracoes"}
+                  Voltar
                 </button>
                 <button
                   type="button"
-                  onClick={closeEditSheet}
-                  className="flex-1 sm:flex-initial sm:w-32 h-12 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
+                  onClick={handleCancelAppointment}
+                  disabled={isCancellingAppointment || !cancelReason.trim()}
+                  className="flex-1 h-11 rounded-md bg-red-600 text-white font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  Cancelar
+                  {isCancellingAppointment ? "Cancelando..." : "Confirmar Cancelamento"}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </>
       )}
@@ -1343,6 +1546,19 @@ export default function AgendaPage() {
         }
         .animate-slide-up {
           animation: slide-up 0.3s ease-out;
+        }
+        @keyframes scale-in {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        .animate-scale-in {
+          animation: scale-in 0.2s ease-out;
         }
       `}</style>
     </main>
