@@ -3,10 +3,10 @@
   "sessionId": "99fc4b79-6159-4fae-9cf2-6fdc7c70d69d",
   "status": "running",
   "startedAt": "2026-01-29T11:42:39.409Z",
-  "updatedAt": "2026-01-29T12:09:50.775Z",
-  "currentIteration": 3,
+  "updatedAt": "2026-01-29T12:20:09.705Z",
+  "currentIteration": 4,
   "maxIterations": 10,
-  "tasksCompleted": 3,
+  "tasksCompleted": 4,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -125,8 +125,8 @@
       {
         "id": "US-019",
         "title": "Reenviar links de confirmação",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-020",
@@ -238,6 +238,16 @@
       "durationMs": 670392,
       "startedAt": "2026-01-29T11:52:24.706Z",
       "endedAt": "2026-01-29T12:03:35.098Z"
+    },
+    {
+      "iteration": 4,
+      "status": "completed",
+      "taskId": "US-019",
+      "taskTitle": "Reenviar links de confirmação",
+      "taskCompleted": true,
+      "durationMs": 373325,
+      "startedAt": "2026-01-29T12:03:37.443Z",
+      "endedAt": "2026-01-29T12:09:50.768Z"
     }
   ],
   "skippedTaskIds": [],
