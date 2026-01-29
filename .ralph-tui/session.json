@@ -3,10 +3,10 @@
   "sessionId": "7fd0b88b-a310-4b2c-aa5f-fb61c2094109",
   "status": "running",
   "startedAt": "2026-01-29T10:34:45.891Z",
-  "updatedAt": "2026-01-29T10:43:45.281Z",
-  "currentIteration": 1,
+  "updatedAt": "2026-01-29T10:52:33.523Z",
+  "currentIteration": 2,
   "maxIterations": 10,
-  "tasksCompleted": 1,
+  "tasksCompleted": 2,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -107,8 +107,8 @@
       {
         "id": "US-016",
         "title": "Geração de tokens únicos para agendamento",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-017",
@@ -218,6 +218,16 @@
       "durationMs": 193109,
       "startedAt": "2026-01-29T10:34:51.840Z",
       "endedAt": "2026-01-29T10:38:04.949Z"
+    },
+    {
+      "iteration": 2,
+      "status": "completed",
+      "taskId": "US-016",
+      "taskTitle": "Geração de tokens únicos para agendamento",
+      "taskCompleted": true,
+      "durationMs": 338388,
+      "startedAt": "2026-01-29T10:38:06.887Z",
+      "endedAt": "2026-01-29T10:43:45.275Z"
     }
   ],
   "skippedTaskIds": [],
