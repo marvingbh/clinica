@@ -63,6 +63,11 @@ export const rolePermissions: RolePermissions = {
     // Notifications management
     { resource: "notification", action: "read", scope: "clinic" },
     { resource: "notification", action: "list", scope: "clinic" },
+
+    // Notification templates management
+    { resource: "notification-template", action: "read", scope: "clinic" },
+    { resource: "notification-template", action: "update", scope: "clinic" },
+    { resource: "notification-template", action: "list", scope: "clinic" },
   ],
 
   PROFESSIONAL: [

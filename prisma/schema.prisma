@@ -102,6 +102,7 @@ model Clinic {
   appointmentRecurrences AppointmentRecurrence[]
   notifications          Notification[]
   auditLogs              AuditLog[]
+  notificationTemplates  NotificationTemplate[]
 
   @@index([slug])
   @@index([isActive])
@@ -393,4 +394,29 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@index([clinicId, createdAt])
+}
+
+/// Configurable notification templates per clinic
+model NotificationTemplate {
+  id        String              @id @default(cuid())
+  clinicId  String
+  type      NotificationType
+  channel   NotificationChannel
+  name      String              // Display name for the template
+  subject   String?             // Email subject (only for EMAIL channel)
+  content   String              // Template content with {{variables}}
+  isActive  Boolean             @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  // Unique constraint: one template per type+channel per clinic
+  @@unique([clinicId, type, channel])
+  @@index([clinicId])
+  @@index([type])
+  @@index([channel])
+  @@index([isActive])
 }

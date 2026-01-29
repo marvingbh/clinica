@@ -10,6 +10,7 @@ export type Resource =
   | "availability-exception"
   | "audit-log"
   | "notification"
+  | "notification-template"
 
 export type Action = "create" | "read" | "update" | "delete" | "list"
 

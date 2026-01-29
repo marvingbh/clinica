@@ -18,3 +18,15 @@ export {
 
 export { whatsAppMockProvider } from "./providers/whatsapp-mock"
 export { emailResendProvider } from "./providers/email-resend"
+
+export {
+  type TemplateVariables,
+  TEMPLATE_VARIABLES,
+  DEFAULT_TEMPLATES,
+  renderTemplate,
+  getTemplate,
+  getTemplatesForClinic,
+  upsertTemplate,
+  resetTemplateToDefault,
+  previewTemplate,
+} from "./templates"
