@@ -206,3 +206,36 @@ export function isWeekend(date: Date): boolean {
   const day = date.getDay()
   return day === 0 || day === 6
 }
+
+/**
+ * Converts YYYY-MM-DD to DD/MM/YYYY (Brazilian format)
+ */
+export function toDisplayDate(isoDate: string): string {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return isoDate
+  const [year, month, day] = isoDate.split("-")
+  return `${day}/${month}/${year}`
+}
+
+/**
+ * Converts DD/MM/YYYY to YYYY-MM-DD (ISO format)
+ */
+export function toIsoDate(displayDate: string): string {
+  if (!displayDate) return ""
+  // If already in ISO format, return as-is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(displayDate)) return displayDate
+  // Convert from DD/MM/YYYY
+  const match = displayDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (!match) return displayDate
+  const [, day, month, year] = match
+  return `${year}-${month}-${day}`
+}
+
+/**
+ * Converts a Date to DD/MM/YYYY string (Brazilian format)
+ */
+export function toDisplayDateFromDate(date: Date): string {
+  const day = String(date.getDate()).padStart(2, "0")
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}

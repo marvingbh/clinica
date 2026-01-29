@@ -1,6 +1,7 @@
 "use client"
 
-import { formatDateHeader, toDateString } from "../lib/utils"
+import { useState } from "react"
+import { formatDateHeader, toDateString, toDisplayDateFromDate, toIsoDate } from "../lib/utils"
 
 interface DateNavigationProps {
   selectedDate: Date
@@ -15,6 +16,30 @@ export function DateNavigation({
   showDatePicker,
   onToggleDatePicker,
 }: DateNavigationProps) {
+  const [dateInputValue, setDateInputValue] = useState(toDisplayDateFromDate(selectedDate))
+
+  function handleDateInputChange(value: string) {
+    setDateInputValue(value)
+    // Try to parse and update if valid DD/MM/YYYY format
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+      const isoDate = toIsoDate(value)
+      const date = new Date(isoDate + "T12:00:00")
+      if (!isNaN(date.getTime())) {
+        onDateChange(date)
+        onToggleDatePicker()
+      }
+    }
+  }
+
+  // Update input when selectedDate changes from external navigation
+  if (toDisplayDateFromDate(selectedDate) !== dateInputValue && /^\d{2}\/\d{2}\/\d{4}$/.test(dateInputValue)) {
+    const inputIso = toIsoDate(dateInputValue)
+    const selectedIso = toDateString(selectedDate)
+    if (inputIso !== selectedIso) {
+      setDateInputValue(toDisplayDateFromDate(selectedDate))
+    }
+  }
+
   function goToPreviousDay() {
     const newDate = new Date(selectedDate)
     newDate.setDate(newDate.getDate() - 1)
@@ -63,14 +88,11 @@ export function DateNavigation({
           <div className="absolute left-1/2 -translate-x-1/2 mt-2 z-30">
             <div className="bg-card border border-border rounded-lg shadow-lg p-4">
               <input
-                type="date"
-                value={toDateString(selectedDate)}
-                onChange={(e) => {
-                  const date = new Date(e.target.value + "T12:00:00")
-                  onDateChange(date)
-                  onToggleDatePicker()
-                }}
-                className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                type="text"
+                placeholder="DD/MM/AAAA"
+                value={dateInputValue}
+                onChange={(e) => handleDateInputChange(e.target.value)}
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <button
                 onClick={() => {

@@ -5,10 +5,11 @@ import { z } from "zod"
 // ============================================================================
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
+const brDateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/ // DD/MM/YYYY
 
 export const appointmentSchema = z.object({
   patientId: z.string().min(1, "Selecione um paciente"),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
+  date: z.string().regex(brDateRegex, "Data inválida (DD/MM/AAAA)"),
   startTime: z.string().regex(timeRegex, "Horário inválido (HH:mm)"),
   duration: z.number().int().min(15).max(480).optional(),
   modality: z.enum(["ONLINE", "PRESENCIAL"]),
@@ -16,7 +17,7 @@ export const appointmentSchema = z.object({
 })
 
 export const editAppointmentSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
+  date: z.string().regex(brDateRegex, "Data inválida (DD/MM/AAAA)"),
   startTime: z.string().regex(timeRegex, "Horário inválido (HH:mm)"),
   duration: z.number().int().min(15).max(480).optional(),
   modality: z.enum(["ONLINE", "PRESENCIAL"]),

@@ -5,6 +5,22 @@ import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
+// Date utilities for Brazilian format
+function toDisplayDate(isoDate: string): string {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return isoDate
+  const [year, month, day] = isoDate.split("-")
+  return `${day}/${month}/${year}`
+}
+
+function toIsoDate(displayDate: string): string {
+  if (!displayDate) return ""
+  if (/^\d{4}-\d{2}-\d{2}$/.test(displayDate)) return displayDate
+  const match = displayDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (!match) return ""
+  const [, day, month, year] = match
+  return `${year}-${month}-${day}`
+}
+
 interface AuditLog {
   id: string
   action: string
@@ -96,8 +112,14 @@ export default function AdminAuditPage() {
       const params = new URLSearchParams()
       if (filterAction) params.set("action", filterAction)
       if (filterEntityType) params.set("entityType", filterEntityType)
-      if (filterStartDate) params.set("startDate", filterStartDate)
-      if (filterEndDate) params.set("endDate", filterEndDate)
+      if (filterStartDate) {
+        const isoStart = toIsoDate(filterStartDate)
+        if (isoStart) params.set("startDate", isoStart)
+      }
+      if (filterEndDate) {
+        const isoEnd = toIsoDate(filterEndDate)
+        if (isoEnd) params.set("endDate", isoEnd)
+      }
       params.set("page", String(page))
       params.set("limit", "50")
 
@@ -249,26 +271,34 @@ export default function AdminAuditPage() {
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Data inicial</label>
               <input
-                type="date"
+                type="text"
+                placeholder="DD/MM/AAAA"
                 value={filterStartDate}
                 onChange={(e) => {
                   setFilterStartDate(e.target.value)
-                  setPage(1)
+                  // Only trigger search when format is valid
+                  if (/^\d{2}\/\d{2}\/\d{4}$/.test(e.target.value) || e.target.value === "") {
+                    setPage(1)
+                  }
                 }}
-                className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Data final</label>
               <input
-                type="date"
+                type="text"
+                placeholder="DD/MM/AAAA"
                 value={filterEndDate}
                 onChange={(e) => {
                   setFilterEndDate(e.target.value)
-                  setPage(1)
+                  // Only trigger search when format is valid
+                  if (/^\d{2}\/\d{2}\/\d{4}$/.test(e.target.value) || e.target.value === "") {
+                    setPage(1)
+                  }
                 }}
-                className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
               />
             </div>
           </div>

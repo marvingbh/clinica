@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { Suspense, useCallback, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
@@ -35,6 +35,8 @@ import {
 import {
   formatPhone,
   toDateString,
+  toDisplayDateFromDate,
+  toIsoDate,
   canCancelAppointment,
   canMarkStatus,
   canResendConfirmation,
@@ -53,7 +55,7 @@ import {
 
 import { WeekNavigation, WeeklyGrid } from "./components"
 
-export default function WeeklyAgendaPage() {
+function WeeklyAgendaPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
@@ -79,6 +81,7 @@ export default function WeeklyAgendaPage() {
   const [patientSearch, setPatientSearch] = useState("")
   const [isSavingAppointment, setIsSavingAppointment] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
+  const [createProfessionalId, setCreateProfessionalId] = useState("")
 
   // Recurrence state (for create)
   const [isRecurrenceEnabled, setIsRecurrenceEnabled] = useState(false)
@@ -210,6 +213,7 @@ export default function WeeklyAgendaPage() {
   function openCreateSheet() {
     setSelectedPatient(null)
     setPatientSearch("")
+    setCreateProfessionalId(selectedProfessionalId || "")
     setIsRecurrenceEnabled(false)
     setRecurrenceType("WEEKLY")
     setRecurrenceEndType("BY_OCCURRENCES")
@@ -217,7 +221,7 @@ export default function WeeklyAgendaPage() {
     setRecurrenceOccurrences(10)
     reset({
       patientId: "",
-      date: toDateString(weekStart),
+      date: toDisplayDateFromDate(weekStart),
       startTime: "",
       modality: "PRESENCIAL",
       notes: "",
@@ -229,6 +233,7 @@ export default function WeeklyAgendaPage() {
     setIsCreateSheetOpen(false)
     setSelectedPatient(null)
     setPatientSearch("")
+    setCreateProfessionalId("")
     setIsRecurrenceEnabled(false)
   }
 
@@ -239,18 +244,25 @@ export default function WeeklyAgendaPage() {
   }
 
   async function onSubmitAppointment(data: AppointmentFormData) {
+    // For admin, require a professional to be selected
+    const effectiveProfessionalId = selectedProfessionalId || createProfessionalId
+    if (isAdmin && !effectiveProfessionalId) {
+      toast.error("Selecione um profissional")
+      return
+    }
+
     setIsSavingAppointment(true)
     try {
       const body: Record<string, unknown> = {
         patientId: data.patientId,
-        date: data.date,
+        date: toIsoDate(data.date),
         startTime: data.startTime,
         modality: data.modality,
         notes: data.notes || null,
       }
 
-      if (isAdmin && selectedProfessionalId) {
-        body.professionalProfileId = selectedProfessionalId
+      if (isAdmin && effectiveProfessionalId) {
+        body.professionalProfileId = effectiveProfessionalId
       }
       if (data.duration) {
         body.duration = data.duration
@@ -307,7 +319,7 @@ export default function WeeklyAgendaPage() {
     const durationMinutes = Math.round((endDate.getTime() - scheduledDate.getTime()) / 60000)
 
     resetEdit({
-      date: toDateString(scheduledDate),
+      date: toDisplayDateFromDate(scheduledDate),
       startTime: `${scheduledDate.getHours().toString().padStart(2, "0")}:${scheduledDate.getMinutes().toString().padStart(2, "0")}`,
       duration: durationMinutes,
       modality: appointment.modality as "ONLINE" | "PRESENCIAL",
@@ -328,7 +340,8 @@ export default function WeeklyAgendaPage() {
     setIsUpdatingAppointment(true)
     try {
       const [hours, minutes] = data.startTime.split(":").map(Number)
-      const scheduledAt = new Date(data.date + "T12:00:00")
+      const isoDate = toIsoDate(data.date)
+      const scheduledAt = new Date(isoDate + "T12:00:00")
       scheduledAt.setHours(hours, minutes, 0, 0)
 
       const durationMinutes = data.duration || appointmentDuration
@@ -631,19 +644,41 @@ export default function WeeklyAgendaPage() {
           </div>
 
           {isAdmin && professionals.length > 0 && (
-            <select
-              value={selectedProfessionalId}
-              onChange={(e) => setSelectedProfessionalId(e.target.value)}
-              className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">Todos os profissionais</option>
-              {professionals.map((prof) => (
-                <option key={prof.id} value={prof.professionalProfile?.id || ""}>
-                  {prof.name}
-                  {prof.professionalProfile?.specialty && ` - ${prof.professionalProfile.specialty}`}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-1 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
+              <button
+                type="button"
+                onClick={() => setSelectedProfessionalId("")}
+                className={`
+                  flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors
+                  ${selectedProfessionalId === ""
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }
+                `}
+              >
+                Todos
+              </button>
+              {professionals.map((prof) => {
+                const profId = prof.professionalProfile?.id || ""
+                const isSelected = selectedProfessionalId === profId
+                return (
+                  <button
+                    key={prof.id}
+                    type="button"
+                    onClick={() => setSelectedProfessionalId(profId)}
+                    className={`
+                      flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap
+                      ${isSelected
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }
+                    `}
+                  >
+                    {prof.name}
+                  </button>
+                )
+              })}
+            </div>
           )}
         </div>
       </header>
@@ -687,21 +722,55 @@ export default function WeeklyAgendaPage() {
           />
           <input type="hidden" {...register("patientId")} />
 
+          {/* Professional selector for admin */}
+          {isAdmin && (
+            <div>
+              <label htmlFor="createProfessional" className="block text-sm font-medium text-foreground mb-2">Profissional *</label>
+              {selectedProfessionalId ? (
+                <div className="w-full h-12 px-4 rounded-md border border-input bg-muted text-foreground flex items-center">
+                  {professionals.find(p => p.professionalProfile?.id === selectedProfessionalId)?.name || "Profissional selecionado"}
+                </div>
+              ) : (
+                <select
+                  id="createProfessional"
+                  value={createProfessionalId}
+                  onChange={(e) => setCreateProfessionalId(e.target.value)}
+                  className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">Selecione um profissional</option>
+                  {professionals.map((prof) => (
+                    <option key={prof.id} value={prof.professionalProfile?.id || ""}>
+                      {prof.name}
+                      {prof.professionalProfile?.specialty && ` - ${prof.professionalProfile.specialty}`}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
           <div>
             <label htmlFor="date" className="block text-sm font-medium text-foreground mb-2">Data *</label>
-            <input id="date" type="date" {...register("date")} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <input id="date" type="text" placeholder="DD/MM/AAAA" {...register("date")} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
           </div>
 
           <div>
-            <label htmlFor="startTime" className="block text-sm font-medium text-foreground mb-2">Horario *</label>
-            <input id="startTime" type="time" {...register("startTime")} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <label htmlFor="startTime" className="block text-sm font-medium text-foreground mb-2">Horario * (HH:mm)</label>
+            <input
+              id="startTime"
+              type="text"
+              placeholder="Ex: 14:30"
+              pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+              {...register("startTime")}
+              className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
             {errors.startTime && <p className="text-sm text-destructive mt-1">{errors.startTime.message}</p>}
           </div>
 
           <div>
             <label htmlFor="duration" className="block text-sm font-medium text-foreground mb-2">Duracao (minutos)</label>
-            <input id="duration" type="number" {...register("duration", { valueAsNumber: true })} placeholder={`Padrao: ${appointmentDuration} minutos`} min={15} max={480} step={5} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <input id="duration" type="number" {...register("duration", { setValueAs: (v) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v) })} placeholder={`Padrao: ${appointmentDuration} minutos`} min={15} max={480} step={5} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             <p className="text-xs text-muted-foreground mt-1">Se nao informado, usa a duracao padrao ({appointmentDuration} min)</p>
           </div>
 
@@ -748,7 +817,7 @@ export default function WeeklyAgendaPage() {
 
           <div className="flex gap-3 pt-4 pb-8">
             <button type="button" onClick={closeCreateSheet} className="flex-1 h-12 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted">Cancelar</button>
-            <button type="submit" disabled={isSavingAppointment || !selectedPatient} className="flex-1 h-12 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
+            <button type="submit" disabled={isSavingAppointment || !selectedPatient || (isAdmin && !selectedProfessionalId && !createProfessionalId)} className="flex-1 h-12 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
               {isSavingAppointment ? "Salvando..." : "Criar Agendamento"}
             </button>
           </div>
@@ -759,14 +828,20 @@ export default function WeeklyAgendaPage() {
       <Sheet isOpen={isEditSheetOpen} onClose={closeEditSheet} title="Editar Agendamento">
         {selectedAppointment && (
           <>
-            {/* Patient Info */}
+            {/* Patient & Professional Info */}
             <div className="px-4 py-4 bg-muted/30 border-b border-border">
               <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Paciente</p>
-                  <p className="font-medium text-foreground">{selectedAppointment.patient.name}</p>
-                  <p className="text-sm text-muted-foreground">{formatPhone(selectedAppointment.patient.phone)}</p>
-                  {selectedAppointment.patient.email && <p className="text-sm text-muted-foreground">{selectedAppointment.patient.email}</p>}
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Paciente</p>
+                    <p className="font-medium text-foreground">{selectedAppointment.patient.name}</p>
+                    <p className="text-sm text-muted-foreground">{formatPhone(selectedAppointment.patient.phone)}</p>
+                    {selectedAppointment.patient.email && <p className="text-sm text-muted-foreground">{selectedAppointment.patient.email}</p>}
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Profissional</p>
+                    <p className="font-medium text-foreground">{selectedAppointment.professionalProfile.user.name}</p>
+                  </div>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-xs font-medium border ${STATUS_COLORS[selectedAppointment.status] || "bg-gray-100 text-gray-800 border-gray-200"}`}>
                   {STATUS_LABELS[selectedAppointment.status] || selectedAppointment.status}
@@ -787,19 +862,26 @@ export default function WeeklyAgendaPage() {
             <form onSubmit={handleSubmitEdit(onSubmitEdit)} className="p-4 space-y-6">
               <div>
                 <label htmlFor="editDate" className="block text-sm font-medium text-foreground mb-2">Data *</label>
-                <input id="editDate" type="date" {...registerEdit("date")} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input id="editDate" type="text" placeholder="DD/MM/AAAA" {...registerEdit("date")} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                 {editErrors.date && <p className="text-sm text-destructive mt-1">{editErrors.date.message}</p>}
               </div>
 
               <div>
-                <label htmlFor="editStartTime" className="block text-sm font-medium text-foreground mb-2">Horario *</label>
-                <input id="editStartTime" type="time" {...registerEdit("startTime")} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                <label htmlFor="editStartTime" className="block text-sm font-medium text-foreground mb-2">Horario * (HH:mm)</label>
+                <input
+                  id="editStartTime"
+                  type="text"
+                  placeholder="Ex: 14:30"
+                  pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+                  {...registerEdit("startTime")}
+                  className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
                 {editErrors.startTime && <p className="text-sm text-destructive mt-1">{editErrors.startTime.message}</p>}
               </div>
 
               <div>
                 <label htmlFor="editDuration" className="block text-sm font-medium text-foreground mb-2">Duracao (minutos)</label>
-                <input id="editDuration" type="number" {...registerEdit("duration", { valueAsNumber: true })} min={15} max={480} step={5} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input id="editDuration" type="number" {...registerEdit("duration", { setValueAs: (v) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v) })} min={15} max={480} step={5} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
 
               <div>
@@ -886,5 +968,13 @@ export default function WeeklyAgendaPage() {
       {/* Bottom Navigation */}
       <BottomNavigation />
     </main>
+  )
+}
+
+export default function WeeklyAgendaPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Carregando...</div>}>
+      <WeeklyAgendaPageContent />
+    </Suspense>
   )
 }

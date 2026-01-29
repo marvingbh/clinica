@@ -6,6 +6,30 @@ import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { BottomNavigation, SkeletonPage } from "@/shared/components/ui"
 
+// Date utilities for Brazilian format
+function toDisplayDateFromDate(date: Date): string {
+  const day = String(date.getDate()).padStart(2, "0")
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+function toDisplayDate(isoDate: string): string {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}/.test(isoDate)) return isoDate
+  const datePart = isoDate.split("T")[0]
+  const [year, month, day] = datePart.split("-")
+  return `${day}/${month}/${year}`
+}
+
+function toIsoDate(displayDate: string): string {
+  if (!displayDate) return ""
+  if (/^\d{4}-\d{2}-\d{2}$/.test(displayDate)) return displayDate
+  const match = displayDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (!match) return displayDate
+  const [, day, month, year] = match
+  return `${year}-${month}-${day}`
+}
+
 const DAYS_OF_WEEK = [
   { value: 0, label: "Domingo", short: "Dom" },
   { value: 1, label: "Segunda", short: "Seg" },
@@ -392,7 +416,7 @@ function AvailabilitySettingsContent() {
     if (exception) {
       setEditingException({
         id: exception.id,
-        date: exception.date.split("T")[0],
+        date: toDisplayDate(exception.date),
         isAvailable: exception.isAvailable,
         startTime: exception.startTime,
         endTime: exception.endTime,
@@ -404,7 +428,7 @@ function AvailabilitySettingsContent() {
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
       setEditingException({
-        date: tomorrow.toISOString().split("T")[0],
+        date: toDisplayDateFromDate(tomorrow),
         isAvailable: false,
         startTime: null,
         endTime: null,
@@ -450,7 +474,7 @@ function AvailabilitySettingsContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           professionalProfileId,
-          date,
+          date: toIsoDate(date),
           isAvailable,
           startTime: isFullDay ? null : startTime,
           endTime: isFullDay ? null : endTime,
@@ -762,7 +786,8 @@ function AvailabilitySettingsContent() {
                     </label>
                     <input
                       id="startTime"
-                      type="time"
+                      type="text"
+                      placeholder="HH:mm"
                       value={editingBlock.block.startTime}
                       onChange={(e) =>
                         setEditingBlock({
@@ -773,7 +798,8 @@ function AvailabilitySettingsContent() {
                           },
                         })
                       }
-                      className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                      pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+                      className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
                     />
                   </div>
                   <div>
@@ -785,7 +811,8 @@ function AvailabilitySettingsContent() {
                     </label>
                     <input
                       id="endTime"
-                      type="time"
+                      type="text"
+                      placeholder="HH:mm"
                       value={editingBlock.block.endTime}
                       onChange={(e) =>
                         setEditingBlock({
@@ -796,7 +823,8 @@ function AvailabilitySettingsContent() {
                           },
                         })
                       }
-                      className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                      pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+                      className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
                     />
                   </div>
                 </div>
@@ -933,7 +961,8 @@ function AvailabilitySettingsContent() {
                   </label>
                   <input
                     id="exceptionDate"
-                    type="date"
+                    type="text"
+                    placeholder="DD/MM/AAAA"
                     value={editingException.date}
                     onChange={(e) =>
                       setEditingException({
@@ -941,8 +970,9 @@ function AvailabilitySettingsContent() {
                         date: e.target.value,
                       })
                     }
-                    className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                    className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">Formato: DD/MM/AAAA</p>
                 </div>
 
                 {/* Full Day Toggle */}
@@ -982,7 +1012,8 @@ function AvailabilitySettingsContent() {
                       </label>
                       <input
                         id="exceptionStartTime"
-                        type="time"
+                        type="text"
+                        placeholder="HH:mm"
                         value={editingException.startTime || ""}
                         onChange={(e) =>
                           setEditingException({
@@ -990,7 +1021,8 @@ function AvailabilitySettingsContent() {
                             startTime: e.target.value,
                           })
                         }
-                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                        pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
                       />
                     </div>
                     <div>
@@ -1002,7 +1034,8 @@ function AvailabilitySettingsContent() {
                       </label>
                       <input
                         id="exceptionEndTime"
-                        type="time"
+                        type="text"
+                        placeholder="HH:mm"
                         value={editingException.endTime || ""}
                         onChange={(e) =>
                           setEditingException({
@@ -1010,7 +1043,8 @@ function AvailabilitySettingsContent() {
                             endTime: e.target.value,
                           })
                         }
-                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                        pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
                       />
                     </div>
                   </div>

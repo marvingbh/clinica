@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Sheet, Dialog } from "./Sheet"
 import { Appointment, RecurrenceType, RecurrenceEndType, Modality } from "../lib/types"
 import { RECURRENCE_TYPE_LABELS, MAX_RECURRENCE_OCCURRENCES } from "../lib/constants"
-import { toDateString } from "../lib/utils"
+import { toDateString, toDisplayDate, toIsoDate, toDisplayDateFromDate } from "../lib/utils"
 import { toast } from "sonner"
 
 interface RecurrenceEditSheetProps {
@@ -45,7 +45,8 @@ export function RecurrenceEditSheet({ isOpen, onClose, appointment, onSave }: Re
       setEndTime(`${String(endAt.getHours()).padStart(2, "0")}:${String(endAt.getMinutes()).padStart(2, "0")}`)
 
       if (recurrence.endDate) {
-        setEndDate(new Date(recurrence.endDate).toISOString().split("T")[0])
+        const date = new Date(recurrence.endDate)
+        setEndDate(toDateString(date))
       } else {
         setEndDate("")
       }
@@ -106,6 +107,12 @@ export function RecurrenceEditSheet({ isOpen, onClose, appointment, onSave }: Re
   async function handleFinalize() {
     if (!appointment?.recurrence || !finalizeDate) return
 
+    // Validate date format
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(finalizeDate)) {
+      toast.error("Data inválida. Use o formato DD/MM/AAAA")
+      return
+    }
+
     setIsFinalizing(true)
 
     try {
@@ -115,7 +122,7 @@ export function RecurrenceEditSheet({ isOpen, onClose, appointment, onSave }: Re
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            endDate: finalizeDate,
+            endDate: toIsoDate(finalizeDate),
             cancelFutureAppointments: false,
           }),
         }
@@ -178,10 +185,12 @@ export function RecurrenceEditSheet({ isOpen, onClose, appointment, onSave }: Re
               </label>
               <input
                 id="editRecStartTime"
-                type="time"
+                type="text"
+                placeholder="HH:mm"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
               />
             </div>
             <div>
@@ -190,10 +199,12 @@ export function RecurrenceEditSheet({ isOpen, onClose, appointment, onSave }: Re
               </label>
               <input
                 id="editRecEndTime"
-                type="time"
+                type="text"
+                placeholder="HH:mm"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
               />
             </div>
           </div>
@@ -297,12 +308,20 @@ export function RecurrenceEditSheet({ isOpen, onClose, appointment, onSave }: Re
               </label>
               <input
                 id="editRecEndDate"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                min={toDateString(new Date())}
-                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                type="text"
+                placeholder="DD/MM/AAAA"
+                value={endDate ? toDisplayDate(endDate) : ""}
+                onChange={(e) => {
+                  const value = e.target.value
+                  if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+                    setEndDate(toIsoDate(value))
+                  } else if (value === "") {
+                    setEndDate("")
+                  }
+                }}
+                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
               />
+              <p className="text-xs text-muted-foreground mt-1">Formato: DD/MM/AAAA</p>
             </div>
           )}
 
@@ -339,7 +358,7 @@ export function RecurrenceEditSheet({ isOpen, onClose, appointment, onSave }: Re
               <button
                 type="button"
                 onClick={() => {
-                  setFinalizeDate(toDateString(new Date()))
+                  setFinalizeDate(toDisplayDateFromDate(new Date()))
                   setIsFinalizeDialogOpen(true)
                 }}
                 className="w-full h-11 rounded-md border border-orange-500 bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 font-medium hover:bg-orange-100 dark:hover:bg-orange-950/50 transition-colors"
@@ -390,12 +409,13 @@ export function RecurrenceEditSheet({ isOpen, onClose, appointment, onSave }: Re
           </label>
           <input
             id="finalizeDate"
-            type="date"
+            type="text"
+            placeholder="DD/MM/AAAA"
             value={finalizeDate}
             onChange={(e) => setFinalizeDate(e.target.value)}
-            min={toDateString(new Date())}
-            className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+            className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
           />
+          <p className="text-xs text-muted-foreground mt-1">Formato: DD/MM/AAAA</p>
         </div>
 
         <div className="flex gap-3">

@@ -2,7 +2,7 @@
 
 import { RecurrenceType, RecurrenceEndType } from "../lib/types"
 import { RECURRENCE_TYPE_LABELS, MAX_RECURRENCE_OCCURRENCES } from "../lib/constants"
-import { toDateString, addMonthsToDate } from "../lib/utils"
+import { toDateString, addMonthsToDate, toDisplayDate, toIsoDate, toDisplayDateFromDate } from "../lib/utils"
 import { useEffect, useState } from "react"
 
 interface RecurrenceOptionsProps {
@@ -249,12 +249,21 @@ export function RecurrenceOptions({
               </label>
               <input
                 id="recurrenceEndDate"
-                type="date"
-                value={endDate}
-                onChange={(e) => onEndDateChange(e.target.value)}
-                min={minDate || toDateString(new Date())}
-                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                type="text"
+                placeholder="DD/MM/AAAA"
+                value={endDate ? toDisplayDate(endDate) : ""}
+                onChange={(e) => {
+                  const value = e.target.value
+                  // If valid Brazilian format, convert to ISO
+                  if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+                    onEndDateChange(toIsoDate(value))
+                  } else if (value === "") {
+                    onEndDateChange("")
+                  }
+                }}
+                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
               />
+              <p className="text-xs text-muted-foreground mt-1">Formato: DD/MM/AAAA</p>
             </div>
           )}
 
