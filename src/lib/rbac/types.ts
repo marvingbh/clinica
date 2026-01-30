@@ -11,6 +11,7 @@ export type Resource =
   | "audit-log"
   | "notification"
   | "notification-template"
+  | "therapy-group"
 
 export type Action = "create" | "read" | "update" | "delete" | "list"
 

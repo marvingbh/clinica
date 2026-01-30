@@ -68,6 +68,13 @@ export const rolePermissions: RolePermissions = {
     { resource: "notification-template", action: "read", scope: "clinic" },
     { resource: "notification-template", action: "update", scope: "clinic" },
     { resource: "notification-template", action: "list", scope: "clinic" },
+
+    // Therapy groups management
+    { resource: "therapy-group", action: "create", scope: "clinic" },
+    { resource: "therapy-group", action: "read", scope: "clinic" },
+    { resource: "therapy-group", action: "update", scope: "clinic" },
+    { resource: "therapy-group", action: "delete", scope: "clinic" },
+    { resource: "therapy-group", action: "list", scope: "clinic" },
   ],
 
   PROFESSIONAL: [
@@ -102,6 +109,13 @@ export const rolePermissions: RolePermissions = {
     // Own notifications
     { resource: "notification", action: "read", scope: "own" },
     { resource: "notification", action: "list", scope: "own" },
+
+    // Own therapy groups
+    { resource: "therapy-group", action: "create", scope: "own" },
+    { resource: "therapy-group", action: "read", scope: "own" },
+    { resource: "therapy-group", action: "update", scope: "own" },
+    { resource: "therapy-group", action: "delete", scope: "own" },
+    { resource: "therapy-group", action: "list", scope: "own" },
   ],
 }
 

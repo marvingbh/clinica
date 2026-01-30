@@ -18,6 +18,9 @@ export interface ConflictCheckParams {
   scheduledAt: Date
   endAt: Date
   excludeAppointmentId?: string
+  /** Exclude appointments with the same groupId (for group sessions) */
+  excludeGroupId?: string
+  /** @deprecated Buffer is no longer used in conflict checks - it only affects available slots */
   bufferMinutes?: number
 }
 
@@ -30,21 +33,23 @@ export interface ConflictCheckParams {
  * Conflict detection logic:
  * - Two time ranges overlap if: start1 < end2 AND end1 > start2
  * - Cancelled appointments are excluded from conflict checks
- * - Buffer time is added to both ends of the new appointment if configured
+ * - Back-to-back appointments (e.g., 8:00-8:45 and 8:45-9:30) are allowed
+ *
+ * Note: Buffer time is NOT applied here - it only affects available slots shown to users.
+ * This allows manual scheduling of back-to-back appointments when needed.
  */
 export async function checkConflict(
   params: ConflictCheckParams,
   tx?: Prisma.TransactionClient
 ): Promise<ConflictCheckResult> {
   const client = tx || prisma
-  const { professionalProfileId, scheduledAt, endAt, excludeAppointmentId, bufferMinutes = 0 } = params
-
-  // Apply buffer time if configured
-  const effectiveStart = new Date(scheduledAt.getTime() - bufferMinutes * 60 * 1000)
-  const effectiveEnd = new Date(endAt.getTime() + bufferMinutes * 60 * 1000)
+  const { professionalProfileId, scheduledAt, endAt, excludeAppointmentId, excludeGroupId } = params
 
   // Use raw query with FOR UPDATE to acquire row-level lock
   // This prevents race conditions when multiple requests try to book the same slot
+  // Note: We check for actual overlaps only (start1 < end2 AND end1 > start2)
+  // Back-to-back appointments where end1 = start2 are allowed
+  // For group sessions: exclude appointments with the same groupId (they share the same time slot intentionally)
   const conflictingAppointments = await client.$queryRaw<Array<{
     id: string
     scheduledAt: Date
@@ -60,9 +65,10 @@ export async function checkConflict(
     JOIN "Patient" p ON a."patientId" = p.id
     WHERE a."professionalProfileId" = ${professionalProfileId}
       AND a.status NOT IN ('CANCELADO_PACIENTE', 'CANCELADO_PROFISSIONAL')
-      AND a."scheduledAt" < ${effectiveEnd}
-      AND a."endAt" > ${effectiveStart}
+      AND a."scheduledAt" < ${endAt}
+      AND a."endAt" > ${scheduledAt}
       ${excludeAppointmentId ? Prisma.sql`AND a.id != ${excludeAppointmentId}` : Prisma.empty}
+      ${excludeGroupId ? Prisma.sql`AND (a."groupId" IS NULL OR a."groupId" != ${excludeGroupId})` : Prisma.empty}
     ORDER BY a."scheduledAt"
     LIMIT 1
     FOR UPDATE
@@ -85,6 +91,29 @@ export async function checkConflict(
 }
 
 /**
+ * Format time for display in Portuguese locale
+ */
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  })
+}
+
+/**
+ * Format date for display in Portuguese locale
+ */
+function formatDate(date: Date): string {
+  return date.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "America/Sao_Paulo",
+  })
+}
+
+/**
  * Format conflict error response with detailed information for debugging.
  */
 export function formatConflictError(conflict: ConflictingAppointment): {
@@ -97,8 +126,12 @@ export function formatConflictError(conflict: ConflictingAppointment): {
     patientName: string
   }
 } {
+  const dateStr = formatDate(conflict.scheduledAt)
+  const startTime = formatTime(conflict.scheduledAt)
+  const endTime = formatTime(conflict.endAt)
+
   return {
-    error: "Time slot conflicts with an existing appointment",
+    error: `Conflito de horário: já existe uma consulta agendada com ${conflict.patientName} em ${dateStr} das ${startTime} às ${endTime}`,
     code: "APPOINTMENT_CONFLICT",
     conflictingAppointment: {
       id: conflict.id,

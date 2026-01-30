@@ -104,6 +104,8 @@ model Clinic {
   notifications          Notification[]
   auditLogs              AuditLog[]
   notificationTemplates  NotificationTemplate[]
+  therapyGroups          TherapyGroup[]
+  groupMemberships       GroupMembership[]
 
   @@index([slug])
   @@index([isActive])
@@ -155,6 +157,7 @@ model ProfessionalProfile {
   availabilityExceptions AvailabilityException[]
   appointments           Appointment[]
   appointmentRecurrences AppointmentRecurrence[]
+  therapyGroups          TherapyGroup[]
 
   @@index([userId])
 }
@@ -227,6 +230,7 @@ model Patient {
   appointments           Appointment[]
   notifications          Notification[]
   appointmentRecurrences AppointmentRecurrence[]
+  groupMemberships       GroupMembership[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, phone])
@@ -244,6 +248,7 @@ model Appointment {
   professionalProfileId String
   patientId             String
   recurrenceId          String?
+  groupId               String?             // Links appointments in same group session
   scheduledAt           DateTime
   endAt                 DateTime
   status                AppointmentStatus   @default(AGENDADO)
@@ -263,6 +268,7 @@ model Appointment {
   professionalProfile ProfessionalProfile    @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
   patient             Patient                @relation(fields: [patientId], references: [id], onDelete: Cascade)
   recurrence          AppointmentRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  group               TherapyGroup?          @relation(fields: [groupId], references: [id], onDelete: SetNull)
   tokens              AppointmentToken[]
   notifications       Notification[]
 
@@ -270,12 +276,14 @@ model Appointment {
   @@index([professionalProfileId])
   @@index([patientId])
   @@index([recurrenceId])
+  @@index([groupId])
   @@index([scheduledAt])
   @@index([status])
   @@index([clinicId, scheduledAt])
   @@index([professionalProfileId, scheduledAt])
   @@index([clinicId, status])
   @@index([professionalProfileId, status, scheduledAt])
+  @@index([groupId, scheduledAt])
 }
 
 /// Defines a recurring appointment pattern
@@ -421,4 +429,57 @@ model NotificationTemplate {
   @@index([type])
   @@index([channel])
   @@index([isActive])
+}
+
+// ============================================================================
+// GROUP THERAPY MODELS
+// ============================================================================
+
+/// Defines a therapy group with a recurring schedule
+model TherapyGroup {
+  id                    String         @id @default(cuid())
+  clinicId              String
+  professionalProfileId String
+  name                  String         // e.g., "Thursday Anxiety Group"
+  dayOfWeek             Int            // 0-6 (Sunday-Saturday)
+  startTime             String         // e.g., "14:00"
+  duration              Int            @default(90) // in minutes
+  recurrenceType        RecurrenceType @default(WEEKLY)
+  isActive              Boolean        @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  memberships         GroupMembership[]
+  appointments        Appointment[]
+
+  @@index([clinicId])
+  @@index([professionalProfileId])
+  @@index([clinicId, isActive])
+}
+
+/// Tracks patient membership in a therapy group with temporal boundaries
+model GroupMembership {
+  id        String    @id @default(cuid())
+  clinicId  String    // Denormalized for tenant isolation queries
+  groupId   String
+  patientId String
+  joinDate  DateTime  @db.Date
+  leaveDate DateTime? @db.Date // null = active member
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  clinic  Clinic       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  group   TherapyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  patient Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, patientId, joinDate])
+  @@index([clinicId])
+  @@index([groupId])
+  @@index([patientId])
 }
