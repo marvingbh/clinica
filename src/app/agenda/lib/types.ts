@@ -70,6 +70,7 @@ export interface AppointmentRecurrence {
   id: string
   recurrenceType: RecurrenceType
   recurrenceEndType: RecurrenceEndType
+  dayOfWeek: number // 0 = Sunday, 6 = Saturday
   occurrences: number | null
   endDate: string | null
   isActive: boolean

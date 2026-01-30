@@ -85,7 +85,10 @@ export function calculateRecurrenceDates(
   options: RecurrenceOptions
 ): RecurrenceDate[] {
   const dates: RecurrenceDate[] = []
-  const start = new Date(startDate)
+  // Parse date as local time by adding time component (otherwise "YYYY-MM-DD" is parsed as UTC)
+  const start = typeof startDate === "string"
+    ? new Date(startDate + "T12:00:00")
+    : new Date(startDate)
   start.setHours(0, 0, 0, 0)
 
   const [hours, minutes] = startTime.split(":").map(Number)
@@ -114,7 +117,10 @@ export function calculateRecurrenceDates(
   if (options.recurrenceEndType === RecurrenceEndType.BY_OCCURRENCES && options.occurrences) {
     maxOccurrences = Math.min(options.occurrences, MAX_OCCURRENCES)
   } else if (options.recurrenceEndType === RecurrenceEndType.BY_DATE && options.endDate) {
-    endDate = new Date(options.endDate)
+    // Parse as local time
+    endDate = typeof options.endDate === "string"
+      ? new Date(options.endDate + "T12:00:00")
+      : new Date(options.endDate)
     endDate.setHours(23, 59, 59, 999)
   } else if (options.recurrenceEndType === RecurrenceEndType.INDEFINITE) {
     // For INDEFINITE, use rolling window of 6 months from start date
@@ -175,7 +181,10 @@ export function calculateNextWindowDates(
   extensionMonths: number = 3
 ): RecurrenceDate[] {
   const dates: RecurrenceDate[] = []
-  const lastDate = new Date(lastGeneratedDate)
+  // Parse as local time
+  const lastDate = typeof lastGeneratedDate === "string"
+    ? new Date(lastGeneratedDate + "T12:00:00")
+    : new Date(lastGeneratedDate)
   lastDate.setHours(0, 0, 0, 0)
 
   const [hours, minutes] = startTime.split(":").map(Number)
@@ -323,4 +332,35 @@ export function countActiveOccurrences(
     exceptions
   )
   return dates.filter((d) => !d.isException).length
+}
+
+/**
+ * Calculates new scheduledAt and endAt dates when day of week changes.
+ * Always shifts forward (to the next occurrence of the new day).
+ *
+ * @param currentScheduledAt - The current scheduled date/time
+ * @param currentEndAt - The current end date/time
+ * @param currentDayOfWeek - The current day of week (0-6, 0=Sunday)
+ * @param newDayOfWeek - The new day of week (0-6, 0=Sunday)
+ * @returns Object with new scheduledAt and endAt dates
+ */
+export function calculateDayShiftedDates(
+  currentScheduledAt: Date,
+  currentEndAt: Date,
+  currentDayOfWeek: number,
+  newDayOfWeek: number
+): { scheduledAt: Date; endAt: Date } {
+  // Calculate day difference (always shift forward)
+  let dayDiff = newDayOfWeek - currentDayOfWeek
+  if (dayDiff <= 0) {
+    // If new day is same or earlier in week, move to next week
+    dayDiff += 7
+  }
+
+  const msPerDay = 24 * 60 * 60 * 1000
+
+  const newScheduledAt = new Date(currentScheduledAt.getTime() + dayDiff * msPerDay)
+  const newEndAt = new Date(currentEndAt.getTime() + dayDiff * msPerDay)
+
+  return { scheduledAt: newScheduledAt, endAt: newEndAt }
 }

@@ -14,6 +14,9 @@ interface RecurrenceEditSheetProps {
   onSave: () => void
 }
 
+const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"]
+const FULL_DAY_NAMES = ["domingo", "segunda-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sabado"]
+
 export function RecurrenceEditSheet({ isOpen, onClose, appointment, onSave }: RecurrenceEditSheetProps) {
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("WEEKLY")
   const [startTime, setStartTime] = useState("")
@@ -22,6 +25,8 @@ export function RecurrenceEditSheet({ isOpen, onClose, appointment, onSave }: Re
   const [recurrenceEndType, setRecurrenceEndType] = useState<RecurrenceEndType>("BY_OCCURRENCES")
   const [endDate, setEndDate] = useState("")
   const [occurrences, setOccurrences] = useState(10)
+  const [dayOfWeek, setDayOfWeek] = useState<number>(0)
+  const [originalDayOfWeek, setOriginalDayOfWeek] = useState<number>(0)
   const [applyToFuture, setApplyToFuture] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -51,6 +56,11 @@ export function RecurrenceEditSheet({ isOpen, onClose, appointment, onSave }: Re
         setEndDate("")
       }
       setOccurrences(recurrence.occurrences || 10)
+
+      // Initialize day of week from recurrence or derive from scheduledAt
+      const day = recurrence.dayOfWeek !== undefined ? recurrence.dayOfWeek : scheduledAt.getDay()
+      setDayOfWeek(day)
+      setOriginalDayOfWeek(day)
     }
   }, [appointment])
 
@@ -74,6 +84,10 @@ export function RecurrenceEditSheet({ isOpen, onClose, appointment, onSave }: Re
         body.occurrences = occurrences
       }
 
+      if (dayOfWeek !== originalDayOfWeek) {
+        body.dayOfWeek = dayOfWeek
+      }
+
       if (applyToFuture) {
         body.applyTo = "future"
       }
@@ -90,7 +104,14 @@ export function RecurrenceEditSheet({ isOpen, onClose, appointment, onSave }: Re
       const result = await response.json()
 
       if (!response.ok) {
-        toast.error(result.error || "Erro ao atualizar recorrencia")
+        if (result.code === "DAY_CHANGE_CONFLICTS" && result.conflicts) {
+          const conflictDates = result.conflicts.map((c: { date: string; conflictsWith: string }) =>
+            `${c.date} (conflito com ${c.conflictsWith})`
+          ).join(", ")
+          toast.error(`Conflitos encontrados: ${conflictDates}`)
+        } else {
+          toast.error(result.error || "Erro ao atualizar recorrencia")
+        }
         return
       }
 
@@ -175,6 +196,37 @@ export function RecurrenceEditSheet({ isOpen, onClose, appointment, onSave }: Re
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Day of Week */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Dia da semana
+            </label>
+            <div className="grid grid-cols-7 gap-1">
+              {DAY_LABELS.map((label, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => setDayOfWeek(index)}
+                  className={`h-10 px-1 rounded-md text-sm font-medium border transition-colors ${
+                    dayOfWeek === index
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-input bg-background text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {dayOfWeek !== originalDayOfWeek && (
+              <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-md border border-amber-200 dark:border-amber-800">
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  Mudando de {FULL_DAY_NAMES[originalDayOfWeek]} para {FULL_DAY_NAMES[dayOfWeek]}.
+                  Todos os agendamentos futuros serao movidos para o novo dia.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Time */}

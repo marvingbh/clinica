@@ -4,6 +4,8 @@ import { withAuth, forbiddenResponse } from "@/lib/api"
 import { createAuditLog } from "@/lib/rbac/audit"
 import { RecurrenceType, RecurrenceEndType, AppointmentStatus, AppointmentModality } from "@/generated/prisma/client"
 import { z } from "zod"
+import { calculateDayShiftedDates } from "@/lib/appointments/recurrence"
+import { checkConflict, ConflictingAppointment } from "@/lib/appointments/conflict-check"
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
 
@@ -15,6 +17,7 @@ const updateRecurrenceSchema = z.object({
   recurrenceEndType: z.enum(["BY_DATE", "BY_OCCURRENCES", "INDEFINITE"]).optional(),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional().nullable(),
   occurrences: z.number().int().min(1).max(52).optional().nullable(),
+  dayOfWeek: z.number().int().min(0).max(6).optional(), // 0 = Sunday, 6 = Saturday
   applyTo: z.enum(["future"]).optional(), // Only "future" is supported for now
 })
 
@@ -219,6 +222,7 @@ export const PATCH = withAuth(
       recurrenceEndType: recurrence.recurrenceEndType,
       endDate: recurrence.endDate,
       occurrences: recurrence.occurrences,
+      dayOfWeek: recurrence.dayOfWeek,
     }
 
     const ipAddress = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? undefined
@@ -233,6 +237,7 @@ export const PATCH = withAuth(
       recurrenceEndType?: RecurrenceEndType
       endDate?: Date | null
       occurrences?: number | null
+      dayOfWeek?: number
       lastGeneratedDate?: Date | null
     } = {}
 
@@ -262,6 +267,9 @@ export const PATCH = withAuth(
     if (body.occurrences !== undefined) {
       updateData.occurrences = body.occurrences
     }
+    if (body.dayOfWeek !== undefined && body.dayOfWeek !== recurrence.dayOfWeek) {
+      updateData.dayOfWeek = body.dayOfWeek
+    }
 
     // If no updates provided, return error
     if (Object.keys(updateData).length === 0) {
@@ -269,6 +277,78 @@ export const PATCH = withAuth(
         { error: "Nenhuma alteracao fornecida" },
         { status: 400 }
       )
+    }
+
+    // Handle day of week change with conflict checking
+    const isDayOfWeekChange = updateData.dayOfWeek !== undefined
+    const dayShiftedAppointments: Array<{
+      id: string
+      oldScheduledAt: Date
+      oldEndAt: Date
+      newScheduledAt: Date
+      newEndAt: Date
+    }> = []
+
+    if (isDayOfWeekChange && recurrence.appointments.length > 0) {
+      const newDayOfWeek = updateData.dayOfWeek!
+      const currentDayOfWeek = recurrence.dayOfWeek
+
+      // Calculate new dates for all future appointments and check for conflicts
+      const conflicts: Array<{
+        appointmentId: string
+        date: string
+        patientName: string
+        conflictWith: ConflictingAppointment
+      }> = []
+
+      for (const apt of recurrence.appointments) {
+        const { scheduledAt: newScheduledAt, endAt: newEndAt } = calculateDayShiftedDates(
+          apt.scheduledAt,
+          apt.endAt,
+          currentDayOfWeek,
+          newDayOfWeek
+        )
+
+        // Check for conflicts at the new date/time
+        const conflictResult = await checkConflict({
+          professionalProfileId: recurrence.professionalProfileId,
+          scheduledAt: newScheduledAt,
+          endAt: newEndAt,
+          excludeAppointmentId: apt.id,
+        })
+
+        if (conflictResult.hasConflict && conflictResult.conflictingAppointment) {
+          conflicts.push({
+            appointmentId: apt.id,
+            date: newScheduledAt.toLocaleDateString("pt-BR"),
+            patientName: conflictResult.conflictingAppointment.patientName,
+            conflictWith: conflictResult.conflictingAppointment,
+          })
+        } else {
+          dayShiftedAppointments.push({
+            id: apt.id,
+            oldScheduledAt: apt.scheduledAt,
+            oldEndAt: apt.endAt,
+            newScheduledAt,
+            newEndAt,
+          })
+        }
+      }
+
+      // If there are conflicts, fail the operation
+      if (conflicts.length > 0) {
+        return NextResponse.json(
+          {
+            error: "Conflitos de horario encontrados ao mudar o dia da semana",
+            code: "DAY_CHANGE_CONFLICTS",
+            conflicts: conflicts.map((c) => ({
+              date: c.date,
+              conflictsWith: c.patientName,
+            })),
+          },
+          { status: 409 }
+        )
+      }
     }
 
     // Apply changes
@@ -282,8 +362,23 @@ export const PATCH = withAuth(
         data: updateData,
       })
 
-      // If applyTo is "future", update future appointments
-      if (applyToFuture && recurrence.appointments.length > 0) {
+      // If day of week changed, update all future appointments with new dates
+      if (isDayOfWeekChange && dayShiftedAppointments.length > 0) {
+        for (const apt of dayShiftedAppointments) {
+          await tx.appointment.update({
+            where: { id: apt.id },
+            data: {
+              scheduledAt: apt.newScheduledAt,
+              endAt: apt.newEndAt,
+              ...(body.modality && { modality: body.modality as AppointmentModality }),
+            },
+          })
+          updatedAppointmentsCount++
+        }
+      }
+
+      // If applyTo is "future", update future appointments (for other fields)
+      if (applyToFuture && recurrence.appointments.length > 0 && !isDayOfWeekChange) {
         const appointmentUpdateData: {
           scheduledAt?: Date
           endAt?: Date
