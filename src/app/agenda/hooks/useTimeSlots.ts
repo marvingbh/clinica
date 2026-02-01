@@ -1,6 +1,16 @@
 import { useMemo } from "react"
 import { toDateString } from "../lib/utils"
-import type { Appointment, AvailabilityRule, AvailabilityException, TimeSlot } from "../lib/types"
+import type { Appointment, AvailabilityRule, AvailabilityException, TimeSlot, AppointmentStatus } from "../lib/types"
+
+// Cancelled statuses - these appointments don't block the slot
+const CANCELLED_STATUSES: AppointmentStatus[] = [
+  "CANCELADO_PACIENTE",
+  "CANCELADO_PROFISSIONAL",
+]
+
+function isActivAppointment(apt: Appointment): boolean {
+  return !CANCELLED_STATUSES.includes(apt.status)
+}
 
 export interface UseTimeSlotsParams {
   selectedDate: Date
@@ -12,6 +22,16 @@ export interface UseTimeSlotsParams {
   selectedProfessionalId: string
 }
 
+export interface FullDayBlock {
+  reason: string | null
+  isClinicWide: boolean
+}
+
+export interface UseTimeSlotsResult {
+  slots: TimeSlot[]
+  fullDayBlock: FullDayBlock | null
+}
+
 export function useTimeSlots({
   selectedDate,
   availabilityRules,
@@ -20,7 +40,7 @@ export function useTimeSlots({
   appointmentDuration,
   isAdmin,
   selectedProfessionalId,
-}: UseTimeSlotsParams): TimeSlot[] {
+}: UseTimeSlotsParams): UseTimeSlotsResult {
   return useMemo(() => {
     const dateStr = toDateString(selectedDate)
 
@@ -36,15 +56,17 @@ export function useTimeSlots({
             const aptDateStr = toDateString(aptTime)
             return aptDateStr === dateStr && aptTime.getHours() === hour && aptTime.getMinutes() === min
           })
+          // Only active (non-cancelled) appointments block the slot
+          const activeAppointments = slotAppointments.filter(isActivAppointment)
           slots.push({
             time: timeStr,
-            isAvailable: slotAppointments.length === 0,
+            isAvailable: activeAppointments.length === 0,
             appointments: slotAppointments,
             isBlocked: false,
           })
         }
       }
-      return slots
+      return { slots, fullDayBlock: null }
     }
 
     // Single professional view - use availability rules
@@ -54,20 +76,35 @@ export function useTimeSlots({
       (rule) => rule.dayOfWeek === dayOfWeek && rule.isActive
     )
 
-    const fullDayException = availabilityExceptions.find(
-      (ex) => toDateString(new Date(ex.date)) === dateStr && !ex.startTime && !ex.isAvailable
-    )
+    // Check for full day block exceptions (specific date or recurring)
+    const fullDayException = availabilityExceptions.find((ex) => {
+      if (ex.isAvailable || ex.startTime) return false
 
-    // If there's a full day block exception, return empty
+      if (ex.isRecurring) {
+        return ex.dayOfWeek === dayOfWeek
+      } else {
+        // Extract date part from ISO string to avoid timezone issues
+        const exDateStr = ex.date ? ex.date.split("T")[0] : null
+        return exDateStr === dateStr
+      }
+    })
+
+    // If there's a full day block exception, return block info
     if (fullDayException) {
-      return []
+      return {
+        slots: [],
+        fullDayBlock: {
+          reason: fullDayException.reason,
+          isClinicWide: fullDayException.isClinicWide,
+        },
+      }
     }
 
     // If no availability rules but there are appointments, generate slots based on appointments
     // This ensures appointments are still displayed even without configured availability
     if (dayRules.length === 0) {
       if (appointments.length === 0) {
-        return []
+        return { slots: [], fullDayBlock: null }
       }
 
       // Generate slots for hours that have appointments
@@ -96,7 +133,7 @@ export function useTimeSlots({
           isBlocked: false,
         })
       }
-      return slots
+      return { slots, fullDayBlock: null }
     }
 
     const slots: TimeSlot[] = []
@@ -115,9 +152,19 @@ export function useTimeSlots({
         const timeStr = `${hour.toString().padStart(2, "0")}:${min.toString().padStart(2, "0")}`
 
         const exception = availabilityExceptions.find((ex) => {
-          if (toDateString(new Date(ex.date)) !== dateStr) return false
+          if (ex.isAvailable) return false
           if (!ex.startTime || !ex.endTime) return false
-          return timeStr >= ex.startTime && timeStr < ex.endTime && !ex.isAvailable
+
+          // Check if time falls within exception range
+          const inTimeRange = timeStr >= ex.startTime && timeStr < ex.endTime
+
+          if (ex.isRecurring) {
+            return ex.dayOfWeek === dayOfWeek && inTimeRange
+          } else {
+            // Extract date part from ISO string to avoid timezone issues
+            const exDateStr = ex.date ? ex.date.split("T")[0] : null
+            return exDateStr === dateStr && inTimeRange
+          }
         })
 
         const slotAppointments = appointments.filter((apt) => {
@@ -125,10 +172,12 @@ export function useTimeSlots({
           const aptDateStr = toDateString(aptTime)
           return aptDateStr === dateStr && aptTime.getHours() === hour && aptTime.getMinutes() === min
         })
+        // Only active (non-cancelled) appointments block the slot
+        const activeAppointments = slotAppointments.filter(isActivAppointment)
 
         slots.push({
           time: timeStr,
-          isAvailable: !exception && slotAppointments.length === 0,
+          isAvailable: !exception && activeAppointments.length === 0,
           appointments: slotAppointments,
           isBlocked: !!exception,
           blockReason: exception?.reason || undefined,
@@ -151,11 +200,20 @@ export function useTimeSlots({
       const timeStr = `${hour.toString().padStart(2, "0")}:${min.toString().padStart(2, "0")}`
 
       if (!existingSlotTimes.has(timeStr)) {
-        // Check if this time has an exception
+        // Check if this time has an exception (specific date or recurring)
         const exception = availabilityExceptions.find((ex) => {
-          if (toDateString(new Date(ex.date)) !== dateStr) return false
+          if (ex.isAvailable) return false
           if (!ex.startTime || !ex.endTime) return false
-          return timeStr >= ex.startTime && timeStr < ex.endTime && !ex.isAvailable
+
+          const inTimeRange = timeStr >= ex.startTime && timeStr < ex.endTime
+
+          if (ex.isRecurring) {
+            return ex.dayOfWeek === dayOfWeek && inTimeRange
+          } else {
+            // Extract date part from ISO string to avoid timezone issues
+            const exDateStr = ex.date ? ex.date.split("T")[0] : null
+            return exDateStr === dateStr && inTimeRange
+          }
         })
 
         const slotAppointments = appointments.filter((a) => {
@@ -177,6 +235,6 @@ export function useTimeSlots({
 
     slots.sort((a, b) => a.time.localeCompare(b.time))
 
-    return slots
+    return { slots, fullDayBlock: null }
   }, [selectedDate, availabilityRules, availabilityExceptions, appointments, appointmentDuration, isAdmin, selectedProfessionalId])
 }

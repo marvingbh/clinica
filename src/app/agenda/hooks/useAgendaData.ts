@@ -3,23 +3,26 @@ import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { toDateString } from "../lib/utils"
 import { DEFAULT_APPOINTMENT_DURATION } from "../lib/constants"
-import type { Appointment, AvailabilityRule, AvailabilityException, Professional } from "../lib/types"
+import type { Appointment, AvailabilityRule, AvailabilityException, Professional, GroupSession } from "../lib/types"
 import {
   fetchAppointments as fetchAppointmentsApi,
   fetchAvailabilityRules,
   fetchAvailabilityExceptions,
   fetchProfessionals as fetchProfessionalsApi,
+  fetchGroupSessions as fetchGroupSessionsApi,
 } from "../services"
 
 export interface UseAgendaDataParams {
   selectedDate: Date
   isAdmin: boolean
   currentProfessionalProfileId: string | null | undefined
+  currentAppointmentDuration: number | null | undefined
   isAuthenticated: boolean
 }
 
 export interface UseAgendaDataReturn {
   appointments: Appointment[]
+  groupSessions: GroupSession[]
   availabilityRules: AvailabilityRule[]
   availabilityExceptions: AvailabilityException[]
   professionals: Professional[]
@@ -33,16 +36,21 @@ export function useAgendaData({
   selectedDate,
   isAdmin,
   currentProfessionalProfileId,
+  currentAppointmentDuration,
   isAuthenticated,
 }: UseAgendaDataParams): UseAgendaDataReturn {
   const router = useRouter()
 
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [groupSessions, setGroupSessions] = useState<GroupSession[]>([])
   const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([])
   const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([])
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [selectedProfessionalId, setSelectedProfessionalId] = useState("")
-  const [appointmentDuration, setAppointmentDuration] = useState(DEFAULT_APPOINTMENT_DURATION)
+  // Use session's appointmentDuration for non-admins, default for admins (will be updated when selecting professional)
+  const [appointmentDuration, setAppointmentDuration] = useState(
+    currentAppointmentDuration || DEFAULT_APPOINTMENT_DURATION
+  )
 
   // Compute the active professional profile ID
   const activeProfessionalProfileId = useMemo(() => {
@@ -68,11 +76,18 @@ export function useAgendaData({
     if (!activeProfessionalProfileId && !isAdmin) return
     try {
       const profId = isAdmin && selectedProfessionalId ? selectedProfessionalId : undefined
-      const data = await fetchAppointmentsApi({
-        date: selectedDate,
-        professionalProfileId: profId,
-      })
-      setAppointments(data.appointments)
+      const [appointmentsData, groupSessionsData] = await Promise.all([
+        fetchAppointmentsApi({
+          date: selectedDate,
+          professionalProfileId: profId,
+        }),
+        fetchGroupSessionsApi({
+          date: selectedDate,
+          professionalProfileId: profId,
+        }),
+      ])
+      setAppointments(appointmentsData.appointments)
+      setGroupSessions(groupSessionsData.groupSessions)
     } catch (error) {
       if (error instanceof Error && error.message === "ACCESS_DENIED") {
         toast.error("Acesso negado")
@@ -97,8 +112,9 @@ export function useAgendaData({
         const dateStr = toDateString(selectedDate)
         const profId = isAdmin && selectedProfessionalId ? selectedProfessionalId : undefined
 
-        const [appointmentsData, availabilityData, exceptionsData] = await Promise.all([
+        const [appointmentsData, groupSessionsData, availabilityData, exceptionsData] = await Promise.all([
           fetchAppointmentsApi({ date: selectedDate, professionalProfileId: profId, signal }),
+          fetchGroupSessionsApi({ date: selectedDate, professionalProfileId: profId, signal }),
           fetchAvailabilityRules({ professionalProfileId: profId, signal }),
           fetchAvailabilityExceptions({
             startDate: dateStr,
@@ -111,6 +127,7 @@ export function useAgendaData({
         if (signal.aborted) return
 
         setAppointments(appointmentsData.appointments)
+        setGroupSessions(groupSessionsData.groupSessions)
         setAvailabilityRules(availabilityData.rules || [])
         setAvailabilityExceptions(exceptionsData.exceptions || [])
       } catch (error) {
@@ -131,9 +148,16 @@ export function useAgendaData({
     }
   }, [isAuthenticated, selectedDate, activeProfessionalProfileId, isAdmin, selectedProfessionalId, router])
 
-  // Update appointment duration when professionals data is available
+  // Update appointment duration from session for non-admins
   useEffect(() => {
-    if (professionals.length > 0 && activeProfessionalProfileId) {
+    if (!isAdmin && currentAppointmentDuration) {
+      setAppointmentDuration(currentAppointmentDuration)
+    }
+  }, [isAdmin, currentAppointmentDuration])
+
+  // Update appointment duration when professionals data is available (for admins)
+  useEffect(() => {
+    if (isAdmin && professionals.length > 0 && activeProfessionalProfileId) {
       const prof = professionals.find(
         (p) => p.professionalProfile?.id === activeProfessionalProfileId
       )
@@ -141,10 +165,11 @@ export function useAgendaData({
         setAppointmentDuration(prof.professionalProfile.appointmentDuration)
       }
     }
-  }, [professionals, activeProfessionalProfileId])
+  }, [isAdmin, professionals, activeProfessionalProfileId])
 
   return {
     appointments,
+    groupSessions,
     availabilityRules,
     availabilityExceptions,
     professionals,

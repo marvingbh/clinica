@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useCallback } from "react"
+import { useEffect, useRef, useCallback, useState } from "react"
+import { createPortal } from "react-dom"
 
 interface BottomSheetProps {
   isOpen: boolean
@@ -20,6 +21,11 @@ export function BottomSheet({
   const sheetRef = useRef<HTMLDivElement>(null)
   const touchStartY = useRef<number | null>(null)
   const touchCurrentY = useRef<number | null>(null)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Handle escape key
   useEffect(() => {
@@ -69,9 +75,9 @@ export function BottomSheet({
     touchCurrentY.current = null
   }, [onClose])
 
-  if (!isOpen) return null
+  if (!isOpen || !mounted) return null
 
-  return (
+  const content = (
     <>
       {/* Backdrop */}
       <div
@@ -80,17 +86,19 @@ export function BottomSheet({
         aria-hidden="true"
       />
 
-      {/* Sheet */}
-      <div
-        ref={sheetRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={title ? "sheet-title" : undefined}
-        className="fixed inset-x-0 bottom-0 z-50 bg-background rounded-t-2xl shadow-xl max-h-[90vh] overflow-hidden animate-slide-up"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
+      {/* Sheet Container - centered on larger screens */}
+      <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center">
+        {/* Sheet - full width on mobile, max-width on larger screens */}
+        <div
+          ref={sheetRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={title ? "sheet-title" : undefined}
+          className="w-full max-w-4xl bg-background rounded-t-2xl shadow-xl max-h-[90vh] overflow-hidden animate-slide-up"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
         {/* Handle */}
         {showHandle && (
           <div className="sticky top-0 bg-background pt-3 pb-2 px-4 border-b border-border z-10">
@@ -112,6 +120,7 @@ export function BottomSheet({
         {/* Content */}
         <div className="overflow-y-auto max-h-[calc(90vh-60px)] overscroll-contain">
           {children}
+        </div>
         </div>
       </div>
 
@@ -142,6 +151,9 @@ export function BottomSheet({
       `}</style>
     </>
   )
+
+  // Render in portal to escape any CSS containment
+  return createPortal(content, document.body)
 }
 
 interface BottomSheetActionProps {

@@ -24,6 +24,10 @@ export interface UseAppointmentEditReturn {
   // Form
   form: UseFormReturn<EditAppointmentFormData>
 
+  // API error (shown inline)
+  apiError: string | null
+  clearApiError: () => void
+
   // Submission
   isUpdating: boolean
   onSubmit: (data: EditAppointmentFormData) => Promise<void>
@@ -36,6 +40,9 @@ export function useAppointmentEdit({
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false)
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
+
+  const clearApiError = useCallback(() => setApiError(null), [])
 
   const form = useForm<EditAppointmentFormData>({
     resolver: zodResolver(editAppointmentSchema),
@@ -44,6 +51,7 @@ export function useAppointmentEdit({
   const openEditSheet = useCallback(
     (appointment: Appointment) => {
       setSelectedAppointment(appointment)
+      setApiError(null)
       const scheduledDate = new Date(appointment.scheduledAt)
       const endDate = new Date(appointment.endAt)
       const durationMinutes = Math.round((endDate.getTime() - scheduledDate.getTime()) / 60000)
@@ -70,6 +78,9 @@ export function useAppointmentEdit({
     async (data: EditAppointmentFormData) => {
       if (!selectedAppointment) return
 
+      // Clear any previous API error
+      setApiError(null)
+
       setIsUpdating(true)
       try {
         const [hours, minutes] = data.startTime.split(":").map(Number)
@@ -89,7 +100,7 @@ export function useAppointmentEdit({
         })
 
         if (result.error) {
-          toast.error(result.error)
+          setApiError(result.error)
           return
         }
 
@@ -97,7 +108,7 @@ export function useAppointmentEdit({
         closeEditSheet()
         onSuccess()
       } catch {
-        toast.error("Erro ao atualizar agendamento")
+        setApiError("Erro ao atualizar agendamento")
       } finally {
         setIsUpdating(false)
       }
@@ -112,6 +123,8 @@ export function useAppointmentEdit({
     selectedAppointment,
     setSelectedAppointment,
     form,
+    apiError,
+    clearApiError,
     isUpdating,
     onSubmit,
   }

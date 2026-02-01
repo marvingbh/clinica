@@ -19,23 +19,22 @@ import {
   Patient,
   Professional,
   Appointment,
-  RecurrenceType,
   RecurrenceEndType,
   CancelType,
   AppointmentFormData,
   EditAppointmentFormData,
   appointmentSchema,
   editAppointmentSchema,
+  GroupSession,
 } from "../lib"
 
+import { fetchGroupSessions } from "../services/groupSessionService"
+
 import {
-  STATUS_LABELS,
-  STATUS_COLORS,
   DEFAULT_APPOINTMENT_DURATION,
 } from "../lib/constants"
 
 import {
-  formatPhone,
   toDateString,
   toDisplayDateFromDate,
   toIsoDate,
@@ -51,9 +50,11 @@ import {
   PatientSearch,
   RecurrenceOptions,
   CancelDialog,
-  RecurrenceEditSheet,
-  RecurrenceIndicator,
+  AppointmentEditor,
+  InlineAlert,
+  GroupSessionSheet,
 } from "../components"
+import type { AppointmentType } from "../components/RecurrenceOptions"
 
 import { WeekNavigation, WeeklyGrid } from "./components"
 
@@ -74,9 +75,17 @@ function WeeklyAgendaPageContent() {
   // Core state
   const [isLoading, setIsLoading] = useState(true)
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [groupSessions, setGroupSessions] = useState<GroupSession[]>([])
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>("")
-  const [appointmentDuration, setAppointmentDuration] = useState(DEFAULT_APPOINTMENT_DURATION)
+  // Use session's appointmentDuration for non-admins, default for admins (will be updated when selecting professional)
+  const [appointmentDuration, setAppointmentDuration] = useState(
+    session?.user?.appointmentDuration || DEFAULT_APPOINTMENT_DURATION
+  )
+
+  // Group session sheet state
+  const [isGroupSessionSheetOpen, setIsGroupSessionSheetOpen] = useState(false)
+  const [selectedGroupSession, setSelectedGroupSession] = useState<GroupSession | null>(null)
 
   // Create appointment state
   const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false)
@@ -84,11 +93,12 @@ function WeeklyAgendaPageContent() {
   const [isSavingAppointment, setIsSavingAppointment] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [createProfessionalId, setCreateProfessionalId] = useState("")
+  const [createApiError, setCreateApiError] = useState<string | null>(null)
 
-  // Recurrence state (for create)
-  const [isRecurrenceEnabled, setIsRecurrenceEnabled] = useState(false)
-  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("WEEKLY")
-  const [recurrenceEndType, setRecurrenceEndType] = useState<RecurrenceEndType>("BY_OCCURRENCES")
+  // Appointment type state (for create) - WEEKLY by default (psychology clinic norm)
+  // INDEFINITE end type by default - appointments continue until explicitly stopped
+  const [appointmentType, setAppointmentType] = useState<AppointmentType>("WEEKLY")
+  const [recurrenceEndType, setRecurrenceEndType] = useState<RecurrenceEndType>("INDEFINITE")
   const [recurrenceEndDate, setRecurrenceEndDate] = useState("")
   const [recurrenceOccurrences, setRecurrenceOccurrences] = useState(10)
 
@@ -96,6 +106,7 @@ function WeeklyAgendaPageContent() {
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false)
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
   const [isUpdatingAppointment, setIsUpdatingAppointment] = useState(false)
+  const [editApiError, setEditApiError] = useState<string | null>(null)
 
   // Cancel dialog state
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
@@ -106,7 +117,10 @@ function WeeklyAgendaPageContent() {
 
   // Recurrence management state
   const [isManagingException, setIsManagingException] = useState(false)
-  const [isRecurrenceEditSheetOpen, setIsRecurrenceEditSheetOpen] = useState(false)
+
+  // Delete appointment state
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDeletingAppointment, setIsDeletingAppointment] = useState(false)
 
   // Forms
   const {
@@ -123,12 +137,7 @@ function WeeklyAgendaPageContent() {
     },
   })
 
-  const {
-    register: registerEdit,
-    handleSubmit: handleSubmitEdit,
-    reset: resetEdit,
-    formState: { errors: editErrors },
-  } = useForm<EditAppointmentFormData>({
+  const editForm = useForm<EditAppointmentFormData>({
     resolver: zodResolver(editAppointmentSchema),
   })
 
@@ -185,28 +194,50 @@ function WeeklyAgendaPageContent() {
   const fetchAppointments = useCallback(async () => {
     if (!activeProfessionalProfileId && !isAdmin) return
     try {
-      const startDate = toDateString(weekStart)
-      const endDate = toDateString(getWeekEnd(weekStart))
+      const startDateStr = toDateString(weekStart)
+      const endDateStr = toDateString(getWeekEnd(weekStart))
+      const profId = isAdmin && selectedProfessionalId ? selectedProfessionalId : undefined
 
-      const params = new URLSearchParams({ startDate, endDate })
-      if (isAdmin && selectedProfessionalId) {
-        params.set("professionalProfileId", selectedProfessionalId)
+      const params = new URLSearchParams({ startDate: startDateStr, endDate: endDateStr })
+      if (profId) {
+        params.set("professionalProfileId", profId)
       }
-      const response = await fetch(`/api/appointments?${params.toString()}`)
-      if (!response.ok) {
-        if (response.status === 403) {
+
+      const [appointmentsResponse, groupSessionsData] = await Promise.all([
+        fetch(`/api/appointments?${params.toString()}`),
+        fetchGroupSessions({
+          startDate: weekStart,
+          endDate: getWeekEnd(weekStart),
+          professionalProfileId: profId,
+        }),
+      ])
+
+      if (!appointmentsResponse.ok) {
+        if (appointmentsResponse.status === 403) {
           toast.error("Acesso negado")
           router.push("/login")
           return
         }
         throw new Error("Failed to fetch appointments")
       }
-      const data = await response.json()
+      const data = await appointmentsResponse.json()
       setAppointments(data.appointments)
+      setGroupSessions(groupSessionsData.groupSessions)
     } catch {
       toast.error("Erro ao carregar agenda")
     }
   }, [weekStart, activeProfessionalProfileId, isAdmin, selectedProfessionalId, router])
+
+  // Group session handlers
+  const openGroupSessionSheet = (session: GroupSession) => {
+    setSelectedGroupSession(session)
+    setIsGroupSessionSheetOpen(true)
+  }
+
+  const closeGroupSessionSheet = () => {
+    setIsGroupSessionSheetOpen(false)
+    setSelectedGroupSession(null)
+  }
 
   // ============================================================================
   // Create Appointment
@@ -216,9 +247,10 @@ function WeeklyAgendaPageContent() {
     setSelectedPatient(null)
     setPatientSearch("")
     setCreateProfessionalId(selectedProfessionalId || "")
-    setIsRecurrenceEnabled(false)
-    setRecurrenceType("WEEKLY")
-    setRecurrenceEndType("BY_OCCURRENCES")
+    setCreateApiError(null)
+    // Default to WEEKLY recurring appointment with no end date
+    setAppointmentType("WEEKLY")
+    setRecurrenceEndType("INDEFINITE")
     setRecurrenceEndDate("")
     setRecurrenceOccurrences(10)
     reset({
@@ -236,7 +268,7 @@ function WeeklyAgendaPageContent() {
     setSelectedPatient(null)
     setPatientSearch("")
     setCreateProfessionalId("")
-    setIsRecurrenceEnabled(false)
+    setAppointmentType("WEEKLY")
   }
 
   function handleSelectPatient(patient: Patient) {
@@ -246,10 +278,13 @@ function WeeklyAgendaPageContent() {
   }
 
   async function onSubmitAppointment(data: AppointmentFormData) {
+    // Clear any previous API error
+    setCreateApiError(null)
+
     // For admin, require a professional to be selected
     const effectiveProfessionalId = selectedProfessionalId || createProfessionalId
     if (isAdmin && !effectiveProfessionalId) {
-      toast.error("Selecione um profissional")
+      setCreateApiError("Selecione um profissional")
       return
     }
 
@@ -269,9 +304,12 @@ function WeeklyAgendaPageContent() {
       if (data.duration) {
         body.duration = data.duration
       }
-      if (isRecurrenceEnabled) {
+
+      // Only add recurrence if not SINGLE
+      const isRecurring = appointmentType !== "SINGLE"
+      if (isRecurring) {
         body.recurrence = {
-          recurrenceType,
+          recurrenceType: appointmentType,
           recurrenceEndType,
           ...(recurrenceEndType === "BY_DATE" && { endDate: recurrenceEndDate }),
           ...(recurrenceEndType === "BY_OCCURRENCES" && { occurrences: recurrenceOccurrences }),
@@ -288,14 +326,14 @@ function WeeklyAgendaPageContent() {
 
       if (!response.ok) {
         if (result.occurrenceIndex) {
-          toast.error(`${result.error} (Ocorrencia ${result.occurrenceIndex})`)
+          setCreateApiError(`${result.error} (Ocorrencia ${result.occurrenceIndex})`)
         } else {
-          toast.error(result.error || "Erro ao criar agendamento")
+          setCreateApiError(result.error || "Erro ao criar agendamento")
         }
         return
       }
 
-      if (isRecurrenceEnabled && result.totalOccurrences) {
+      if (isRecurring && result.totalOccurrences) {
         toast.success(`${result.totalOccurrences} agendamentos criados com sucesso`)
       } else {
         toast.success("Agendamento criado com sucesso")
@@ -304,7 +342,7 @@ function WeeklyAgendaPageContent() {
       closeCreateSheet()
       fetchAppointments()
     } catch {
-      toast.error("Erro ao criar agendamento")
+      setCreateApiError("Erro ao criar agendamento")
     } finally {
       setIsSavingAppointment(false)
     }
@@ -316,11 +354,12 @@ function WeeklyAgendaPageContent() {
 
   function openEditSheet(appointment: Appointment) {
     setSelectedAppointment(appointment)
+    setEditApiError(null)
     const scheduledDate = new Date(appointment.scheduledAt)
     const endDate = new Date(appointment.endAt)
     const durationMinutes = Math.round((endDate.getTime() - scheduledDate.getTime()) / 60000)
 
-    resetEdit({
+    editForm.reset({
       date: toDisplayDateFromDate(scheduledDate),
       startTime: `${scheduledDate.getHours().toString().padStart(2, "0")}:${scheduledDate.getMinutes().toString().padStart(2, "0")}`,
       duration: durationMinutes,
@@ -338,6 +377,9 @@ function WeeklyAgendaPageContent() {
 
   async function onSubmitEdit(data: EditAppointmentFormData) {
     if (!selectedAppointment) return
+
+    // Clear any previous API error
+    setEditApiError(null)
 
     setIsUpdatingAppointment(true)
     try {
@@ -366,7 +408,7 @@ function WeeklyAgendaPageContent() {
       const result = await response.json()
 
       if (!response.ok) {
-        toast.error(result.error || "Erro ao atualizar agendamento")
+        setEditApiError(result.error || "Erro ao atualizar agendamento")
         return
       }
 
@@ -374,7 +416,7 @@ function WeeklyAgendaPageContent() {
       closeEditSheet()
       fetchAppointments()
     } catch {
-      toast.error("Erro ao atualizar agendamento")
+      setEditApiError("Erro ao atualizar agendamento")
     } finally {
       setIsUpdatingAppointment(false)
     }
@@ -531,6 +573,37 @@ function WeeklyAgendaPageContent() {
   }
 
   // ============================================================================
+  // Delete Appointment
+  // ============================================================================
+
+  async function handleDeleteAppointment() {
+    if (!selectedAppointment) return
+
+    setIsDeletingAppointment(true)
+    try {
+      const response = await fetch(`/api/appointments/${selectedAppointment.id}`, {
+        method: "DELETE",
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        toast.error(result.error || "Erro ao excluir agendamento")
+        return
+      }
+
+      toast.success("Agendamento excluido com sucesso")
+      setIsDeleteDialogOpen(false)
+      closeEditSheet()
+      fetchAppointments()
+    } catch {
+      toast.error("Erro ao excluir agendamento")
+    } finally {
+      setIsDeletingAppointment(false)
+    }
+  }
+
+  // ============================================================================
   // Effects
   // ============================================================================
 
@@ -554,21 +627,30 @@ function WeeklyAgendaPageContent() {
 
     async function fetchData() {
       try {
-        const startDate = toDateString(weekStart)
-        const endDate = toDateString(getWeekEnd(weekStart))
+        const startDateStr = toDateString(weekStart)
+        const endDateStr = toDateString(getWeekEnd(weekStart))
         const profId = isAdmin && selectedProfessionalId ? selectedProfessionalId : ""
 
-        const params = new URLSearchParams({ startDate, endDate })
+        const params = new URLSearchParams({ startDate: startDateStr, endDate: endDateStr })
         if (profId) params.set("professionalProfileId", profId)
 
-        const response = await fetch(`/api/appointments?${params.toString()}`, {
-          signal: abortController.signal,
-        })
+        // Fetch appointments and group sessions in parallel
+        const [appointmentsResponse, groupSessionsData] = await Promise.all([
+          fetch(`/api/appointments?${params.toString()}`, {
+            signal: abortController.signal,
+          }),
+          fetchGroupSessions({
+            startDate: weekStart,
+            endDate: getWeekEnd(weekStart),
+            professionalProfileId: profId || undefined,
+            signal: abortController.signal,
+          }),
+        ])
 
         if (abortController.signal.aborted) return
 
-        if (!response.ok) {
-          if (response.status === 403) {
+        if (!appointmentsResponse.ok) {
+          if (appointmentsResponse.status === 403) {
             toast.error("Acesso negado")
             router.push("/login")
             return
@@ -576,11 +658,12 @@ function WeeklyAgendaPageContent() {
           throw new Error("Failed to fetch appointments")
         }
 
-        const data = await response.json()
+        const appointmentsData = await appointmentsResponse.json()
 
         if (abortController.signal.aborted) return
 
-        setAppointments(data.appointments)
+        setAppointments(appointmentsData.appointments)
+        setGroupSessions(groupSessionsData.groupSessions)
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return
         toast.error("Erro ao carregar agenda")
@@ -594,14 +677,22 @@ function WeeklyAgendaPageContent() {
     }
   }, [status, weekStart, activeProfessionalProfileId, isAdmin, selectedProfessionalId, router])
 
+  // Update appointment duration from session for non-admins
   useEffect(() => {
-    if (professionals.length > 0 && activeProfessionalProfileId) {
+    if (!isAdmin && session?.user?.appointmentDuration) {
+      setAppointmentDuration(session.user.appointmentDuration)
+    }
+  }, [isAdmin, session?.user?.appointmentDuration])
+
+  // Update appointment duration when professionals data is available (for admins)
+  useEffect(() => {
+    if (isAdmin && professionals.length > 0 && activeProfessionalProfileId) {
       const prof = professionals.find(p => p.professionalProfile?.id === activeProfessionalProfileId)
       if (prof?.professionalProfile?.appointmentDuration) {
         setAppointmentDuration(prof.professionalProfile.appointmentDuration)
       }
     }
-  }, [professionals, activeProfessionalProfileId])
+  }, [isAdmin, professionals, activeProfessionalProfileId])
 
   // ============================================================================
   // Render
@@ -691,7 +782,9 @@ function WeeklyAgendaPageContent() {
         <WeeklyGrid
           weekStart={weekStart}
           appointments={appointments}
+          groupSessions={groupSessions}
           onAppointmentClick={openEditSheet}
+          onGroupSessionClick={openGroupSessionSheet}
           showProfessional={!selectedProfessionalId && isAdmin}
         />
       </SwipeContainer>
@@ -702,6 +795,7 @@ function WeeklyAgendaPageContent() {
       {/* Create Appointment Sheet */}
       <Sheet isOpen={isCreateSheetOpen} onClose={closeCreateSheet} title="Novo Agendamento">
         <form onSubmit={handleSubmit(onSubmitAppointment)} className="p-4 space-y-6">
+          {/* 1. Patient Selection */}
           <PatientSearch
             value={patientSearch}
             onChange={(v) => {
@@ -721,7 +815,43 @@ function WeeklyAgendaPageContent() {
           />
           <input type="hidden" {...register("patientId")} />
 
-          {/* Professional selector for admin */}
+          {/* 2. Date + Time (same row) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="date" className="block text-sm font-medium text-foreground mb-2">Data *</label>
+              <input id="date" type="text" placeholder="DD/MM/AAAA" {...register("date")} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
+            </div>
+            <div>
+              <label htmlFor="startTime" className="block text-sm font-medium text-foreground mb-2">Horario *</label>
+              <input
+                id="startTime"
+                type="text"
+                placeholder="Ex: 14:30"
+                pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+                {...register("startTime")}
+                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              {errors.startTime && <p className="text-sm text-destructive mt-1">{errors.startTime.message}</p>}
+            </div>
+          </div>
+
+          {/* 3. Appointment Type (Weekly/Biweekly/Monthly/One-time) */}
+          <RecurrenceOptions
+            appointmentType={appointmentType}
+            onAppointmentTypeChange={setAppointmentType}
+            recurrenceEndType={recurrenceEndType}
+            onRecurrenceEndTypeChange={setRecurrenceEndType}
+            occurrences={recurrenceOccurrences}
+            onOccurrencesChange={setRecurrenceOccurrences}
+            endDate={recurrenceEndDate}
+            onEndDateChange={setRecurrenceEndDate}
+            minDate={watchedDate}
+            startDate={watchedDate}
+            startTime={watchedStartTime}
+          />
+
+          {/* 4. Professional selector for admin */}
           {isAdmin && (
             <div>
               <label htmlFor="createProfessional" className="block text-sm font-medium text-foreground mb-2">Profissional *</label>
@@ -748,31 +878,14 @@ function WeeklyAgendaPageContent() {
             </div>
           )}
 
-          <div>
-            <label htmlFor="date" className="block text-sm font-medium text-foreground mb-2">Data *</label>
-            <input id="date" type="text" placeholder="DD/MM/AAAA" {...register("date")} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
-          </div>
-
-          <div>
-            <label htmlFor="startTime" className="block text-sm font-medium text-foreground mb-2">Horario * (HH:mm)</label>
-            <input
-              id="startTime"
-              type="text"
-              placeholder="Ex: 14:30"
-              pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
-              {...register("startTime")}
-              className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-            {errors.startTime && <p className="text-sm text-destructive mt-1">{errors.startTime.message}</p>}
-          </div>
-
+          {/* 5. Duration */}
           <div>
             <label htmlFor="duration" className="block text-sm font-medium text-foreground mb-2">Duracao (minutos)</label>
             <input id="duration" type="number" {...register("duration", { setValueAs: (v) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v) })} placeholder={`Padrao: ${appointmentDuration} minutos`} min={15} max={480} step={5} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             <p className="text-xs text-muted-foreground mt-1">Se nao informado, usa a duracao padrao ({appointmentDuration} min)</p>
           </div>
 
+          {/* 6. Modality */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Modalidade *</label>
             <div className="grid grid-cols-2 gap-3">
@@ -793,26 +906,14 @@ function WeeklyAgendaPageContent() {
             </div>
           </div>
 
+          {/* 7. Notes */}
           <div>
             <label htmlFor="notes" className="block text-sm font-medium text-foreground mb-2">Observacoes</label>
             <textarea id="notes" rows={3} {...register("notes")} placeholder="Observacoes sobre a consulta..." className="w-full px-4 py-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
           </div>
 
-          <RecurrenceOptions
-            isEnabled={isRecurrenceEnabled}
-            onToggle={setIsRecurrenceEnabled}
-            recurrenceType={recurrenceType}
-            onRecurrenceTypeChange={setRecurrenceType}
-            recurrenceEndType={recurrenceEndType}
-            onRecurrenceEndTypeChange={setRecurrenceEndType}
-            occurrences={recurrenceOccurrences}
-            onOccurrencesChange={setRecurrenceOccurrences}
-            endDate={recurrenceEndDate}
-            onEndDateChange={setRecurrenceEndDate}
-            minDate={watchedDate}
-            startDate={watchedDate}
-            startTime={watchedStartTime}
-          />
+          {/* API Error Alert */}
+          <InlineAlert message={createApiError} onDismiss={() => setCreateApiError(null)} />
 
           <div className="flex gap-3 pt-4 pb-8">
             <button type="button" onClick={closeCreateSheet} className="flex-1 h-12 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted">Cancelar</button>
@@ -824,129 +925,31 @@ function WeeklyAgendaPageContent() {
       </Sheet>
 
       {/* Edit Appointment Sheet */}
-      <Sheet isOpen={isEditSheetOpen} onClose={closeEditSheet} title="Editar Agendamento">
-        {selectedAppointment && (
-          <>
-            {/* Patient & Professional Info */}
-            <div className="px-4 py-4 bg-muted/30 border-b border-border">
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Paciente</p>
-                    <p className="font-medium text-foreground">{selectedAppointment.patient.name}</p>
-                    <p className="text-sm text-muted-foreground">{formatPhone(selectedAppointment.patient.phone)}</p>
-                    {selectedAppointment.patient.email && <p className="text-sm text-muted-foreground">{selectedAppointment.patient.email}</p>}
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Profissional</p>
-                    <p className="font-medium text-foreground">{selectedAppointment.professionalProfile.user.name}</p>
-                  </div>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium border ${STATUS_COLORS[selectedAppointment.status] || "bg-gray-100 text-gray-800 border-gray-200"}`}>
-                  {STATUS_LABELS[selectedAppointment.status] || selectedAppointment.status}
-                </span>
-              </div>
-            </div>
-
-            {/* Recurrence Indicator */}
-            {selectedAppointment.recurrence && (
-              <RecurrenceIndicator
-                appointment={selectedAppointment}
-                onEdit={() => setIsRecurrenceEditSheetOpen(true)}
-                onToggleException={handleToggleException}
-                isManagingException={isManagingException}
-              />
-            )}
-
-            <form onSubmit={handleSubmitEdit(onSubmitEdit)} className="p-4 space-y-6">
-              <div>
-                <label htmlFor="editDate" className="block text-sm font-medium text-foreground mb-2">Data *</label>
-                <input id="editDate" type="text" placeholder="DD/MM/AAAA" {...registerEdit("date")} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-                {editErrors.date && <p className="text-sm text-destructive mt-1">{editErrors.date.message}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="editStartTime" className="block text-sm font-medium text-foreground mb-2">Horario * (HH:mm)</label>
-                <input
-                  id="editStartTime"
-                  type="text"
-                  placeholder="Ex: 14:30"
-                  pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
-                  {...registerEdit("startTime")}
-                  className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-                {editErrors.startTime && <p className="text-sm text-destructive mt-1">{editErrors.startTime.message}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="editDuration" className="block text-sm font-medium text-foreground mb-2">Duracao (minutos)</label>
-                <input id="editDuration" type="number" {...registerEdit("duration", { setValueAs: (v) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v) })} min={15} max={480} step={5} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Modalidade *</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="relative flex items-center justify-center cursor-pointer">
-                    <input type="radio" value="PRESENCIAL" {...registerEdit("modality")} className="sr-only peer" />
-                    <div className="w-full h-12 flex items-center justify-center gap-2 rounded-md border border-input bg-background text-foreground peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary">
-                      <span className="text-sm font-medium">Presencial</span>
-                    </div>
-                  </label>
-                  <label className="relative flex items-center justify-center cursor-pointer">
-                    <input type="radio" value="ONLINE" {...registerEdit("modality")} className="sr-only peer" />
-                    <div className="w-full h-12 flex items-center justify-center gap-2 rounded-md border border-input bg-background text-foreground peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary">
-                      <span className="text-sm font-medium">Online</span>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="editPrice" className="block text-sm font-medium text-foreground mb-2">Valor (R$)</label>
-                <input id="editPrice" type="number" step="0.01" {...registerEdit("price", { valueAsNumber: true })} placeholder="0.00" className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-
-              <div>
-                <label htmlFor="editNotes" className="block text-sm font-medium text-foreground mb-2">Observacoes</label>
-                <textarea id="editNotes" rows={3} {...registerEdit("notes")} className="w-full px-4 py-3 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-3 pt-4 border-t border-border">
-                {canMarkStatus(selectedAppointment) && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <button type="button" onClick={() => handleUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")} disabled={isUpdatingStatus} className="h-11 rounded-md bg-green-600 text-white font-medium hover:bg-green-700 disabled:opacity-50">
-                      {isUpdatingStatus ? "..." : "Finalizar Consulta"}
-                    </button>
-                    <button type="button" onClick={() => handleUpdateStatus("NAO_COMPARECEU", "Paciente marcado como nao compareceu")} disabled={isUpdatingStatus} className="h-11 rounded-md bg-yellow-600 text-white font-medium hover:bg-yellow-700 disabled:opacity-50">
-                      {isUpdatingStatus ? "..." : "Nao Compareceu"}
-                    </button>
-                  </div>
-                )}
-
-                {canResendConfirmation(selectedAppointment) && (
-                  <button type="button" onClick={handleResendConfirmation} disabled={isResendingConfirmation} className="w-full h-11 rounded-md border border-primary text-primary font-medium hover:bg-primary/5 disabled:opacity-50">
-                    {isResendingConfirmation ? "Reenviando..." : "Reenviar Links de Confirmacao"}
-                  </button>
-                )}
-
-                {canCancelAppointment(selectedAppointment) && (
-                  <button type="button" onClick={() => setIsCancelDialogOpen(true)} className="w-full h-11 rounded-md border border-red-500 text-red-600 font-medium hover:bg-red-50 dark:hover:bg-red-950/30">
-                    Cancelar Agendamento
-                  </button>
-                )}
-              </div>
-
-              <div className="flex gap-3 pb-8">
-                <button type="button" onClick={closeEditSheet} className="flex-1 h-12 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted">Fechar</button>
-                <button type="submit" disabled={isUpdatingAppointment} className="flex-1 h-12 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 disabled:opacity-50">
-                  {isUpdatingAppointment ? "Salvando..." : "Salvar Alteracoes"}
-                </button>
-              </div>
-            </form>
-          </>
-        )}
-      </Sheet>
+      <AppointmentEditor
+        isOpen={isEditSheetOpen}
+        onClose={closeEditSheet}
+        appointment={selectedAppointment}
+        form={editForm}
+        isUpdating={isUpdatingAppointment}
+        onSubmit={onSubmitEdit}
+        apiError={editApiError}
+        onDismissError={() => setEditApiError(null)}
+        canMarkStatus={canMarkStatus(selectedAppointment)}
+        onUpdateStatus={handleUpdateStatus}
+        isUpdatingStatus={isUpdatingStatus}
+        canResendConfirmation={canResendConfirmation(selectedAppointment)}
+        onResendConfirmation={handleResendConfirmation}
+        isResendingConfirmation={isResendingConfirmation}
+        canCancel={canCancelAppointment(selectedAppointment)}
+        onCancelClick={() => setIsCancelDialogOpen(true)}
+        isDeleteDialogOpen={isDeleteDialogOpen}
+        setIsDeleteDialogOpen={setIsDeleteDialogOpen}
+        isDeletingAppointment={isDeletingAppointment}
+        onDeleteAppointment={handleDeleteAppointment}
+        onToggleException={handleToggleException}
+        isManagingException={isManagingException}
+        onRecurrenceSave={fetchAppointments}
+      />
 
       {/* Cancel Dialog */}
       <CancelDialog
@@ -956,12 +959,12 @@ function WeeklyAgendaPageContent() {
         onConfirm={handleCancelAppointment}
       />
 
-      {/* Recurrence Edit Sheet */}
-      <RecurrenceEditSheet
-        isOpen={isRecurrenceEditSheetOpen}
-        onClose={() => setIsRecurrenceEditSheetOpen(false)}
-        appointment={selectedAppointment}
-        onSave={fetchAppointments}
+      {/* Group Session Sheet */}
+      <GroupSessionSheet
+        isOpen={isGroupSessionSheetOpen}
+        onClose={closeGroupSessionSheet}
+        session={selectedGroupSession}
+        onStatusUpdated={fetchAppointments}
       />
     </main>
   )

@@ -34,6 +34,8 @@ export { Check as CheckIcon } from "lucide-react"
 export { Pencil as PencilIcon } from "lucide-react"
 export { Trash2 as TrashIcon } from "lucide-react"
 export { LogOut as LogOutIcon } from "lucide-react"
+export { Eye as EyeIcon } from "lucide-react"
+export { RotateCcw as RotateCcwIcon } from "lucide-react"
 
 // Navigation arrows
 export { ChevronLeft as ChevronLeftIcon } from "lucide-react"
@@ -69,6 +71,9 @@ export { SquarePen as SquarePenIcon } from "lucide-react"
 export { Loader2 as LoaderIcon } from "lucide-react"
 export { Building as BuildingIcon } from "lucide-react"
 export { List as ListIcon } from "lucide-react"
+export { Sun as SunIcon } from "lucide-react"
+export { Moon as MoonIcon } from "lucide-react"
+export { ArrowLeftRight as ArrowLeftRightIcon } from "lucide-react"
 
 // Re-export LucideIcon type for custom components
 export type { LucideIcon } from "lucide-react"

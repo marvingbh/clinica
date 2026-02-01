@@ -67,18 +67,26 @@ export const PATCH = withAuth(
       )
     }
 
-    // If setting leaveDate, count future appointments for warning
-    let futureAppointmentsCount = 0
+    // If setting leaveDate, cancel all future appointments for this patient in this group
+    let cancelledAppointmentsCount = 0
     if (leaveDate) {
-      const leaveDateObj = new Date(leaveDate)
-      futureAppointmentsCount = await prisma.appointment.count({
+      const leaveDateObj = new Date(leaveDate + "T00:00:00")
+
+      // Cancel all future group appointments for this patient
+      const cancelResult = await prisma.appointment.updateMany({
         where: {
           groupId,
           patientId: existingMembership.patientId,
           scheduledAt: { gte: leaveDateObj },
-          status: { notIn: ["CANCELADO_PACIENTE", "CANCELADO_PROFISSIONAL"] },
+          status: { notIn: ["CANCELADO_PACIENTE", "CANCELADO_PROFISSIONAL", "FINALIZADO"] },
+        },
+        data: {
+          status: "CANCELADO_PROFISSIONAL",
+          cancellationReason: "Paciente removido do grupo",
+          cancelledAt: new Date(),
         },
       })
+      cancelledAppointmentsCount = cancelResult.count
     }
 
     // Update the membership
@@ -101,9 +109,9 @@ export const PATCH = withAuth(
 
     return NextResponse.json({
       membership,
-      ...(futureAppointmentsCount > 0 && {
-        warning: `Paciente possui ${futureAppointmentsCount} sessão(ões) futura(s) agendada(s) que não foram canceladas automaticamente.`,
-        futureAppointmentsCount,
+      cancelledAppointmentsCount,
+      ...(cancelledAppointmentsCount > 0 && {
+        message: `${cancelledAppointmentsCount} sessão(ões) futura(s) cancelada(s) automaticamente.`,
       }),
     })
   }

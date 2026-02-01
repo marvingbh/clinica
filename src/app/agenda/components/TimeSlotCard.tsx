@@ -1,6 +1,6 @@
 "use client"
 
-import { RefreshCwIcon, BanIcon, PlusIcon } from "@/shared/components/ui/icons"
+import { RefreshCwIcon, BanIcon, PlusIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { TimeSlot, Appointment, AppointmentStatus } from "../lib/types"
 import { STATUS_LABELS, STATUS_COLORS, STATUS_BORDER_COLORS } from "../lib/constants"
 import { formatTime, formatPhone } from "../lib/utils"
@@ -62,7 +62,8 @@ export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointm
                 {appointment.recurrence && (
                   <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
                     <RefreshCwIcon className="w-3 h-3" />
-                    Recorrente
+                    {appointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
+                     appointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"}
                   </span>
                 )}
                 {appointment.notes && (
@@ -71,6 +72,18 @@ export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointm
                   </span>
                 )}
               </div>
+              {/* Alternate week info for biweekly appointments */}
+              {appointment.recurrence?.recurrenceType === "BIWEEKLY" && appointment.alternateWeekInfo && (
+                <div className="mt-1.5 text-xs text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                  <ArrowLeftRightIcon className="w-3 h-3" />
+                  <span>Alterna com:</span>
+                  {appointment.alternateWeekInfo.pairedPatientName ? (
+                    <span className="font-medium">{appointment.alternateWeekInfo.pairedPatientName}</span>
+                  ) : (
+                    <span className="text-green-600 dark:text-green-400 font-medium">Disponivel</span>
+                  )}
+                </div>
+              )}
             </button>
           ))}
         </div>

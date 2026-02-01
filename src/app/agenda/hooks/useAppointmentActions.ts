@@ -6,6 +6,7 @@ import {
   updateStatus,
   resendConfirmation,
   toggleRecurrenceException,
+  deleteAppointment,
 } from "../services"
 
 export interface UseAppointmentActionsParams {
@@ -31,9 +32,13 @@ export interface UseAppointmentActionsReturn {
 
   // Recurrence management
   isManagingException: boolean
-  isRecurrenceEditSheetOpen: boolean
-  setIsRecurrenceEditSheetOpen: (open: boolean) => void
   handleToggleException: (action: "skip" | "unskip") => Promise<void>
+
+  // Delete appointment
+  isDeleteDialogOpen: boolean
+  setIsDeleteDialogOpen: (open: boolean) => void
+  isDeletingAppointment: boolean
+  handleDeleteAppointment: () => Promise<void>
 }
 
 export function useAppointmentActions({
@@ -46,7 +51,8 @@ export function useAppointmentActions({
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [isResendingConfirmation, setIsResendingConfirmation] = useState(false)
   const [isManagingException, setIsManagingException] = useState(false)
-  const [isRecurrenceEditSheetOpen, setIsRecurrenceEditSheetOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDeletingAppointment, setIsDeletingAppointment] = useState(false)
 
   const handleCancelAppointment = useCallback(
     async (reason: string, notifyPatient: boolean, cancelType: CancelType) => {
@@ -178,6 +184,29 @@ export function useAppointmentActions({
     [selectedAppointment, setSelectedAppointment, onSuccess]
   )
 
+  const handleDeleteAppointment = useCallback(async () => {
+    if (!selectedAppointment) return
+
+    setIsDeletingAppointment(true)
+    try {
+      const result = await deleteAppointment(selectedAppointment.id)
+
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+
+      toast.success("Agendamento excluido com sucesso")
+      setIsDeleteDialogOpen(false)
+      closeEditSheet()
+      onSuccess()
+    } catch {
+      toast.error("Erro ao excluir agendamento")
+    } finally {
+      setIsDeletingAppointment(false)
+    }
+  }, [selectedAppointment, closeEditSheet, onSuccess])
+
   return {
     isCancelDialogOpen,
     setIsCancelDialogOpen,
@@ -187,8 +216,10 @@ export function useAppointmentActions({
     isResendingConfirmation,
     handleResendConfirmation,
     isManagingException,
-    isRecurrenceEditSheetOpen,
-    setIsRecurrenceEditSheetOpen,
     handleToggleException,
+    isDeleteDialogOpen,
+    setIsDeleteDialogOpen,
+    isDeletingAppointment,
+    handleDeleteAppointment,
   }
 }

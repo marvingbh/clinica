@@ -59,11 +59,15 @@ export interface AvailabilityRule {
 
 export interface AvailabilityException {
   id: string
-  date: string
+  date: string | null
+  dayOfWeek: number | null
+  isRecurring: boolean
   isAvailable: boolean
   startTime: string | null
   endTime: string | null
   reason: string | null
+  isClinicWide: boolean
+  professionalName: string | null
 }
 
 export interface AppointmentRecurrence {
@@ -77,6 +81,11 @@ export interface AppointmentRecurrence {
   exceptions: string[]
 }
 
+export interface AlternateWeekInfo {
+  pairedPatientName: string | null
+  isAvailable: boolean
+}
+
 export interface Appointment {
   id: string
   scheduledAt: string
@@ -87,7 +96,9 @@ export interface Appointment {
   price: string | null
   cancellationReason: string | null
   cancelledAt: string | null
+  groupId: string | null  // Links to TherapyGroup for group sessions
   recurrence: AppointmentRecurrence | null
+  alternateWeekInfo?: AlternateWeekInfo // For biweekly appointments, shows who is in the alternate week
   patient: {
     id: string
     name: string
@@ -128,3 +139,24 @@ export type AppointmentStatus =
   | "FINALIZADO"
 
 export type CancelType = "single" | "series"
+
+// ============================================================================
+// Group Session Types
+// ============================================================================
+
+export interface GroupSessionParticipant {
+  appointmentId: string
+  patientId: string
+  patientName: string
+  status: AppointmentStatus
+}
+
+export interface GroupSession {
+  groupId: string
+  groupName: string
+  scheduledAt: string
+  endAt: string
+  professionalProfileId: string
+  professionalName: string
+  participants: GroupSessionParticipant[]
+}

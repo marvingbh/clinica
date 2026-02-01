@@ -4,14 +4,18 @@ import { useState, useRef, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import Link from "next/link"
+import { useTheme } from "@/shared/components/theme-provider"
 import {
   HomeIcon,
   CalendarIcon,
   StethoscopeIcon,
   UserIcon,
+  UsersIcon,
   SettingsIcon,
   LogOutIcon,
   ChevronDownIcon,
+  SunIcon,
+  MoonIcon,
 } from "./icons"
 
 interface NavItem {
@@ -45,6 +49,12 @@ const navItems: NavItem[] = [
     label: "Pacientes",
     icon: <UserIcon className="w-4 h-4" />,
     matchPaths: ["/patients"],
+  },
+  {
+    href: "/groups",
+    label: "Grupos",
+    icon: <UsersIcon className="w-4 h-4" />,
+    matchPaths: ["/groups"],
   },
 ]
 
@@ -141,6 +151,25 @@ function UserDropdown() {
   )
 }
 
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme()
+
+  return (
+    <button
+      onClick={toggleTheme}
+      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-normal"
+      aria-label={theme === "light" ? "Ativar modo escuro" : "Ativar modo claro"}
+      title={theme === "light" ? "Modo escuro" : "Modo claro"}
+    >
+      {theme === "light" ? (
+        <MoonIcon className="w-5 h-5" />
+      ) : (
+        <SunIcon className="w-5 h-5" />
+      )}
+    </button>
+  )
+}
+
 export function DesktopHeader() {
   const pathname = usePathname()
   const { status } = useSession()
@@ -202,8 +231,11 @@ export function DesktopHeader() {
             })}
           </nav>
 
-          {/* User dropdown */}
-          {status === "authenticated" && <UserDropdown />}
+          {/* Theme toggle + User dropdown */}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            {status === "authenticated" && <UserDropdown />}
+          </div>
         </div>
       </div>
     </header>

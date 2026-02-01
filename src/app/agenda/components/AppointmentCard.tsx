@@ -1,16 +1,18 @@
 "use client"
 
 import { Card, CardContent } from "@/shared/components/ui/card"
-import { RefreshCwIcon, VideoIcon, BuildingIcon, PhoneIcon } from "@/shared/components/ui/icons"
+import { RefreshCwIcon, VideoIcon, BuildingIcon, PhoneIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { STATUS_LABELS, STATUS_COLORS } from "../lib/constants"
 import { formatPhone } from "../lib/utils"
 import type { Appointment, AppointmentStatus } from "../lib/types"
+import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../lib/professional-colors"
 
 interface AppointmentCardProps {
   appointment: Appointment
   onClick: () => void
   showProfessional?: boolean
   compact?: boolean
+  professionalColorMap?: ProfessionalColorMap
 }
 
 function getStatusAccentColor(status: AppointmentStatus): string {
@@ -30,8 +32,14 @@ export function AppointmentCard({
   onClick,
   showProfessional = false,
   compact = false,
+  professionalColorMap,
 }: AppointmentCardProps) {
   const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_PACIENTE"].includes(appointment.status)
+
+  // Get professional color from map when showing all professionals
+  const colors = showProfessional && professionalColorMap
+    ? getProfessionalColor(appointment.professionalProfile.id, professionalColorMap)
+    : PROFESSIONAL_COLORS[0]
 
   return (
     <Card
@@ -39,16 +47,16 @@ export function AppointmentCard({
       hoverable
       className={`group cursor-pointer overflow-hidden transition-all duration-normal active:scale-[0.98] ${
         isCancelled ? "opacity-50" : ""
-      }`}
+      } ${showProfessional ? colors.bg : ""}`}
       onClick={onClick}
     >
       {/* Status accent bar */}
-      <div className={`h-1 ${getStatusAccentColor(appointment.status as AppointmentStatus)}`} />
+      <div className={`h-1 ${showProfessional ? colors.accent : getStatusAccentColor(appointment.status as AppointmentStatus)}`} />
 
       <CardContent className={compact ? "py-3" : "py-4"}>
         {/* Professional name - prominent when viewing all */}
         {showProfessional && (
-          <p className="text-xs font-semibold text-primary mb-2 truncate">
+          <p className={`text-xs font-semibold mb-2 truncate ${professionalColorMap ? colors.text : "text-primary"}`}>
             {appointment.professionalProfile.user.name}
           </p>
         )}
@@ -74,6 +82,15 @@ export function AppointmentCard({
           </span>
         </div>
 
+        {/* Notes - shown prominently if present */}
+        {appointment.notes && !compact && (
+          <p className="mt-2 text-xs text-muted-foreground bg-muted/50 px-2 py-1.5 rounded-md line-clamp-2">
+            {appointment.notes.length > 80
+              ? `${appointment.notes.slice(0, 80)}...`
+              : appointment.notes}
+          </p>
+        )}
+
         {/* Meta info row */}
         <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border">
           {/* Modality */}
@@ -94,17 +111,26 @@ export function AppointmentCard({
           {appointment.recurrence && (
             <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400">
               <RefreshCwIcon className="w-3.5 h-3.5" />
-              Recorrente
-            </span>
-          )}
-
-          {/* Notes preview */}
-          {appointment.notes && !compact && (
-            <span className="text-xs text-muted-foreground truncate flex-1">
-              {appointment.notes}
+              {appointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
+               appointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"}
             </span>
           )}
         </div>
+
+        {/* Alternate week info for biweekly appointments */}
+        {appointment.recurrence?.recurrenceType === "BIWEEKLY" && appointment.alternateWeekInfo && (
+          <div className="mt-2 px-2 py-1.5 bg-purple-50 dark:bg-purple-950/30 rounded-md border border-purple-200 dark:border-purple-800">
+            <p className="text-xs text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+              <ArrowLeftRightIcon className="w-3 h-3" />
+              <span className="font-medium">Semana alternada:</span>
+              {appointment.alternateWeekInfo.pairedPatientName ? (
+                <span>{appointment.alternateWeekInfo.pairedPatientName}</span>
+              ) : (
+                <span className="text-green-600 dark:text-green-400">Disponivel</span>
+              )}
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

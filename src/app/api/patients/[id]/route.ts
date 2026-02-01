@@ -16,6 +16,8 @@ const updatePatientSchema = z.object({
   email: z.string().email("Email inválido").optional().nullable().or(z.literal("")),
   birthDate: z.string().optional().nullable(),
   cpf: z.string().max(14).optional().nullable().or(z.literal("")),
+  fatherName: z.string().max(200).optional().nullable().or(z.literal("")),
+  motherName: z.string().max(200).optional().nullable().or(z.literal("")),
   notes: z.string().max(2000).optional().nullable().or(z.literal("")),
   isActive: z.boolean().optional(),
   consentWhatsApp: z.boolean().optional(),
@@ -53,6 +55,8 @@ export const GET = withAuth(
         phone: true,
         birthDate: true,
         cpf: true,
+        fatherName: true,
+        motherName: true,
         notes: true,
         isActive: true,
         lastVisitAt: true,
@@ -137,6 +141,8 @@ export const PATCH = withAuth(
     if (data.birthDate !== undefined) {
       updateData.birthDate = data.birthDate ? new Date(data.birthDate + "T00:00:00") : null
     }
+    if (data.fatherName !== undefined) updateData.fatherName = data.fatherName || null
+    if (data.motherName !== undefined) updateData.motherName = data.motherName || null
     if (data.notes !== undefined) updateData.notes = data.notes || null
     if (data.isActive !== undefined) updateData.isActive = data.isActive
 
@@ -207,6 +213,8 @@ export const PATCH = withAuth(
         phone: true,
         birthDate: true,
         cpf: true,
+        fatherName: true,
+        motherName: true,
         notes: true,
         isActive: true,
         lastVisitAt: true,

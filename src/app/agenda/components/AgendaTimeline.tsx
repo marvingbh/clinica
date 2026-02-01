@@ -1,18 +1,26 @@
 "use client"
 
 import { SwipeContainer, EmptyState, ClockIcon, BanIcon, PlusIcon } from "@/shared/components/ui"
-import { formatTime } from "../lib/utils"
+import { formatTime, isSlotInPast } from "../lib/utils"
 import { AppointmentCard } from "./AppointmentCard"
-import type { TimeSlot, Appointment } from "../lib/types"
+import { GroupSessionCard } from "./GroupSessionCard"
+import type { TimeSlot, Appointment, GroupSession } from "../lib/types"
+import type { FullDayBlock } from "../hooks/useTimeSlots"
+import { ProfessionalColorMap } from "../lib/professional-colors"
 
 export interface AgendaTimelineProps {
   timeSlots: TimeSlot[]
+  groupSessions: GroupSession[]
+  fullDayBlock: FullDayBlock | null
+  selectedDate: string
   selectedProfessionalId: string
   isAdmin: boolean
   onSlotClick: (slotTime: string) => void
   onAppointmentClick: (appointment: Appointment) => void
+  onGroupSessionClick: (session: GroupSession) => void
   onSwipeLeft: () => void
   onSwipeRight: () => void
+  professionalColorMap?: ProfessionalColorMap
 }
 
 function TimeLabel({ time, hasAppointments }: { time: string; hasAppointments: boolean }) {
@@ -38,15 +46,33 @@ function TimelineConnector({ isActive }: { isActive: boolean }) {
   )
 }
 
+// Helper to get time string (HH:mm) from ISO date
+function getTimeFromISO(isoString: string): string {
+  const date = new Date(isoString)
+  return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`
+}
+
 export function AgendaTimeline({
   timeSlots,
+  groupSessions,
+  fullDayBlock,
+  selectedDate,
   selectedProfessionalId,
   isAdmin,
   onSlotClick,
   onAppointmentClick,
+  onGroupSessionClick,
   onSwipeLeft,
   onSwipeRight,
+  professionalColorMap,
 }: AgendaTimelineProps) {
+  // Create a map of group sessions by their start time
+  const groupSessionsByTime = new Map<string, GroupSession[]>()
+  for (const session of groupSessions) {
+    const time = getTimeFromISO(session.scheduledAt)
+    const existing = groupSessionsByTime.get(time) || []
+    groupSessionsByTime.set(time, [...existing, session])
+  }
   return (
     <SwipeContainer onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} className="max-w-4xl mx-auto px-4 py-6">
       {/* Swipe hint */}
@@ -56,10 +82,22 @@ export function AgendaTimeline({
         <span className="w-8 h-0.5 bg-muted-foreground/30 rounded-full" />
       </p>
 
-      {timeSlots.length === 0 && (
+      {/* Full day block message */}
+      {fullDayBlock && (
+        <EmptyState
+          title={fullDayBlock.reason || "Dia bloqueado"}
+          message={fullDayBlock.isClinicWide
+            ? "Bloqueio para toda a clínica"
+            : "Bloqueio de disponibilidade"}
+          icon={<BanIcon className="w-8 h-8 text-red-500" />}
+        />
+      )}
+
+      {/* No availability (no block, just no rules configured) */}
+      {timeSlots.length === 0 && !fullDayBlock && (
         <EmptyState
           title="Sem disponibilidade"
-          message="Nao ha horarios configurados para este dia"
+          message="Não há horários configurados para este dia"
           icon={<ClockIcon className="w-8 h-8 text-muted-foreground" />}
         />
       )}
@@ -68,29 +106,81 @@ export function AgendaTimeline({
         <div className="space-y-1">
           {timeSlots.map((slot) => {
             const hasAppointments = slot.appointments.length > 0
+            const slotGroupSessions = groupSessionsByTime.get(slot.time) || []
+            const hasGroupSessions = slotGroupSessions.length > 0
+            const hasContent = hasAppointments || hasGroupSessions
             const isBlocked = slot.isBlocked
-            const showAvailableSlot = !hasAppointments && !isBlocked && (selectedProfessionalId || !isAdmin)
+            const isPast = isSlotInPast(selectedDate, slot.time)
+            const canShowAvailableButton = !isBlocked && !isPast && (!!selectedProfessionalId || !isAdmin)
+
+            // Check if all appointments in the slot are cancelled
+            const cancelledStatuses = ["CANCELADO_PACIENTE", "CANCELADO_PROFISSIONAL"]
+            const allAppointmentsCancelled = hasAppointments && slot.appointments.every(
+              apt => cancelledStatuses.includes(apt.status)
+            )
+
+            // Show available slot button when no appointments/groups, or when all appointments are cancelled
+            const showAvailableSlot = !hasContent && canShowAvailableButton
+            const showAvailableWithCancelled = allAppointmentsCancelled && !hasGroupSessions && canShowAvailableButton
+
+            // Determine if the timeline connector should be active
+            const hasActiveContent = (hasAppointments && !allAppointmentsCancelled) || hasGroupSessions
+
+            // Filter out appointments that belong to a group session (they're shown in the group card)
+            const individualAppointments = slot.appointments.filter(apt => !apt.groupId)
+            const hasIndividualAppointments = individualAppointments.length > 0
+            const hasAnyContent = hasIndividualAppointments || hasGroupSessions
+
+            // Recalculate allAppointmentsCancelled for individual appointments only
+            const allIndividualCancelled = hasIndividualAppointments && individualAppointments.every(
+              apt => cancelledStatuses.includes(apt.status)
+            )
+            const showAvailableWithCancelledRecalc = allIndividualCancelled && !hasGroupSessions && canShowAvailableButton
+            const hasActiveContentRecalc = (hasIndividualAppointments && !allIndividualCancelled) || hasGroupSessions
 
             return (
               <div
                 key={slot.time}
-                className={`flex items-stretch min-h-[4.5rem] ${isBlocked && !hasAppointments ? "opacity-50" : ""}`}
+                className={`flex items-stretch min-h-[4.5rem] ${isBlocked && !hasAnyContent ? "opacity-50" : ""}`}
               >
-                <TimeLabel time={slot.time} hasAppointments={hasAppointments} />
-                <TimelineConnector isActive={hasAppointments} />
+                <TimeLabel time={slot.time} hasAppointments={hasActiveContentRecalc} />
+                <TimelineConnector isActive={hasActiveContentRecalc} />
 
                 <div className="flex-1 pl-4 pb-2">
-                  {hasAppointments ? (
-                    <div className={`space-y-2 ${slot.appointments.length > 1 ? "" : ""}`}>
-                      {slot.appointments.map((appointment) => (
-                        <AppointmentCard
-                          key={appointment.id}
-                          appointment={appointment}
-                          onClick={() => onAppointmentClick(appointment)}
-                          showProfessional={!selectedProfessionalId}
-                          compact={slot.appointments.length > 1}
-                        />
+                  {hasAnyContent ? (
+                    <div className="flex flex-wrap gap-2">
+                      {/* Render group sessions first (purple cards) */}
+                      {slotGroupSessions.map((session) => (
+                        <div key={`group-${session.groupId}-${session.scheduledAt}`} className="flex-1 min-w-0">
+                          <GroupSessionCard
+                            session={session}
+                            onClick={() => onGroupSessionClick(session)}
+                            showProfessional={!selectedProfessionalId}
+                            compact={hasIndividualAppointments || slotGroupSessions.length > 1}
+                          />
+                        </div>
                       ))}
+                      {/* Then render individual appointments (excluding group appointments) */}
+                      {individualAppointments.map((appointment) => (
+                        <div key={appointment.id} className="flex-1 min-w-0">
+                          <AppointmentCard
+                            appointment={appointment}
+                            onClick={() => onAppointmentClick(appointment)}
+                            showProfessional={!selectedProfessionalId}
+                            compact={individualAppointments.length > 1 || hasGroupSessions || showAvailableWithCancelledRecalc}
+                            professionalColorMap={professionalColorMap}
+                          />
+                        </div>
+                      ))}
+                      {showAvailableWithCancelledRecalc && (
+                        <button
+                          onClick={() => onSlotClick(slot.time)}
+                          className="flex-1 min-w-0 min-h-[3rem] border border-dashed border-border rounded-xl p-3 flex items-center justify-center text-muted-foreground hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-normal group"
+                        >
+                          <PlusIcon className="w-4 h-4 mr-2 transition-transform group-hover:scale-110" />
+                          <span className="text-sm font-medium">Disponivel</span>
+                        </button>
+                      )}
                     </div>
                   ) : isBlocked ? (
                     <div className="h-full min-h-[3rem] bg-muted/30 border border-dashed border-border rounded-xl p-3 flex items-center">
@@ -99,7 +189,7 @@ export function AgendaTimeline({
                         <span className="text-sm">{slot.blockReason || "Bloqueado"}</span>
                       </div>
                     </div>
-                  ) : showAvailableSlot ? (
+                  ) : !hasAnyContent && canShowAvailableButton ? (
                     <button
                       onClick={() => onSlotClick(slot.time)}
                       className="w-full h-full min-h-[3rem] border border-dashed border-border rounded-xl p-3 flex items-center justify-center text-muted-foreground hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-normal group"

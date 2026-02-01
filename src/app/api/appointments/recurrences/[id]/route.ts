@@ -351,9 +351,74 @@ export const PATCH = withAuth(
       }
     }
 
+    // Handle recurrence type change (WEEKLY <-> BIWEEKLY <-> MONTHLY)
+    // When frequency changes, we need to delete appointments that no longer fit the new pattern
+    const isRecurrenceTypeChange = updateData.recurrenceType !== undefined &&
+      updateData.recurrenceType !== recurrence.recurrenceType
+    const appointmentsToDelete: string[] = []
+
+    if (isRecurrenceTypeChange && recurrence.appointments.length > 0) {
+      const newRecurrenceType = updateData.recurrenceType!
+      const oldRecurrenceType = recurrence.recurrenceType
+
+      // Sort appointments by date to get the anchor (first future appointment)
+      const sortedAppointments = [...recurrence.appointments].sort(
+        (a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime()
+      )
+      const anchorDate = sortedAppointments[0].scheduledAt
+
+      // Calculate which dates should exist under the new recurrence type
+      const getIntervalDays = (type: RecurrenceType): number => {
+        switch (type) {
+          case RecurrenceType.WEEKLY: return 7
+          case RecurrenceType.BIWEEKLY: return 14
+          case RecurrenceType.MONTHLY: return 0 // Special handling
+          default: return 7
+        }
+      }
+
+      const newIntervalDays = getIntervalDays(newRecurrenceType)
+
+      // Build a set of valid dates under the new recurrence pattern
+      const validDates = new Set<string>()
+
+      if (newRecurrenceType === RecurrenceType.MONTHLY) {
+        // For MONTHLY, keep appointments on the same day of month
+        const anchorDayOfMonth = anchorDate.getDate()
+        for (const apt of sortedAppointments) {
+          if (apt.scheduledAt.getDate() === anchorDayOfMonth) {
+            validDates.add(apt.scheduledAt.toISOString().split("T")[0])
+          }
+        }
+      } else {
+        // For WEEKLY/BIWEEKLY, calculate valid dates from anchor
+        const anchorTime = anchorDate.getTime()
+        const msPerDay = 24 * 60 * 60 * 1000
+
+        // Get the furthest appointment date to know how far to calculate
+        const lastApt = sortedAppointments[sortedAppointments.length - 1]
+        const maxDate = lastApt.scheduledAt
+
+        let currentDate = new Date(anchorDate)
+        while (currentDate <= maxDate) {
+          validDates.add(currentDate.toISOString().split("T")[0])
+          currentDate = new Date(currentDate.getTime() + newIntervalDays * msPerDay)
+        }
+      }
+
+      // Find appointments that don't match the new pattern
+      for (const apt of sortedAppointments) {
+        const aptDateStr = apt.scheduledAt.toISOString().split("T")[0]
+        if (!validDates.has(aptDateStr)) {
+          appointmentsToDelete.push(apt.id)
+        }
+      }
+    }
+
     // Apply changes
     const applyToFuture = body.applyTo === "future"
     let updatedAppointmentsCount = 0
+    let deletedAppointmentsCount = 0
 
     await prisma.$transaction(async (tx) => {
       // Update the recurrence record
@@ -361,6 +426,16 @@ export const PATCH = withAuth(
         where: { id: recurrenceId },
         data: updateData,
       })
+
+      // If recurrence type changed, delete appointments that no longer fit the pattern
+      if (isRecurrenceTypeChange && appointmentsToDelete.length > 0) {
+        await tx.appointment.deleteMany({
+          where: {
+            id: { in: appointmentsToDelete },
+          },
+        })
+        deletedAppointmentsCount = appointmentsToDelete.length
+      }
 
       // If day of week changed, update all future appointments with new dates
       if (isDayOfWeekChange && dayShiftedAppointments.length > 0) {
@@ -378,7 +453,12 @@ export const PATCH = withAuth(
       }
 
       // If applyTo is "future", update future appointments (for other fields)
-      if (applyToFuture && recurrence.appointments.length > 0 && !isDayOfWeekChange) {
+      // Skip appointments that were deleted due to recurrence type change
+      const remainingAppointments = recurrence.appointments.filter(
+        apt => !appointmentsToDelete.includes(apt.id)
+      )
+
+      if (applyToFuture && remainingAppointments.length > 0 && !isDayOfWeekChange) {
         const appointmentUpdateData: {
           scheduledAt?: Date
           endAt?: Date
@@ -392,7 +472,7 @@ export const PATCH = withAuth(
 
         // Update times if startTime or endTime changed
         if (body.startTime || body.endTime) {
-          for (const apt of recurrence.appointments) {
+          for (const apt of remainingAppointments) {
             const aptDate = new Date(apt.scheduledAt)
             const dateStr = aptDate.toISOString().split("T")[0]
 
@@ -424,14 +504,14 @@ export const PATCH = withAuth(
           await tx.appointment.updateMany({
             where: {
               id: {
-                in: recurrence.appointments.map((apt) => apt.id),
+                in: remainingAppointments.map((apt) => apt.id),
               },
             },
             data: {
               modality: body.modality as AppointmentModality,
             },
           })
-          updatedAppointmentsCount = recurrence.appointments.length
+          updatedAppointmentsCount = remainingAppointments.length
         }
       }
     })
@@ -447,15 +527,23 @@ export const PATCH = withAuth(
         ...updateData,
         applyTo: body.applyTo,
         updatedAppointmentsCount,
+        deletedAppointmentsCount,
       },
       ipAddress,
       userAgent,
     })
 
+    // Build response message
+    let message = "Recorrencia atualizada com sucesso"
+    if (deletedAppointmentsCount > 0) {
+      message = `Recorrencia atualizada. ${deletedAppointmentsCount} agendamento(s) removido(s) para ajustar a nova frequencia.`
+    }
+
     return NextResponse.json({
       success: true,
-      message: "Recorrencia atualizada com sucesso",
+      message,
       updatedAppointmentsCount,
+      deletedAppointmentsCount,
     })
   }
 )

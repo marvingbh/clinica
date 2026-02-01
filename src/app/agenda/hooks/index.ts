@@ -5,7 +5,7 @@ export { useAgendaData } from "./useAgendaData"
 export type { UseAgendaDataReturn } from "./useAgendaData"
 
 export { useTimeSlots } from "./useTimeSlots"
-export type { UseTimeSlotsParams } from "./useTimeSlots"
+export type { UseTimeSlotsParams, UseTimeSlotsResult, FullDayBlock } from "./useTimeSlots"
 
 export { useAppointmentCreate } from "./useAppointmentCreate"
 export type { UseAppointmentCreateParams, UseAppointmentCreateReturn } from "./useAppointmentCreate"

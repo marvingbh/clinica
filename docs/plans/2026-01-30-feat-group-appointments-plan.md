@@ -314,12 +314,12 @@ When a new member joins a group that already has generated sessions:
 ### Phase 2: UI & Calendar Integration
 
 **Tasks:**
-- [ ] Add group sessions to calendar queries
-- [ ] Create GroupSessionCard component (shows as single block with count)
-- [ ] Create expandable view showing participants + status
-- [ ] Create groups list page
-- [ ] Create group detail page with member management
-- [ ] Add navigation items
+- [x] Add group sessions to calendar queries
+- [x] Create GroupSessionCard component (shows as single block with count)
+- [x] Create expandable view showing participants + status
+- [x] Create groups list page
+- [x] Create group detail page with member management
+- [x] Add navigation items
 
 **Files:**
 - `src/app/agenda/services/index.ts` - Include group sessions in fetch
