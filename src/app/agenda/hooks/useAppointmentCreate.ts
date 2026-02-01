@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { toDisplayDateFromDate, toIsoDate } from "../lib/utils"
 import { appointmentSchema, AppointmentFormData, Patient, RecurrenceType, RecurrenceEndType, Professional } from "../lib/types"
 import { createAppointment, CreateAppointmentData } from "../services"
+import { AppointmentType } from "../components/RecurrenceOptions"
 
 export interface UseAppointmentCreateParams {
   selectedDate: Date
@@ -35,17 +36,19 @@ export interface UseAppointmentCreateReturn {
   setCreateProfessionalId: (id: string) => void
   isProfessionalLocked: boolean
 
-  // Recurrence state
-  isRecurrenceEnabled: boolean
-  setIsRecurrenceEnabled: (enabled: boolean) => void
-  recurrenceType: RecurrenceType
-  setRecurrenceType: (type: RecurrenceType) => void
+  // Appointment type state (replaces isRecurrenceEnabled)
+  appointmentType: AppointmentType
+  setAppointmentType: (type: AppointmentType) => void
   recurrenceEndType: RecurrenceEndType
   setRecurrenceEndType: (type: RecurrenceEndType) => void
   recurrenceEndDate: string
   setRecurrenceEndDate: (date: string) => void
   recurrenceOccurrences: number
   setRecurrenceOccurrences: (occurrences: number) => void
+
+  // API error (shown inline)
+  apiError: string | null
+  clearApiError: () => void
 
   // Submission
   isSaving: boolean
@@ -63,15 +66,18 @@ export function useAppointmentCreate({
   const [patientSearch, setPatientSearch] = useState("")
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
 
   // Professional selection for admin (when no professional is pre-selected)
   const [createProfessionalId, setCreateProfessionalId] = useState("")
   const isProfessionalLocked = !!selectedProfessionalId
 
-  // Recurrence state
-  const [isRecurrenceEnabled, setIsRecurrenceEnabled] = useState(false)
-  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("WEEKLY")
-  const [recurrenceEndType, setRecurrenceEndType] = useState<RecurrenceEndType>("BY_OCCURRENCES")
+  const clearApiError = useCallback(() => setApiError(null), [])
+
+  // Appointment type state - WEEKLY by default (psychology clinic norm)
+  // INDEFINITE end type by default - appointments continue until explicitly stopped
+  const [appointmentType, setAppointmentType] = useState<AppointmentType>("WEEKLY")
+  const [recurrenceEndType, setRecurrenceEndType] = useState<RecurrenceEndType>("INDEFINITE")
   const [recurrenceEndDate, setRecurrenceEndDate] = useState("")
   const [recurrenceOccurrences, setRecurrenceOccurrences] = useState(10)
 
@@ -87,9 +93,10 @@ export function useAppointmentCreate({
       setSelectedPatient(null)
       setPatientSearch("")
       setCreateProfessionalId(selectedProfessionalId || "")
-      setIsRecurrenceEnabled(false)
-      setRecurrenceType("WEEKLY")
-      setRecurrenceEndType("BY_OCCURRENCES")
+      setApiError(null)
+      // Default to WEEKLY recurring appointment with no end date
+      setAppointmentType("WEEKLY")
+      setRecurrenceEndType("INDEFINITE")
       setRecurrenceEndDate("")
       setRecurrenceOccurrences(10)
       form.reset({
@@ -109,7 +116,7 @@ export function useAppointmentCreate({
     setSelectedPatient(null)
     setPatientSearch("")
     setCreateProfessionalId("")
-    setIsRecurrenceEnabled(false)
+    setAppointmentType("WEEKLY")
   }, [])
 
   const handleSelectPatient = useCallback(
@@ -128,10 +135,13 @@ export function useAppointmentCreate({
 
   const onSubmit = useCallback(
     async (data: AppointmentFormData) => {
+      // Clear any previous API error
+      setApiError(null)
+
       // For admin, require a professional to be selected
       const effectiveProfessionalId = selectedProfessionalId || createProfessionalId
       if (isAdmin && !effectiveProfessionalId) {
-        toast.error("Selecione um profissional")
+        setApiError("Selecione um profissional")
         return
       }
 
@@ -151,9 +161,12 @@ export function useAppointmentCreate({
         if (data.duration) {
           body.duration = data.duration
         }
-        if (isRecurrenceEnabled) {
+
+        // Only add recurrence if not SINGLE
+        const isRecurring = appointmentType !== "SINGLE"
+        if (isRecurring) {
           body.recurrence = {
-            recurrenceType,
+            recurrenceType: appointmentType as RecurrenceType,
             recurrenceEndType,
             ...(recurrenceEndType === "BY_DATE" && { endDate: recurrenceEndDate }),
             ...(recurrenceEndType === "BY_OCCURRENCES" && { occurrences: recurrenceOccurrences }),
@@ -164,14 +177,14 @@ export function useAppointmentCreate({
 
         if (result.error) {
           if (result.occurrenceIndex) {
-            toast.error(`${result.error} (Ocorrencia ${result.occurrenceIndex})`)
+            setApiError(`${result.error} (Ocorrencia ${result.occurrenceIndex})`)
           } else {
-            toast.error(result.error)
+            setApiError(result.error)
           }
           return
         }
 
-        if (isRecurrenceEnabled && result.totalOccurrences) {
+        if (isRecurring && result.totalOccurrences) {
           toast.success(`${result.totalOccurrences} agendamentos criados com sucesso`)
         } else {
           toast.success("Agendamento criado com sucesso")
@@ -180,7 +193,7 @@ export function useAppointmentCreate({
         closeCreateSheet()
         onSuccess()
       } catch {
-        toast.error("Erro ao criar agendamento")
+        setApiError("Erro ao criar agendamento")
       } finally {
         setIsSaving(false)
       }
@@ -189,8 +202,7 @@ export function useAppointmentCreate({
       isAdmin,
       selectedProfessionalId,
       createProfessionalId,
-      isRecurrenceEnabled,
-      recurrenceType,
+      appointmentType,
       recurrenceEndType,
       recurrenceEndDate,
       recurrenceOccurrences,
@@ -212,16 +224,16 @@ export function useAppointmentCreate({
     createProfessionalId,
     setCreateProfessionalId,
     isProfessionalLocked,
-    isRecurrenceEnabled,
-    setIsRecurrenceEnabled,
-    recurrenceType,
-    setRecurrenceType,
+    appointmentType,
+    setAppointmentType,
     recurrenceEndType,
     setRecurrenceEndType,
     recurrenceEndDate,
     setRecurrenceEndDate,
     recurrenceOccurrences,
     setRecurrenceOccurrences,
+    apiError,
+    clearApiError,
     isSaving,
     onSubmit,
   }

@@ -57,6 +57,7 @@ export const GET = withAuth(
             specialty: true,
             registrationNumber: true,
             appointmentDuration: true,
+            bufferBetweenSlots: true,
           },
         },
       },
@@ -79,7 +80,7 @@ export const POST = withAuth(
     }
 
     const body = await req.json()
-    const { name, email, password, specialty, appointmentDuration } = body
+    const { name, email, password, specialty, registrationNumber, appointmentDuration, bufferBetweenSlots } = body
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -125,7 +126,9 @@ export const POST = withAuth(
         data: {
           userId: newUser.id,
           specialty: specialty || null,
-          appointmentDuration: appointmentDuration || 50,
+          registrationNumber: registrationNumber || null,
+          appointmentDuration: appointmentDuration ?? 50,
+          bufferBetweenSlots: bufferBetweenSlots ?? 0,
         },
       })
 
@@ -147,6 +150,7 @@ export const POST = withAuth(
               specialty: true,
               registrationNumber: true,
               appointmentDuration: true,
+              bufferBetweenSlots: true,
             },
           },
         },

@@ -1,10 +1,12 @@
 "use client"
 
 import { useMemo } from "react"
-import { Appointment } from "../../lib/types"
+import { Appointment, GroupSession } from "../../lib/types"
 import { getWeekDays, toDateString, isSameDay, isWeekend } from "../../lib/utils"
 import { DayHeader } from "./DayHeader"
 import { AppointmentBlock } from "./AppointmentBlock"
+import { GroupSessionBlock } from "./GroupSessionBlock"
+import { createProfessionalColorMap } from "../../lib/professional-colors"
 
 const START_HOUR = 7
 const END_HOUR = 21
@@ -15,7 +17,9 @@ const HOUR_HEIGHT = 60 * PIXELS_PER_MINUTE // 96px per hour
 interface WeeklyGridProps {
   weekStart: Date
   appointments: Appointment[]
+  groupSessions?: GroupSession[]
   onAppointmentClick: (appointment: Appointment) => void
+  onGroupSessionClick?: (session: GroupSession) => void
   showProfessional?: boolean
 }
 
@@ -93,9 +97,20 @@ function calculateAppointmentLayout(appointments: Appointment[]): AppointmentWit
   return result
 }
 
-export function WeeklyGrid({ weekStart, appointments, onAppointmentClick, showProfessional = false }: WeeklyGridProps) {
+export function WeeklyGrid({ weekStart, appointments, groupSessions = [], onAppointmentClick, onGroupSessionClick, showProfessional = false }: WeeklyGridProps) {
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart])
   const today = new Date()
+
+  // Filter out individual group appointments (they'll be shown as group sessions)
+  const individualAppointments = useMemo(() => {
+    return appointments.filter(apt => !apt.groupId)
+  }, [appointments])
+
+  // Create consistent color mapping for all professionals
+  const professionalColorMap = useMemo(() => {
+    const professionalIds = individualAppointments.map(apt => apt.professionalProfile.id)
+    return createProfessionalColorMap(professionalIds)
+  }, [individualAppointments])
 
   // Group appointments by day and calculate layout
   const appointmentsByDay = useMemo(() => {
@@ -109,7 +124,7 @@ export function WeeklyGrid({ weekStart, appointments, onAppointmentClick, showPr
     for (const day of weekDays) {
       byDate[toDateString(day)] = []
     }
-    for (const apt of appointments) {
+    for (const apt of individualAppointments) {
       const aptDate = toDateString(new Date(apt.scheduledAt))
       if (byDate[aptDate]) {
         byDate[aptDate].push(apt)
@@ -122,7 +137,22 @@ export function WeeklyGrid({ weekStart, appointments, onAppointmentClick, showPr
     }
 
     return grouped
-  }, [weekDays, appointments])
+  }, [weekDays, individualAppointments])
+
+  // Group sessions by day
+  const groupSessionsByDay = useMemo(() => {
+    const grouped: Record<string, GroupSession[]> = {}
+    for (const day of weekDays) {
+      grouped[toDateString(day)] = []
+    }
+    for (const session of groupSessions) {
+      const sessionDate = toDateString(new Date(session.scheduledAt))
+      if (grouped[sessionDate]) {
+        grouped[sessionDate].push(session)
+      }
+    }
+    return grouped
+  }, [weekDays, groupSessions])
 
   const gridHeight = HOURS.length * HOUR_HEIGHT
 
@@ -170,6 +200,7 @@ export function WeeklyGrid({ weekStart, appointments, onAppointmentClick, showPr
           {weekDays.map((day, dayIndex) => {
             const dateStr = toDateString(day)
             const dayAppointments = appointmentsByDay[dateStr] || []
+            const dayGroupSessions = groupSessionsByDay[dateStr] || []
             const isCurrentDay = isSameDay(day, today)
             const weekend = isWeekend(day)
 
@@ -207,6 +238,17 @@ export function WeeklyGrid({ weekStart, appointments, onAppointmentClick, showPr
                     showProfessional={showProfessional}
                     columnIndex={appointment.columnIndex}
                     totalColumns={appointment.totalColumns}
+                    professionalColorMap={professionalColorMap}
+                  />
+                ))}
+
+                {/* Group Sessions */}
+                {dayGroupSessions.map((session) => (
+                  <GroupSessionBlock
+                    key={`${session.groupId}-${session.scheduledAt}`}
+                    session={session}
+                    onClick={onGroupSessionClick}
+                    showProfessional={showProfessional}
                   />
                 ))}
               </div>

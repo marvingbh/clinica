@@ -42,6 +42,7 @@ export const authConfig: NextAuthConfig = {
         token.clinicId = user.clinicId
         token.role = user.role
         token.professionalProfileId = user.professionalProfileId
+        token.appointmentDuration = user.appointmentDuration
       }
       return token
     },
@@ -51,6 +52,7 @@ export const authConfig: NextAuthConfig = {
         session.user.clinicId = token.clinicId as string
         session.user.role = token.role as string
         session.user.professionalProfileId = token.professionalProfileId as string | null
+        session.user.appointmentDuration = token.appointmentDuration as number | null
       }
       return session
     },

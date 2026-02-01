@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { SessionProvider } from "@/shared/components/session-provider";
+import { ThemeProvider } from "@/shared/components/theme-provider";
 import { DesktopHeader } from "@/shared/components/ui/desktop-header";
 import { BottomNavigation } from "@/shared/components/ui/bottom-navigation";
 import { PageTransition } from "@/shared/components/ui/page-transition";
@@ -58,20 +59,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SessionProvider>
-          <DesktopHeader />
-          <div className="md:pt-16">
-            <PageTransition>
-              {children}
-            </PageTransition>
-          </div>
-          <BottomNavigation />
-          <Toaster richColors position="top-right" />
-        </SessionProvider>
+        <ThemeProvider>
+          <SessionProvider>
+            <DesktopHeader />
+            <div className="md:pt-16">
+              <PageTransition>
+                {children}
+              </PageTransition>
+            </div>
+            <BottomNavigation />
+            <Toaster richColors position="top-right" />
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

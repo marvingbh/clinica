@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Use class-based dark mode */
+@variant dark (&:where(.dark, .dark *));
+
 :root {
   /* ============================================
      DESIGN TOKENS - Light Mode
@@ -229,44 +232,36 @@
   --ease-bounce: var(--ease-bounce);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* --- Semantic Colors (Dark Mode) --- */
-    --background: var(--gray-950);
-    --foreground: var(--gray-50);
+/* Dark mode - activated by .dark class on html element */
+html.dark,
+html.dark body,
+.dark {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --border: #27272a;
+  --border-muted: #18181b;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --primary: #fafafa;
+  --primary-foreground: #18181b;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
+  --input: #27272a;
+  --ring: #52525b;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.3);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.5);
+  --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.3);
 
-    --border: var(--gray-800);
-    --border-muted: var(--gray-900);
-
-    --muted: var(--gray-800);
-    --muted-foreground: var(--gray-400);
-
-    --primary: var(--gray-50);
-    --primary-foreground: var(--gray-900);
-
-    --secondary: var(--gray-800);
-    --secondary-foreground: var(--gray-50);
-
-    --accent: var(--gray-800);
-    --accent-foreground: var(--gray-50);
-
-    --card: var(--gray-950);
-    --card-foreground: var(--gray-50);
-
-    --popover: var(--gray-900);
-    --popover-foreground: var(--gray-50);
-
-    --input: var(--gray-800);
-    --ring: var(--gray-600);
-
-    /* --- Adjusted Shadows for Dark Mode --- */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.3);
-    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.5);
-    --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.3);
-  }
+  color-scheme: dark;
 }
 
 /* Prevent horizontal scroll */
@@ -277,11 +272,17 @@ body {
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html.dark body {
+  background-color: #09090b;
+  color: #fafafa;
 }
 
 /* Safe area padding for iOS */
@@ -495,8 +496,9 @@ textarea {
    ============================================ */
 
 /* Page transition wrapper */
+/* Note: will-change with transform breaks fixed positioning for descendants */
 .page-transition {
-  will-change: opacity, transform;
+  will-change: opacity;
 }
 
 /* Enter animation - fade in and slide up */

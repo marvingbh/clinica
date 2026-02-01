@@ -1,4 +1,5 @@
 export { AppointmentBlock } from "./AppointmentBlock"
 export { DayHeader } from "./DayHeader"
+export { GroupSessionBlock } from "./GroupSessionBlock"
 export { WeekNavigation } from "./WeekNavigation"
 export { WeeklyGrid } from "./WeeklyGrid"

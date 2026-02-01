@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
@@ -27,6 +28,12 @@ const professionalSchema = z.object({
     .int()
     .min(15, "Duração mínima é 15 minutos")
     .max(180, "Duração máxima é 180 minutos")
+    .optional(),
+  bufferBetweenSlots: z
+    .number()
+    .int()
+    .min(0, "Intervalo não pode ser negativo")
+    .max(60, "Intervalo máximo é 60 minutos")
     .optional(),
 })
 
@@ -55,6 +62,7 @@ export default function ProfessionalsPage() {
   const router = useRouter()
   const { data: session, status } = useSession()
   const [isLoading, setIsLoading] = useState(true)
+  const [isMounted, setIsMounted] = useState(false)
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [search, setSearch] = useState("")
   const [filterActive, setFilterActive] = useState<string>("all")
@@ -75,6 +83,7 @@ export default function ProfessionalsPage() {
     resolver: zodResolver(professionalSchema),
     defaultValues: {
       appointmentDuration: 50,
+      bufferBetweenSlots: 0,
     },
   })
 
@@ -119,6 +128,10 @@ export default function ProfessionalsPage() {
   }, [])
 
   useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login")
       return
@@ -145,6 +158,7 @@ export default function ProfessionalsPage() {
       specialty: "",
       registrationNumber: "",
       appointmentDuration: 50,
+      bufferBetweenSlots: 0,
     })
     setIsSheetOpen(true)
   }
@@ -159,6 +173,7 @@ export default function ProfessionalsPage() {
       specialty: professional.professionalProfile?.specialty ?? "",
       registrationNumber: professional.professionalProfile?.registrationNumber ?? "",
       appointmentDuration: professional.professionalProfile?.appointmentDuration ?? 50,
+      bufferBetweenSlots: professional.professionalProfile?.bufferBetweenSlots ?? 0,
     })
     setIsSheetOpen(true)
   }
@@ -189,6 +204,7 @@ export default function ProfessionalsPage() {
         specialty: data.specialty || null,
         registrationNumber: data.registrationNumber || null,
         appointmentDuration: data.appointmentDuration,
+        bufferBetweenSlots: data.bufferBetweenSlots,
       }
 
       // Only include password if creating or if password was provided
@@ -360,16 +376,18 @@ export default function ProfessionalsPage() {
       </div>
 
       {/* Bottom Sheet */}
-      {isSheetOpen && (
+      {isSheetOpen && isMounted && createPortal(
         <>
           {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black/50 z-40"
             onClick={closeSheet}
           />
-          {/* Sheet */}
-          <div className="fixed inset-x-0 bottom-0 z-50 bg-background border-t border-border rounded-t-2xl max-h-[90vh] overflow-y-auto animate-slide-up">
-            <div className="max-w-2xl mx-auto px-4 py-6">
+          {/* Sheet Container - centered on larger screens */}
+          <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center">
+            {/* Sheet - full width on mobile, max-width on larger screens */}
+            <div className="w-full max-w-4xl bg-background border-t border-border rounded-t-2xl max-h-[90vh] overflow-y-auto animate-slide-up">
+              <div className="max-w-2xl mx-auto px-4 py-6">
               {/* Handle */}
               <div className="flex justify-center mb-4">
                 <div className="w-12 h-1.5 rounded-full bg-muted" />
@@ -543,6 +561,18 @@ export default function ProfessionalsPage() {
                       />
                     </div>
 
+                    <div>
+                      <Input
+                        label="Intervalo entre sessões (minutos)"
+                        type="number"
+                        min={0}
+                        max={60}
+                        {...register("bufferBetweenSlots", { valueAsNumber: true })}
+                        error={errors.bufferBetweenSlots?.message}
+                        helperText="Tempo de intervalo entre consultas (0-60 minutos). Use 0 para permitir consultas consecutivas."
+                      />
+                    </div>
+
                     <div className="flex flex-col sm:flex-row gap-3 pt-4">
                       <button
                         type="submit"
@@ -566,9 +596,11 @@ export default function ProfessionalsPage() {
                   </form>
                 </>
               )}
+              </div>
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
 
       {/* FAB for adding professionals */}

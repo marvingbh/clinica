@@ -1,7 +1,8 @@
 "use client"
 
 import { usePathname, useRouter } from "next/navigation"
-import { HomeIcon, CalendarIcon, StethoscopeIcon, UserIcon } from "./icons"
+import { useTheme } from "@/shared/components/theme-provider"
+import { HomeIcon, CalendarIcon, StethoscopeIcon, UserIcon, UsersIcon, SunIcon, MoonIcon } from "./icons"
 
 interface NavItem {
   href: string
@@ -27,19 +28,49 @@ const navItems: NavItem[] = [
   },
   {
     href: "/professionals",
-    label: "Professionals",
+    label: "Profissionais",
     icon: <StethoscopeIcon className="w-6 h-6" strokeWidth={1.5} />,
     activeIcon: <StethoscopeIcon className="w-6 h-6" strokeWidth={2} />,
     matchPaths: ["/professionals", "/admin/professionals"],
   },
   {
+    href: "/groups",
+    label: "Grupos",
+    icon: <UsersIcon className="w-6 h-6" strokeWidth={1.5} />,
+    activeIcon: <UsersIcon className="w-6 h-6" strokeWidth={2} />,
+    matchPaths: ["/groups"],
+  },
+  {
     href: "/profile",
-    label: "Profile",
+    label: "Perfil",
     icon: <UserIcon className="w-6 h-6" strokeWidth={1.5} />,
     activeIcon: <UserIcon className="w-6 h-6" strokeWidth={2} />,
     matchPaths: ["/profile", "/settings"],
   },
 ]
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme()
+
+  return (
+    <button
+      onClick={toggleTheme}
+      className="flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[44px] py-1.5 px-3 rounded-lg transition-all duration-normal ease-in-out touch-manipulation text-muted-foreground hover:text-foreground active:bg-muted"
+      aria-label={theme === "light" ? "Ativar modo escuro" : "Ativar modo claro"}
+    >
+      <span className="transition-transform duration-normal ease-in-out">
+        {theme === "light" ? (
+          <MoonIcon className="w-6 h-6" strokeWidth={1.5} />
+        ) : (
+          <SunIcon className="w-6 h-6" strokeWidth={1.5} />
+        )}
+      </span>
+      <span className="text-[11px] leading-tight font-normal">
+        {theme === "light" ? "Escuro" : "Claro"}
+      </span>
+    </button>
+  )
+}
 
 export function BottomNavigation() {
   const router = useRouter()
@@ -104,6 +135,7 @@ export function BottomNavigation() {
               </button>
             )
           })}
+          <ThemeToggle />
         </div>
       </div>
     </nav>

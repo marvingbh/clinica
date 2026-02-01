@@ -34,11 +34,18 @@ export const GET = withAuth(
 
     // Verify access
     if (scope === "own") {
-      if (exception.professionalProfileId !== user.professionalProfileId) {
+      // Own scope can't access clinic-wide exceptions
+      if (!exception.professionalProfileId || exception.professionalProfileId !== user.professionalProfileId) {
         return forbiddenResponse("You can only view your own exceptions")
       }
     } else if (scope === "clinic") {
-      if (exception.professionalProfile.user.clinicId !== user.clinicId) {
+      // Clinic-wide exceptions use clinicId, professional-specific use professionalProfile.user.clinicId
+      if (exception.clinicId) {
+        // Clinic-wide exception
+        if (exception.clinicId !== user.clinicId) {
+          return forbiddenResponse("Exception not found in your clinic")
+        }
+      } else if (exception.professionalProfile?.user?.clinicId !== user.clinicId) {
         return forbiddenResponse("Exception not found in your clinic")
       }
     }
@@ -52,6 +59,7 @@ export const GET = withAuth(
         endTime: exception.endTime,
         reason: exception.reason,
         createdAt: exception.createdAt,
+        isClinicWide: !exception.professionalProfileId,
       },
     })
   }
@@ -89,11 +97,18 @@ export const DELETE = withAuth(
 
     // Verify access
     if (scope === "own") {
-      if (exception.professionalProfileId !== user.professionalProfileId) {
+      // Own scope can't delete clinic-wide exceptions
+      if (!exception.professionalProfileId || exception.professionalProfileId !== user.professionalProfileId) {
         return forbiddenResponse("You can only delete your own exceptions")
       }
     } else if (scope === "clinic") {
-      if (exception.professionalProfile.user.clinicId !== user.clinicId) {
+      // Clinic-wide exceptions use clinicId, professional-specific use professionalProfile.user.clinicId
+      if (exception.clinicId) {
+        // Clinic-wide exception
+        if (exception.clinicId !== user.clinicId) {
+          return forbiddenResponse("Exception not found in your clinic")
+        }
+      } else if (exception.professionalProfile?.user?.clinicId !== user.clinicId) {
         return forbiddenResponse("Exception not found in your clinic")
       }
     }

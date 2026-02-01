@@ -1,6 +1,7 @@
 "use client"
 
-import { Suspense, useEffect, useRef, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -50,12 +51,16 @@ interface TimeBlock {
 
 interface AvailabilityException {
   id: string
-  date: string
+  date: string | null
+  dayOfWeek: number | null
+  isRecurring: boolean
   isAvailable: boolean
   startTime: string | null
   endTime: string | null
   reason: string | null
   createdAt: string
+  isClinicWide: boolean
+  professionalName: string | null
 }
 
 interface Professional {
@@ -95,6 +100,7 @@ function AvailabilitySettingsContent() {
 
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   const [rules, setRules] = useState<TimeBlock[]>([])
   const [editingBlock, setEditingBlock] = useState<{
     dayOfWeek: number
@@ -102,7 +108,7 @@ function AvailabilitySettingsContent() {
     block: TimeBlock
   } | null>(null)
 
-  // Exceptions state
+  // Exceptions state (date-specific only)
   const [exceptions, setExceptions] = useState<AvailabilityException[]>([])
   const [editingException, setEditingException] = useState<{
     id?: string
@@ -112,6 +118,8 @@ function AvailabilitySettingsContent() {
     endTime: string | null
     reason: string | null
     isFullDay: boolean
+    targetType: "clinic" | "professional" // clinic = all professionals, professional = specific
+    targetProfessionalId: string | null // only used when targetType = "professional"
   } | null>(null)
   const [isDeletingException, setIsDeletingException] = useState<string | null>(null)
 
@@ -121,6 +129,11 @@ function AvailabilitySettingsContent() {
   const professionalIdParam = searchParams.get("professionalId")
 
   const isAdmin = session?.user?.role === "ADMIN"
+
+  // Effect 0: Set mounted state for portal rendering
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // Effect 1: Handle authentication redirect
   useEffect(() => {
@@ -204,9 +217,14 @@ function AvailabilitySettingsContent() {
 
         if (signal.aborted) return
 
-        console.log("[loadData] Setting state. rules:", availData.rules?.length, "exceptions:", exceptionsData.exceptions?.length)
+        // Filter to only date-specific exceptions (ignore recurring)
+        const dateExceptions = (exceptionsData.exceptions || []).filter(
+          (ex: AvailabilityException) => !ex.isRecurring
+        )
+
+        console.log("[loadData] Setting state. rules:", availData.rules?.length, "exceptions:", dateExceptions.length)
         setRules(availData.rules || [])
-        setExceptions(exceptionsData.exceptions || [])
+        setExceptions(dateExceptions)
       } catch (error) {
         if (signal.aborted) return
         console.error("[loadData] Error:", error)
@@ -249,8 +267,13 @@ function AvailabilitySettingsContent() {
         exceptionsResponse.ok ? exceptionsResponse.json() : { exceptions: [] },
       ])
 
+      // Filter to only date-specific exceptions (ignore recurring)
+      const dateExceptions = (exceptionsData.exceptions || []).filter(
+        (ex: AvailabilityException) => !ex.isRecurring
+      )
+
       setRules(availData.rules || [])
-      setExceptions(exceptionsData.exceptions || [])
+      setExceptions(dateExceptions)
     } catch {
       toast.error("Erro ao carregar disponibilidade")
     } finally {
@@ -410,22 +433,26 @@ function AvailabilitySettingsContent() {
     setRules(rules.filter((r) => r.dayOfWeek !== dayOfWeek))
   }
 
-  // Exception handlers
+  // Exception handlers (date-specific only)
   function openExceptionEditor(exception?: AvailabilityException) {
     if (exception) {
       setEditingException({
         id: exception.id,
-        date: toDisplayDate(exception.date),
+        date: exception.date ? toDisplayDate(exception.date) : "",
         isAvailable: exception.isAvailable,
         startTime: exception.startTime,
         endTime: exception.endTime,
         reason: exception.reason,
         isFullDay: !exception.startTime && !exception.endTime,
+        targetType: exception.isClinicWide ? "clinic" : "professional",
+        targetProfessionalId: exception.isClinicWide ? null : selectedProfessionalId,
       })
     } else {
-      // New exception - default to block (unavailable)
+      // New exception - default to block (unavailable) for specific date
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
+      // For admins, default to clinic-wide; for professionals, default to their own
+      const defaultTargetType = isAdmin ? "clinic" : "professional"
       setEditingException({
         date: toDisplayDateFromDate(tomorrow),
         isAvailable: false,
@@ -433,6 +460,8 @@ function AvailabilitySettingsContent() {
         endTime: null,
         reason: null,
         isFullDay: true,
+        targetType: defaultTargetType,
+        targetProfessionalId: isAdmin ? null : null, // will use user's own profile
       })
     }
   }
@@ -444,7 +473,13 @@ function AvailabilitySettingsContent() {
   async function saveException() {
     if (!editingException) return
 
-    const { date, isAvailable, startTime, endTime, reason, isFullDay } = editingException
+    const { date, isAvailable, startTime, endTime, reason, isFullDay, targetType, targetProfessionalId } = editingException
+
+    // Validate exception has date
+    if (!date) {
+      toast.error("Selecione a data")
+      return
+    }
 
     // Validate time range if not full day
     if (!isFullDay) {
@@ -458,22 +493,36 @@ function AvailabilitySettingsContent() {
       }
     }
 
+    // Validate professional selection for professional-specific exceptions
+    if (targetType === "professional" && isAdmin && !targetProfessionalId) {
+      toast.error("Selecione um profissional")
+      return
+    }
+
     setIsSaving(true)
 
     try {
       let professionalProfileId: string | undefined
+      const isClinicWide = targetType === "clinic"
 
-      if (isAdmin && selectedProfessionalId) {
-        const prof = professionals.find((p) => p.id === selectedProfessionalId)
-        professionalProfileId = prof?.professionalProfile?.id
+      if (!isClinicWide) {
+        // Professional-specific exception
+        if (isAdmin && targetProfessionalId) {
+          const prof = professionals.find((p) => p.id === targetProfessionalId)
+          professionalProfileId = prof?.professionalProfile?.id
+        }
+        // For non-admins, the API will use the user's own profile
       }
 
       const response = await fetch("/api/availability/exceptions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          professionalProfileId,
+          professionalProfileId: isClinicWide ? null : professionalProfileId,
+          isClinicWide,
           date: toIsoDate(date),
+          dayOfWeek: null,
+          isRecurring: false,
           isAvailable,
           startTime: isFullDay ? null : startTime,
           endTime: isFullDay ? null : endTime,
@@ -520,7 +569,10 @@ function AvailabilitySettingsContent() {
   }
 
   function formatExceptionDate(dateStr: string): string {
-    const date = new Date(dateStr + "T00:00:00")
+    // Extract just the date part (YYYY-MM-DD) to avoid timezone issues
+    const datePart = dateStr.split("T")[0]
+    // Parse as local time by appending time component
+    const date = new Date(datePart + "T12:00:00")
     return date.toLocaleDateString("pt-BR", {
       weekday: "short",
       day: "2-digit",
@@ -551,7 +603,7 @@ function AvailabilitySettingsContent() {
           </h1>
           <button
             onClick={saveAvailability}
-            disabled={isSaving}
+            disabled={isSaving || (isAdmin && !selectedProfessionalId)}
             className="h-10 px-4 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
           >
             {isSaving ? "Salvando..." : "Salvar"}
@@ -584,6 +636,13 @@ function AvailabilitySettingsContent() {
         )}
 
         {/* Weekly Grid */}
+        {isAdmin && !selectedProfessionalId ? (
+          <div className="bg-card border border-border rounded-lg p-6 text-center">
+            <p className="text-muted-foreground">
+              Selecione um profissional acima para gerenciar a disponibilidade.
+            </p>
+          </div>
+        ) : (
         <div className="space-y-4">
           {DAYS_OF_WEEK.map((day) => {
             const dayRules = getRulesForDay(day.value)
@@ -662,11 +721,14 @@ function AvailabilitySettingsContent() {
             )
           })}
         </div>
+        )}
 
-        <p className="text-sm text-muted-foreground mt-6">
-          Configure os horários em que você está disponível para atendimentos.
-          Você pode adicionar múltiplos blocos de horário por dia.
-        </p>
+        {(!isAdmin || selectedProfessionalId) && (
+          <p className="text-sm text-muted-foreground mt-6">
+            Configure os horários em que você está disponível para atendimentos.
+            Você pode adicionar múltiplos blocos de horário por dia.
+          </p>
+        )}
 
         {/* Exceptions Section */}
         <div className="mt-10">
@@ -691,8 +753,14 @@ function AvailabilitySettingsContent() {
             </div>
           ) : (
             <div className="space-y-3">
-              {exceptions
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+              {/* Sort date exceptions by date */}
+              {[...exceptions]
+                .sort((a, b) => {
+                  if (a.date && b.date) {
+                    return new Date(a.date).getTime() - new Date(b.date).getTime()
+                  }
+                  return 0
+                })
                 .map((exception) => (
                   <div
                     key={exception.id}
@@ -703,7 +771,7 @@ function AvailabilitySettingsContent() {
                     }`}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                             exception.isAvailable
@@ -713,6 +781,15 @@ function AvailabilitySettingsContent() {
                         >
                           {exception.isAvailable ? "Disponível" : "Bloqueado"}
                         </span>
+                        {exception.isClinicWide ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-500/20 text-purple-700 dark:text-purple-400">
+                            Toda a clínica
+                          </span>
+                        ) : exception.professionalName ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500/20 text-blue-700 dark:text-blue-400">
+                            {exception.professionalName}
+                          </span>
+                        ) : null}
                         {exception.startTime && exception.endTime && (
                           <span className="text-sm text-muted-foreground">
                             {exception.startTime} - {exception.endTime}
@@ -725,7 +802,7 @@ function AvailabilitySettingsContent() {
                         )}
                       </div>
                       <p className="font-medium text-foreground">
-                        {formatExceptionDate(exception.date)}
+                        {exception.date ? formatExceptionDate(exception.date) : ""}
                       </p>
                       {exception.reason && (
                         <p className="text-sm text-muted-foreground mt-1 truncate">
@@ -754,7 +831,7 @@ function AvailabilitySettingsContent() {
       </div>
 
       {/* Time Block Editor Modal */}
-      {editingBlock && (
+      {editingBlock && isMounted && createPortal(
         <>
           <div
             className="fixed inset-0 bg-black/50 z-40"
@@ -883,11 +960,12 @@ function AvailabilitySettingsContent() {
               </div>
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
 
       {/* Exception Editor Modal */}
-      {editingException && (
+      {editingException && isMounted && createPortal(
         <>
           <div
             className="fixed inset-0 bg-black/50 z-40"
@@ -949,6 +1027,79 @@ function AvailabilitySettingsContent() {
                       : "Bloqueia a agenda para este período"}
                   </p>
                 </div>
+
+                {/* Target (Admin only) */}
+                {isAdmin && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-3">
+                      Aplicar a
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingException({
+                            ...editingException,
+                            targetType: "clinic",
+                            targetProfessionalId: null,
+                          })
+                        }
+                        className={`px-4 py-3 rounded-md border text-sm font-medium transition-colors ${
+                          editingException.targetType === "clinic"
+                            ? "border-purple-500 bg-purple-500/10 text-purple-700 dark:text-purple-400"
+                            : "border-border text-muted-foreground hover:border-foreground"
+                        }`}
+                      >
+                        Toda a clínica
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingException({
+                            ...editingException,
+                            targetType: "professional",
+                            targetProfessionalId: selectedProfessionalId,
+                          })
+                        }
+                        className={`px-4 py-3 rounded-md border text-sm font-medium transition-colors ${
+                          editingException.targetType === "professional"
+                            ? "border-blue-500 bg-blue-500/10 text-blue-700 dark:text-blue-400"
+                            : "border-border text-muted-foreground hover:border-foreground"
+                        }`}
+                      >
+                        Profissional específico
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {editingException.targetType === "clinic"
+                        ? "Afeta todos os profissionais da clínica (ex: feriado)"
+                        : "Afeta apenas o profissional selecionado"}
+                    </p>
+
+                    {/* Professional selector when targeting specific professional */}
+                    {editingException.targetType === "professional" && (
+                      <div className="mt-3">
+                        <select
+                          value={editingException.targetProfessionalId || ""}
+                          onChange={(e) =>
+                            setEditingException({
+                              ...editingException,
+                              targetProfessionalId: e.target.value || null,
+                            })
+                          }
+                          className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                        >
+                          <option value="">Selecione um profissional</option>
+                          {professionals.map((prof) => (
+                            <option key={prof.id} value={prof.id}>
+                              {prof.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Date */}
                 <div>
@@ -1092,7 +1243,8 @@ function AvailabilitySettingsContent() {
               </div>
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </main>
   )

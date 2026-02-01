@@ -13,7 +13,8 @@ export const GET = withAuth(
   {
     resource: "appointment",
     action: "read",
-    getResourceOwnerId: (_req, params) => params?.id,
+    // Note: We don't use getResourceOwnerId here because we do manual ownership check
+    // inside the handler after fetching the appointment
   },
   async (req, { user, scope }, params) => {
     const appointment = await prisma.appointment.findFirst({
@@ -64,7 +65,8 @@ export const PATCH = withAuth(
   {
     resource: "appointment",
     action: "update",
-    getResourceOwnerId: (_req, params) => params?.id,
+    // Note: We don't use getResourceOwnerId here because we do manual ownership check
+    // inside the handler after fetching the appointment
   },
   async (req, { user, scope }, params) => {
     // First, verify the appointment exists and belongs to the clinic
@@ -234,7 +236,8 @@ export const DELETE = withAuth(
   {
     resource: "appointment",
     action: "delete",
-    getResourceOwnerId: (_req, params) => params?.id,
+    // Note: We don't use getResourceOwnerId here because we do manual ownership check
+    // inside the handler after fetching the appointment
   },
   async (req, { user, scope }, params) => {
     // First, verify the appointment exists and belongs to the clinic

@@ -71,6 +71,11 @@ export interface ToggleExceptionResponse {
   error?: string
 }
 
+export interface DeleteAppointmentResponse {
+  success?: boolean
+  error?: string
+}
+
 export async function fetchAppointments({
   date,
   professionalProfileId,
@@ -207,4 +212,18 @@ export async function toggleRecurrenceException(
   }
 
   return result
+}
+
+export async function deleteAppointment(id: string): Promise<DeleteAppointmentResponse> {
+  const response = await fetch(`/api/appointments/${id}`, {
+    method: "DELETE",
+  })
+
+  const result = await response.json()
+
+  if (!response.ok) {
+    return { error: result.error || "Erro ao excluir agendamento" }
+  }
+
+  return { success: true }
 }

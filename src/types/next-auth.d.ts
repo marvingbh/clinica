@@ -7,6 +7,7 @@ declare module "next-auth" {
     clinicId: string
     role: string
     professionalProfileId: string | null
+    appointmentDuration: number | null
   }
 
   interface Session {
@@ -17,6 +18,7 @@ declare module "next-auth" {
       clinicId: string
       role: string
       professionalProfileId: string | null
+      appointmentDuration: number | null
     }
   }
 }
@@ -27,5 +29,6 @@ declare module "next-auth/jwt" {
     clinicId: string
     role: string
     professionalProfileId: string | null
+    appointmentDuration: number | null
   }
 }

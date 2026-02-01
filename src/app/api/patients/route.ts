@@ -16,6 +16,8 @@ const createPatientSchema = z.object({
   email: z.string().email("Email inválido").optional().nullable().or(z.literal("")),
   birthDate: z.string().optional().nullable(),
   cpf: z.string().max(14).optional().nullable().or(z.literal("")),
+  fatherName: z.string().max(200).optional().nullable().or(z.literal("")),
+  motherName: z.string().max(200).optional().nullable().or(z.literal("")),
   notes: z.string().max(2000).optional().nullable().or(z.literal("")),
   consentWhatsApp: z.boolean().default(false),
   consentEmail: z.boolean().default(false),
@@ -24,6 +26,7 @@ const createPatientSchema = z.object({
 /**
  * GET /api/patients
  * List patients - ADMIN sees all clinic patients, PROFESSIONAL sees only patients they have appointments with
+ * Supports pagination with page and limit query params
  */
 export const GET = withAuth(
   { resource: "patient", action: "list" },
@@ -31,6 +34,9 @@ export const GET = withAuth(
     const { searchParams } = new URL(req.url)
     const search = searchParams.get("search")
     const isActive = searchParams.get("isActive")
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)))
+    const skip = (page - 1) * limit
 
     // Base query always filters by clinic
     const where: Record<string, unknown> = {
@@ -59,27 +65,45 @@ export const GET = withAuth(
       where.isActive = isActive === "true"
     }
 
-    const patients = await prisma.patient.findMany({
-      where,
-      orderBy: { name: "asc" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        birthDate: true,
-        notes: true,
-        isActive: true,
-        lastVisitAt: true,
-        consentWhatsApp: true,
-        consentWhatsAppAt: true,
-        consentEmail: true,
-        consentEmailAt: true,
-        createdAt: true,
+    // Fetch patients and total count in parallel
+    const [patients, total] = await Promise.all([
+      prisma.patient.findMany({
+        where,
+        orderBy: { name: "asc" },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          birthDate: true,
+          fatherName: true,
+          motherName: true,
+          notes: true,
+          isActive: true,
+          lastVisitAt: true,
+          consentWhatsApp: true,
+          consentWhatsAppAt: true,
+          consentEmail: true,
+          consentEmailAt: true,
+          createdAt: true,
+        },
+      }),
+      prisma.patient.count({ where }),
+    ])
+
+    const totalPages = Math.ceil(total / limit)
+
+    return NextResponse.json({
+      patients,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
       },
     })
-
-    return NextResponse.json({ patients })
   }
 )
 
@@ -100,7 +124,7 @@ export const POST = withAuth(
       )
     }
 
-    const { name, email, phone, birthDate, cpf, notes, consentWhatsApp, consentEmail } =
+    const { name, email, phone, birthDate, cpf, fatherName, motherName, notes, consentWhatsApp, consentEmail } =
       validation.data
 
     // Normalize phone number (remove non-digits, ensure country code)
@@ -152,6 +176,8 @@ export const POST = withAuth(
         phone: normalizedPhone,
         birthDate: birthDate ? new Date(birthDate + "T00:00:00") : null,
         cpf: normalizedCpf,
+        fatherName: fatherName || null,
+        motherName: motherName || null,
         notes: notes || null,
         consentWhatsApp,
         consentWhatsAppAt: consentWhatsApp ? now : null,

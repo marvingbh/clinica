@@ -1,32 +1,11 @@
 "use client"
 
-import { RefreshCwIcon } from "@/shared/components/ui/icons"
+import { RefreshCwIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { Appointment } from "../../lib/types"
+import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../../lib/professional-colors"
 
 const PIXELS_PER_MINUTE = 1.6 // 48px per 30 minutes = 96px per hour
 const START_HOUR = 7
-
-// Professional color palette - distinct colors for different professionals
-const PROFESSIONAL_COLORS = [
-  { bg: "bg-blue-100 dark:bg-blue-900/40", border: "border-l-blue-500", text: "text-blue-700 dark:text-blue-300" },
-  { bg: "bg-green-100 dark:bg-green-900/40", border: "border-l-green-500", text: "text-green-700 dark:text-green-300" },
-  { bg: "bg-purple-100 dark:bg-purple-900/40", border: "border-l-purple-500", text: "text-purple-700 dark:text-purple-300" },
-  { bg: "bg-orange-100 dark:bg-orange-900/40", border: "border-l-orange-500", text: "text-orange-700 dark:text-orange-300" },
-  { bg: "bg-pink-100 dark:bg-pink-900/40", border: "border-l-pink-500", text: "text-pink-700 dark:text-pink-300" },
-  { bg: "bg-teal-100 dark:bg-teal-900/40", border: "border-l-teal-500", text: "text-teal-700 dark:text-teal-300" },
-  { bg: "bg-indigo-100 dark:bg-indigo-900/40", border: "border-l-indigo-500", text: "text-indigo-700 dark:text-indigo-300" },
-  { bg: "bg-amber-100 dark:bg-amber-900/40", border: "border-l-amber-500", text: "text-amber-700 dark:text-amber-300" },
-]
-
-// Simple hash function to get consistent color index for a professional
-function getProfessionalColorIndex(professionalId: string): number {
-  let hash = 0
-  for (let i = 0; i < professionalId.length; i++) {
-    hash = ((hash << 5) - hash) + professionalId.charCodeAt(i)
-    hash = hash & hash
-  }
-  return Math.abs(hash) % PROFESSIONAL_COLORS.length
-}
 
 interface AppointmentBlockProps {
   appointment: Appointment
@@ -34,6 +13,7 @@ interface AppointmentBlockProps {
   showProfessional?: boolean
   columnIndex?: number
   totalColumns?: number
+  professionalColorMap?: ProfessionalColorMap
 }
 
 export function AppointmentBlock({
@@ -42,6 +22,7 @@ export function AppointmentBlock({
   showProfessional = false,
   columnIndex = 0,
   totalColumns = 1,
+  professionalColorMap,
 }: AppointmentBlockProps) {
   const scheduledAt = new Date(appointment.scheduledAt)
   const endAt = new Date(appointment.endAt)
@@ -61,9 +42,10 @@ export function AppointmentBlock({
   const endMinutes = endAt.getMinutes()
   const endTimeStr = `${endHour.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`
 
-  // Get professional color
-  const colorIndex = getProfessionalColorIndex(appointment.professionalProfile.id)
-  const colors = PROFESSIONAL_COLORS[colorIndex]
+  // Get professional color from map, fallback to first color
+  const colors = professionalColorMap
+    ? getProfessionalColor(appointment.professionalProfile.id, professionalColorMap)
+    : PROFESSIONAL_COLORS[0]
 
   // Calculate width and left position for overlapping appointments
   const columnWidth = 100 / totalColumns
@@ -93,7 +75,15 @@ export function AppointmentBlock({
       <div className="h-full flex flex-col overflow-hidden gap-0.5 relative">
         {/* Recurrence indicator icon */}
         {appointment.recurrence && (
-          <div className="absolute top-0 right-0" title="Agendamento recorrente">
+          <div
+            className="absolute top-0 right-0"
+            title={
+              appointment.recurrence.recurrenceType === "BIWEEKLY" && appointment.alternateWeekInfo
+                ? `Quinzenal - Alterna com: ${appointment.alternateWeekInfo.pairedPatientName || "Disponivel"}`
+                : appointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal"
+                : appointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"
+            }
+          >
             <RefreshCwIcon className="w-3 h-3 text-blue-500" />
           </div>
         )}
@@ -108,6 +98,13 @@ export function AppointmentBlock({
         {height >= 48 && (
           <p className="text-[10px] text-muted-foreground truncate leading-tight">
             {startTimeStr} - {endTimeStr}
+          </p>
+        )}
+        {/* Alternate week info for biweekly - show if there's enough height */}
+        {height >= 64 && appointment.recurrence?.recurrenceType === "BIWEEKLY" && appointment.alternateWeekInfo && (
+          <p className="text-[9px] text-purple-600 dark:text-purple-400 truncate leading-tight flex items-center gap-0.5">
+            <ArrowLeftRightIcon className="w-2.5 h-2.5 flex-shrink-0" />
+            {appointment.alternateWeekInfo.pairedPatientName || "Disponivel"}
           </p>
         )}
       </div>

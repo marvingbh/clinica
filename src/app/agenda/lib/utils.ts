@@ -239,3 +239,17 @@ export function toDisplayDateFromDate(date: Date): string {
   const year = date.getFullYear()
   return `${day}/${month}/${year}`
 }
+
+/**
+ * Checks if a time slot is in the past
+ * @param selectedDate The date in YYYY-MM-DD format
+ * @param slotTime The time in HH:mm format
+ */
+export function isSlotInPast(selectedDate: string, slotTime: string): boolean {
+  const now = new Date()
+  const [year, month, day] = selectedDate.split("-").map(Number)
+  const [hours, minutes] = slotTime.split(":").map(Number)
+
+  const slotDateTime = new Date(year, month - 1, day, hours, minutes)
+  return slotDateTime < now
+}

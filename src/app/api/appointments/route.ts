@@ -128,6 +128,7 @@ export const GET = withAuth(
             endDate: true,
             isActive: true,
             exceptions: true,
+            dayOfWeek: true,
           },
         },
       },
@@ -136,7 +137,56 @@ export const GET = withAuth(
       },
     })
 
-    return NextResponse.json({ appointments })
+    // For BIWEEKLY appointments, find the "paired" recurrence (same day, same time, different patient)
+    // This helps users see who else shares the same time slot on alternating weeks
+    const appointmentsWithAlternateInfo = await Promise.all(
+      appointments.map(async (apt) => {
+        // Only process biweekly appointments with active recurrence
+        if (apt.recurrence?.recurrenceType !== "BIWEEKLY" || !apt.recurrence.isActive) {
+          return apt
+        }
+
+        // Get the recurrence's day of week and start time
+        const recurrenceDayOfWeek = apt.recurrence.dayOfWeek
+        const aptDate = new Date(apt.scheduledAt)
+        const aptStartTime = `${String(aptDate.getHours()).padStart(2, "0")}:${String(aptDate.getMinutes()).padStart(2, "0")}`
+
+        // Find another BIWEEKLY recurrence with:
+        // - Same professional
+        // - Same day of week
+        // - Same start time
+        // - Different patient
+        // - Active
+        const pairedRecurrence = await prisma.appointmentRecurrence.findFirst({
+          where: {
+            professionalProfileId: apt.professionalProfileId,
+            recurrenceType: "BIWEEKLY",
+            dayOfWeek: recurrenceDayOfWeek,
+            startTime: aptStartTime,
+            patientId: { not: apt.patient.id },
+            isActive: true,
+            clinicId: user.clinicId,
+          },
+          include: {
+            patient: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        })
+
+        return {
+          ...apt,
+          alternateWeekInfo: {
+            pairedPatientName: pairedRecurrence?.patient.name || null,
+            isAvailable: !pairedRecurrence,
+          },
+        }
+      })
+    )
+
+    return NextResponse.json({ appointments: appointmentsWithAlternateInfo })
   }
 )
 
@@ -364,12 +414,20 @@ export const POST = withAuth(
         )
       }
 
-      // Check exceptions for this date
+      // Check exceptions for this date (specific date exceptions and recurring exceptions)
       const dateStr = apptDate.date
       const dayExceptions = allExceptions.filter(ex => {
-        const exDate = new Date(ex.date)
-        const exDateStr = `${exDate.getFullYear()}-${String(exDate.getMonth() + 1).padStart(2, "0")}-${String(exDate.getDate()).padStart(2, "0")}`
-        return exDateStr === dateStr
+        // For recurring exceptions, match by day of week
+        if (ex.isRecurring) {
+          return ex.dayOfWeek === dayOfWeek
+        }
+        // For specific date exceptions, match by date
+        if (ex.date) {
+          const exDate = new Date(ex.date)
+          const exDateStr = `${exDate.getFullYear()}-${String(exDate.getMonth() + 1).padStart(2, "0")}-${String(exDate.getDate()).padStart(2, "0")}`
+          return exDateStr === dateStr
+        }
+        return false
       })
 
       for (const exception of dayExceptions) {

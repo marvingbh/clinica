@@ -6,6 +6,17 @@ const prisma = new PrismaClient()
 
 const SALT_ROUNDS = 12
 
+// Helper to get next Monday
+function getNextMonday(): Date {
+  const today = new Date()
+  const currentDay = today.getDay()
+  const daysUntilMonday = currentDay === 0 ? 1 : 8 - currentDay
+  const result = new Date(today)
+  result.setDate(result.getDate() + daysUntilMonday)
+  result.setHours(0, 0, 0, 0)
+  return result
+}
+
 // Helper to add days to a date
 function addDays(date: Date, days: number): Date {
   const result = new Date(date)
@@ -20,35 +31,62 @@ function setTime(date: Date, hours: number, minutes: number): Date {
   return result
 }
 
-// Helper to get next occurrence of a weekday
-function getNextWeekday(dayOfWeek: number, weeksAhead: number = 0): Date {
-  const today = new Date()
-  const currentDay = today.getDay()
-  let daysUntil = dayOfWeek - currentDay
-  if (daysUntil <= 0) daysUntil += 7
-  const result = addDays(today, daysUntil + weeksAhead * 7)
-  return result
+// Helper to add minutes to a date
+function addMinutes(date: Date, minutes: number): Date {
+  return new Date(date.getTime() + minutes * 60000)
+}
+
+// Patient data extracted from horarios.pdf
+interface PatientInput {
+  childName: string
+  motherName: string
+  displayName: string
+}
+
+function parsePatientName(raw: string): PatientInput {
+  const parts = raw.split('/').map(s => s.trim())
+  const childName = parts[0]
+  const motherName = parts[1] || ''
+  return { childName, motherName, displayName: childName }
 }
 
 async function main() {
-  console.log('Seeding database...')
+  console.log('Cleaning database...')
+
+  // Clean database in correct order (respecting foreign keys)
+  await prisma.notification.deleteMany({})
+  await prisma.appointmentToken.deleteMany({})
+  await prisma.appointment.deleteMany({})
+  await prisma.appointmentRecurrence.deleteMany({})
+  await prisma.groupMembership.deleteMany({})
+  await prisma.therapyGroup.deleteMany({})
+  await prisma.availabilityException.deleteMany({})
+  await prisma.availabilityRule.deleteMany({})
+  await prisma.patient.deleteMany({})
+  await prisma.auditLog.deleteMany({})
+  await prisma.notificationTemplate.deleteMany({})
+  await prisma.professionalProfile.deleteMany({})
+  await prisma.user.deleteMany({})
+  await prisma.clinic.deleteMany({})
+
+  console.log('Database cleaned.')
+  console.log('')
+  console.log('Seeding database with horarios.pdf data...')
   console.log('')
 
   // ============================================================================
   // 1. CREATE CLINIC
   // ============================================================================
-  const clinic = await prisma.clinic.upsert({
-    where: { slug: 'clinica-demo' },
-    update: {},
-    create: {
-      name: 'Clinica Demo',
-      slug: 'clinica-demo',
-      email: 'contato@clinicademo.com',
+  const clinic = await prisma.clinic.create({
+    data: {
+      name: 'Clinica Terapeutica',
+      slug: 'clinica-terapeutica',
+      email: 'contato@clinicaterapeutica.com',
       phone: '(11) 99999-9999',
       address: 'Rua Exemplo, 123 - Sao Paulo, SP',
       timezone: 'America/Sao_Paulo',
       isActive: true,
-      defaultSessionDuration: 50,
+      defaultSessionDuration: 45,
       minAdvanceBooking: 2,
       reminderHours: [24, 2],
     },
@@ -57,21 +95,13 @@ async function main() {
   console.log(`[Clinic] Created: ${clinic.name}`)
 
   // ============================================================================
-  // 2. CREATE USERS (1 ADMIN + 2 PROFESSIONALS)
+  // 2. CREATE USERS (1 ADMIN + 3 PROFESSIONALS)
   // ============================================================================
   const passwordHash = await bcrypt.hash('admin', SALT_ROUNDS)
   const professionalPasswordHash = await bcrypt.hash('senha123', SALT_ROUNDS)
 
-  // Admin user
-  const admin = await prisma.user.upsert({
-    where: {
-      clinicId_email: {
-        clinicId: clinic.id,
-        email: 'admin@x.com',
-      },
-    },
-    update: { passwordHash },
-    create: {
+  const admin = await prisma.user.create({
+    data: {
       clinicId: clinic.id,
       email: 'admin@x.com',
       passwordHash,
@@ -83,515 +113,391 @@ async function main() {
 
   console.log(`[User] Created admin: ${admin.email}`)
 
-  // Professional 1 - Psychologist
-  const professional1 = await prisma.user.upsert({
-    where: {
-      clinicId_email: {
-        clinicId: clinic.id,
-        email: 'dr.maria@clinicademo.com',
-      },
-    },
-    update: { passwordHash: professionalPasswordHash },
-    create: {
+  const userElena = await prisma.user.create({
+    data: {
       clinicId: clinic.id,
-      email: 'dr.maria@clinicademo.com',
+      email: 'elena.sabino@clinicaterapeutica.com',
       passwordHash: professionalPasswordHash,
-      name: 'Dra. Maria Silva',
+      name: 'Elena Sabino',
       role: 'PROFESSIONAL',
       isActive: true,
     },
   })
 
-  console.log(`[User] Created professional: ${professional1.email}`)
-
-  // Professional 2 - Therapist
-  const professional2 = await prisma.user.upsert({
-    where: {
-      clinicId_email: {
-        clinicId: clinic.id,
-        email: 'dr.joao@clinicademo.com',
-      },
-    },
-    update: { passwordHash: professionalPasswordHash },
-    create: {
+  const userCherlen = await prisma.user.create({
+    data: {
       clinicId: clinic.id,
-      email: 'dr.joao@clinicademo.com',
+      email: 'cherlen.aidano@clinicaterapeutica.com',
       passwordHash: professionalPasswordHash,
-      name: 'Dr. Joao Santos',
+      name: 'Cherlen Aidano',
       role: 'PROFESSIONAL',
       isActive: true,
     },
   })
 
-  console.log(`[User] Created professional: ${professional2.email}`)
+  const userLivia = await prisma.user.create({
+    data: {
+      clinicId: clinic.id,
+      email: 'livia.moreira@clinicaterapeutica.com',
+      passwordHash: professionalPasswordHash,
+      name: 'Livia Moreira',
+      role: 'PROFESSIONAL',
+      isActive: true,
+    },
+  })
+
+  console.log(`[Users] Created professionals: Elena Sabino, Cherlen Aidano, Livia Moreira`)
 
   // ============================================================================
   // 3. CREATE PROFESSIONAL PROFILES
   // ============================================================================
-  const profile1 = await prisma.professionalProfile.upsert({
-    where: { userId: professional1.id },
-    update: {},
-    create: {
-      userId: professional1.id,
-      specialty: 'Psicologia Clinica',
-      registrationNumber: 'CRP 06/123456',
-      bio: 'Especialista em terapia cognitivo-comportamental com 10 anos de experiencia.',
-      appointmentDuration: 50,
-      bufferBetweenSlots: 10,
-      allowOnlineBooking: true,
-      maxAdvanceBookingDays: 30,
-    },
-  })
-
-  console.log(`[Profile] Created: ${professional1.name}`)
-
-  const profile2 = await prisma.professionalProfile.upsert({
-    where: { userId: professional2.id },
-    update: {},
-    create: {
-      userId: professional2.id,
-      specialty: 'Psicanalise',
-      registrationNumber: 'CRP 06/654321',
-      bio: 'Psicanalista com abordagem lacaniana, atendendo adultos e adolescentes.',
-      appointmentDuration: 50,
-      bufferBetweenSlots: 10,
+  const profileElena = await prisma.professionalProfile.create({
+    data: {
+      userId: userElena.id,
+      specialty: 'Terapia Ocupacional',
+      registrationNumber: 'CREFITO 00001',
+      bio: 'Terapeuta ocupacional com foco em atendimento infantil.',
+      appointmentDuration: 45,
+      bufferBetweenSlots: 0,
       allowOnlineBooking: true,
       maxAdvanceBookingDays: 60,
     },
   })
 
-  console.log(`[Profile] Created: ${professional2.name}`)
+  const profileCherlen = await prisma.professionalProfile.create({
+    data: {
+      userId: userCherlen.id,
+      specialty: 'Terapia Ocupacional',
+      registrationNumber: 'CREFITO 00002',
+      bio: 'Terapeuta ocupacional especializada em desenvolvimento infantil.',
+      appointmentDuration: 45,
+      bufferBetweenSlots: 0,
+      allowOnlineBooking: true,
+      maxAdvanceBookingDays: 60,
+    },
+  })
+
+  const profileLivia = await prisma.professionalProfile.create({
+    data: {
+      userId: userLivia.id,
+      specialty: 'Terapia Ocupacional',
+      registrationNumber: 'CREFITO 00003',
+      bio: 'Terapeuta ocupacional com experiencia em integracao sensorial.',
+      appointmentDuration: 45,
+      bufferBetweenSlots: 0,
+      allowOnlineBooking: true,
+      maxAdvanceBookingDays: 60,
+    },
+  })
+
+  console.log(`[Profiles] Created 3 professional profiles`)
 
   // ============================================================================
   // 4. CREATE AVAILABILITY RULES
   // ============================================================================
-
-  // Professional 1: Monday to Friday, 8:00-12:00 and 14:00-18:00
-  const availabilitySchedule1 = [
-    { dayOfWeek: 1, startTime: '08:00', endTime: '12:00' }, // Monday morning
-    { dayOfWeek: 1, startTime: '14:00', endTime: '18:00' }, // Monday afternoon
-    { dayOfWeek: 2, startTime: '08:00', endTime: '12:00' }, // Tuesday morning
-    { dayOfWeek: 2, startTime: '14:00', endTime: '18:00' }, // Tuesday afternoon
-    { dayOfWeek: 3, startTime: '08:00', endTime: '12:00' }, // Wednesday morning
-    { dayOfWeek: 3, startTime: '14:00', endTime: '18:00' }, // Wednesday afternoon
-    { dayOfWeek: 4, startTime: '08:00', endTime: '12:00' }, // Thursday morning
-    { dayOfWeek: 4, startTime: '14:00', endTime: '18:00' }, // Thursday afternoon
-    { dayOfWeek: 5, startTime: '09:00', endTime: '13:00' }, // Friday (shorter day)
+  const elenaAvailability = [
+    { dayOfWeek: 1, startTime: '07:15', endTime: '19:30' },
+    { dayOfWeek: 2, startTime: '09:30', endTime: '19:30' },
+    { dayOfWeek: 4, startTime: '13:00', endTime: '18:00' },
+    { dayOfWeek: 5, startTime: '08:00', endTime: '17:00' },
   ]
 
-  // Delete existing rules and recreate
-  await prisma.availabilityRule.deleteMany({
-    where: { professionalProfileId: profile1.id },
-  })
-
-  for (const schedule of availabilitySchedule1) {
+  for (const rule of elenaAvailability) {
     await prisma.availabilityRule.create({
-      data: {
-        professionalProfileId: profile1.id,
-        dayOfWeek: schedule.dayOfWeek,
-        startTime: schedule.startTime,
-        endTime: schedule.endTime,
-        isActive: true,
-      },
+      data: { professionalProfileId: profileElena.id, ...rule, isActive: true },
     })
   }
 
-  console.log(`[Availability] Created ${availabilitySchedule1.length} rules for ${professional1.name}`)
-
-  // Professional 2: Tuesday to Saturday
-  const availabilitySchedule2 = [
-    { dayOfWeek: 2, startTime: '10:00', endTime: '14:00' }, // Tuesday
-    { dayOfWeek: 2, startTime: '16:00', endTime: '20:00' }, // Tuesday evening
-    { dayOfWeek: 3, startTime: '10:00', endTime: '14:00' }, // Wednesday
-    { dayOfWeek: 3, startTime: '16:00', endTime: '20:00' }, // Wednesday evening
-    { dayOfWeek: 4, startTime: '10:00', endTime: '14:00' }, // Thursday
-    { dayOfWeek: 4, startTime: '16:00', endTime: '20:00' }, // Thursday evening
-    { dayOfWeek: 5, startTime: '10:00', endTime: '14:00' }, // Friday
-    { dayOfWeek: 6, startTime: '09:00', endTime: '13:00' }, // Saturday morning
+  const cherlenAvailability = [
+    { dayOfWeek: 2, startTime: '08:45', endTime: '18:00' },
+    { dayOfWeek: 4, startTime: '08:00', endTime: '17:00' },
+    { dayOfWeek: 5, startTime: '08:00', endTime: '11:00' },
   ]
 
-  await prisma.availabilityRule.deleteMany({
-    where: { professionalProfileId: profile2.id },
-  })
-
-  for (const schedule of availabilitySchedule2) {
+  for (const rule of cherlenAvailability) {
     await prisma.availabilityRule.create({
-      data: {
-        professionalProfileId: profile2.id,
-        dayOfWeek: schedule.dayOfWeek,
-        startTime: schedule.startTime,
-        endTime: schedule.endTime,
-        isActive: true,
-      },
+      data: { professionalProfileId: profileCherlen.id, ...rule, isActive: true },
     })
   }
 
-  console.log(`[Availability] Created ${availabilitySchedule2.length} rules for ${professional2.name}`)
-
-  // ============================================================================
-  // 5. CREATE PATIENTS (10 with varied consent settings)
-  // ============================================================================
-  const patientData = [
-    {
-      name: 'Ana Paula Costa',
-      email: 'ana.costa@email.com',
-      phone: '(11) 98765-0001',
-      cpf: '123.456.789-01',
-      birthDate: new Date('1990-03-15'),
-      consentWhatsApp: true,
-      consentEmail: true,
-      notes: 'Paciente desde 2023. Preferencia por horarios matutinos.',
-    },
-    {
-      name: 'Bruno Ferreira Lima',
-      email: 'bruno.lima@email.com',
-      phone: '(11) 98765-0002',
-      cpf: '123.456.789-02',
-      birthDate: new Date('1985-07-22'),
-      consentWhatsApp: true,
-      consentEmail: false,
-      notes: 'Atendimento presencial apenas.',
-    },
-    {
-      name: 'Carla Mendes Souza',
-      email: 'carla.souza@email.com',
-      phone: '(11) 98765-0003',
-      cpf: '123.456.789-03',
-      birthDate: new Date('1992-11-08'),
-      consentWhatsApp: false,
-      consentEmail: true,
-      notes: null,
-    },
-    {
-      name: 'Daniel Oliveira Santos',
-      email: 'daniel.santos@email.com',
-      phone: '(11) 98765-0004',
-      cpf: '123.456.789-04',
-      birthDate: new Date('1978-01-30'),
-      consentWhatsApp: true,
-      consentEmail: true,
-      notes: 'Prefere sessoes online.',
-    },
-    {
-      name: 'Elena Rodrigues',
-      email: null,
-      phone: '(11) 98765-0005',
-      cpf: '123.456.789-05',
-      birthDate: new Date('1995-06-12'),
-      consentWhatsApp: true,
-      consentEmail: false,
-      notes: 'Sem email cadastrado.',
-    },
-    {
-      name: 'Fernando Almeida',
-      email: 'fernando.almeida@email.com',
-      phone: '(11) 98765-0006',
-      cpf: '123.456.789-06',
-      birthDate: new Date('1988-09-25'),
-      consentWhatsApp: false,
-      consentEmail: false,
-      notes: 'Nao deseja receber lembretes automaticos.',
-    },
-    {
-      name: 'Gabriela Nascimento',
-      email: 'gabi.nascimento@email.com',
-      phone: '(11) 98765-0007',
-      cpf: '123.456.789-07',
-      birthDate: new Date('2000-04-18'),
-      consentWhatsApp: true,
-      consentEmail: true,
-      notes: 'Estudante universitaria. Horarios flexiveis.',
-    },
-    {
-      name: 'Henrique Barbosa',
-      email: 'henrique.barbosa@email.com',
-      phone: '(11) 98765-0008',
-      cpf: '123.456.789-08',
-      birthDate: new Date('1975-12-03'),
-      consentWhatsApp: true,
-      consentEmail: false,
-      notes: null,
-    },
-    {
-      name: 'Isabela Martins',
-      email: 'isabela.martins@email.com',
-      phone: '(11) 98765-0009',
-      cpf: '123.456.789-09',
-      birthDate: new Date('1998-08-20'),
-      consentWhatsApp: false,
-      consentEmail: true,
-      notes: 'Primeira consulta agendada.',
-    },
-    {
-      name: 'Joao Pedro Cardoso',
-      email: 'jp.cardoso@email.com',
-      phone: '(11) 98765-0010',
-      cpf: '123.456.789-10',
-      birthDate: new Date('1982-02-14'),
-      consentWhatsApp: true,
-      consentEmail: true,
-      notes: 'Paciente recorrente ha 2 anos.',
-    },
+  const liviaAvailability = [
+    { dayOfWeek: 2, startTime: '09:30', endTime: '19:00' },
+    { dayOfWeek: 3, startTime: '17:30', endTime: '19:30' },
+    { dayOfWeek: 4, startTime: '17:30', endTime: '18:15' },
+    { dayOfWeek: 5, startTime: '08:00', endTime: '09:30' },
   ]
 
-  const patients: Array<{ id: string; name: string; phone: string; email: string | null; consentWhatsApp: boolean; consentEmail: boolean }> = []
+  for (const rule of liviaAvailability) {
+    await prisma.availabilityRule.create({
+      data: { professionalProfileId: profileLivia.id, ...rule, isActive: true },
+    })
+  }
 
-  for (const data of patientData) {
-    const patient = await prisma.patient.upsert({
-      where: {
-        clinicId_phone: {
-          clinicId: clinic.id,
-          phone: data.phone,
-        },
-      },
-      update: {},
-      create: {
+  console.log(`[Availability] Created availability rules for all professionals`)
+
+  // ============================================================================
+  // 5. CREATE PATIENTS
+  // ============================================================================
+  const patientRawData = [
+    'Dora / Juliana', 'Maria Eduarda / Janete', 'Sofia / Lorena', 'Daniel / Cristiane',
+    'Luiza / Fabiana', 'Gabriel / Érica', 'Catarina / Paula', 'Alice / Juliana',
+    'Valentina / Fernanda', 'Laura / Paulla', 'Luísa / Fernanda', 'Felipe / Flávia',
+    'Miguel / Carolina', 'Ana Vitória / Priscila', 'Alice / Priscila', 'Sophia / Grazielle',
+    'Helena / Fernanda', 'Leonardo / Fabiana', 'Ana Clara / Cleyonara', 'Bernardo / Daniela',
+    'Matheus / Daniela', 'Bruna / Simone', 'Byannca / Viviane', 'Arthur / Olívia',
+    'Pedro / Cibele', 'Rafael / Mariana', 'Maria Luísa / Amanda', 'Júlia / Fernanda',
+    'Bernardo / Andressa', 'Beatriz / Priscilla', 'Eduardo / Áquila', 'Beatriz / Ana Luiza',
+    'Gabriel / Cristiane', 'Felipe / Virgínia', 'Ana Cecília / Érica', 'Laura / Graziella',
+    'Marcela / Júlia', 'Pedro / Daniela', 'Vicente / Bruna', 'André / Amanda',
+    'Clarice / Juliana', 'Luisa / Estér', 'Bernardo / Jacqueline', 'Gabriel / Nathália',
+    'Antônio / Ana Flávia', 'Manuela / Débora', 'Rafael / Ana Paula', 'Mariana / Renata',
+    'Iara / Érica', 'Luisa / Flávia', 'Luisa / Ana Paula', 'Pedro / Karine',
+    'Teodoro / Juliana', 'Helena / Silviana', 'Alice / Erica', 'Laura / Amanda',
+    'Cecília / Simone', 'Maria Eduarda / Mirela', 'Luiza / Sibely', 'Mariane / Danielle',
+    'João Lucas / Adriana', 'Luísa / Fabíola', 'Marina / Cristiane', 'Guilherme / Déborah',
+    'Rafaela / Ana Paula', 'Enrico / Mariana', 'Diogo / Gláucia', 'Carolina / Patrícia',
+    'Samir / Ana Carolina', 'Henrique / Laura', 'Lucas / Fábia', 'Luiza / Mônica',
+    'Manuela / Marília', 'Sarah / Juliana', 'Bernardo / Rutth', 'Arthur / Marília',
+    'Laís / Luísa', 'Hugo / Cristal',
+  ]
+
+  const patientMap = new Map<string, PatientInput>()
+  const nameCount = new Map<string, number>()
+
+  for (const raw of patientRawData) {
+    const parsed = parsePatientName(raw)
+    const count = nameCount.get(parsed.childName) || 0
+    nameCount.set(parsed.childName, count + 1)
+  }
+
+  for (const raw of patientRawData) {
+    const parsed = parsePatientName(raw)
+    const count = nameCount.get(parsed.childName) || 0
+    const uniqueKey = `${parsed.childName}|${parsed.motherName}`
+
+    if (!patientMap.has(uniqueKey)) {
+      if (count > 1) {
+        parsed.displayName = `${parsed.childName} (${parsed.motherName})`
+      }
+      patientMap.set(uniqueKey, parsed)
+    }
+  }
+
+  const patients = new Map<string, string>()
+  let phoneCounter = 1
+
+  for (const [uniqueKey, data] of patientMap) {
+    const phone = `(11) 9${String(phoneCounter).padStart(4, '0')}-${String(phoneCounter).padStart(4, '0')}`
+    phoneCounter++
+
+    const patient = await prisma.patient.create({
+      data: {
         clinicId: clinic.id,
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        cpf: data.cpf,
-        birthDate: data.birthDate,
-        consentWhatsApp: data.consentWhatsApp,
-        consentWhatsAppAt: data.consentWhatsApp ? new Date() : null,
-        consentEmail: data.consentEmail,
-        consentEmailAt: data.consentEmail ? new Date() : null,
-        notes: data.notes,
+        name: data.displayName,
+        motherName: data.motherName,
+        phone,
+        consentWhatsApp: true,
+        consentWhatsAppAt: new Date(),
+        consentEmail: false,
         isActive: true,
       },
     })
-    patients.push({
-      id: patient.id,
-      name: patient.name,
-      phone: patient.phone,
-      email: patient.email,
-      consentWhatsApp: patient.consentWhatsApp,
-      consentEmail: patient.consentEmail,
-    })
+
+    patients.set(uniqueKey, patient.id)
   }
 
-  console.log(`[Patients] Created ${patients.length} patients`)
+  console.log(`[Patients] Created ${patients.size} patients`)
 
   // ============================================================================
-  // 6. CREATE APPOINTMENTS (across next 2 weeks)
+  // 6. HELPER TO GET PATIENT ID
   // ============================================================================
+  function getPatientId(raw: string): string {
+    const parsed = parsePatientName(raw)
+    const uniqueKey = `${parsed.childName}|${parsed.motherName}`
+    const id = patients.get(uniqueKey)
+    if (!id) throw new Error(`Patient not found: ${raw}`)
+    return id
+  }
 
-  // Delete existing appointments for seed patients to avoid duplicates
-  await prisma.appointment.deleteMany({
-    where: {
-      clinicId: clinic.id,
-      patientId: { in: patients.map((p) => p.id) },
-    },
-  })
-
-  const appointments: Array<{
+  // ============================================================================
+  // 7. APPOINTMENT DATA - grouped by professional/day/time
+  // ============================================================================
+  interface AppointmentSlot {
     professionalProfileId: string
-    patientId: string
-    scheduledAt: Date
-    endAt: Date
-    status: 'AGENDADO' | 'CONFIRMADO' | 'FINALIZADO'
-    modality: 'ONLINE' | 'PRESENCIAL'
-  }> = []
-
-  // Week 1 appointments
-  // Monday
-  const monday1 = getNextWeekday(1, 0)
-  appointments.push(
-    { professionalProfileId: profile1.id, patientId: patients[0].id, scheduledAt: setTime(monday1, 9, 0), endAt: setTime(monday1, 9, 50), status: 'CONFIRMADO', modality: 'PRESENCIAL' },
-    { professionalProfileId: profile1.id, patientId: patients[1].id, scheduledAt: setTime(monday1, 10, 0), endAt: setTime(monday1, 10, 50), status: 'AGENDADO', modality: 'PRESENCIAL' },
-    { professionalProfileId: profile1.id, patientId: patients[2].id, scheduledAt: setTime(monday1, 14, 0), endAt: setTime(monday1, 14, 50), status: 'AGENDADO', modality: 'ONLINE' },
-  )
-
-  // Tuesday
-  const tuesday1 = getNextWeekday(2, 0)
-  appointments.push(
-    { professionalProfileId: profile1.id, patientId: patients[3].id, scheduledAt: setTime(tuesday1, 8, 0), endAt: setTime(tuesday1, 8, 50), status: 'CONFIRMADO', modality: 'ONLINE' },
-    { professionalProfileId: profile2.id, patientId: patients[4].id, scheduledAt: setTime(tuesday1, 10, 0), endAt: setTime(tuesday1, 10, 50), status: 'AGENDADO', modality: 'PRESENCIAL' },
-    { professionalProfileId: profile2.id, patientId: patients[5].id, scheduledAt: setTime(tuesday1, 16, 0), endAt: setTime(tuesday1, 16, 50), status: 'CONFIRMADO', modality: 'PRESENCIAL' },
-  )
-
-  // Wednesday
-  const wednesday1 = getNextWeekday(3, 0)
-  appointments.push(
-    { professionalProfileId: profile1.id, patientId: patients[6].id, scheduledAt: setTime(wednesday1, 9, 0), endAt: setTime(wednesday1, 9, 50), status: 'AGENDADO', modality: 'PRESENCIAL' },
-    { professionalProfileId: profile2.id, patientId: patients[7].id, scheduledAt: setTime(wednesday1, 11, 0), endAt: setTime(wednesday1, 11, 50), status: 'AGENDADO', modality: 'ONLINE' },
-  )
-
-  // Thursday
-  const thursday1 = getNextWeekday(4, 0)
-  appointments.push(
-    { professionalProfileId: profile1.id, patientId: patients[8].id, scheduledAt: setTime(thursday1, 10, 0), endAt: setTime(thursday1, 10, 50), status: 'CONFIRMADO', modality: 'PRESENCIAL' },
-    { professionalProfileId: profile2.id, patientId: patients[9].id, scheduledAt: setTime(thursday1, 17, 0), endAt: setTime(thursday1, 17, 50), status: 'AGENDADO', modality: 'PRESENCIAL' },
-  )
-
-  // Friday
-  const friday1 = getNextWeekday(5, 0)
-  appointments.push(
-    { professionalProfileId: profile1.id, patientId: patients[0].id, scheduledAt: setTime(friday1, 9, 0), endAt: setTime(friday1, 9, 50), status: 'AGENDADO', modality: 'ONLINE' },
-    { professionalProfileId: profile2.id, patientId: patients[1].id, scheduledAt: setTime(friday1, 11, 0), endAt: setTime(friday1, 11, 50), status: 'AGENDADO', modality: 'PRESENCIAL' },
-  )
-
-  // Saturday
-  const saturday1 = getNextWeekday(6, 0)
-  appointments.push(
-    { professionalProfileId: profile2.id, patientId: patients[2].id, scheduledAt: setTime(saturday1, 9, 0), endAt: setTime(saturday1, 9, 50), status: 'CONFIRMADO', modality: 'PRESENCIAL' },
-    { professionalProfileId: profile2.id, patientId: patients[3].id, scheduledAt: setTime(saturday1, 10, 0), endAt: setTime(saturday1, 10, 50), status: 'AGENDADO', modality: 'ONLINE' },
-  )
-
-  // Week 2 appointments
-  // Monday
-  const monday2 = getNextWeekday(1, 1)
-  appointments.push(
-    { professionalProfileId: profile1.id, patientId: patients[4].id, scheduledAt: setTime(monday2, 8, 0), endAt: setTime(monday2, 8, 50), status: 'AGENDADO', modality: 'PRESENCIAL' },
-    { professionalProfileId: profile1.id, patientId: patients[5].id, scheduledAt: setTime(monday2, 11, 0), endAt: setTime(monday2, 11, 50), status: 'AGENDADO', modality: 'PRESENCIAL' },
-    { professionalProfileId: profile1.id, patientId: patients[6].id, scheduledAt: setTime(monday2, 15, 0), endAt: setTime(monday2, 15, 50), status: 'AGENDADO', modality: 'ONLINE' },
-  )
-
-  // Tuesday
-  const tuesday2 = getNextWeekday(2, 1)
-  appointments.push(
-    { professionalProfileId: profile1.id, patientId: patients[7].id, scheduledAt: setTime(tuesday2, 9, 0), endAt: setTime(tuesday2, 9, 50), status: 'AGENDADO', modality: 'PRESENCIAL' },
-    { professionalProfileId: profile2.id, patientId: patients[8].id, scheduledAt: setTime(tuesday2, 12, 0), endAt: setTime(tuesday2, 12, 50), status: 'AGENDADO', modality: 'ONLINE' },
-    { professionalProfileId: profile2.id, patientId: patients[9].id, scheduledAt: setTime(tuesday2, 18, 0), endAt: setTime(tuesday2, 18, 50), status: 'AGENDADO', modality: 'PRESENCIAL' },
-  )
-
-  // Wednesday
-  const wednesday2 = getNextWeekday(3, 1)
-  appointments.push(
-    { professionalProfileId: profile1.id, patientId: patients[0].id, scheduledAt: setTime(wednesday2, 10, 0), endAt: setTime(wednesday2, 10, 50), status: 'AGENDADO', modality: 'PRESENCIAL' },
-    { professionalProfileId: profile2.id, patientId: patients[1].id, scheduledAt: setTime(wednesday2, 17, 0), endAt: setTime(wednesday2, 17, 50), status: 'AGENDADO', modality: 'ONLINE' },
-  )
-
-  // Thursday
-  const thursday2 = getNextWeekday(4, 1)
-  appointments.push(
-    { professionalProfileId: profile1.id, patientId: patients[2].id, scheduledAt: setTime(thursday2, 14, 0), endAt: setTime(thursday2, 14, 50), status: 'AGENDADO', modality: 'PRESENCIAL' },
-    { professionalProfileId: profile2.id, patientId: patients[3].id, scheduledAt: setTime(thursday2, 19, 0), endAt: setTime(thursday2, 19, 50), status: 'AGENDADO', modality: 'ONLINE' },
-  )
-
-  // Friday
-  const friday2 = getNextWeekday(5, 1)
-  appointments.push(
-    { professionalProfileId: profile1.id, patientId: patients[4].id, scheduledAt: setTime(friday2, 10, 0), endAt: setTime(friday2, 10, 50), status: 'AGENDADO', modality: 'PRESENCIAL' },
-    { professionalProfileId: profile2.id, patientId: patients[5].id, scheduledAt: setTime(friday2, 12, 0), endAt: setTime(friday2, 12, 50), status: 'AGENDADO', modality: 'PRESENCIAL' },
-  )
-
-  const createdAppointments = []
-  for (const appt of appointments) {
-    const created = await prisma.appointment.create({
-      data: {
-        clinicId: clinic.id,
-        professionalProfileId: appt.professionalProfileId,
-        patientId: appt.patientId,
-        scheduledAt: appt.scheduledAt,
-        endAt: appt.endAt,
-        status: appt.status,
-        modality: appt.modality,
-        confirmedAt: appt.status === 'CONFIRMADO' ? new Date() : null,
-      },
-    })
-    createdAppointments.push(created)
+    dayOfWeek: number
+    time: string
+    patients: string[] // Raw patient strings
   }
 
-  console.log(`[Appointments] Created ${createdAppointments.length} appointments`)
+  // All appointment slots from the PDF
+  const slots: AppointmentSlot[] = [
+    // ELENA - SEGUNDA (1)
+    { professionalProfileId: profileElena.id, dayOfWeek: 1, time: '07:15', patients: ['Dora / Juliana'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 1, time: '08:00', patients: ['Dora / Juliana', 'Maria Eduarda / Janete'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 1, time: '08:45', patients: ['Sofia / Lorena', 'Daniel / Cristiane'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 1, time: '09:30', patients: ['Luiza / Fabiana', 'Gabriel / Érica'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 1, time: '10:15', patients: ['Catarina / Paula'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 1, time: '13:00', patients: ['Alice / Juliana'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 1, time: '13:15', patients: ['Valentina / Fernanda'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 1, time: '14:30', patients: ['Laura / Paulla'] },
+
+    // ELENA - TERCA (2)
+    { professionalProfileId: profileElena.id, dayOfWeek: 2, time: '09:30', patients: ['Luísa / Fernanda', 'Felipe / Flávia'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 2, time: '10:15', patients: ['Miguel / Carolina'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 2, time: '13:00', patients: ['Alice / Juliana', 'Ana Vitória / Priscila'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 2, time: '13:45', patients: ['Alice / Priscila'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 2, time: '14:30', patients: ['Ana Vitória / Priscila', 'Laura / Paulla'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 2, time: '15:15', patients: ['Sophia / Grazielle'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 2, time: '16:00', patients: ['Helena / Fernanda', 'Leonardo / Fabiana'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 2, time: '16:45', patients: ['Ana Clara / Cleyonara'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 2, time: '17:30', patients: ['Bernardo / Daniela'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 2, time: '18:15', patients: ['Matheus / Daniela'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 2, time: '19:00', patients: ['Bruna / Simone'] },
+
+    // ELENA - QUINTA (4)
+    { professionalProfileId: profileElena.id, dayOfWeek: 4, time: '13:00', patients: ['Byannca / Viviane', 'Arthur / Olívia'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 4, time: '13:45', patients: ['Pedro / Cibele'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 4, time: '14:30', patients: ['Rafael / Mariana'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 4, time: '15:15', patients: ['Maria Luísa / Amanda'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 4, time: '16:15', patients: ['Júlia / Fernanda'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 4, time: '17:00', patients: ['Bernardo / Andressa', 'Beatriz / Priscilla'] },
+
+    // ELENA - SEXTA (5)
+    { professionalProfileId: profileElena.id, dayOfWeek: 5, time: '08:45', patients: ['Eduardo / Áquila', 'Beatriz / Ana Luiza'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 5, time: '09:30', patients: ['Gabriel / Cristiane', 'Felipe / Virgínia'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 5, time: '10:15', patients: ['Ana Cecília / Érica'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 5, time: '11:00', patients: ['Felipe / Virgínia', 'Eduardo / Áquila'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 5, time: '13:15', patients: ['Laura / Graziella'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 5, time: '14:00', patients: ['Marcela / Júlia', 'Pedro / Daniela'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 5, time: '14:45', patients: ['Pedro / Daniela', 'Vicente / Bruna'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 5, time: '15:30', patients: ['André / Amanda'] },
+    { professionalProfileId: profileElena.id, dayOfWeek: 5, time: '16:15', patients: ['Clarice / Juliana', 'Luisa / Estér'] },
+
+    // CHERLEN - TERCA (2)
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 2, time: '08:45', patients: ['Bernardo / Jacqueline'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 2, time: '09:30', patients: ['Gabriel / Nathália'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 2, time: '10:15', patients: ['Antônio / Ana Flávia'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 2, time: '14:30', patients: ['Manuela / Débora', 'Rafael / Ana Paula'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 2, time: '15:15', patients: ['Mariana / Renata', 'Iara / Érica'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 2, time: '16:00', patients: ['Luisa / Flávia'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 2, time: '16:45', patients: ['Luisa / Ana Paula'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 2, time: '17:30', patients: ['Pedro / Karine'] },
+
+    // CHERLEN - QUINTA (4)
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 4, time: '08:00', patients: ['Teodoro / Juliana'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 4, time: '10:15', patients: ['Helena / Silviana'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 4, time: '11:00', patients: ['Alice / Erica'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 4, time: '13:00', patients: ['Laura / Amanda'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 4, time: '13:45', patients: ['Cecília / Simone'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 4, time: '14:30', patients: ['Maria Eduarda / Mirela'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 4, time: '15:15', patients: ['Luiza / Sibely', 'Mariane / Danielle'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 4, time: '16:00', patients: ['João Lucas / Adriana'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 4, time: '16:45', patients: ['Luísa / Fabíola'] },
+
+    // CHERLEN - SEXTA (5)
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 5, time: '08:00', patients: ['Marina / Cristiane'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 5, time: '08:45', patients: ['Guilherme / Déborah'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 5, time: '09:30', patients: ['Rafaela / Ana Paula'] },
+    { professionalProfileId: profileCherlen.id, dayOfWeek: 5, time: '10:15', patients: ['Enrico / Mariana'] },
+
+    // LIVIA - TERCA (2)
+    { professionalProfileId: profileLivia.id, dayOfWeek: 2, time: '09:30', patients: ['Diogo / Gláucia'] },
+    { professionalProfileId: profileLivia.id, dayOfWeek: 2, time: '14:30', patients: ['Carolina / Patrícia'] },
+    { professionalProfileId: profileLivia.id, dayOfWeek: 2, time: '16:00', patients: ['Samir / Ana Carolina'] },
+    { professionalProfileId: profileLivia.id, dayOfWeek: 2, time: '16:45', patients: ['Henrique / Laura'] },
+    { professionalProfileId: profileLivia.id, dayOfWeek: 2, time: '17:45', patients: ['Lucas / Fábia'] },
+    { professionalProfileId: profileLivia.id, dayOfWeek: 2, time: '18:30', patients: ['Luiza / Mônica'] },
+
+    // LIVIA - QUARTA (3)
+    { professionalProfileId: profileLivia.id, dayOfWeek: 3, time: '17:30', patients: ['Manuela / Marília'] },
+    { professionalProfileId: profileLivia.id, dayOfWeek: 3, time: '18:15', patients: ['Sarah / Juliana'] },
+    { professionalProfileId: profileLivia.id, dayOfWeek: 3, time: '19:00', patients: ['Bernardo / Rutth'] },
+
+    // LIVIA - QUINTA (4)
+    { professionalProfileId: profileLivia.id, dayOfWeek: 4, time: '17:30', patients: ['Arthur / Marília'] },
+
+    // LIVIA - SEXTA (5)
+    { professionalProfileId: profileLivia.id, dayOfWeek: 5, time: '08:00', patients: ['Laís / Luísa'] },
+    { professionalProfileId: profileLivia.id, dayOfWeek: 5, time: '08:45', patients: ['Hugo / Cristal'] },
+  ]
 
   // ============================================================================
-  // 7. CREATE SAMPLE NOTIFICATIONS
+  // 8. CREATE RECURRENCES AND APPOINTMENTS
   // ============================================================================
+  const nextMonday = getNextMonday()
+  const sessionDuration = 45
+  const weeksToGenerate = 8 // Generate 8 weeks of appointments
 
-  // Delete existing notifications for seed data to avoid duplicates
-  await prisma.notification.deleteMany({
-    where: {
-      clinicId: clinic.id,
-      appointmentId: { in: createdAppointments.map((a) => a.id) },
-    },
-  })
+  let recurrenceCount = 0
+  let appointmentCount = 0
 
-  const notifications: Array<{
-    patientId: string
-    appointmentId: string
-    type: 'APPOINTMENT_REMINDER' | 'APPOINTMENT_CONFIRMATION'
-    channel: 'WHATSAPP' | 'EMAIL'
-    status: 'PENDING' | 'SENT' | 'FAILED'
-    recipient: string
-    subject: string | null
-    content: string
-    sentAt: Date | null
-  }> = []
+  for (const slot of slots) {
+    const [hours, minutes] = slot.time.split(':').map(Number)
+    const isBiweekly = slot.patients.length === 2
 
-  // Create notifications for appointments with consenting patients
-  for (const appt of createdAppointments.slice(0, 10)) {
-    const patient = patients.find((p) => p.id === appt.patientId)
-    if (!patient) continue
+    for (let patientIndex = 0; patientIndex < slot.patients.length; patientIndex++) {
+      const patientRaw = slot.patients[patientIndex]
+      const patientId = getPatientId(patientRaw)
 
-    // WhatsApp notification if consent given
-    if (patient.consentWhatsApp) {
-      notifications.push({
-        patientId: patient.id,
-        appointmentId: appt.id,
-        type: 'APPOINTMENT_REMINDER',
-        channel: 'WHATSAPP',
-        status: appt.status === 'CONFIRMADO' ? 'SENT' : 'PENDING',
-        recipient: patient.phone,
-        subject: null,
-        content: `Ola ${patient.name.split(' ')[0]}! Lembramos que voce tem uma consulta agendada. Por favor, confirme sua presenca.`,
-        sentAt: appt.status === 'CONFIRMADO' ? new Date() : null,
+      // Calculate start date based on day of week
+      // dayOfWeek: 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri
+      const daysFromMonday = slot.dayOfWeek - 1
+      let startDate = addDays(nextMonday, daysFromMonday)
+
+      // For biweekly, second patient starts one week later
+      if (isBiweekly && patientIndex === 1) {
+        startDate = addDays(startDate, 7)
+      }
+
+      // Create recurrence
+      const recurrence = await prisma.appointmentRecurrence.create({
+        data: {
+          clinicId: clinic.id,
+          professionalProfileId: slot.professionalProfileId,
+          patientId,
+          modality: 'PRESENCIAL',
+          dayOfWeek: slot.dayOfWeek,
+          startTime: slot.time,
+          endTime: `${String(hours).padStart(2, '0')}:${String(minutes + sessionDuration).padStart(2, '0')}`,
+          duration: sessionDuration,
+          recurrenceType: isBiweekly ? 'BIWEEKLY' : 'WEEKLY',
+          recurrenceEndType: 'INDEFINITE',
+          startDate,
+          isActive: true,
+        },
       })
+      recurrenceCount++
+
+      // Generate appointments for the next weeks
+      const interval = isBiweekly ? 14 : 7 // days between appointments
+      for (let week = 0; week < weeksToGenerate; week++) {
+        const appointmentDate = addDays(startDate, week * interval)
+        const scheduledAt = setTime(appointmentDate, hours, minutes)
+        const endAt = addMinutes(scheduledAt, sessionDuration)
+
+        await prisma.appointment.create({
+          data: {
+            clinicId: clinic.id,
+            professionalProfileId: slot.professionalProfileId,
+            patientId,
+            recurrenceId: recurrence.id,
+            scheduledAt,
+            endAt,
+            status: 'AGENDADO',
+            modality: 'PRESENCIAL',
+          },
+        })
+        appointmentCount++
+      }
     }
-
-    // Email notification if consent given and has email
-    if (patient.consentEmail && patient.email) {
-      notifications.push({
-        patientId: patient.id,
-        appointmentId: appt.id,
-        type: 'APPOINTMENT_CONFIRMATION',
-        channel: 'EMAIL',
-        status: appt.status === 'CONFIRMADO' ? 'SENT' : 'PENDING',
-        recipient: patient.email,
-        subject: 'Confirmacao de Consulta - Clinica Demo',
-        content: `Prezado(a) ${patient.name},\n\nSua consulta foi ${appt.status === 'CONFIRMADO' ? 'confirmada' : 'agendada'}.\n\nAtenciosamente,\nClinica Demo`,
-        sentAt: appt.status === 'CONFIRMADO' ? new Date() : null,
-      })
-    }
   }
 
-  // Add some failed notifications for testing
-  const failedPatient = patients.find((p) => p.consentWhatsApp)
-  if (failedPatient && createdAppointments[15]) {
-    notifications.push({
-      patientId: failedPatient.id,
-      appointmentId: createdAppointments[15].id,
-      type: 'APPOINTMENT_REMINDER',
-      channel: 'WHATSAPP',
-      status: 'FAILED',
-      recipient: failedPatient.phone,
-      subject: null,
-      content: `Ola ${failedPatient.name.split(' ')[0]}! Lembramos que voce tem uma consulta agendada.`,
-      sentAt: null,
-    })
-  }
+  console.log(`[Recurrences] Created ${recurrenceCount} recurrence patterns`)
+  console.log(`[Appointments] Created ${appointmentCount} appointments (${weeksToGenerate} weeks)`)
 
-  for (const notif of notifications) {
-    await prisma.notification.create({
-      data: {
-        clinicId: clinic.id,
-        patientId: notif.patientId,
-        appointmentId: notif.appointmentId,
-        type: notif.type,
-        channel: notif.channel,
-        status: notif.status,
-        recipient: notif.recipient,
-        subject: notif.subject,
-        content: notif.content,
-        sentAt: notif.sentAt,
-        failedAt: notif.status === 'FAILED' ? new Date() : null,
-        failureReason: notif.status === 'FAILED' ? 'Numero de telefone invalido' : null,
-        attempts: notif.status === 'FAILED' ? 3 : notif.status === 'SENT' ? 1 : 0,
-      },
-    })
-  }
-
-  console.log(`[Notifications] Created ${notifications.length} notifications`)
+  // Count weekly vs biweekly
+  const weeklySlots = slots.filter(s => s.patients.length === 1).length
+  const biweeklySlots = slots.filter(s => s.patients.length === 2).length
 
   // ============================================================================
   // SUMMARY
@@ -603,14 +509,16 @@ async function main() {
   console.log('')
   console.log('Created:')
   console.log(`  - 1 Clinic: ${clinic.name}`)
-  console.log(`  - 1 Admin user: admin@clinicademo.com / admin`)
-  console.log(`  - 2 Professional users:`)
-  console.log(`      * ${professional1.email} / senha123`)
-  console.log(`      * ${professional2.email} / senha123`)
-  console.log(`  - ${availabilitySchedule1.length + availabilitySchedule2.length} Availability rules`)
-  console.log(`  - ${patients.length} Patients (varied consent settings)`)
-  console.log(`  - ${createdAppointments.length} Appointments (next 2 weeks)`)
-  console.log(`  - ${notifications.length} Notifications`)
+  console.log(`  - 1 Admin user: admin@x.com / admin`)
+  console.log(`  - 3 Professional users:`)
+  console.log(`      * elena.sabino@clinicaterapeutica.com / senha123`)
+  console.log(`      * cherlen.aidano@clinicaterapeutica.com / senha123`)
+  console.log(`      * livia.moreira@clinicaterapeutica.com / senha123`)
+  console.log(`  - ${patients.size} Patients`)
+  console.log(`  - ${recurrenceCount} Recurrence patterns:`)
+  console.log(`      * ${weeklySlots} weekly (1 patient per slot)`)
+  console.log(`      * ${biweeklySlots * 2} biweekly (2 patients alternating per slot)`)
+  console.log(`  - ${appointmentCount} Appointments (${weeksToGenerate} weeks from ${nextMonday.toLocaleDateString('pt-BR')})`)
   console.log('')
   console.log('='.repeat(60))
 }
