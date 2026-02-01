@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -93,6 +94,7 @@ export default function AdminAuditPage() {
   const router = useRouter()
   const { data: session, status } = useSession()
   const [isLoading, setIsLoading] = useState(true)
+  const [isMounted, setIsMounted] = useState(false)
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
 
@@ -141,6 +143,10 @@ export default function AdminAuditPage() {
       setIsLoading(false)
     }
   }, [filterAction, filterEntityType, filterStartDate, filterEndDate, page, router])
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -408,7 +414,7 @@ export default function AdminAuditPage() {
       </div>
 
       {/* Details Sheet */}
-      {selectedLog && (
+      {selectedLog && isMounted && createPortal(
         <>
           {/* Backdrop */}
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setSelectedLog(null)} />
@@ -514,7 +520,8 @@ export default function AdminAuditPage() {
               </div>
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
 
       {/* Animation Styles */}

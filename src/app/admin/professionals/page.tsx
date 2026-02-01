@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
@@ -43,6 +44,7 @@ export default function AdminProfessionalsPage() {
   const router = useRouter()
   const { data: session, status } = useSession()
   const [isLoading, setIsLoading] = useState(true)
+  const [isMounted, setIsMounted] = useState(false)
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [search, setSearch] = useState("")
   const [filterActive, setFilterActive] = useState<string>("all")
@@ -85,6 +87,10 @@ export default function AdminProfessionalsPage() {
       setIsLoading(false)
     }
   }, [search, filterActive, router])
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -360,7 +366,7 @@ export default function AdminProfessionalsPage() {
       </div>
 
       {/* Bottom Sheet */}
-      {isSheetOpen && (
+      {isSheetOpen && isMounted && createPortal(
         <>
           {/* Backdrop */}
           <div
@@ -505,7 +511,8 @@ export default function AdminProfessionalsPage() {
               </form>
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
 
       {/* Animation Styles */}
