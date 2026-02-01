@@ -5,7 +5,7 @@
   "crons": [
     {
       "path": "/api/jobs/send-reminders",
-      "schedule": "0 * * * *"
+      "schedule": "0 10 * * *"
     },
     {
       "path": "/api/jobs/extend-recurrences",
