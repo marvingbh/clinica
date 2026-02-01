@@ -40,7 +40,7 @@ export const GET = withAuth(
       dateFilter.lte = new Date(endDate + "T23:59:59.999")
     }
 
-    const exceptions: Array<{
+    type ExceptionResult = {
       id: string
       date: Date | null
       dayOfWeek: number | null
@@ -52,7 +52,9 @@ export const GET = withAuth(
       createdAt: Date
       isClinicWide: boolean
       professionalName: string | null
-    }> = []
+    }
+
+    const exceptions: ExceptionResult[] = []
 
     // Determine which professional's exceptions to return
     let targetProfileId: string | null = null
@@ -79,40 +81,21 @@ export const GET = withAuth(
       targetProfileId = user.professionalProfileId
     }
 
-    // Fetch professional-specific exceptions if we have a target profile
-    if (targetProfileId) {
-      const dateExceptions = await prisma.availabilityException.findMany({
-        where: {
-          professionalProfileId: targetProfileId,
-          isRecurring: false,
-          ...(Object.keys(dateFilter).length > 0 && { date: dateFilter }),
-        },
-        orderBy: [{ date: "asc" }, { startTime: "asc" }],
-        select: {
-          id: true,
-          date: true,
-          dayOfWeek: true,
-          isRecurring: true,
-          isAvailable: true,
-          startTime: true,
-          endTime: true,
-          reason: true,
-          createdAt: true,
-        },
-      })
+    // Fetch clinic-wide exceptions ONCE (reused below if needed)
+    let clinicWideExceptions: Array<{
+      id: string
+      date: Date | null
+      dayOfWeek: number | null
+      isRecurring: boolean
+      isAvailable: boolean
+      startTime: string | null
+      endTime: string | null
+      reason: string | null
+      createdAt: Date
+    }> = []
 
-      for (const ex of dateExceptions) {
-        exceptions.push({
-          ...ex,
-          isClinicWide: false,
-          professionalName: null,
-        })
-      }
-    }
-
-    // Fetch clinic-wide exceptions (always included for admins, or when explicitly requested)
     if (includeClinicWide) {
-      const clinicWideExceptions = await prisma.availabilityException.findMany({
+      clinicWideExceptions = await prisma.availabilityException.findMany({
         where: {
           clinicId: user.clinicId,
           professionalProfileId: null,
@@ -132,14 +115,6 @@ export const GET = withAuth(
           createdAt: true,
         },
       })
-
-      for (const ex of clinicWideExceptions) {
-        exceptions.push({
-          ...ex,
-          isClinicWide: true,
-          professionalName: null,
-        })
-      }
     }
 
     // For admin listing all exceptions (no specific professional selected)
@@ -174,9 +149,6 @@ export const GET = withAuth(
         },
       })
 
-      // Clear and rebuild with professional names
-      exceptions.length = 0
-
       for (const ex of allProfessionalExceptions) {
         exceptions.push({
           id: ex.id,
@@ -192,37 +164,45 @@ export const GET = withAuth(
           professionalName: ex.professionalProfile?.user?.name || null,
         })
       }
+    } else if (targetProfileId) {
+      // Fetch professional-specific exceptions for a specific professional
+      const dateExceptions = await prisma.availabilityException.findMany({
+        where: {
+          professionalProfileId: targetProfileId,
+          isRecurring: false,
+          ...(Object.keys(dateFilter).length > 0 && { date: dateFilter }),
+        },
+        orderBy: [{ date: "asc" }, { startTime: "asc" }],
+        select: {
+          id: true,
+          date: true,
+          dayOfWeek: true,
+          isRecurring: true,
+          isAvailable: true,
+          startTime: true,
+          endTime: true,
+          reason: true,
+          createdAt: true,
+        },
+      })
 
-      // Re-add clinic-wide exceptions
-      if (includeClinicWide) {
-        const clinicWideExceptions = await prisma.availabilityException.findMany({
-          where: {
-            clinicId: user.clinicId,
-            professionalProfileId: null,
-            isRecurring: false,
-            ...(Object.keys(dateFilter).length > 0 && { date: dateFilter }),
-          },
-          orderBy: [{ date: "asc" }, { startTime: "asc" }],
-          select: {
-            id: true,
-            date: true,
-            dayOfWeek: true,
-            isRecurring: true,
-            isAvailable: true,
-            startTime: true,
-            endTime: true,
-            reason: true,
-            createdAt: true,
-          },
+      for (const ex of dateExceptions) {
+        exceptions.push({
+          ...ex,
+          isClinicWide: false,
+          professionalName: null,
         })
+      }
+    }
 
-        for (const ex of clinicWideExceptions) {
-          exceptions.push({
-            ...ex,
-            isClinicWide: true,
-            professionalName: null,
-          })
-        }
+    // Add clinic-wide exceptions (already fetched once above)
+    if (includeClinicWide) {
+      for (const ex of clinicWideExceptions) {
+        exceptions.push({
+          ...ex,
+          isClinicWide: true,
+          professionalName: null,
+        })
       }
     }
 

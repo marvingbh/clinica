@@ -139,52 +139,89 @@ export const GET = withAuth(
 
     // For BIWEEKLY appointments, find the "paired" recurrence (same day, same time, different patient)
     // This helps users see who else shares the same time slot on alternating weeks
-    const appointmentsWithAlternateInfo = await Promise.all(
-      appointments.map(async (apt) => {
-        // Only process biweekly appointments with active recurrence
-        if (apt.recurrence?.recurrenceType !== "BIWEEKLY" || !apt.recurrence.isActive) {
-          return apt
-        }
 
-        // Get the recurrence's day of week and start time
-        const recurrenceDayOfWeek = apt.recurrence.dayOfWeek
-        const aptDate = new Date(apt.scheduledAt)
-        const aptStartTime = `${String(aptDate.getHours()).padStart(2, "0")}:${String(aptDate.getMinutes()).padStart(2, "0")}`
+    // Collect all biweekly appointments that need paired recurrence lookup
+    const biweeklyAppointments = appointments.filter(
+      apt => apt.recurrence?.recurrenceType === "BIWEEKLY" && apt.recurrence.isActive
+    )
 
-        // Find another BIWEEKLY recurrence with:
-        // - Same professional
-        // - Same day of week
-        // - Same start time
-        // - Different patient
-        // - Active
-        const pairedRecurrence = await prisma.appointmentRecurrence.findFirst({
-          where: {
-            professionalProfileId: apt.professionalProfileId,
-            recurrenceType: "BIWEEKLY",
-            dayOfWeek: recurrenceDayOfWeek,
-            startTime: aptStartTime,
-            patientId: { not: apt.patient.id },
-            isActive: true,
-            clinicId: user.clinicId,
-          },
-          include: {
-            patient: {
-              select: {
-                name: true,
-              },
+    // Build lookup keys for batch query
+    const biweeklyLookupKeys = biweeklyAppointments.map(apt => {
+      const aptDate = new Date(apt.scheduledAt)
+      const aptStartTime = `${String(aptDate.getHours()).padStart(2, "0")}:${String(aptDate.getMinutes()).padStart(2, "0")}`
+      return {
+        professionalProfileId: apt.professionalProfileId,
+        dayOfWeek: apt.recurrence!.dayOfWeek,
+        startTime: aptStartTime,
+        patientId: apt.patient.id,
+      }
+    })
+
+    // Batch fetch all potential paired recurrences in a single query
+    let pairedRecurrencesMap = new Map<string, string | null>()
+
+    if (biweeklyLookupKeys.length > 0) {
+      // Get unique combinations of professionalProfileId, dayOfWeek, startTime
+      const uniqueProfessionalIds = [...new Set(biweeklyLookupKeys.map(k => k.professionalProfileId))]
+      const uniqueDaysOfWeek = [...new Set(biweeklyLookupKeys.map(k => k.dayOfWeek))]
+      const uniqueStartTimes = [...new Set(biweeklyLookupKeys.map(k => k.startTime))]
+
+      const allPairedRecurrences = await prisma.appointmentRecurrence.findMany({
+        where: {
+          clinicId: user.clinicId,
+          recurrenceType: "BIWEEKLY",
+          isActive: true,
+          professionalProfileId: { in: uniqueProfessionalIds },
+          dayOfWeek: { in: uniqueDaysOfWeek },
+          startTime: { in: uniqueStartTimes },
+        },
+        include: {
+          patient: {
+            select: {
+              id: true,
+              name: true,
             },
           },
-        })
-
-        return {
-          ...apt,
-          alternateWeekInfo: {
-            pairedPatientName: pairedRecurrence?.patient.name || null,
-            isAvailable: !pairedRecurrence,
-          },
-        }
+        },
       })
-    )
+
+      // Create a lookup map: "professionalId|dayOfWeek|startTime|patientId" -> paired patient name
+      for (const biweeklyKey of biweeklyLookupKeys) {
+        const lookupKey = `${biweeklyKey.professionalProfileId}|${biweeklyKey.dayOfWeek}|${biweeklyKey.startTime}|${biweeklyKey.patientId}`
+
+        // Find a paired recurrence (same slot, different patient)
+        const pairedRecurrence = allPairedRecurrences.find(
+          rec =>
+            rec.professionalProfileId === biweeklyKey.professionalProfileId &&
+            rec.dayOfWeek === biweeklyKey.dayOfWeek &&
+            rec.startTime === biweeklyKey.startTime &&
+            rec.patient.id !== biweeklyKey.patientId
+        )
+
+        pairedRecurrencesMap.set(lookupKey, pairedRecurrence?.patient.name || null)
+      }
+    }
+
+    // Map appointments with alternate week info
+    const appointmentsWithAlternateInfo = appointments.map(apt => {
+      if (apt.recurrence?.recurrenceType !== "BIWEEKLY" || !apt.recurrence.isActive) {
+        return apt
+      }
+
+      const aptDate = new Date(apt.scheduledAt)
+      const aptStartTime = `${String(aptDate.getHours()).padStart(2, "0")}:${String(aptDate.getMinutes()).padStart(2, "0")}`
+      const lookupKey = `${apt.professionalProfileId}|${apt.recurrence.dayOfWeek}|${aptStartTime}|${apt.patient.id}`
+
+      const pairedPatientName = pairedRecurrencesMap.get(lookupKey) || null
+
+      return {
+        ...apt,
+        alternateWeekInfo: {
+          pairedPatientName,
+          isAvailable: !pairedPatientName,
+        },
+      }
+    })
 
     return NextResponse.json({ appointments: appointmentsWithAlternateInfo })
   }

@@ -4,6 +4,7 @@ import { SwipeContainer, EmptyState, ClockIcon, BanIcon, PlusIcon } from "@/shar
 import { formatTime, isSlotInPast } from "../lib/utils"
 import { AppointmentCard } from "./AppointmentCard"
 import { GroupSessionCard } from "./GroupSessionCard"
+import { AgendaTimelineSkeleton } from "./AgendaSkeleton"
 import type { TimeSlot, Appointment, GroupSession } from "../lib/types"
 import type { FullDayBlock } from "../hooks/useTimeSlots"
 import { ProfessionalColorMap } from "../lib/professional-colors"
@@ -15,6 +16,7 @@ export interface AgendaTimelineProps {
   selectedDate: string
   selectedProfessionalId: string
   isAdmin: boolean
+  isLoading?: boolean
   onSlotClick: (slotTime: string) => void
   onAppointmentClick: (appointment: Appointment) => void
   onGroupSessionClick: (session: GroupSession) => void
@@ -59,6 +61,7 @@ export function AgendaTimeline({
   selectedDate,
   selectedProfessionalId,
   isAdmin,
+  isLoading = false,
   onSlotClick,
   onAppointmentClick,
   onGroupSessionClick,
@@ -66,6 +69,10 @@ export function AgendaTimeline({
   onSwipeRight,
   professionalColorMap,
 }: AgendaTimelineProps) {
+  // Show skeleton while loading data
+  if (isLoading) {
+    return <AgendaTimelineSkeleton />
+  }
   // Create a map of group sessions by their start time
   const groupSessionsByTime = new Map<string, GroupSession[]>()
   for (const session of groupSessions) {

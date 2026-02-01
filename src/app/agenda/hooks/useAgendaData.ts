@@ -30,6 +30,7 @@ export interface UseAgendaDataReturn {
   selectedProfessionalId: string
   setSelectedProfessionalId: (id: string) => void
   refetchAppointments: () => Promise<void>
+  isLoadingData: boolean
 }
 
 export function useAgendaData({
@@ -51,6 +52,7 @@ export function useAgendaData({
   const [appointmentDuration, setAppointmentDuration] = useState(
     currentAppointmentDuration || DEFAULT_APPOINTMENT_DURATION
   )
+  const [isLoadingData, setIsLoadingData] = useState(false)
 
   // Compute the active professional profile ID
   const activeProfessionalProfileId = useMemo(() => {
@@ -108,6 +110,7 @@ export function useAgendaData({
     const signal = abortController.signal
 
     async function fetchData() {
+      setIsLoadingData(true)
       try {
         const dateStr = toDateString(selectedDate)
         const profId = isAdmin && selectedProfessionalId ? selectedProfessionalId : undefined
@@ -138,6 +141,10 @@ export function useAgendaData({
           return
         }
         toast.error("Erro ao carregar agenda")
+      } finally {
+        if (!signal.aborted) {
+          setIsLoadingData(false)
+        }
       }
     }
 
@@ -177,5 +184,6 @@ export function useAgendaData({
     selectedProfessionalId,
     setSelectedProfessionalId,
     refetchAppointments,
+    isLoadingData,
   }
 }

@@ -73,6 +73,7 @@ export default function AgendaPage() {
     selectedProfessionalId,
     setSelectedProfessionalId,
     refetchAppointments,
+    isLoadingData,
   } = useAgendaData({
     selectedDate,
     isAdmin,
@@ -245,6 +246,7 @@ export default function AgendaPage() {
         selectedDate={toDateString(selectedDate)}
         selectedProfessionalId={selectedProfessionalId}
         isAdmin={isAdmin}
+        isLoading={isLoadingData}
         onSlotClick={openCreateSheet}
         onAppointmentClick={openEditSheet}
         onGroupSessionClick={openGroupSessionSheet}
