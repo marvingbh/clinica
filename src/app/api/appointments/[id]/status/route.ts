@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth, forbiddenResponse } from "@/lib/api"
 import { createAuditLog } from "@/lib/rbac/audit"
-import { AppointmentStatus } from "@prisma/client/enums"
+import { AppointmentStatus } from "@prisma/client"
 
 /**
  * Valid status transitions for appointments.

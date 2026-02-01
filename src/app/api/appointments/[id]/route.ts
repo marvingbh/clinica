@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { Prisma } from "@prisma/client/client"
+import { Prisma } from "@prisma/client"
 import { withAuth, forbiddenResponse } from "@/lib/api"
 import { checkConflict, formatConflictError, regenerateAppointmentTokens } from "@/lib/appointments"
 import { createAuditLog, audit, AuditAction } from "@/lib/rbac/audit"

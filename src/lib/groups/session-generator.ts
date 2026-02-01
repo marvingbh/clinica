@@ -1,4 +1,4 @@
-import { RecurrenceType } from "@prisma/client/client"
+import { RecurrenceType } from "@prisma/client"
 import { formatDate } from "@/lib/appointments/recurrence"
 
 export interface SessionDate {

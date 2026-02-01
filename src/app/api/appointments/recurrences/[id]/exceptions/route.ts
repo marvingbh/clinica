@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { withAuth, forbiddenResponse } from "@/lib/api"
 import { createAuditLog } from "@/lib/rbac/audit"
 import { addException, removeException } from "@/lib/appointments/recurrence"
-import { AppointmentStatus } from "@prisma/client/client"
+import { AppointmentStatus } from "@prisma/client"
 
 /**
  * POST /api/appointments/recurrences/:id/exceptions

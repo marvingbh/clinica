@@ -6,7 +6,7 @@ import {
   upsertTemplate,
   TEMPLATE_VARIABLES,
 } from "@/lib/notifications"
-import { NotificationChannel, NotificationType } from "@prisma/client/client"
+import { NotificationChannel, NotificationType } from "@prisma/client"
 
 const updateTemplateSchema = z.object({
   type: z.nativeEnum(NotificationType),

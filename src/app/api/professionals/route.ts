@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth, forbiddenResponse } from "@/lib/api"
 import { hashPassword } from "@/lib/password"
-import { Role } from "@prisma/client/client"
+import { Role } from "@prisma/client"
 
 /**
  * GET /api/professionals

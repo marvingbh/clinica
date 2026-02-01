@@ -4,7 +4,7 @@ import {
   AppointmentStatus,
   NotificationChannel,
   NotificationType,
-} from "@prisma/client/client"
+} from "@prisma/client"
 import { createNotification, processPendingNotifications } from "@/lib/notifications"
 import { getTemplate, renderTemplate } from "@/lib/notifications/templates"
 import { createAppointmentTokens, buildConfirmLink, buildCancelLink } from "@/lib/appointments"

@@ -1,4 +1,4 @@
-import type { NotificationChannel, NotificationType } from "@prisma/client/client"
+import type { NotificationChannel, NotificationType } from "@prisma/client"
 
 export interface NotificationPayload {
   clinicId: string

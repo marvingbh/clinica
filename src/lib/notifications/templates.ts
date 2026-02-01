@@ -3,7 +3,7 @@ import {
   NotificationChannel,
   NotificationType,
   type NotificationTemplate,
-} from "@prisma/client/client"
+} from "@prisma/client"
 
 /**
  * Template variables that can be used in notification templates

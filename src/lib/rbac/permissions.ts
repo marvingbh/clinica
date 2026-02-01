@@ -1,4 +1,4 @@
-import { Role } from "@prisma/client/client"
+import { Role } from "@prisma/client"
 import type { Resource, Action, Permission } from "./types"
 
 type RolePermissions = Record<Role, Permission[]>

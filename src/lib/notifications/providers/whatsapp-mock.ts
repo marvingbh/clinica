@@ -1,4 +1,4 @@
-import { NotificationChannel } from "@prisma/client/client"
+import { NotificationChannel } from "@prisma/client"
 import type { NotificationProvider, SendResult } from "../types"
 
 /**

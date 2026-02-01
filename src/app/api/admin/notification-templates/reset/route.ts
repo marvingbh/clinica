@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { withAuth, forbiddenResponse } from "@/lib/api"
 import { resetTemplateToDefault } from "@/lib/notifications"
-import { NotificationChannel, NotificationType } from "@prisma/client/client"
+import { NotificationChannel, NotificationType } from "@prisma/client"
 
 const resetSchema = z.object({
   type: z.nativeEnum(NotificationType),

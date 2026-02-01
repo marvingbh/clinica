@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { RecurrenceEndType, AppointmentStatus } from "@prisma/client/client"
+import { RecurrenceEndType, AppointmentStatus } from "@prisma/client"
 import { calculateNextWindowDates } from "@/lib/appointments"
 import { createAppointmentTokens } from "@/lib/appointments"
 

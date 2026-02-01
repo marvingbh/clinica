@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { Prisma } from "@prisma/client/client"
+import { Prisma } from "@prisma/client"
 import type { AuthUser, Resource, Action } from "./types"
 
 /**

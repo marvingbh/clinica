@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/api"
 import { checkConflict, formatConflictError, createAppointmentTokens, buildConfirmLink, buildCancelLink, validateRecurrenceOptions, calculateRecurrenceDates } from "@/lib/appointments"
 import { createNotification } from "@/lib/notifications"
-import { NotificationChannel, NotificationType, RecurrenceType, RecurrenceEndType } from "@prisma/client/client"
+import { NotificationChannel, NotificationType, RecurrenceType, RecurrenceEndType } from "@prisma/client"
 import { audit, AuditAction } from "@/lib/rbac"
 import { z } from "zod"
 

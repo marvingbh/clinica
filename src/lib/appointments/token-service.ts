@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto"
-import type { PrismaClient } from "@prisma/client/client"
-import type { Prisma } from "@prisma/client/client"
+import type { PrismaClient } from "@prisma/client"
+import type { Prisma } from "@prisma/client"
 
 // Default token expiration: 24 hours after appointment time
 const DEFAULT_EXPIRATION_HOURS = 24

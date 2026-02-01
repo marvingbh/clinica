@@ -1,4 +1,4 @@
-import { RecurrenceType, RecurrenceEndType } from "@prisma/client/client"
+import { RecurrenceType, RecurrenceEndType } from "@prisma/client"
 
 export interface RecurrenceOptions {
   recurrenceType: RecurrenceType
