@@ -4,7 +4,7 @@ import { withAuth } from "@/lib/api"
 import { calculateGroupSessionDates, filterExistingSessionDates } from "@/lib/groups"
 import { createAppointmentTokens, buildConfirmLink, buildCancelLink } from "@/lib/appointments"
 import { createNotification } from "@/lib/notifications"
-import { NotificationChannel, NotificationType, AppointmentModality } from "@/generated/prisma/client"
+import { NotificationChannel, NotificationType, AppointmentModality } from "@prisma/client/client"
 import { z } from "zod"
 
 const generateSessionsSchema = z.object({

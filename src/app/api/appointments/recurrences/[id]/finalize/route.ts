@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth, forbiddenResponse } from "@/lib/api"
 import { createAuditLog } from "@/lib/rbac/audit"
-import { RecurrenceEndType, AppointmentStatus } from "@/generated/prisma/client"
+import { RecurrenceEndType, AppointmentStatus } from "@prisma/client/client"
 import { z } from "zod"
 
 const finalizeRecurrenceSchema = z.object({

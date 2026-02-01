@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { Prisma } from "@/generated/prisma/client"
+import { Prisma } from "@prisma/client/client"
 
 export interface ConflictingAppointment {
   id: string

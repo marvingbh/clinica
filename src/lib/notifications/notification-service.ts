@@ -3,7 +3,7 @@ import {
   NotificationChannel,
   NotificationStatus,
   type Notification,
-} from "@/generated/prisma/client"
+} from "@prisma/client/client"
 import type {
   NotificationPayload,
   NotificationProvider,

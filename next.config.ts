@@ -16,17 +16,6 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   turbopack: {},
-  outputFileTracingIncludes: {
-    "/api/**/*": ["./src/generated/prisma/**/*"],
-    "/agenda/**/*": ["./src/generated/prisma/**/*"],
-    "/login": ["./src/generated/prisma/**/*"],
-    "/patients": ["./src/generated/prisma/**/*"],
-    "/professionals": ["./src/generated/prisma/**/*"],
-    "/groups": ["./src/generated/prisma/**/*"],
-    "/settings/**/*": ["./src/generated/prisma/**/*"],
-    "/admin/**/*": ["./src/generated/prisma/**/*"],
-    "/profile": ["./src/generated/prisma/**/*"],
-  },
 };
 
 export default withPWA(nextConfig);

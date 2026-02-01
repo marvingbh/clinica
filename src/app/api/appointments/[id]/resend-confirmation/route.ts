@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { withAuth, forbiddenResponse } from "@/lib/api"
 import { regenerateAppointmentTokens, buildConfirmLink, buildCancelLink } from "@/lib/appointments"
 import { createAndSendNotification } from "@/lib/notifications"
-import { NotificationChannel, NotificationType } from "@/generated/prisma/client"
+import { NotificationChannel, NotificationType } from "@prisma/client/client"
 import { audit, AuditAction } from "@/lib/rbac"
 
 // Cooldown period in milliseconds (1 hour)

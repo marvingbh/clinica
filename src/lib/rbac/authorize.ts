@@ -1,4 +1,4 @@
-import { Role } from "@/generated/prisma/client"
+import { Role } from "@prisma/client/client"
 import { hasPermission } from "./permissions"
 import type {
   AuthUser,

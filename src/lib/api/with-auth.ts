@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { Role } from "@/generated/prisma/client"
+import { Role } from "@prisma/client/client"
 import {
   authorize,
   canPerform,

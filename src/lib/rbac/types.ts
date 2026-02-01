@@ -1,4 +1,4 @@
-import { Role } from "@/generated/prisma/client"
+import { Role } from "@prisma/client/client"
 
 export type Resource =
   | "appointment"

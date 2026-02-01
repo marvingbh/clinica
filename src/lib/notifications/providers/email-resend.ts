@@ -1,4 +1,4 @@
-import { NotificationChannel } from "@/generated/prisma/client"
+import { NotificationChannel } from "@prisma/client/client"
 import type { NotificationProvider, SendResult } from "../types"
 
 interface ResendEmailResponse {
