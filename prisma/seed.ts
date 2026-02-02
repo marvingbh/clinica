@@ -495,6 +495,34 @@ async function main() {
   console.log(`[Recurrences] Created ${recurrenceCount} recurrence patterns`)
   console.log(`[Appointments] Created ${appointmentCount} appointments (${weeksToGenerate} weeks)`)
 
+  // ============================================================================
+  // 9. ASSIGN REFERENCE PROFESSIONALS TO PATIENTS
+  // ============================================================================
+  // Build a map of patient -> professional based on slots data
+  const patientProfessionalMap = new Map<string, string>()
+
+  for (const slot of slots) {
+    for (const patientRaw of slot.patients) {
+      const patientId = getPatientId(patientRaw)
+      // First professional to have this patient in their slots becomes reference
+      if (!patientProfessionalMap.has(patientId)) {
+        patientProfessionalMap.set(patientId, slot.professionalProfileId)
+      }
+    }
+  }
+
+  // Update patients with their reference professional
+  let referenceProfessionalCount = 0
+  for (const [patientId, professionalProfileId] of patientProfessionalMap) {
+    await prisma.patient.update({
+      where: { id: patientId },
+      data: { referenceProfessionalId: professionalProfileId },
+    })
+    referenceProfessionalCount++
+  }
+
+  console.log(`[Reference Professionals] Assigned ${referenceProfessionalCount} patients to their reference professionals`)
+
   // Count weekly vs biweekly
   const weeklySlots = slots.filter(s => s.patients.length === 1).length
   const biweeklySlots = slots.filter(s => s.patients.length === 2).length

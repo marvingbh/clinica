@@ -19,6 +19,7 @@ const createPatientSchema = z.object({
   fatherName: z.string().max(200).optional().nullable().or(z.literal("")),
   motherName: z.string().max(200).optional().nullable().or(z.literal("")),
   notes: z.string().max(2000).optional().nullable().or(z.literal("")),
+  referenceProfessionalId: z.string().optional().nullable().or(z.literal("")),
   consentWhatsApp: z.boolean().default(false),
   consentEmail: z.boolean().default(false),
 })
@@ -88,6 +89,17 @@ export const GET = withAuth(
           consentEmail: true,
           consentEmailAt: true,
           createdAt: true,
+          referenceProfessionalId: true,
+          referenceProfessional: {
+            select: {
+              id: true,
+              user: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
         },
       }),
       prisma.patient.count({ where }),
@@ -124,7 +136,7 @@ export const POST = withAuth(
       )
     }
 
-    const { name, email, phone, birthDate, cpf, fatherName, motherName, notes, consentWhatsApp, consentEmail } =
+    const { name, email, phone, birthDate, cpf, fatherName, motherName, notes, referenceProfessionalId, consentWhatsApp, consentEmail } =
       validation.data
 
     // Normalize phone number (remove non-digits, ensure country code)
@@ -179,6 +191,7 @@ export const POST = withAuth(
         fatherName: fatherName || null,
         motherName: motherName || null,
         notes: notes || null,
+        referenceProfessionalId: referenceProfessionalId || null,
         consentWhatsApp,
         consentWhatsAppAt: consentWhatsApp ? now : null,
         consentEmail,

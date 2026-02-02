@@ -159,6 +159,7 @@ model ProfessionalProfile {
   appointments           Appointment[]
   appointmentRecurrences AppointmentRecurrence[]
   therapyGroups          TherapyGroup[]
+  referencePatients      Patient[]              @relation("ReferenceProfessional")
 
   @@index([userId])
 }
@@ -226,6 +227,9 @@ model Patient {
   isActive    Boolean   @default(true)
   lastVisitAt DateTime?
 
+  // Reference professional (primary responsible)
+  referenceProfessionalId String?
+
   // LGPD Consent fields
   consentWhatsApp   Boolean   @default(false)
   consentWhatsAppAt DateTime?
@@ -237,6 +241,7 @@ model Patient {
 
   // Relations
   clinic                 Clinic                  @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  referenceProfessional  ProfessionalProfile?    @relation("ReferenceProfessional", fields: [referenceProfessionalId], references: [id], onDelete: SetNull)
   appointments           Appointment[]
   notifications          Notification[]
   appointmentRecurrences AppointmentRecurrence[]
@@ -249,6 +254,7 @@ model Patient {
   @@index([phone])
   @@index([email])
   @@index([isActive])
+  @@index([referenceProfessionalId])
 }
 
 /// Individual appointment

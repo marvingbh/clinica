@@ -34,6 +34,7 @@ const patientSchema = z.object({
   fatherName: z.string().max(200).optional().or(z.literal("")),
   motherName: z.string().max(200).optional().or(z.literal("")),
   notes: z.string().max(2000).optional().or(z.literal("")),
+  referenceProfessionalId: z.string().optional().or(z.literal("")),
   consentWhatsApp: z.boolean(),
   consentEmail: z.boolean(),
 })
@@ -55,6 +56,21 @@ interface Appointment {
   }
 }
 
+interface ReferenceProfessional {
+  id: string
+  user: {
+    name: string
+  }
+}
+
+interface Professional {
+  id: string
+  name: string
+  professionalProfile: {
+    id: string
+  } | null
+}
+
 interface Patient {
   id: string
   name: string
@@ -71,6 +87,8 @@ interface Patient {
   consentEmail: boolean
   consentEmailAt: string | null
   createdAt: string
+  referenceProfessionalId: string | null
+  referenceProfessional: ReferenceProfessional | null
   appointments?: Appointment[]
 }
 
@@ -147,6 +165,8 @@ export default function PatientsPage() {
   const [viewingPatient, setViewingPatient] = useState<Patient | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingDetails, setIsLoadingDetails] = useState(false)
+  const [professionals, setProfessionals] = useState<Professional[]>([])
+  const [isLoadingProfessionals, setIsLoadingProfessionals] = useState(false)
 
   const isAdmin = session?.user?.role === "ADMIN"
 
@@ -219,6 +239,22 @@ export default function PatientsPage() {
     }
   }, [])
 
+  const fetchProfessionals = useCallback(async () => {
+    setIsLoadingProfessionals(true)
+    try {
+      const response = await fetch("/api/professionals")
+      if (!response.ok) {
+        throw new Error("Failed to fetch professionals")
+      }
+      const data = await response.json()
+      setProfessionals(data.professionals || [])
+    } catch {
+      toast.error("Erro ao carregar profissionais")
+    } finally {
+      setIsLoadingProfessionals(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login")
@@ -227,8 +263,9 @@ export default function PatientsPage() {
 
     if (status === "authenticated") {
       fetchPatients()
+      fetchProfessionals()
     }
-  }, [status, router, fetchPatients])
+  }, [status, router, fetchPatients, fetchProfessionals])
 
   function openCreateSheet() {
     setEditingPatient(null)
@@ -240,6 +277,7 @@ export default function PatientsPage() {
       fatherName: "",
       motherName: "",
       notes: "",
+      referenceProfessionalId: "",
       consentWhatsApp: false,
       consentEmail: false,
     })
@@ -256,6 +294,7 @@ export default function PatientsPage() {
       fatherName: patient.fatherName ?? "",
       motherName: patient.motherName ?? "",
       notes: patient.notes ?? "",
+      referenceProfessionalId: patient.referenceProfessionalId ?? "",
       consentWhatsApp: patient.consentWhatsApp,
       consentEmail: patient.consentEmail,
     })
@@ -289,6 +328,7 @@ export default function PatientsPage() {
         fatherName: data.fatherName || null,
         motherName: data.motherName || null,
         notes: data.notes || null,
+        referenceProfessionalId: data.referenceProfessionalId || null,
         consentWhatsApp: data.consentWhatsApp,
         consentEmail: data.consentEmail,
       }
@@ -442,7 +482,7 @@ export default function PatientsPage() {
                     <tr className="border-b border-border bg-muted/50">
                       <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Nome</th>
                       <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground hidden sm:table-cell">Telefone</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground hidden md:table-cell">Email</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground hidden md:table-cell">Profissional</th>
                       <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground hidden lg:table-cell">Ultima Visita</th>
                       <th className="text-center px-4 py-3 text-sm font-medium text-muted-foreground">Status</th>
                       <th className="text-right px-4 py-3 text-sm font-medium text-muted-foreground">Acoes</th>
@@ -484,7 +524,7 @@ export default function PatientsPage() {
                           {formatPhone(patient.phone)}
                         </td>
                         <td className="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">
-                          {patient.email || "-"}
+                          {patient.referenceProfessional?.user.name || "-"}
                         </td>
                         <td className="px-4 py-3 text-sm text-muted-foreground hidden lg:table-cell">
                           {formatDate(patient.lastVisitAt)}
@@ -646,6 +686,14 @@ export default function PatientsPage() {
                     </div>
                   ) : (
                     <div className="space-y-6">
+                      {/* Reference Professional */}
+                      {viewingPatient.referenceProfessional && (
+                        <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                          <label className="text-sm text-muted-foreground">Profissional de Referencia</label>
+                          <p className="text-foreground font-medium">{viewingPatient.referenceProfessional.user.name}</p>
+                        </div>
+                      )}
+
                       {/* Contact Info */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
@@ -858,6 +906,30 @@ export default function PatientsPage() {
                       {errors.notes && (
                         <p className="text-sm text-destructive mt-1">{errors.notes.message}</p>
                       )}
+                    </div>
+
+                    <div>
+                      <label htmlFor="referenceProfessionalId" className="block text-sm font-medium text-foreground mb-2">
+                        Profissional de Referencia
+                      </label>
+                      <select
+                        id="referenceProfessionalId"
+                        {...register("referenceProfessionalId")}
+                        disabled={isLoadingProfessionals}
+                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors disabled:opacity-50"
+                      >
+                        <option value="">Nenhum selecionado</option>
+                        {professionals
+                          .filter((prof) => prof.professionalProfile)
+                          .map((prof) => (
+                            <option key={prof.professionalProfile!.id} value={prof.professionalProfile!.id}>
+                              {prof.name}
+                            </option>
+                          ))}
+                      </select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Profissional responsavel principal pelo paciente
+                      </p>
                     </div>
 
                     {/* LGPD Consent Section */}

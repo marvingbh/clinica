@@ -129,6 +129,7 @@ export const GET = withAuth(
             isActive: true,
             exceptions: true,
             dayOfWeek: true,
+            startTime: true,
           },
         },
       },
@@ -146,13 +147,12 @@ export const GET = withAuth(
     )
 
     // Build lookup keys for batch query
+    // Use recurrence.startTime directly instead of extracting from scheduledAt to avoid timezone issues
     const biweeklyLookupKeys = biweeklyAppointments.map(apt => {
-      const aptDate = new Date(apt.scheduledAt)
-      const aptStartTime = `${String(aptDate.getHours()).padStart(2, "0")}:${String(aptDate.getMinutes()).padStart(2, "0")}`
       return {
         professionalProfileId: apt.professionalProfileId,
         dayOfWeek: apt.recurrence!.dayOfWeek,
-        startTime: aptStartTime,
+        startTime: apt.recurrence!.startTime,
         patientId: apt.patient.id,
       }
     })
@@ -208,9 +208,8 @@ export const GET = withAuth(
         return apt
       }
 
-      const aptDate = new Date(apt.scheduledAt)
-      const aptStartTime = `${String(aptDate.getHours()).padStart(2, "0")}:${String(aptDate.getMinutes()).padStart(2, "0")}`
-      const lookupKey = `${apt.professionalProfileId}|${apt.recurrence.dayOfWeek}|${aptStartTime}|${apt.patient.id}`
+      // Use recurrence.startTime directly instead of extracting from scheduledAt to avoid timezone issues
+      const lookupKey = `${apt.professionalProfileId}|${apt.recurrence.dayOfWeek}|${apt.recurrence.startTime}|${apt.patient.id}`
 
       const pairedPatientName = pairedRecurrencesMap.get(lookupKey) || null
 

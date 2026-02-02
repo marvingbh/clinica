@@ -19,6 +19,7 @@ const updatePatientSchema = z.object({
   fatherName: z.string().max(200).optional().nullable().or(z.literal("")),
   motherName: z.string().max(200).optional().nullable().or(z.literal("")),
   notes: z.string().max(2000).optional().nullable().or(z.literal("")),
+  referenceProfessionalId: z.string().optional().nullable().or(z.literal("")),
   isActive: z.boolean().optional(),
   consentWhatsApp: z.boolean().optional(),
   consentEmail: z.boolean().optional(),
@@ -66,6 +67,17 @@ export const GET = withAuth(
         consentEmailAt: true,
         createdAt: true,
         updatedAt: true,
+        referenceProfessionalId: true,
+        referenceProfessional: {
+          select: {
+            id: true,
+            user: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
         appointments: {
           orderBy: { scheduledAt: "desc" },
           take: 20,
@@ -144,6 +156,7 @@ export const PATCH = withAuth(
     if (data.fatherName !== undefined) updateData.fatherName = data.fatherName || null
     if (data.motherName !== undefined) updateData.motherName = data.motherName || null
     if (data.notes !== undefined) updateData.notes = data.notes || null
+    if (data.referenceProfessionalId !== undefined) updateData.referenceProfessionalId = data.referenceProfessionalId || null
     if (data.isActive !== undefined) updateData.isActive = data.isActive
 
     // Handle phone update with duplicate check
@@ -224,6 +237,17 @@ export const PATCH = withAuth(
         consentEmailAt: true,
         createdAt: true,
         updatedAt: true,
+        referenceProfessionalId: true,
+        referenceProfessional: {
+          select: {
+            id: true,
+            user: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
       },
     })
 
