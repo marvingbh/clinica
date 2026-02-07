@@ -104,8 +104,14 @@ export const POST = withAuth(
       }
     }
 
-    // Check if patient has at least one notification consent
+    // Check if patient exists (only CONSULTA has patients)
     const patient = appointment.patient
+    if (!patient) {
+      return NextResponse.json(
+        { error: "Este agendamento nao possui paciente associado" },
+        { status: 400 }
+      )
+    }
     if (!patient.consentWhatsApp && !patient.consentEmail) {
       return NextResponse.json(
         { error: "Paciente nao possui consentimento para receber notificacoes" },

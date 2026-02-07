@@ -25,8 +25,17 @@ export const editAppointmentSchema = z.object({
   price: z.union([z.number().min(0), z.string(), z.null()]).optional().nullable(),
 })
 
+export const calendarEntrySchema = z.object({
+  title: z.string().min(1, "Titulo e obrigatorio").max(200),
+  date: z.string().regex(brDateRegex, "Data inválida (DD/MM/AAAA)"),
+  startTime: z.string().regex(timeRegex, "Horário inválido (HH:mm)"),
+  duration: z.number().int().min(5).max(480).optional(),
+  notes: z.string().max(2000).optional().nullable(),
+})
+
 export type AppointmentFormData = z.infer<typeof appointmentSchema>
 export type EditAppointmentFormData = z.infer<typeof editAppointmentSchema>
+export type CalendarEntryFormData = z.infer<typeof calendarEntrySchema>
 
 // ============================================================================
 // Interfaces
@@ -91,7 +100,10 @@ export interface Appointment {
   scheduledAt: string
   endAt: string
   status: AppointmentStatus
-  modality: Modality
+  type: CalendarEntryType
+  title: string | null
+  blocksTime: boolean
+  modality: Modality | null
   notes: string | null
   price: string | null
   cancellationReason: string | null
@@ -106,7 +118,7 @@ export interface Appointment {
     phone: string
     consentWhatsApp?: boolean
     consentEmail?: boolean
-  }
+  } | null
   professionalProfile: {
     id: string
     user: {
@@ -127,6 +139,7 @@ export interface TimeSlot {
 // Type Aliases
 // ============================================================================
 
+export type CalendarEntryType = "CONSULTA" | "TAREFA" | "LEMBRETE" | "NOTA" | "REUNIAO"
 export type RecurrenceType = "WEEKLY" | "BIWEEKLY" | "MONTHLY"
 export type RecurrenceEndType = "BY_DATE" | "BY_OCCURRENCES" | "INDEFINITE"
 export type Modality = "ONLINE" | "PRESENCIAL"

@@ -16,6 +16,8 @@ export {
   calculateNextRetryDelay,
 } from "./types"
 
+export { type PatientPhoneEntry, getPatientPhoneNumbers } from "./phone-numbers"
+
 export { whatsAppMockProvider } from "./providers/whatsapp-mock"
 export { emailResendProvider } from "./providers/email-resend"
 

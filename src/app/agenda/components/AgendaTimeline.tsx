@@ -2,10 +2,11 @@
 
 import { SwipeContainer, EmptyState, ClockIcon, BanIcon, PlusIcon } from "@/shared/components/ui"
 import { formatTime, isSlotInPast } from "../lib/utils"
+import { ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
 import { AppointmentCard } from "./AppointmentCard"
 import { GroupSessionCard } from "./GroupSessionCard"
 import { AgendaTimelineSkeleton } from "./AgendaSkeleton"
-import type { TimeSlot, Appointment, GroupSession } from "../lib/types"
+import type { TimeSlot, Appointment, GroupSession, CalendarEntryType } from "../lib/types"
 import type { FullDayBlock } from "../hooks/useTimeSlots"
 import { ProfessionalColorMap } from "../lib/professional-colors"
 
@@ -135,15 +136,28 @@ export function AgendaTimeline({
 
             // Filter out appointments that belong to a group session (they're shown in the group card)
             const individualAppointments = slot.appointments.filter(apt => !apt.groupId)
+            // Split into blocking (full cards) and non-blocking (indicator chips)
+            const blockingAppointments = individualAppointments.filter(apt => apt.blocksTime)
+            const nonBlockingAppointments = individualAppointments.filter(apt => !apt.blocksTime)
+            const hasBlockingAppointments = blockingAppointments.length > 0
+            const hasNonBlockingAppointments = nonBlockingAppointments.length > 0
             const hasIndividualAppointments = individualAppointments.length > 0
             const hasAnyContent = hasIndividualAppointments || hasGroupSessions
 
-            // Recalculate allAppointmentsCancelled for individual appointments only
-            const allIndividualCancelled = hasIndividualAppointments && individualAppointments.every(
+            // Recalculate allAppointmentsCancelled for blocking appointments only
+            const allBlockingCancelled = hasBlockingAppointments && blockingAppointments.every(
               apt => cancelledStatuses.includes(apt.status)
             )
-            const showAvailableWithCancelledRecalc = allIndividualCancelled && !hasGroupSessions && canShowAvailableButton
-            const hasActiveContentRecalc = (hasIndividualAppointments && !allIndividualCancelled) || hasGroupSessions
+            // Show available button based on blocking content only:
+            // 1. All blocking appointments are cancelled, or
+            // 2. Only non-blocking entries exist (no blocking appointments at all)
+            const noActiveBlockingContent = !hasGroupSessions && (
+              (hasBlockingAppointments && allBlockingCancelled) ||
+              (!hasBlockingAppointments)
+            )
+            const showAvailableWithCancelledRecalc = noActiveBlockingContent && canShowAvailableButton
+            // Non-blocking entries alone don't make the slot "active"
+            const hasActiveContentRecalc = (hasBlockingAppointments && !allBlockingCancelled) || hasGroupSessions
 
             return (
               <div
@@ -154,60 +168,83 @@ export function AgendaTimeline({
                 <TimelineConnector isActive={hasActiveContentRecalc} />
 
                 <div className="flex-1 pl-4 pb-2">
-                  {hasAnyContent ? (
-                    <div className="flex flex-wrap gap-2">
-                      {/* Render group sessions first (purple cards) */}
-                      {slotGroupSessions.map((session) => (
-                        <div key={`group-${session.groupId}-${session.scheduledAt}`} className="flex-1 min-w-0">
-                          <GroupSessionCard
-                            session={session}
-                            onClick={() => onGroupSessionClick(session)}
-                            showProfessional={!selectedProfessionalId}
-                            compact={hasIndividualAppointments || slotGroupSessions.length > 1}
-                          />
-                        </div>
-                      ))}
-                      {/* Then render individual appointments (excluding group appointments) */}
-                      {individualAppointments.map((appointment) => (
-                        <div key={appointment.id} className="flex-1 min-w-0">
-                          <AppointmentCard
-                            appointment={appointment}
-                            onClick={() => onAppointmentClick(appointment)}
-                            showProfessional={!selectedProfessionalId}
-                            compact={individualAppointments.length > 1 || hasGroupSessions || showAvailableWithCancelledRecalc}
-                            professionalColorMap={professionalColorMap}
-                          />
-                        </div>
-                      ))}
-                      {showAvailableWithCancelledRecalc && (
-                        <button
-                          onClick={() => onSlotClick(slot.time)}
-                          className="flex-1 min-w-0 min-h-[3rem] border border-dashed border-border rounded-xl p-3 flex items-center justify-center text-muted-foreground hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-normal group"
-                        >
-                          <PlusIcon className="w-4 h-4 mr-2 transition-transform group-hover:scale-110" />
-                          <span className="text-sm font-medium">Disponivel</span>
-                        </button>
-                      )}
-                    </div>
-                  ) : isBlocked ? (
-                    <div className="h-full min-h-[3rem] bg-muted/30 border border-dashed border-border rounded-xl p-3 flex items-center">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <BanIcon className="w-4 h-4" />
-                        <span className="text-sm">{slot.blockReason || "Bloqueado"}</span>
+                  <div className="space-y-1.5">
+                    {/* Main slot content: blocking appointments, group sessions, available button, or blocked message */}
+                    {(hasBlockingAppointments || hasGroupSessions) ? (
+                      <div className="flex flex-wrap gap-2">
+                        {slotGroupSessions.map((session) => (
+                          <div key={`group-${session.groupId}-${session.scheduledAt}`} className="flex-1 min-w-0">
+                            <GroupSessionCard
+                              session={session}
+                              onClick={() => onGroupSessionClick(session)}
+                              showProfessional={!selectedProfessionalId}
+                              compact={hasBlockingAppointments || slotGroupSessions.length > 1}
+                            />
+                          </div>
+                        ))}
+                        {blockingAppointments.map((appointment) => (
+                          <div key={appointment.id} className="flex-1 min-w-0">
+                            <AppointmentCard
+                              appointment={appointment}
+                              onClick={() => onAppointmentClick(appointment)}
+                              showProfessional={!selectedProfessionalId}
+                              compact={blockingAppointments.length > 1 || hasGroupSessions || showAvailableWithCancelledRecalc}
+                              professionalColorMap={professionalColorMap}
+                            />
+                          </div>
+                        ))}
+                        {showAvailableWithCancelledRecalc && (
+                          <button
+                            onClick={() => onSlotClick(slot.time)}
+                            className="flex-1 min-w-0 min-h-[3rem] border border-dashed border-border rounded-xl p-3 flex items-center justify-center text-muted-foreground hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-normal group"
+                          >
+                            <PlusIcon className="w-4 h-4 mr-2 transition-transform group-hover:scale-110" />
+                            <span className="text-sm font-medium">Disponivel</span>
+                          </button>
+                        )}
                       </div>
-                    </div>
-                  ) : !hasAnyContent && canShowAvailableButton ? (
-                    <button
-                      onClick={() => onSlotClick(slot.time)}
-                      className="w-full h-full min-h-[3rem] border border-dashed border-border rounded-xl p-3 flex items-center justify-center text-muted-foreground hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-normal group"
-                    >
-                      <PlusIcon className="w-4 h-4 mr-2 transition-transform group-hover:scale-110" />
-                      <span className="text-sm font-medium">Disponivel</span>
-                    </button>
-                  ) : (
-                    // Empty space when viewing all professionals with no appointments
-                    <div className="h-full min-h-[3rem]" />
-                  )}
+                    ) : isBlocked && !hasNonBlockingAppointments ? (
+                      <div className="h-full min-h-[3rem] bg-muted/30 border border-dashed border-border rounded-xl p-3 flex items-center">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <BanIcon className="w-4 h-4" />
+                          <span className="text-sm">{slot.blockReason || "Bloqueado"}</span>
+                        </div>
+                      </div>
+                    ) : canShowAvailableButton ? (
+                      <button
+                        onClick={() => onSlotClick(slot.time)}
+                        className="w-full h-full min-h-[3rem] border border-dashed border-border rounded-xl p-3 flex items-center justify-center text-muted-foreground hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-normal group"
+                      >
+                        <PlusIcon className="w-4 h-4 mr-2 transition-transform group-hover:scale-110" />
+                        <span className="text-sm font-medium">Disponivel</span>
+                      </button>
+                    ) : !hasNonBlockingAppointments ? (
+                      <div className="h-full min-h-[3rem]" />
+                    ) : null}
+
+                    {/* Non-blocking entries always shown as indicator chips */}
+                    {hasNonBlockingAppointments && (
+                      <div className="flex flex-wrap gap-1.5 pl-1">
+                        {nonBlockingAppointments.map((appointment) => {
+                          const entryColors = ENTRY_TYPE_COLORS[appointment.type as CalendarEntryType]
+                          return (
+                            <button
+                              key={appointment.id}
+                              onClick={() => onAppointmentClick(appointment)}
+                              className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border cursor-pointer hover:opacity-80 transition-opacity ${
+                                entryColors ? `${entryColors.bg} ${entryColors.text} ${entryColors.border}` : "bg-muted text-muted-foreground border-border"
+                              }`}
+                            >
+                              <span className="font-medium">{ENTRY_TYPE_LABELS[appointment.type as CalendarEntryType] || appointment.type}</span>
+                              {appointment.title && (
+                                <span className="truncate max-w-[120px]">{appointment.title}</span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )

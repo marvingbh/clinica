@@ -138,7 +138,7 @@ export const PATCH = withAuth(
         appointment: {
           id: existing.id,
           status: existing.status,
-          patientName: existing.patient.name,
+          patientName: existing.patient?.name || existing.title || null,
           professionalName: existing.professionalProfile.user.name,
         },
       })
@@ -235,7 +235,7 @@ export const PATCH = withAuth(
         status: updatedAppointment.status,
         confirmedAt: updatedAppointment.confirmedAt?.toISOString() ?? null,
         cancelledAt: updatedAppointment.cancelledAt?.toISOString() ?? null,
-        patientName: updatedAppointment.patient.name,
+        patientName: updatedAppointment.patient?.name || updatedAppointment.title || null,
         professionalName: updatedAppointment.professionalProfile.user.name,
       },
     })

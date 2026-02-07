@@ -122,12 +122,14 @@ export const GET = withAuth(
         })
       }
 
-      sessionMap.get(key)!.participants.push({
-        appointmentId: apt.id,
-        patientId: apt.patient.id,
-        patientName: apt.patient.name,
-        status: apt.status,
-      })
+      if (apt.patient) {
+        sessionMap.get(key)!.participants.push({
+          appointmentId: apt.id,
+          patientId: apt.patient.id,
+          patientName: apt.patient.name,
+          status: apt.status,
+        })
+      }
     }
 
     // Convert to array and sort by time

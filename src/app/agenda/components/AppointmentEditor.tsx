@@ -6,10 +6,41 @@ import { Sheet } from "./Sheet"
 import { InlineAlert } from "./InlineAlert"
 import { SegmentedControl, Segment } from "./SegmentedControl"
 import { RecurrenceTabContent } from "./RecurrenceTabContent"
-import { Appointment, EditAppointmentFormData } from "../lib/types"
-import { STATUS_LABELS, STATUS_COLORS, RECURRENCE_TYPE_LABELS } from "../lib/constants"
+import { Appointment, EditAppointmentFormData, CalendarEntryType } from "../lib/types"
+import { STATUS_LABELS, STATUS_COLORS, RECURRENCE_TYPE_LABELS, ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
 import { formatPhone, isDateException } from "../lib/utils"
-import { RefreshCwIcon, BanIcon } from "@/shared/components/ui/icons"
+import {
+  RefreshCwIcon,
+  BanIcon,
+  ClockIcon,
+  PhoneIcon,
+  MailIcon,
+  CheckCircleIcon,
+  BuildingIcon,
+  VideoIcon,
+  UserIcon,
+  AlertTriangleIcon,
+  TrashIcon,
+} from "@/shared/components/ui/icons"
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+function formatTime(date: Date): string {
+  return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`
+}
+
+function formatDateDisplay(date: Date): string {
+  const weekday = date.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "")
+  const day = date.getDate()
+  const month = date.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "")
+  return `${weekday.charAt(0).toUpperCase() + weekday.slice(1)}, ${day} de ${month}`
+}
+
+// ============================================================================
+// AppointmentEditor (main wrapper)
+// ============================================================================
 
 interface AppointmentEditorProps {
   isOpen: boolean
@@ -72,7 +103,6 @@ export function AppointmentEditor({
 }: AppointmentEditorProps) {
   const [activeTab, setActiveTab] = useState<EditorTab>("occurrence")
 
-  // Reset tab when opening a new appointment
   const handleClose = () => {
     setActiveTab("occurrence")
     onClose()
@@ -80,13 +110,22 @@ export function AppointmentEditor({
 
   if (!appointment) return null
 
+  const isConsulta = appointment.type === "CONSULTA"
   const isRecurring = !!appointment.recurrence
   const isException = isDateException(appointment)
   const isActive = appointment.recurrence?.isActive ?? false
 
+  // Format appointment time for header display
+  const scheduled = new Date(appointment.scheduledAt)
+  const end = new Date(appointment.endAt)
+  const timeRange = `${formatTime(scheduled)} — ${formatTime(end)}`
+  const durationMin = Math.round((end.getTime() - scheduled.getTime()) / 60000)
+  const dateDisplay = formatDateDisplay(scheduled)
+
   // Build segments for the segmented control
+  const occurrenceLabel = isConsulta ? "Esta consulta" : "Esta entrada"
   const segments: Segment[] = [
-    { key: "occurrence", label: "Esta consulta" },
+    { key: "occurrence", label: occurrenceLabel },
   ]
 
   if (isRecurring && isActive) {
@@ -99,7 +138,7 @@ export function AppointmentEditor({
       type="button"
       onClick={() => onToggleException(isException ? "unskip" : "skip")}
       disabled={isManagingException}
-      className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors min-h-[40px] disabled:opacity-50 ${
+      className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors min-h-[40px] disabled:opacity-50 ${
         isException
           ? "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
           : "text-muted-foreground hover:text-foreground hover:bg-background"
@@ -121,28 +160,107 @@ export function AppointmentEditor({
     </button>
   ) : null
 
+  const sheetTitle = isConsulta ? "Editar Agendamento" : `Editar ${ENTRY_TYPE_LABELS[appointment.type as CalendarEntryType] || "Entrada"}`
+
   return (
-    <Sheet isOpen={isOpen} onClose={handleClose} title="Editar Agendamento">
-      {/* Compact Header */}
-      <div className="px-4 py-3 bg-muted/30 border-b border-border">
-        <div className="flex items-start justify-between gap-3">
+    <Sheet isOpen={isOpen} onClose={handleClose} title={sheetTitle}>
+      {/* ── Rich Header ── */}
+      <div className="px-4 pt-3 pb-4 bg-muted/30 border-b border-border">
+        {/* Top row: name + status */}
+        <div className="flex items-start justify-between gap-3 mb-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <p className="font-medium text-foreground truncate">{appointment.patient.name}</p>
-              <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[appointment.status] || "bg-gray-100 text-gray-800 border-gray-200"}`}>
-                {STATUS_LABELS[appointment.status] || appointment.status}
-              </span>
-            </div>
-            <p className="text-sm text-muted-foreground">{appointment.professionalProfile.user.name}</p>
-            {isRecurring && (
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                <RefreshCwIcon className="w-3 h-3 inline mr-1" />
-                {RECURRENCE_TYPE_LABELS[appointment.recurrence!.recurrenceType]}
-                {appointment.recurrence!.recurrenceEndType === "INDEFINITE" && " - sem fim"}
-              </p>
+            {isConsulta && appointment.patient ? (
+              <h3 className="font-semibold text-lg text-foreground truncate leading-tight">
+                {appointment.patient.name}
+              </h3>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                {!isConsulta && (
+                  <span className={`flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded ${
+                    ENTRY_TYPE_COLORS[appointment.type as CalendarEntryType]
+                      ? `${ENTRY_TYPE_COLORS[appointment.type as CalendarEntryType].bg} ${ENTRY_TYPE_COLORS[appointment.type as CalendarEntryType].text} border ${ENTRY_TYPE_COLORS[appointment.type as CalendarEntryType].border}`
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {ENTRY_TYPE_LABELS[appointment.type as CalendarEntryType] || appointment.type}
+                  </span>
+                )}
+                <h3 className="font-semibold text-lg text-foreground truncate leading-tight">
+                  {appointment.title || "Sem titulo"}
+                </h3>
+              </div>
+            )}
+          </div>
+          <span className={`flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold border mt-0.5 ${
+            STATUS_COLORS[appointment.status] || "bg-gray-100 text-gray-800 border-gray-200"
+          }`}>
+            {STATUS_LABELS[appointment.status] || appointment.status}
+          </span>
+        </div>
+
+        {/* Appointment details card */}
+        <div className="rounded-xl bg-background/70 dark:bg-background/40 border border-border/60 px-3.5 py-2.5 space-y-1.5">
+          {/* Date + time row */}
+          <div className="flex items-center gap-2 text-sm flex-wrap">
+            <ClockIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <span className="font-medium text-foreground">{dateDisplay}</span>
+            <span className="text-muted-foreground/60">·</span>
+            <span className="text-foreground tabular-nums font-medium">{timeRange}</span>
+            <span className="text-muted-foreground/60">·</span>
+            <span className="text-muted-foreground text-xs">{durationMin} min</span>
+          </div>
+
+          {/* Professional + modality row */}
+          <div className="flex items-center gap-2 text-sm">
+            <UserIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <span className="text-muted-foreground">{appointment.professionalProfile.user.name}</span>
+            {isConsulta && appointment.modality && (
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="inline-flex items-center gap-1 text-muted-foreground text-xs">
+                  {appointment.modality === "ONLINE" ? (
+                    <VideoIcon className="w-3.5 h-3.5" />
+                  ) : (
+                    <BuildingIcon className="w-3.5 h-3.5" />
+                  )}
+                  {appointment.modality === "ONLINE" ? "Online" : "Presencial"}
+                </span>
+              </>
             )}
           </div>
         </div>
+
+        {/* Contact row - clickable links */}
+        {isConsulta && appointment.patient && (
+          <div className="flex items-center gap-4 mt-3 text-sm">
+            <a
+              href={`tel:${appointment.patient.phone}`}
+              className="inline-flex items-center gap-1.5 text-foreground hover:text-primary transition-colors"
+            >
+              <PhoneIcon className="w-3.5 h-3.5 text-muted-foreground" />
+              {formatPhone(appointment.patient.phone)}
+            </a>
+            {appointment.patient.email && (
+              <a
+                href={`mailto:${appointment.patient.email}`}
+                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors truncate min-w-0"
+              >
+                <MailIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{appointment.patient.email}</span>
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Recurrence info */}
+        {isRecurring && (
+          <div className="flex items-center gap-1.5 mt-2.5">
+            <RefreshCwIcon className="w-3.5 h-3.5 text-blue-500" />
+            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+              {RECURRENCE_TYPE_LABELS[appointment.recurrence!.recurrenceType]}
+              {appointment.recurrence!.recurrenceEndType === "INDEFINITE" && " · sem fim"}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Segmented Control (only for recurring) */}
@@ -159,7 +277,7 @@ export function AppointmentEditor({
 
       {/* Exception warning */}
       {isException && activeTab === "occurrence" && (
-        <div className="mx-4 mt-4 p-3 bg-orange-50 dark:bg-orange-950/30 rounded-md border border-orange-200 dark:border-orange-800">
+        <div className="mx-4 mt-4 p-3 bg-orange-50 dark:bg-orange-950/30 rounded-xl border border-orange-200 dark:border-orange-800">
           <p className="text-sm text-orange-800 dark:text-orange-200">
             Esta data foi marcada como excecao (pulada). Clique em &ldquo;Pulada&rdquo; para restaurar.
           </p>
@@ -190,6 +308,7 @@ export function AppointmentEditor({
             isDeletingAppointment={isDeletingAppointment}
             onDeleteAppointment={onDeleteAppointment}
             isRecurring={isRecurring}
+            isConsulta={isConsulta}
           />
         ) : (
           <RecurrenceTabContent
@@ -203,7 +322,10 @@ export function AppointmentEditor({
   )
 }
 
-// Occurrence Tab Content
+// ============================================================================
+// OccurrenceTabContent
+// ============================================================================
+
 interface OccurrenceTabContentProps {
   appointment: Appointment
   form: UseFormReturn<EditAppointmentFormData>
@@ -225,6 +347,7 @@ interface OccurrenceTabContentProps {
   isDeletingAppointment: boolean
   onDeleteAppointment: () => Promise<void>
   isRecurring: boolean
+  isConsulta: boolean
 }
 
 function OccurrenceTabContent({
@@ -248,193 +371,309 @@ function OccurrenceTabContent({
   isDeletingAppointment,
   onDeleteAppointment,
   isRecurring,
+  isConsulta,
 }: OccurrenceTabContentProps) {
+  const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_PACIENTE"].includes(appointment.status)
+  const isNoShow = appointment.status === "NAO_COMPARECEU"
+  const isFinished = appointment.status === "FINALIZADO"
+  const isTerminal = isCancelled || isNoShow || isFinished
+
+  const hasQuickActions = !isTerminal && (
+    canMarkStatus ||
+    canResendConfirmation
+  )
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-      {/* Patient contact info (collapsible on mobile) */}
-      <details className="group">
-        <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
-          Contato do paciente
-        </summary>
-        <div className="mt-2 pl-4 space-y-1 text-sm text-muted-foreground">
-          <p>{formatPhone(appointment.patient.phone)}</p>
-          {appointment.patient.email && <p>{appointment.patient.email}</p>}
-        </div>
-      </details>
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
-      {/* Date + Time (same row) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label htmlFor="editDate" className="block text-sm font-medium text-foreground mb-2">Data *</label>
-          <input
-            id="editDate"
-            type="text"
-            placeholder="DD/MM/AAAA"
-            {...form.register("date")}
-            className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          {form.formState.errors.date && (
-            <p className="text-sm text-destructive mt-1">{form.formState.errors.date.message}</p>
+      {/* ── Quick Actions (status-first UX) ── */}
+      {hasQuickActions && (
+        <div className="space-y-2.5">
+          {/* AGENDADO: Confirm + Finalize + No Show — 3-col grid */}
+          {canMarkStatus && isConsulta && appointment.status === "AGENDADO" && (
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => onUpdateStatus("CONFIRMADO", "Consulta confirmada com sucesso")}
+                disabled={isUpdatingStatus}
+                className="h-11 rounded-xl bg-blue-600 text-white font-medium text-sm flex items-center justify-center gap-1.5 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                <CheckCircleIcon className="w-4 h-4" />
+                {isUpdatingStatus ? "..." : "Confirmar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")}
+                disabled={isUpdatingStatus}
+                className="h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {isUpdatingStatus ? "..." : "Atendido"}
+              </button>
+              <button
+                type="button"
+                onClick={() => onUpdateStatus("NAO_COMPARECEU", "Paciente marcado como nao compareceu")}
+                disabled={isUpdatingStatus}
+                className="h-11 rounded-xl border-2 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-sm flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {isUpdatingStatus ? "..." : "Faltou"}
+              </button>
+            </div>
+          )}
+
+          {/* CONFIRMADO: Finalize + No Show — 2-col grid */}
+          {canMarkStatus && isConsulta && appointment.status === "CONFIRMADO" && (
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")}
+                disabled={isUpdatingStatus}
+                className="h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {isUpdatingStatus ? "..." : "Atendido"}
+              </button>
+              <button
+                type="button"
+                onClick={() => onUpdateStatus("NAO_COMPARECEU", "Paciente marcado como nao compareceu")}
+                disabled={isUpdatingStatus}
+                className="h-11 rounded-xl border-2 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-sm flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {isUpdatingStatus ? "..." : "Nao Compareceu"}
+              </button>
+            </div>
+          )}
+
+          {/* Conclude — non-CONSULTA */}
+          {canMarkStatus && !isConsulta && (
+            <button
+              type="button"
+              onClick={() => onUpdateStatus("FINALIZADO", "Entrada concluida com sucesso")}
+              disabled={isUpdatingStatus}
+              className="w-full h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center gap-2 hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              {isUpdatingStatus ? "..." : "Concluir"}
+            </button>
+          )}
+
+          {/* Resend confirmation */}
+          {canResendConfirmation && (
+            <button
+              type="button"
+              onClick={onResendConfirmation}
+              disabled={isResendingConfirmation}
+              className="w-full h-10 rounded-xl border border-border text-muted-foreground font-medium text-sm flex items-center justify-center gap-2 hover:bg-muted/50 hover:text-foreground active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              {isResendingConfirmation ? "Reenviando..." : "Reenviar Links de Confirmacao"}
+            </button>
           )}
         </div>
-        <div>
-          <label htmlFor="editStartTime" className="block text-sm font-medium text-foreground mb-2">Horario *</label>
-          <input
-            id="editStartTime"
-            type="text"
-            placeholder="Ex: 14:30"
-            pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
-            {...form.register("startTime")}
-            className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          {form.formState.errors.startTime && (
-            <p className="text-sm text-destructive mt-1">{form.formState.errors.startTime.message}</p>
-          )}
+      )}
+
+      {/* Terminal state context */}
+      {isTerminal && (
+        <div className={`p-3 rounded-xl border text-sm flex items-start gap-2.5 ${
+          isFinished
+            ? "bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400"
+            : isNoShow
+            ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300"
+            : "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400"
+        }`}>
+          <div className="flex-shrink-0 mt-0.5">
+            {isFinished ? (
+              <CheckCircleIcon className="w-4 h-4" />
+            ) : (
+              <AlertTriangleIcon className="w-4 h-4" />
+            )}
+          </div>
+          <div>
+            {isFinished && "Esta consulta foi finalizada."}
+            {isNoShow && "Paciente nao compareceu a esta consulta."}
+            {isCancelled && (
+              <>
+                Este agendamento foi cancelado.
+                {appointment.cancellationReason && (
+                  <span className="block mt-1 text-xs opacity-75">
+                    Motivo: {appointment.cancellationReason}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Duration */}
-      <div>
-        <label htmlFor="editDuration" className="block text-sm font-medium text-foreground mb-2">Duracao (minutos)</label>
-        <input
-          id="editDuration"
-          type="number"
-          {...form.register("duration", {
-            setValueAs: (v) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v)
-          })}
-          min={15}
-          max={480}
-          step={5}
-          className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-      </div>
+      {/* ── Edit Fields ── */}
+      <div className="space-y-4">
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
+          Detalhes
+        </p>
 
-      {/* Modality */}
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">Modalidade *</label>
+        {/* Date + Time */}
         <div className="grid grid-cols-2 gap-3">
-          <label className="relative flex items-center justify-center cursor-pointer">
-            <input type="radio" value="PRESENCIAL" {...form.register("modality")} className="sr-only peer" />
-            <div className="w-full h-12 flex items-center justify-center gap-2 rounded-md border border-input bg-background text-foreground peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary">
-              <span className="text-sm font-medium">Presencial</span>
-            </div>
+          <div>
+            <label htmlFor="editDate" className="block text-sm font-medium text-foreground mb-1.5">
+              Data
+            </label>
+            <input
+              id="editDate"
+              type="text"
+              placeholder="DD/MM/AAAA"
+              {...form.register("date")}
+              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
+            />
+            {form.formState.errors.date && (
+              <p className="text-xs text-destructive mt-1">{form.formState.errors.date.message}</p>
+            )}
+          </div>
+          <div>
+            <label htmlFor="editStartTime" className="block text-sm font-medium text-foreground mb-1.5">
+              Horario
+            </label>
+            <input
+              id="editStartTime"
+              type="text"
+              placeholder="HH:MM"
+              pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+              {...form.register("startTime")}
+              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
+            />
+            {form.formState.errors.startTime && (
+              <p className="text-xs text-destructive mt-1">{form.formState.errors.startTime.message}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Duration */}
+        <div>
+          <label htmlFor="editDuration" className="block text-sm font-medium text-foreground mb-1.5">
+            Duracao (minutos)
           </label>
-          <label className="relative flex items-center justify-center cursor-pointer">
-            <input type="radio" value="ONLINE" {...form.register("modality")} className="sr-only peer" />
-            <div className="w-full h-12 flex items-center justify-center gap-2 rounded-md border border-input bg-background text-foreground peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary">
-              <span className="text-sm font-medium">Online</span>
+          <input
+            id="editDuration"
+            type="number"
+            {...form.register("duration", {
+              setValueAs: (v) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v)
+            })}
+            min={15}
+            max={480}
+            step={5}
+            className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
+          />
+        </div>
+
+        {/* Modality — CONSULTA only */}
+        {isConsulta && (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Modalidade</label>
+            <div className="grid grid-cols-2 gap-2.5">
+              <label className="relative cursor-pointer">
+                <input type="radio" value="PRESENCIAL" {...form.register("modality")} className="sr-only peer" />
+                <div className="h-11 flex items-center justify-center gap-2 rounded-xl border-2 border-input bg-background text-foreground text-sm font-medium peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all">
+                  <BuildingIcon className="w-4 h-4" />
+                  Presencial
+                </div>
+              </label>
+              <label className="relative cursor-pointer">
+                <input type="radio" value="ONLINE" {...form.register("modality")} className="sr-only peer" />
+                <div className="h-11 flex items-center justify-center gap-2 rounded-xl border-2 border-input bg-background text-foreground text-sm font-medium peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all">
+                  <VideoIcon className="w-4 h-4" />
+                  Online
+                </div>
+              </label>
             </div>
+          </div>
+        )}
+
+        {/* Price — CONSULTA only */}
+        {isConsulta && (
+          <div>
+            <label htmlFor="editPrice" className="block text-sm font-medium text-foreground mb-1.5">
+              Valor (R$)
+            </label>
+            <input
+              id="editPrice"
+              type="number"
+              step="0.01"
+              {...form.register("price", { valueAsNumber: true })}
+              placeholder="0,00"
+              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
+            />
+          </div>
+        )}
+
+        {/* Notes */}
+        <div>
+          <label htmlFor="editNotes" className="block text-sm font-medium text-foreground mb-1.5">
+            Observacoes
           </label>
+          <textarea
+            id="editNotes"
+            rows={3}
+            {...form.register("notes")}
+            placeholder="Notas sobre esta consulta..."
+            className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors resize-none"
+          />
         </div>
       </div>
 
-      {/* Price */}
-      <div>
-        <label htmlFor="editPrice" className="block text-sm font-medium text-foreground mb-2">Valor (R$)</label>
-        <input
-          id="editPrice"
-          type="number"
-          step="0.01"
-          {...form.register("price", { valueAsNumber: true })}
-          placeholder="0.00"
-          className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-      </div>
-
-      {/* Notes */}
-      <div>
-        <label htmlFor="editNotes" className="block text-sm font-medium text-foreground mb-2">Observacoes</label>
-        <textarea
-          id="editNotes"
-          rows={3}
-          {...form.register("notes")}
-          className="w-full px-4 py-3 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-        />
-      </div>
-
-      {/* Helper text for recurring */}
+      {/* Recurring helper */}
       {isRecurring && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <AlertTriangleIcon className="w-3.5 h-3.5 flex-shrink-0" />
           Alteracoes aplicam-se apenas a esta data.
         </p>
       )}
 
-      {/* Action Buttons */}
-      <div className="space-y-3 pt-4 border-t border-border">
-        {canMarkStatus && (
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")}
-              disabled={isUpdatingStatus}
-              className="h-11 rounded-md bg-green-600 text-white font-medium hover:bg-green-700 disabled:opacity-50"
-            >
-              {isUpdatingStatus ? "..." : "Finalizar Consulta"}
-            </button>
-            <button
-              type="button"
-              onClick={() => onUpdateStatus("NAO_COMPARECEU", "Paciente marcado como nao compareceu")}
-              disabled={isUpdatingStatus}
-              className="h-11 rounded-md bg-yellow-600 text-white font-medium hover:bg-yellow-700 disabled:opacity-50"
-            >
-              {isUpdatingStatus ? "..." : "Nao Compareceu"}
-            </button>
-          </div>
-        )}
-
-        {canResendConfirmation && (
-          <button
-            type="button"
-            onClick={onResendConfirmation}
-            disabled={isResendingConfirmation}
-            className="w-full h-11 rounded-md border border-primary text-primary font-medium hover:bg-primary/5 disabled:opacity-50"
-          >
-            {isResendingConfirmation ? "Reenviando..." : "Reenviar Links de Confirmacao"}
-          </button>
-        )}
-
+      {/* ── Danger Zone ── */}
+      <div className="pt-4 border-t border-border/60 space-y-2.5">
         {canCancel && (
           <button
             type="button"
             onClick={onCancelClick}
-            className="w-full h-11 rounded-md border border-red-500 text-red-600 font-medium hover:bg-red-50 dark:hover:bg-red-950/30"
+            className="w-full h-10 rounded-xl border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 font-medium text-sm hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all"
           >
-            Cancelar Agendamento
+            {isConsulta ? "Cancelar Agendamento" : "Cancelar"}
           </button>
         )}
 
-        {/* Delete button - subtle, not highlighted */}
         <button
           type="button"
           onClick={() => setIsDeleteDialogOpen(true)}
-          className="w-full h-9 text-sm text-muted-foreground hover:text-destructive transition-colors"
+          className="w-full h-9 text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center justify-center gap-1.5"
         >
-          Excluir agendamento
+          <TrashIcon className="w-3.5 h-3.5" />
+          Excluir permanentemente
         </button>
       </div>
 
       {/* Delete Confirmation Dialog */}
       {isDeleteDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-background rounded-lg p-6 max-w-sm mx-4 shadow-lg">
-            <h3 className="text-lg font-semibold text-foreground mb-2">Excluir agendamento?</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Esta acao nao pode ser desfeita. O agendamento sera permanentemente removido do sistema.
-            </p>
-            <div className="flex gap-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in">
+          <div className="bg-background rounded-2xl p-6 max-w-sm mx-4 shadow-2xl animate-scale-in">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/50 flex items-center justify-center flex-shrink-0">
+                <AlertTriangleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Excluir agendamento?</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Esta acao nao pode ser desfeita. O agendamento sera permanentemente removido.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
               <button
                 type="button"
                 onClick={() => setIsDeleteDialogOpen(false)}
                 disabled={isDeletingAppointment}
-                className="flex-1 h-10 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted disabled:opacity-50"
+                className="flex-1 h-11 rounded-xl border border-input bg-background text-foreground font-medium text-sm hover:bg-muted disabled:opacity-50 transition-colors"
               >
-                Cancelar
+                Manter
               </button>
               <button
                 type="button"
                 onClick={onDeleteAppointment}
                 disabled={isDeletingAppointment}
-                className="flex-1 h-10 rounded-md bg-destructive text-destructive-foreground font-medium hover:bg-destructive/90 disabled:opacity-50"
+                className="flex-1 h-11 rounded-xl bg-red-600 text-white font-medium text-sm hover:bg-red-700 disabled:opacity-50 transition-colors"
               >
                 {isDeletingAppointment ? "Excluindo..." : "Excluir"}
               </button>
@@ -443,24 +682,24 @@ function OccurrenceTabContent({
         </div>
       )}
 
-      {/* API Error Alert */}
+      {/* API Error */}
       {apiError && onDismissError && (
         <InlineAlert message={apiError} onDismiss={onDismissError} />
       )}
 
-      {/* Footer */}
+      {/* ── Footer ── */}
       <div className="flex gap-3 pt-4 pb-8">
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 h-12 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted"
+          className="flex-1 h-12 rounded-xl border border-input bg-background text-foreground font-medium text-sm hover:bg-muted transition-colors"
         >
           Fechar
         </button>
         <button
           type="submit"
           disabled={isUpdating}
-          className="flex-1 h-12 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 disabled:opacity-50"
+          className="flex-1 h-12 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
         >
           {isUpdating ? "Salvando..." : "Salvar Alteracoes"}
         </button>

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { withAuth, forbiddenResponse } from "@/lib/api"
 import { createAuditLog } from "@/lib/rbac/audit"
 import { NotificationChannel, NotificationType, AppointmentStatus } from "@prisma/client"
-import { createAndSendNotification } from "@/lib/notifications"
+import { createAndSendNotification, getPatientPhoneNumbers } from "@/lib/notifications"
 
 /**
  * POST /api/appointments/:id/cancel
@@ -194,9 +194,9 @@ export const POST = withAuth(
         userAgent,
       })
 
-      // Send notifications for series cancellation if requested
+      // Send notifications for series cancellation if requested (only for CONSULTA with patient)
       let notificationCreated = false
-      if (notifyPatient) {
+      if (notifyPatient && existing.type === "CONSULTA" && existing.patient) {
         const patient = existing.patient
         const professionalName = existing.professionalProfile.user.name
 
@@ -215,15 +215,18 @@ export const POST = withAuth(
           : `Ola ${patient.name}, sua serie de ${futureAppointments.length} agendamentos com ${professionalName} foi cancelada. Sessoes canceladas: ${cancelledDates.slice(0, 5).join(", ")}${cancelledDates.length > 5 ? ` e mais ${cancelledDates.length - 5}` : ""}. Motivo: ${cancellationReason}`
 
         if (patient.consentWhatsApp && patient.phone) {
-          await createAndSendNotification({
-            clinicId: user.clinicId,
-            patientId: patient.id,
-            appointmentId: params.id,
-            type: NotificationType.APPOINTMENT_CANCELLATION,
-            channel: NotificationChannel.WHATSAPP,
-            recipient: patient.phone,
-            content: notificationContent,
-          })
+          const phoneNumbers = await getPatientPhoneNumbers(patient.id, user.clinicId)
+          for (const { phone } of phoneNumbers) {
+            await createAndSendNotification({
+              clinicId: user.clinicId,
+              patientId: patient.id,
+              appointmentId: params.id,
+              type: NotificationType.APPOINTMENT_CANCELLATION,
+              channel: NotificationChannel.WHATSAPP,
+              recipient: phone,
+              content: notificationContent,
+            })
+          }
           notificationCreated = true
         }
 
@@ -298,8 +301,9 @@ export const POST = withAuth(
     })
 
     // Create and send notifications if requested and patient has consent
+    // Skip notifications for non-patient entry types
     let notificationCreated = false
-    if (notifyPatient) {
+    if (notifyPatient && existing.type === "CONSULTA" && existing.patient) {
       const patient = existing.patient
       const professionalName = existing.professionalProfile.user.name
       const scheduledDate = new Date(existing.scheduledAt)
@@ -316,17 +320,20 @@ export const POST = withAuth(
 
       const notificationContent = `Ola ${patient.name}, seu agendamento com ${professionalName} no dia ${formattedDate} as ${formattedTime} foi cancelado. Motivo: ${cancellationReason}`
 
-      // Create and send notification for WhatsApp if consent exists
+      // Create and send notification for WhatsApp to all phone numbers if consent exists
       if (patient.consentWhatsApp && patient.phone) {
-        await createAndSendNotification({
-          clinicId: user.clinicId,
-          patientId: patient.id,
-          appointmentId: params.id,
-          type: NotificationType.APPOINTMENT_CANCELLATION,
-          channel: NotificationChannel.WHATSAPP,
-          recipient: patient.phone,
-          content: notificationContent,
-        })
+        const phoneNumbers = await getPatientPhoneNumbers(patient.id, user.clinicId)
+        for (const { phone } of phoneNumbers) {
+          await createAndSendNotification({
+            clinicId: user.clinicId,
+            patientId: patient.id,
+            appointmentId: params.id,
+            type: NotificationType.APPOINTMENT_CANCELLATION,
+            channel: NotificationChannel.WHATSAPP,
+            recipient: phone,
+            content: notificationContent,
+          })
+        }
         notificationCreated = true
       }
 
@@ -355,7 +362,7 @@ export const POST = withAuth(
         status: updatedAppointment.status,
         cancellationReason: updatedAppointment.cancellationReason,
         cancelledAt: updatedAppointment.cancelledAt?.toISOString(),
-        patientName: updatedAppointment.patient.name,
+        patientName: updatedAppointment.patient?.name || updatedAppointment.title,
         professionalName: updatedAppointment.professionalProfile.user.name,
       },
       notificationCreated,

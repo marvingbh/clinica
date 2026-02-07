@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 import { Dialog } from "./Sheet"
-import { Appointment, CancelType } from "../lib/types"
+import { Appointment, CancelType, CalendarEntryType } from "../lib/types"
+import { ENTRY_TYPE_LABELS } from "../lib/constants"
 import { hasNotificationConsent } from "../lib/utils"
 
 interface CancelDialogProps {
@@ -20,8 +21,10 @@ export function CancelDialog({ isOpen, onClose, appointment, onConfirm }: Cancel
 
   if (!appointment) return null
 
+  const isConsulta = appointment.type === "CONSULTA"
   const hasConsent = hasNotificationConsent(appointment)
   const hasRecurrence = !!appointment.recurrence
+  const typeLabel = isConsulta ? "agendamento" : (ENTRY_TYPE_LABELS[appointment.type as CalendarEntryType] || "entrada").toLowerCase()
 
   async function handleConfirm() {
     if (!cancelReason.trim()) return
@@ -43,9 +46,9 @@ export function CancelDialog({ isOpen, onClose, appointment, onConfirm }: Cancel
   }
 
   return (
-    <Dialog isOpen={isOpen} onClose={handleClose} title="Cancelar Agendamento">
+    <Dialog isOpen={isOpen} onClose={handleClose} title={`Cancelar ${isConsulta ? "Agendamento" : ENTRY_TYPE_LABELS[appointment.type as CalendarEntryType] || "Entrada"}`}>
       <p className="text-sm text-muted-foreground mb-4">
-        Esta acao nao pode ser desfeita. O agendamento sera marcado como cancelado pelo profissional.
+        Esta acao nao pode ser desfeita. {isConsulta ? "O agendamento" : `A ${typeLabel}`} sera marcado como cancelado pelo profissional.
       </p>
 
       {/* Cancel Type - Only show if has recurrence */}
@@ -102,8 +105,8 @@ export function CancelDialog({ isOpen, onClose, appointment, onConfirm }: Cancel
         />
       </div>
 
-      {/* Notify Patient Option */}
-      {hasConsent && (
+      {/* Notify Patient Option - only for CONSULTA with patient */}
+      {isConsulta && hasConsent && (
         <div className="mb-6">
           <label className="flex items-center gap-3 cursor-pointer">
             <input
@@ -117,12 +120,12 @@ export function CancelDialog({ isOpen, onClose, appointment, onConfirm }: Cancel
             </span>
           </label>
           <p className="text-xs text-muted-foreground mt-1 ml-8">
-            O paciente sera notificado via {appointment.patient.consentWhatsApp && appointment.patient.consentEmail ? "WhatsApp e email" : appointment.patient.consentWhatsApp ? "WhatsApp" : "email"}
+            O paciente sera notificado via {appointment.patient?.consentWhatsApp && appointment.patient?.consentEmail ? "WhatsApp e email" : appointment.patient?.consentWhatsApp ? "WhatsApp" : "email"}
           </p>
         </div>
       )}
 
-      {!hasConsent && (
+      {isConsulta && !hasConsent && (
         <div className="mb-6 p-3 bg-muted/50 rounded-md">
           <p className="text-xs text-muted-foreground">
             O paciente nao possui consentimento para receber notificacoes.

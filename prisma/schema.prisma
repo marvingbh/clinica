@@ -73,6 +73,14 @@ enum RecurrenceEndType {
   INDEFINITE
 }
 
+enum AppointmentType {
+  CONSULTA
+  TAREFA
+  LEMBRETE
+  NOTA
+  REUNIAO
+}
+
 // ============================================================================
 // MODELS
 // ============================================================================
@@ -107,6 +115,7 @@ model Clinic {
   therapyGroups           TherapyGroup[]
   groupMemberships        GroupMembership[]
   availabilityExceptions  AvailabilityException[]
+  patientPhones           PatientPhone[]
 
   @@index([slug])
   @@index([isActive])
@@ -246,6 +255,7 @@ model Patient {
   notifications          Notification[]
   appointmentRecurrences AppointmentRecurrence[]
   groupMemberships       GroupMembership[]
+  additionalPhones       PatientPhone[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, phone])
@@ -257,18 +267,40 @@ model Patient {
   @@index([referenceProfessionalId])
 }
 
-/// Individual appointment
+/// Additional phone numbers for a patient (contacts, guardians, etc.)
+model PatientPhone {
+  id        String   @id @default(cuid())
+  patientId String
+  clinicId  String
+  phone     String   // Normalized digits only, same format as Patient.phone
+  label     String   // e.g., "Mãe", "Trabalho", "Esposo"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  clinic  Clinic  @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, phone])
+  @@index([patientId])
+  @@index([clinicId])
+}
+
+/// Individual appointment or calendar entry
 model Appointment {
   id                    String              @id @default(cuid())
   clinicId              String
   professionalProfileId String
-  patientId             String
+  patientId             String?
   recurrenceId          String?
   groupId               String?             // Links appointments in same group session
+  type                  AppointmentType     @default(CONSULTA)
+  title                 String?             // Display name for non-patient entries
+  blocksTime            Boolean             @default(true) // Denormalized for efficient conflict queries
   scheduledAt           DateTime
   endAt                 DateTime
   status                AppointmentStatus   @default(AGENDADO)
-  modality              AppointmentModality
+  modality              AppointmentModality?
   meetingUrl            String? // For online appointments
   notes                 String?
   price                 Decimal?            @db.Decimal(10, 2) // Session price
@@ -282,7 +314,7 @@ model Appointment {
   // Relations
   clinic              Clinic                 @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   professionalProfile ProfessionalProfile    @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
-  patient             Patient                @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient             Patient?               @relation(fields: [patientId], references: [id], onDelete: Cascade)
   recurrence          AppointmentRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
   group               TherapyGroup?          @relation(fields: [groupId], references: [id], onDelete: SetNull)
   tokens              AppointmentToken[]
@@ -295,6 +327,8 @@ model Appointment {
   @@index([groupId])
   @@index([scheduledAt])
   @@index([status])
+  @@index([type])
+  @@index([clinicId, type])
   @@index([clinicId, scheduledAt])
   @@index([professionalProfileId, scheduledAt])
   @@index([clinicId, status])
@@ -304,23 +338,25 @@ model Appointment {
 
 /// Defines a recurring appointment pattern
 model AppointmentRecurrence {
-  id                    String              @id @default(cuid())
+  id                    String               @id @default(cuid())
   clinicId              String
   professionalProfileId String
-  patientId             String
-  modality              AppointmentModality
+  patientId             String?
+  type                  AppointmentType      @default(CONSULTA)
+  title                 String?
+  modality              AppointmentModality?
   dayOfWeek             Int // 0 = Sunday, 6 = Saturday
   startTime             String // HH:mm format
   endTime               String // HH:mm format
   duration              Int // in minutes
   recurrenceType        RecurrenceType
   recurrenceEndType     RecurrenceEndType
-  startDate             DateTime            @db.Date
-  endDate               DateTime?           @db.Date // null = indefinite (used when endType is BY_DATE)
+  startDate             DateTime             @db.Date
+  endDate               DateTime?            @db.Date // null = indefinite (used when endType is BY_DATE)
   occurrences           Int? // Number of occurrences (used when endType is BY_OCCURRENCES)
-  exceptions            String[]            @default([]) // Dates (YYYY-MM-DD) to skip in the recurrence
-  lastGeneratedDate     DateTime?           @db.Date // Last date appointments were generated for INDEFINITE recurrences
-  isActive              Boolean             @default(true)
+  exceptions            String[]             @default([]) // Dates (YYYY-MM-DD) to skip in the recurrence
+  lastGeneratedDate     DateTime?            @db.Date // Last date appointments were generated for INDEFINITE recurrences
+  isActive              Boolean              @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -328,7 +364,7 @@ model AppointmentRecurrence {
   // Relations
   clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
-  patient             Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient             Patient?            @relation(fields: [patientId], references: [id], onDelete: Cascade)
   appointments        Appointment[]
 
   @@index([clinicId])

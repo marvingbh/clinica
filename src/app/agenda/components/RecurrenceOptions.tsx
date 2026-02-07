@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { CalendarIcon } from "@/shared/components/ui/icons"
+import { CalendarIcon, RefreshCwIcon } from "@/shared/components/ui/icons"
 import { RecurrenceType, RecurrenceEndType } from "../lib/types"
 import { MAX_RECURRENCE_OCCURRENCES } from "../lib/constants"
 import { toDisplayDate, addMonthsToDate, toIsoDate } from "../lib/utils"
@@ -143,10 +143,10 @@ export function RecurrenceOptions({
     <div className="space-y-4">
       {/* Appointment Type Selection */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-2">
-          Tipo de Agendamento
+        <label className="block text-sm font-medium text-foreground mb-1.5">
+          Frequencia
         </label>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-1.5">
           {(Object.keys(APPOINTMENT_TYPE_LABELS) as AppointmentType[]).map((type) => (
             <button
               key={type}
@@ -158,10 +158,10 @@ export function RecurrenceOptions({
                   setShowPreview(false)
                 }
               }}
-              className={`h-10 px-2 rounded-md text-sm font-medium border transition-colors ${
+              className={`h-10 px-2 rounded-xl text-sm font-medium border-2 transition-all active:scale-[0.97] ${
                 appointmentType === type
                   ? "border-primary bg-primary/5 text-primary"
-                  : "border-input bg-background text-foreground hover:bg-muted"
+                  : "border-transparent bg-muted/60 text-foreground hover:bg-muted"
               }`}
             >
               {APPOINTMENT_TYPE_LABELS[type]}
@@ -172,37 +172,34 @@ export function RecurrenceOptions({
 
       {/* Recurrence End Options - only show for recurring types */}
       {isRecurring && (
-        <div className="space-y-4 p-4 bg-muted/30 rounded-lg border border-border">
+        <div className="space-y-3 p-3.5 bg-muted/20 rounded-xl border border-border/60">
           {/* Day of Week Indicator */}
           {startDate && (() => {
             const dayOfWeek = parseLocalDate(startDate).getDay()
             return (
-              <div className="p-3 bg-muted/50 rounded-md border border-border">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">
-                    Dia da semana:
-                  </span>
-                  <span className="px-2 py-1 rounded bg-primary/10 text-primary text-sm font-medium">
-                    {DAY_LABELS[dayOfWeek]}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Os agendamentos ocorrerao toda {FULL_DAY_NAMES[dayOfWeek]}
-                </p>
+              <div className="flex items-center gap-2 text-sm">
+                <RefreshCwIcon className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                <span className="text-muted-foreground">
+                  Toda{" "}
+                  <span className="font-medium text-foreground">{FULL_DAY_NAMES[dayOfWeek]}</span>
+                </span>
+                <span className="px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-semibold">
+                  {DAY_LABELS[dayOfWeek]}
+                </span>
               </div>
             )
           })()}
 
           {/* Recurrence End Type */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
               Terminar
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
               <button
                 type="button"
                 onClick={() => onRecurrenceEndTypeChange("BY_OCCURRENCES")}
-                className={`h-10 px-3 rounded-md text-sm font-medium border transition-colors ${
+                className={`h-9 px-2 rounded-lg text-xs font-medium border transition-all ${
                   recurrenceEndType === "BY_OCCURRENCES"
                     ? "border-primary bg-primary/5 text-primary"
                     : "border-input bg-background text-foreground hover:bg-muted"
@@ -213,7 +210,7 @@ export function RecurrenceOptions({
               <button
                 type="button"
                 onClick={() => onRecurrenceEndTypeChange("BY_DATE")}
-                className={`h-10 px-3 rounded-md text-sm font-medium border transition-colors ${
+                className={`h-9 px-2 rounded-lg text-xs font-medium border transition-all ${
                   recurrenceEndType === "BY_DATE"
                     ? "border-primary bg-primary/5 text-primary"
                     : "border-input bg-background text-foreground hover:bg-muted"
@@ -224,7 +221,7 @@ export function RecurrenceOptions({
               <button
                 type="button"
                 onClick={() => onRecurrenceEndTypeChange("INDEFINITE")}
-                className={`h-10 px-3 rounded-md text-sm font-medium border transition-colors ${
+                className={`h-9 px-2 rounded-lg text-xs font-medium border transition-all ${
                   recurrenceEndType === "INDEFINITE"
                     ? "border-primary bg-primary/5 text-primary"
                     : "border-input bg-background text-foreground hover:bg-muted"
@@ -238,7 +235,7 @@ export function RecurrenceOptions({
           {/* Occurrences Input */}
           {recurrenceEndType === "BY_OCCURRENCES" && (
             <div>
-              <label htmlFor="occurrences" className="block text-sm font-medium text-foreground mb-2">
+              <label htmlFor="occurrences" className="block text-xs font-medium text-muted-foreground mb-1.5">
                 Numero de sessoes
               </label>
               <input
@@ -248,20 +245,19 @@ export function RecurrenceOptions({
                 onChange={(e) => onOccurrencesChange(Math.min(MAX_RECURRENCE_OCCURRENCES, Math.max(1, parseInt(e.target.value) || 1)))}
                 min={1}
                 max={MAX_RECURRENCE_OCCURRENCES}
-                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                className="w-full h-10 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Maximo de {MAX_RECURRENCE_OCCURRENCES} sessoes (1 ano semanal)
+                Max {MAX_RECURRENCE_OCCURRENCES} sessoes
               </p>
             </div>
           )}
 
           {/* Indefinite Info */}
           {recurrenceEndType === "INDEFINITE" && (
-            <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
-              <p className="text-sm text-blue-800 dark:text-blue-200">
-                Os agendamentos serao criados automaticamente para os proximos 6 meses e estendidos semanalmente.
-                Voce pode finalizar a recorrencia a qualquer momento.
+            <div className="p-2.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200/60 dark:border-blue-800/60">
+              <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                Sessoes criadas automaticamente para 6 meses, estendidas semanalmente. Finalize a qualquer momento.
               </p>
             </div>
           )}
@@ -269,7 +265,7 @@ export function RecurrenceOptions({
           {/* End Date Input */}
           {recurrenceEndType === "BY_DATE" && (
             <div>
-              <label htmlFor="recurrenceEndDate" className="block text-sm font-medium text-foreground mb-2">
+              <label htmlFor="recurrenceEndDate" className="block text-xs font-medium text-muted-foreground mb-1.5">
                 Data final
               </label>
               <input
@@ -286,42 +282,41 @@ export function RecurrenceOptions({
                     onEndDateChange("")
                   }
                 }}
-                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                className="w-full h-10 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
               />
-              <p className="text-xs text-muted-foreground mt-1">Formato: DD/MM/AAAA</p>
             </div>
           )}
 
           {/* Preview Dates - click to expand */}
           {previewDates.length > 0 && (
-            <div className="mt-3">
+            <div>
               <button
                 type="button"
                 onClick={() => setShowPreview(!showPreview)}
-                className="w-full p-3 bg-background rounded-md border border-border flex items-center justify-between hover:bg-muted/50 transition-colors"
+                className="w-full p-2.5 bg-background rounded-xl border border-border/60 flex items-center justify-between hover:bg-muted/30 transition-colors"
               >
                 <span className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <CalendarIcon className="w-4 h-4 text-primary" />
+                  <CalendarIcon className="w-3.5 h-3.5 text-primary" />
                   {recurrenceEndType === "INDEFINITE"
-                    ? `${previewDates.length} sessoes (proximos 6 meses)`
-                    : `${previewDates.length} sessoes agendadas`
+                    ? `${previewDates.length} sessoes (6 meses)`
+                    : `${previewDates.length} sessoes`
                   }
                 </span>
-                <span className={`text-muted-foreground transition-transform ${showPreview ? "rotate-180" : ""}`}>
+                <span className={`text-muted-foreground text-xs transition-transform duration-200 ${showPreview ? "rotate-180" : ""}`}>
                   ▼
                 </span>
               </button>
               {showPreview && (
-                <div className="mt-2 p-3 bg-background rounded-md border border-border max-h-48 overflow-y-auto">
+                <div className="mt-1.5 p-2.5 bg-background rounded-xl border border-border/60 max-h-44 overflow-y-auto">
                   {recurrenceEndType === "INDEFINITE" && (
                     <p className="text-xs text-muted-foreground mb-2">
-                      Novas sessoes serao criadas automaticamente
+                      Novas sessoes criadas automaticamente
                     </p>
                   )}
-                  <ul className="space-y-1">
+                  <ul className="space-y-0.5">
                     {previewDates.map((date, index) => (
-                      <li key={index} className="text-sm text-muted-foreground flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-medium">
+                      <li key={index} className="text-xs text-muted-foreground flex items-center gap-2 py-0.5">
+                        <span className="w-5 h-5 flex items-center justify-center rounded-md bg-primary/10 text-primary text-[10px] font-semibold tabular-nums flex-shrink-0">
                           {index + 1}
                         </span>
                         {date}

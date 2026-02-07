@@ -30,7 +30,7 @@ export function InlineAlert({ message, onDismiss, variant = "error" }: InlineAle
 
   return (
     <div
-      className={`flex items-start gap-3 p-3 rounded-md border ${style.container} animate-in fade-in slide-in-from-top-2 duration-200`}
+      className={`flex items-start gap-3 p-3 rounded-xl border ${style.container} animate-scale-in`}
       role="alert"
     >
       <AlertTriangleIcon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${style.icon}`} />

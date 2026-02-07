@@ -2,9 +2,9 @@
 
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { RefreshCwIcon, VideoIcon, BuildingIcon, PhoneIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
-import { STATUS_LABELS, STATUS_COLORS } from "../lib/constants"
+import { STATUS_LABELS, STATUS_COLORS, ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
 import { formatPhone } from "../lib/utils"
-import type { Appointment, AppointmentStatus } from "../lib/types"
+import type { Appointment, AppointmentStatus, CalendarEntryType } from "../lib/types"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../lib/professional-colors"
 
 interface AppointmentCardProps {
@@ -35,11 +35,15 @@ export function AppointmentCard({
   professionalColorMap,
 }: AppointmentCardProps) {
   const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_PACIENTE"].includes(appointment.status)
+  const isConsulta = appointment.type === "CONSULTA"
 
   // Get professional color from map when showing all professionals
   const colors = showProfessional && professionalColorMap
     ? getProfessionalColor(appointment.professionalProfile.id, professionalColorMap)
     : PROFESSIONAL_COLORS[0]
+
+  // Entry type colors for non-patient entries
+  const entryColors = !isConsulta ? ENTRY_TYPE_COLORS[appointment.type as CalendarEntryType] : null
 
   return (
     <Card
@@ -47,11 +51,13 @@ export function AppointmentCard({
       hoverable
       className={`group cursor-pointer overflow-hidden transition-all duration-normal active:scale-[0.98] ${
         isCancelled ? "opacity-50" : ""
-      } ${showProfessional ? colors.bg : ""}`}
+      } ${!appointment.blocksTime ? "border-dashed" : ""} ${
+        showProfessional && isConsulta ? colors.bg : ""
+      } ${entryColors ? `${entryColors.bg} border ${entryColors.border}` : ""}`}
       onClick={onClick}
     >
       {/* Status accent bar */}
-      <div className={`h-1 ${showProfessional ? colors.accent : getStatusAccentColor(appointment.status as AppointmentStatus)}`} />
+      <div className={`h-1 ${entryColors ? entryColors.accent : showProfessional ? colors.accent : getStatusAccentColor(appointment.status as AppointmentStatus)}`} />
 
       <CardContent className={compact ? "py-3" : "py-4"}>
         {/* Professional name - prominent when viewing all */}
@@ -61,75 +67,124 @@ export function AppointmentCard({
           </p>
         )}
 
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <h4 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-              {appointment.patient.name}
-            </h4>
-            <div className="flex items-center gap-1.5 mt-1">
-              <PhoneIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-              <p className="text-sm text-muted-foreground truncate">
-                {formatPhone(appointment.patient.phone)}
-              </p>
+        {isConsulta && appointment.patient ? (
+          <>
+            {/* CONSULTA layout - existing behavior */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h4 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                  {appointment.patient.name}
+                </h4>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <PhoneIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                  <p className="text-sm text-muted-foreground truncate">
+                    {formatPhone(appointment.patient.phone)}
+                  </p>
+                </div>
+              </div>
+              <span
+                className={`flex-shrink-0 text-xs px-2.5 py-1 rounded-full font-medium ${
+                  STATUS_COLORS[appointment.status as AppointmentStatus] || "bg-gray-100 text-gray-800"
+                }`}
+              >
+                {STATUS_LABELS[appointment.status as AppointmentStatus] || appointment.status}
+              </span>
             </div>
-          </div>
-          <span
-            className={`flex-shrink-0 text-xs px-2.5 py-1 rounded-full font-medium ${
-              STATUS_COLORS[appointment.status as AppointmentStatus] || "bg-gray-100 text-gray-800"
-            }`}
-          >
-            {STATUS_LABELS[appointment.status as AppointmentStatus] || appointment.status}
-          </span>
-        </div>
 
-        {/* Notes - shown prominently if present */}
-        {appointment.notes && !compact && (
-          <p className="mt-2 text-xs text-muted-foreground bg-muted/50 px-2 py-1.5 rounded-md line-clamp-2">
-            {appointment.notes.length > 80
-              ? `${appointment.notes.slice(0, 80)}...`
-              : appointment.notes}
-          </p>
-        )}
-
-        {/* Meta info row */}
-        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border">
-          {/* Modality */}
-          <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-lg ${
-            appointment.modality === "ONLINE"
-              ? "bg-info/10 text-info"
-              : "bg-muted text-muted-foreground"
-          }`}>
-            {appointment.modality === "ONLINE" ? (
-              <VideoIcon className="w-3.5 h-3.5" />
-            ) : (
-              <BuildingIcon className="w-3.5 h-3.5" />
+            {/* Notes - shown prominently if present */}
+            {appointment.notes && !compact && (
+              <p className="mt-2 text-xs text-muted-foreground bg-muted/50 px-2 py-1.5 rounded-md line-clamp-2">
+                {appointment.notes.length > 80
+                  ? `${appointment.notes.slice(0, 80)}...`
+                  : appointment.notes}
+              </p>
             )}
-            {appointment.modality === "ONLINE" ? "Online" : "Presencial"}
-          </span>
 
-          {/* Recurrence indicator */}
-          {appointment.recurrence && (
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400">
-              <RefreshCwIcon className="w-3.5 h-3.5" />
-              {appointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
-               appointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"}
-            </span>
-          )}
-        </div>
-
-        {/* Alternate week info for biweekly appointments */}
-        {appointment.recurrence?.recurrenceType === "BIWEEKLY" && appointment.alternateWeekInfo && (
-          <div className="mt-2 px-2 py-1.5 bg-purple-50 dark:bg-purple-950/30 rounded-md border border-purple-200 dark:border-purple-800">
-            <p className="text-xs text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
-              <ArrowLeftRightIcon className="w-3 h-3" />
-              <span className="font-medium">Semana alternada:</span>
-              {appointment.alternateWeekInfo.pairedPatientName ? (
-                <span>{appointment.alternateWeekInfo.pairedPatientName}</span>
-              ) : (
-                <span className="text-green-600 dark:text-green-400">Disponivel</span>
+            {/* Meta info row */}
+            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border">
+              {/* Modality */}
+              {appointment.modality && (
+                <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-lg ${
+                  appointment.modality === "ONLINE"
+                    ? "bg-info/10 text-info"
+                    : "bg-muted text-muted-foreground"
+                }`}>
+                  {appointment.modality === "ONLINE" ? (
+                    <VideoIcon className="w-3.5 h-3.5" />
+                  ) : (
+                    <BuildingIcon className="w-3.5 h-3.5" />
+                  )}
+                  {appointment.modality === "ONLINE" ? "Online" : "Presencial"}
+                </span>
               )}
-            </p>
-          </div>
+
+              {/* Recurrence indicator */}
+              {appointment.recurrence && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400">
+                  <RefreshCwIcon className="w-3.5 h-3.5" />
+                  {appointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
+                   appointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"}
+                </span>
+              )}
+            </div>
+
+            {/* Alternate week info for biweekly appointments */}
+            {appointment.recurrence?.recurrenceType === "BIWEEKLY" && appointment.alternateWeekInfo && (
+              <div className="mt-2 px-2 py-1.5 bg-purple-50 dark:bg-purple-950/30 rounded-md border border-purple-200 dark:border-purple-800">
+                <p className="text-xs text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                  <ArrowLeftRightIcon className="w-3 h-3" />
+                  <span className="font-medium">Semana alternada:</span>
+                  {appointment.alternateWeekInfo.pairedPatientName ? (
+                    <span>{appointment.alternateWeekInfo.pairedPatientName}</span>
+                  ) : (
+                    <span className="text-green-600 dark:text-green-400">Disponivel</span>
+                  )}
+                </p>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Non-patient entry layout */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded ${entryColors ? `${entryColors.bg} ${entryColors.text} border ${entryColors.border}` : "bg-muted text-muted-foreground"}`}>
+                    {ENTRY_TYPE_LABELS[appointment.type as CalendarEntryType] || appointment.type}
+                  </span>
+                </div>
+                <h4 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                  {appointment.title || "Sem titulo"}
+                </h4>
+              </div>
+              <span
+                className={`flex-shrink-0 text-xs px-2.5 py-1 rounded-full font-medium ${
+                  STATUS_COLORS[appointment.status as AppointmentStatus] || "bg-gray-100 text-gray-800"
+                }`}
+              >
+                {STATUS_LABELS[appointment.status as AppointmentStatus] || appointment.status}
+              </span>
+            </div>
+
+            {/* Notes for non-patient entries */}
+            {appointment.notes && !compact && (
+              <p className="mt-2 text-xs text-muted-foreground bg-muted/50 px-2 py-1.5 rounded-md line-clamp-2">
+                {appointment.notes.length > 80
+                  ? `${appointment.notes.slice(0, 80)}...`
+                  : appointment.notes}
+              </p>
+            )}
+
+            {/* Recurrence indicator for non-patient entries */}
+            {appointment.recurrence && (
+              <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400">
+                  <RefreshCwIcon className="w-3.5 h-3.5" />
+                  Semanal
+                </span>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>

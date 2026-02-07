@@ -12,6 +12,11 @@ function isActivAppointment(apt: Appointment): boolean {
   return !CANCELLED_STATUSES.includes(apt.status)
 }
 
+/** Only time-blocking, non-cancelled appointments affect slot availability */
+function isBlockingAppointment(apt: Appointment): boolean {
+  return apt.blocksTime && !CANCELLED_STATUSES.includes(apt.status)
+}
+
 export interface UseTimeSlotsParams {
   selectedDate: Date
   availabilityRules: AvailabilityRule[]
@@ -56,11 +61,11 @@ export function useTimeSlots({
             const aptDateStr = toDateString(aptTime)
             return aptDateStr === dateStr && aptTime.getHours() === hour && aptTime.getMinutes() === min
           })
-          // Only active (non-cancelled) appointments block the slot
-          const activeAppointments = slotAppointments.filter(isActivAppointment)
+          // Only time-blocking, non-cancelled appointments affect slot availability
+          const blockingAppointments = slotAppointments.filter(isBlockingAppointment)
           slots.push({
             time: timeStr,
-            isAvailable: activeAppointments.length === 0,
+            isAvailable: blockingAppointments.length === 0,
             appointments: slotAppointments,
             isBlocked: false,
           })
@@ -172,12 +177,12 @@ export function useTimeSlots({
           const aptDateStr = toDateString(aptTime)
           return aptDateStr === dateStr && aptTime.getHours() === hour && aptTime.getMinutes() === min
         })
-        // Only active (non-cancelled) appointments block the slot
-        const activeAppointments = slotAppointments.filter(isActivAppointment)
+        // Only time-blocking, non-cancelled appointments affect slot availability
+        const blockingAppointments = slotAppointments.filter(isBlockingAppointment)
 
         slots.push({
           time: timeStr,
-          isAvailable: !exception && activeAppointments.length === 0,
+          isAvailable: !exception && blockingAppointments.length === 0,
           appointments: slotAppointments,
           isBlocked: !!exception,
           blockReason: exception?.reason || undefined,

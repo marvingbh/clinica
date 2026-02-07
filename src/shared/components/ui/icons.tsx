@@ -75,5 +75,11 @@ export { Sun as SunIcon } from "lucide-react"
 export { Moon as MoonIcon } from "lucide-react"
 export { ArrowLeftRight as ArrowLeftRightIcon } from "lucide-react"
 
+// Calendar entry types
+export { ClipboardList as ClipboardListIcon } from "lucide-react"
+export { Bell as BellIcon } from "lucide-react"
+export { StickyNote as StickyNoteIcon } from "lucide-react"
+export { UsersRound as UsersRoundIcon } from "lucide-react"
+
 // Re-export LucideIcon type for custom components
 export type { LucideIcon } from "lucide-react"

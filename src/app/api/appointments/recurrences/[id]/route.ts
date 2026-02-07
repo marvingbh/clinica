@@ -297,7 +297,7 @@ export const PATCH = withAuth(
       const conflicts: Array<{
         appointmentId: string
         date: string
-        patientName: string
+        patientName: string | null
         conflictWith: ConflictingAppointment
       }> = []
 

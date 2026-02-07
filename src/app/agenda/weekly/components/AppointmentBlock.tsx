@@ -93,7 +93,7 @@ export function AppointmentBlock({
           </p>
         )}
         <p className={`text-[11px] font-medium text-foreground truncate leading-tight ${appointment.recurrence && !showProfessional ? "pr-3" : ""}`}>
-          {appointment.patient.name}
+          {appointment.patient?.name || appointment.title || "Sem titulo"}
         </p>
         {height >= 48 && (
           <p className="text-[10px] text-muted-foreground truncate leading-tight">

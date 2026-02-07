@@ -218,7 +218,9 @@ export const POST = withAuth(
         if (!existingBySession.has(key)) {
           existingBySession.set(key, new Set())
         }
-        existingBySession.get(key)!.add(appt.patientId)
+        if (appt.patientId) {
+          existingBySession.get(key)!.add(appt.patientId)
+        }
       }
 
       // For each existing session, find and add missing members + cancel left members

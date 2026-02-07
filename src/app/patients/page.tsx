@@ -71,6 +71,12 @@ interface Professional {
   } | null
 }
 
+interface AdditionalPhone {
+  id?: string
+  phone: string
+  label: string
+}
+
 interface Patient {
   id: string
   name: string
@@ -89,6 +95,7 @@ interface Patient {
   createdAt: string
   referenceProfessionalId: string | null
   referenceProfessional: ReferenceProfessional | null
+  additionalPhones?: AdditionalPhone[]
   appointments?: Appointment[]
 }
 
@@ -167,6 +174,7 @@ export default function PatientsPage() {
   const [isLoadingDetails, setIsLoadingDetails] = useState(false)
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [isLoadingProfessionals, setIsLoadingProfessionals] = useState(false)
+  const [additionalPhones, setAdditionalPhones] = useState<AdditionalPhone[]>([])
 
   const isAdmin = session?.user?.role === "ADMIN"
 
@@ -270,6 +278,7 @@ export default function PatientsPage() {
   function openCreateSheet() {
     setEditingPatient(null)
     setViewingPatient(null)
+    setAdditionalPhones([])
     reset({
       name: "",
       phone: "",
@@ -287,6 +296,7 @@ export default function PatientsPage() {
   function openEditSheet(patient: Patient) {
     setEditingPatient(patient)
     setViewingPatient(null)
+    setAdditionalPhones(patient.additionalPhones || [])
     reset({
       name: patient.name,
       phone: patient.phone,
@@ -311,6 +321,7 @@ export default function PatientsPage() {
     setIsSheetOpen(false)
     setEditingPatient(null)
     setViewingPatient(null)
+    setAdditionalPhones([])
   }
 
   async function onSubmit(data: PatientFormData) {
@@ -331,6 +342,13 @@ export default function PatientsPage() {
         referenceProfessionalId: data.referenceProfessionalId || null,
         consentWhatsApp: data.consentWhatsApp,
         consentEmail: data.consentEmail,
+        additionalPhones: additionalPhones
+          .filter((p) => p.phone.trim() && p.label.trim())
+          .map((p) => ({
+            id: p.id,
+            phone: p.phone.replace(/\D/g, ""),
+            label: p.label.trim(),
+          })),
       }
 
       const response = await fetch(url, {
@@ -706,6 +724,23 @@ export default function PatientsPage() {
                         </div>
                       </div>
 
+                      {/* Additional Phones */}
+                      {viewingPatient.additionalPhones && viewingPatient.additionalPhones.length > 0 && (
+                        <div>
+                          <label className="text-sm text-muted-foreground mb-2 block">Telefones adicionais</label>
+                          <div className="space-y-2">
+                            {viewingPatient.additionalPhones.map((phone, index) => (
+                              <div key={index} className="flex items-center gap-2">
+                                <span className="text-foreground">{formatPhone(phone.phone)}</span>
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                  {phone.label}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Parents Info */}
                       {(viewingPatient.fatherName || viewingPatient.motherName) && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -843,6 +878,87 @@ export default function PatientsPage() {
                       <p className="text-xs text-muted-foreground mt-1">
                         Formato: DDD + numero (ex: 11999999999)
                       </p>
+                    </div>
+
+                    {/* Additional Phones Section */}
+                    <div className="border border-border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="text-sm font-medium text-foreground">
+                          Telefones adicionais
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAdditionalPhones((prev) => [
+                              ...prev,
+                              { phone: "", label: "" },
+                            ])
+                          }
+                          disabled={additionalPhones.length >= 4}
+                          className="text-sm text-primary hover:text-primary/80 disabled:text-muted-foreground disabled:cursor-not-allowed transition-colors"
+                        >
+                          + Adicionar telefone
+                        </button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Contatos adicionais que receberao notificacoes (mae, pai, responsavel, etc.)
+                      </p>
+                      {additionalPhones.length === 0 ? (
+                        <p className="text-sm text-muted-foreground italic">
+                          Nenhum telefone adicional
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {additionalPhones.map((phone, index) => (
+                            <div key={index} className="flex gap-2 items-start">
+                              <div className="flex-1 min-w-0">
+                                <input
+                                  type="text"
+                                  placeholder="Rotulo (ex: Mae, Trabalho)"
+                                  value={phone.label}
+                                  onChange={(e) => {
+                                    const updated = [...additionalPhones]
+                                    updated[index] = { ...updated[index], label: e.target.value }
+                                    setAdditionalPhones(updated)
+                                  }}
+                                  maxLength={30}
+                                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <input
+                                  type="tel"
+                                  placeholder="11999999999"
+                                  value={phone.phone}
+                                  onChange={(e) => {
+                                    const updated = [...additionalPhones]
+                                    updated[index] = { ...updated[index], phone: e.target.value }
+                                    setAdditionalPhones(updated)
+                                  }}
+                                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setAdditionalPhones((prev) =>
+                                    prev.filter((_, i) => i !== index)
+                                  )
+                                }
+                                className="h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                title="Remover telefone"
+                              >
+                                &times;
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {additionalPhones.length >= 4 && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Maximo de 4 telefones adicionais atingido
+                        </p>
+                      )}
                     </div>
 
                     <div>

@@ -1,6 +1,7 @@
 "use client"
 
 import { Suspense, useCallback, useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
@@ -13,6 +14,12 @@ import {
   ListIcon,
   BuildingIcon,
   VideoIcon,
+  StethoscopeIcon,
+  ClipboardListIcon,
+  BellIcon,
+  StickyNoteIcon,
+  UsersRoundIcon,
+  XIcon,
 } from "@/shared/components/ui"
 
 import {
@@ -53,8 +60,12 @@ import {
   AppointmentEditor,
   InlineAlert,
   GroupSessionSheet,
+  CalendarEntrySheet,
 } from "../components"
 import type { AppointmentType } from "../components/RecurrenceOptions"
+import type { CalendarEntryType } from "../lib/types"
+
+import { useCalendarEntryCreate } from "../hooks"
 
 import { WeekNavigation, WeeklyGrid } from "./components"
 
@@ -240,6 +251,42 @@ function WeeklyAgendaPageContent() {
   }
 
   // ============================================================================
+  // Calendar Entry Create (non-CONSULTA types)
+  // ============================================================================
+
+  const {
+    isSheetOpen: isEntrySheetOpen,
+    openSheet: openEntrySheet,
+    closeSheet: closeEntrySheet,
+    entryType: createEntryType,
+    form: entryForm,
+    createProfessionalId: entryProfessionalId,
+    setCreateProfessionalId: setEntryProfessionalId,
+    isProfessionalLocked: isEntryProfessionalLocked,
+    isRecurring: isEntryRecurring,
+    setIsRecurring: setIsEntryRecurring,
+    recurrenceEndType: entryRecurrenceEndType,
+    setRecurrenceEndType: setEntryRecurrenceEndType,
+    recurrenceEndDate: entryRecurrenceEndDate,
+    setRecurrenceEndDate: setEntryRecurrenceEndDate,
+    recurrenceOccurrences: entryRecurrenceOccurrences,
+    setRecurrenceOccurrences: setEntryRecurrenceOccurrences,
+    apiError: entryApiError,
+    clearApiError: clearEntryApiError,
+    isSaving: isSavingEntry,
+    onSubmit: onSubmitEntry,
+  } = useCalendarEntryCreate({
+    selectedDate: weekStart,
+    isAdmin,
+    selectedProfessionalId,
+    professionals,
+    onSuccess: fetchAppointments,
+  })
+
+  // FAB menu state
+  const [isFabMenuOpen, setIsFabMenuOpen] = useState(false)
+
+  // ============================================================================
   // Create Appointment
   // ============================================================================
 
@@ -270,6 +317,15 @@ function WeeklyAgendaPageContent() {
     setCreateProfessionalId("")
     setAppointmentType("WEEKLY")
   }
+
+  const handleFabMenuSelect = useCallback((type: CalendarEntryType | "CONSULTA") => {
+    setIsFabMenuOpen(false)
+    if (type === "CONSULTA") {
+      openCreateSheet()
+    } else {
+      openEntrySheet(type as Exclude<CalendarEntryType, "CONSULTA">)
+    }
+  }, [openEntrySheet])
 
   function handleSelectPatient(patient: Patient) {
     setSelectedPatient(patient)
@@ -773,12 +829,17 @@ function WeeklyAgendaPageContent() {
         </div>
       </header>
 
-      {/* Weekly Grid */}
-      <SwipeContainer onSwipeLeft={goToNextWeek} onSwipeRight={goToPreviousWeek} className="max-w-6xl mx-auto px-4 py-4">
-        <p className="text-xs text-muted-foreground text-center mb-4">
-          Deslize para esquerda ou direita para mudar a semana
+      {/* Week change swipe zone (outside the grid) */}
+      <SwipeContainer onSwipeLeft={goToNextWeek} onSwipeRight={goToPreviousWeek} className="max-w-6xl mx-auto px-4 pt-4">
+        <p className="text-xs text-muted-foreground text-center mb-4 flex items-center justify-center gap-2">
+          <span className="w-8 h-0.5 bg-muted-foreground/30 rounded-full" />
+          Deslize para mudar a semana
+          <span className="w-8 h-0.5 bg-muted-foreground/30 rounded-full" />
         </p>
+      </SwipeContainer>
 
+      {/* Weekly Grid - scrolls horizontally on mobile */}
+      <div className="max-w-6xl mx-auto px-4 pb-4">
         <WeeklyGrid
           weekStart={weekStart}
           appointments={appointments}
@@ -787,10 +848,82 @@ function WeeklyAgendaPageContent() {
           onGroupSessionClick={openGroupSessionSheet}
           showProfessional={!selectedProfessionalId && isAdmin}
         />
-      </SwipeContainer>
+      </div>
 
-      {/* FAB */}
-      <FAB onClick={openCreateSheet} label="Novo agendamento" />
+      {/* FAB + menu rendered via portal to escape PageTransition's will-change containing block */}
+      {typeof document !== "undefined" && createPortal(
+        <>
+          <FAB onClick={() => setIsFabMenuOpen(true)} label="Novo" />
+
+          {isFabMenuOpen && (
+            <div className="fixed inset-0 z-40">
+              <div className="absolute inset-0 bg-black/30" onClick={() => setIsFabMenuOpen(false)} />
+              <div className="absolute right-4 bottom-24 z-50 flex flex-col-reverse items-end gap-2">
+                {/* Close button */}
+                <button
+                  onClick={() => setIsFabMenuOpen(false)}
+                  className="w-14 h-14 rounded-full bg-muted text-muted-foreground shadow-lg flex items-center justify-center hover:bg-muted/80 transition-colors"
+                  aria-label="Fechar menu"
+                >
+                  <XIcon className="w-6 h-6" />
+                </button>
+
+                {/* Menu items */}
+                <button
+                  onClick={() => handleFabMenuSelect("CONSULTA")}
+                  className="flex items-center gap-3 bg-white dark:bg-card rounded-full shadow-lg pl-4 pr-5 py-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                    <StethoscopeIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <span className="text-sm font-medium text-foreground">Consulta</span>
+                </button>
+
+                <button
+                  onClick={() => handleFabMenuSelect("TAREFA")}
+                  className="flex items-center gap-3 bg-white dark:bg-card rounded-full shadow-lg pl-4 pr-5 py-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                    <ClipboardListIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <span className="text-sm font-medium text-foreground">Tarefa</span>
+                </button>
+
+                <button
+                  onClick={() => handleFabMenuSelect("LEMBRETE")}
+                  className="flex items-center gap-3 bg-white dark:bg-card rounded-full shadow-lg pl-4 pr-5 py-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
+                    <BellIcon className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                  </div>
+                  <span className="text-sm font-medium text-foreground">Lembrete</span>
+                </button>
+
+                <button
+                  onClick={() => handleFabMenuSelect("NOTA")}
+                  className="flex items-center gap-3 bg-white dark:bg-card rounded-full shadow-lg pl-4 pr-5 py-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-900/30 flex items-center justify-center">
+                    <StickyNoteIcon className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                  </div>
+                  <span className="text-sm font-medium text-foreground">Nota</span>
+                </button>
+
+                <button
+                  onClick={() => handleFabMenuSelect("REUNIAO")}
+                  className="flex items-center gap-3 bg-white dark:bg-card rounded-full shadow-lg pl-4 pr-5 py-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                    <UsersRoundIcon className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                  </div>
+                  <span className="text-sm font-medium text-foreground">Reuniao</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </>,
+        document.body
+      )}
 
       {/* Create Appointment Sheet */}
       <Sheet isOpen={isCreateSheetOpen} onClose={closeCreateSheet} title="Novo Agendamento">
@@ -815,24 +948,29 @@ function WeeklyAgendaPageContent() {
           />
           <input type="hidden" {...register("patientId")} />
 
+          {/* Section header */}
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
+            Detalhes
+          </p>
+
           {/* 2. Date + Time (same row) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="date" className="block text-sm font-medium text-foreground mb-2">Data *</label>
-              <input id="date" type="text" placeholder="DD/MM/AAAA" {...register("date")} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
+              <label htmlFor="date" className="block text-sm font-medium text-foreground mb-1.5">Data *</label>
+              <input id="date" type="text" placeholder="DD/MM/AAAA" {...register("date")} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
+              {errors.date && <p className="text-xs text-destructive mt-1">{errors.date.message}</p>}
             </div>
             <div>
-              <label htmlFor="startTime" className="block text-sm font-medium text-foreground mb-2">Horario *</label>
+              <label htmlFor="startTime" className="block text-sm font-medium text-foreground mb-1.5">Horario *</label>
               <input
                 id="startTime"
                 type="text"
-                placeholder="Ex: 14:30"
+                placeholder="HH:MM"
                 pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
                 {...register("startTime")}
-                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
               />
-              {errors.startTime && <p className="text-sm text-destructive mt-1">{errors.startTime.message}</p>}
+              {errors.startTime && <p className="text-xs text-destructive mt-1">{errors.startTime.message}</p>}
             </div>
           </div>
 
@@ -854,9 +992,9 @@ function WeeklyAgendaPageContent() {
           {/* 4. Professional selector for admin */}
           {isAdmin && (
             <div>
-              <label htmlFor="createProfessional" className="block text-sm font-medium text-foreground mb-2">Profissional *</label>
+              <label htmlFor="createProfessional" className="block text-sm font-medium text-foreground mb-1.5">Profissional *</label>
               {selectedProfessionalId ? (
-                <div className="w-full h-12 px-4 rounded-md border border-input bg-muted text-foreground flex items-center">
+                <div className="w-full h-11 px-3.5 rounded-xl border border-input bg-muted text-foreground text-sm flex items-center">
                   {professionals.find(p => p.professionalProfile?.id === selectedProfessionalId)?.name || "Profissional selecionado"}
                 </div>
               ) : (
@@ -864,7 +1002,7 @@ function WeeklyAgendaPageContent() {
                   id="createProfessional"
                   value={createProfessionalId}
                   onChange={(e) => setCreateProfessionalId(e.target.value)}
-                  className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
                 >
                   <option value="">Selecione um profissional</option>
                   {professionals.map((prof) => (
@@ -880,27 +1018,27 @@ function WeeklyAgendaPageContent() {
 
           {/* 5. Duration */}
           <div>
-            <label htmlFor="duration" className="block text-sm font-medium text-foreground mb-2">Duracao (minutos)</label>
-            <input id="duration" type="number" {...register("duration", { setValueAs: (v) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v) })} placeholder={`Padrao: ${appointmentDuration} minutos`} min={15} max={480} step={5} className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <label htmlFor="duration" className="block text-sm font-medium text-foreground mb-1.5">Duracao (minutos)</label>
+            <input id="duration" type="number" {...register("duration", { setValueAs: (v) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v) })} placeholder={`Padrao: ${appointmentDuration} minutos`} min={15} max={480} step={5} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
             <p className="text-xs text-muted-foreground mt-1">Se nao informado, usa a duracao padrao ({appointmentDuration} min)</p>
           </div>
 
           {/* 6. Modality */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Modalidade *</label>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="relative flex items-center justify-center cursor-pointer">
+            <label className="block text-sm font-medium text-foreground mb-1.5">Modalidade *</label>
+            <div className="grid grid-cols-2 gap-2.5">
+              <label className="relative cursor-pointer">
                 <input type="radio" value="PRESENCIAL" {...register("modality")} className="sr-only peer" />
-                <div className="w-full h-12 flex items-center justify-center gap-2 rounded-md border border-input bg-background text-foreground peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary">
-                  <BuildingIcon className="w-5 h-5" />
-                  <span className="text-sm font-medium">Presencial</span>
+                <div className="h-11 flex items-center justify-center gap-2 rounded-xl border-2 border-input bg-background text-foreground text-sm font-medium peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all">
+                  <BuildingIcon className="w-4 h-4" />
+                  Presencial
                 </div>
               </label>
-              <label className="relative flex items-center justify-center cursor-pointer">
+              <label className="relative cursor-pointer">
                 <input type="radio" value="ONLINE" {...register("modality")} className="sr-only peer" />
-                <div className="w-full h-12 flex items-center justify-center gap-2 rounded-md border border-input bg-background text-foreground peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary">
-                  <VideoIcon className="w-5 h-5" />
-                  <span className="text-sm font-medium">Online</span>
+                <div className="h-11 flex items-center justify-center gap-2 rounded-xl border-2 border-input bg-background text-foreground text-sm font-medium peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all">
+                  <VideoIcon className="w-4 h-4" />
+                  Online
                 </div>
               </label>
             </div>
@@ -908,16 +1046,16 @@ function WeeklyAgendaPageContent() {
 
           {/* 7. Notes */}
           <div>
-            <label htmlFor="notes" className="block text-sm font-medium text-foreground mb-2">Observacoes</label>
-            <textarea id="notes" rows={3} {...register("notes")} placeholder="Observacoes sobre a consulta..." className="w-full px-4 py-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+            <label htmlFor="notes" className="block text-sm font-medium text-foreground mb-1.5">Observacoes</label>
+            <textarea id="notes" rows={3} {...register("notes")} placeholder="Observacoes sobre a consulta..." className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors resize-none" />
           </div>
 
           {/* API Error Alert */}
           <InlineAlert message={createApiError} onDismiss={() => setCreateApiError(null)} />
 
           <div className="flex gap-3 pt-4 pb-8">
-            <button type="button" onClick={closeCreateSheet} className="flex-1 h-12 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted">Cancelar</button>
-            <button type="submit" disabled={isSavingAppointment || !selectedPatient || (isAdmin && !selectedProfessionalId && !createProfessionalId)} className="flex-1 h-12 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
+            <button type="button" onClick={closeCreateSheet} className="flex-1 h-12 rounded-xl border border-input bg-background text-foreground font-medium text-sm hover:bg-muted transition-colors">Cancelar</button>
+            <button type="submit" disabled={isSavingAppointment || !selectedPatient || (isAdmin && !selectedProfessionalId && !createProfessionalId)} className="flex-1 h-12 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity">
               {isSavingAppointment ? "Salvando..." : "Criar Agendamento"}
             </button>
           </div>
@@ -965,6 +1103,32 @@ function WeeklyAgendaPageContent() {
         onClose={closeGroupSessionSheet}
         session={selectedGroupSession}
         onStatusUpdated={fetchAppointments}
+      />
+
+      {/* Calendar Entry Sheet */}
+      <CalendarEntrySheet
+        isOpen={isEntrySheetOpen}
+        onClose={closeEntrySheet}
+        entryType={createEntryType}
+        form={entryForm}
+        isAdmin={isAdmin}
+        professionals={professionals}
+        createProfessionalId={entryProfessionalId}
+        setCreateProfessionalId={setEntryProfessionalId}
+        isProfessionalLocked={isEntryProfessionalLocked}
+        selectedProfessionalId={selectedProfessionalId}
+        isRecurring={isEntryRecurring}
+        setIsRecurring={setIsEntryRecurring}
+        recurrenceEndType={entryRecurrenceEndType}
+        setRecurrenceEndType={setEntryRecurrenceEndType}
+        recurrenceEndDate={entryRecurrenceEndDate}
+        setRecurrenceEndDate={setEntryRecurrenceEndDate}
+        recurrenceOccurrences={entryRecurrenceOccurrences}
+        setRecurrenceOccurrences={setEntryRecurrenceOccurrences}
+        apiError={entryApiError}
+        onDismissError={clearEntryApiError}
+        isSaving={isSavingEntry}
+        onSubmit={onSubmitEntry}
       />
     </main>
   )

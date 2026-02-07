@@ -8,6 +8,11 @@ import { audit, AuditAction } from "@/lib/rbac"
 // Accepts: +5511999999999, 5511999999999, 11999999999
 const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
 
+const additionalPhoneSchema = z.object({
+  phone: z.string().regex(phoneRegex, "Telefone inválido. Use formato WhatsApp: (11) 99999-9999"),
+  label: z.string().min(1, "Rótulo é obrigatório").max(30, "Rótulo deve ter no máximo 30 caracteres"),
+})
+
 const createPatientSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(200),
   phone: z
@@ -22,6 +27,7 @@ const createPatientSchema = z.object({
   referenceProfessionalId: z.string().optional().nullable().or(z.literal("")),
   consentWhatsApp: z.boolean().default(false),
   consentEmail: z.boolean().default(false),
+  additionalPhones: z.array(additionalPhoneSchema).max(4, "Máximo de 4 telefones adicionais").optional(),
 })
 
 /**
@@ -100,6 +106,14 @@ export const GET = withAuth(
               },
             },
           },
+          additionalPhones: {
+            select: {
+              id: true,
+              phone: true,
+              label: true,
+            },
+            orderBy: { createdAt: "asc" },
+          },
         },
       }),
       prisma.patient.count({ where }),
@@ -136,7 +150,7 @@ export const POST = withAuth(
       )
     }
 
-    const { name, email, phone, birthDate, cpf, fatherName, motherName, notes, referenceProfessionalId, consentWhatsApp, consentEmail } =
+    const { name, email, phone, birthDate, cpf, fatherName, motherName, notes, referenceProfessionalId, consentWhatsApp, consentEmail, additionalPhones } =
       validation.data
 
     // Normalize phone number (remove non-digits, ensure country code)
@@ -179,6 +193,50 @@ export const POST = withAuth(
       }
     }
 
+    // Normalize and validate additional phones
+    const normalizedAdditionalPhones = (additionalPhones || []).map((p) => ({
+      phone: p.phone.replace(/\D/g, ""),
+      label: p.label,
+    }))
+
+    // Check for duplicates among additional phones and primary phone
+    const allPhones = [normalizedPhone, ...normalizedAdditionalPhones.map((p) => p.phone)]
+    const uniquePhones = new Set(allPhones)
+    if (uniquePhones.size !== allPhones.length) {
+      return NextResponse.json(
+        { error: "Números de telefone duplicados não são permitidos" },
+        { status: 400 }
+      )
+    }
+
+    // Check additional phones don't conflict with existing patients in the clinic
+    if (normalizedAdditionalPhones.length > 0) {
+      const existingAdditionalPhones = await prisma.patientPhone.findMany({
+        where: {
+          clinicId: user.clinicId,
+          phone: { in: normalizedAdditionalPhones.map((p) => p.phone) },
+        },
+        select: { phone: true },
+      })
+
+      // Also check against existing patient primary phones
+      const existingPrimaryPhones = await prisma.patient.findMany({
+        where: {
+          clinicId: user.clinicId,
+          phone: { in: normalizedAdditionalPhones.map((p) => p.phone) },
+        },
+        select: { phone: true },
+      })
+
+      const conflicting = [...existingAdditionalPhones, ...existingPrimaryPhones]
+      if (conflicting.length > 0) {
+        return NextResponse.json(
+          { error: `Telefone já cadastrado: ${conflicting[0].phone}` },
+          { status: 409 }
+        )
+      }
+    }
+
     const now = new Date()
     const patient = await prisma.patient.create({
       data: {
@@ -196,6 +254,19 @@ export const POST = withAuth(
         consentWhatsAppAt: consentWhatsApp ? now : null,
         consentEmail,
         consentEmailAt: consentEmail ? now : null,
+        additionalPhones: normalizedAdditionalPhones.length > 0 ? {
+          create: normalizedAdditionalPhones.map((p) => ({
+            clinicId: user.clinicId,
+            phone: p.phone,
+            label: p.label,
+          })),
+        } : undefined,
+      },
+      include: {
+        additionalPhones: {
+          select: { id: true, phone: true, label: true },
+          orderBy: { createdAt: "asc" },
+        },
       },
     })
 

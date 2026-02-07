@@ -5,7 +5,7 @@ import {
   NotificationChannel,
   NotificationType,
 } from "@prisma/client"
-import { createNotification, processPendingNotifications } from "@/lib/notifications"
+import { createNotification, processPendingNotifications, getPatientPhoneNumbers } from "@/lib/notifications"
 import { getTemplate, renderTemplate } from "@/lib/notifications/templates"
 import { createAppointmentTokens, buildConfirmLink, buildCancelLink } from "@/lib/appointments"
 
@@ -174,10 +174,11 @@ async function findAndCreateReminders(
   const windowStart = new Date(now.getTime() + hoursBeforeAppointment * 60 * 60 * 1000)
   const windowEnd = new Date(windowStart.getTime() + 60 * 60 * 1000) // +1 hour
 
-  // Find appointments in the reminder window
+  // Find appointments in the reminder window (only CONSULTA type)
   const appointments = await prisma.appointment.findMany({
     where: {
       clinicId: clinic.id,
+      type: "CONSULTA",
       scheduledAt: {
         gte: windowStart,
         lt: windowEnd,
@@ -224,6 +225,7 @@ async function findAndCreateReminders(
 
   for (const appointment of appointments) {
     const patient = appointment.patient
+    if (!patient) continue // Skip entries without patients (shouldn't happen with type filter)
 
     // Check patient consent
     const hasWhatsAppConsent = patient.consentWhatsApp && patient.phone
@@ -283,7 +285,7 @@ async function findAndCreateReminders(
       modality: appointment.modality === "ONLINE" ? "Online" : "Presencial",
     }
 
-    // Send WhatsApp notification if consent exists
+    // Send WhatsApp notification to all phone numbers if consent exists
     if (hasWhatsAppConsent) {
       try {
         const template = await getTemplate(
@@ -293,16 +295,19 @@ async function findAndCreateReminders(
         )
         const content = renderTemplate(template.content, templateVariables)
 
-        await createNotification({
-          clinicId: clinic.id,
-          patientId: patient.id,
-          appointmentId: appointment.id,
-          type: NotificationType.APPOINTMENT_REMINDER,
-          channel: NotificationChannel.WHATSAPP,
-          recipient: patient.phone!,
-          content,
-        })
-        results.remindersCreated++
+        const phoneNumbers = await getPatientPhoneNumbers(patient.id, clinic.id)
+        for (const { phone } of phoneNumbers) {
+          await createNotification({
+            clinicId: clinic.id,
+            patientId: patient.id,
+            appointmentId: appointment.id,
+            type: NotificationType.APPOINTMENT_REMINDER,
+            channel: NotificationChannel.WHATSAPP,
+            recipient: phone,
+            content,
+          })
+          results.remindersCreated++
+        }
       } catch (error) {
         console.error(
           `[send-reminders] Error creating WhatsApp reminder for appointment ${appointment.id}:`,

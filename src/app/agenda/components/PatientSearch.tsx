@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useEffect, useCallback, useState } from "react"
-import { LoaderIcon, CheckIcon } from "@/shared/components/ui/icons"
+import { LoaderIcon, SearchIcon, XIcon, PhoneIcon, MailIcon, UserIcon } from "@/shared/components/ui/icons"
 import { Patient } from "../lib/types"
 import { formatPhone } from "../lib/utils"
 
@@ -77,12 +77,63 @@ export function PatientSearch({
     setPatients([])
   }
 
+  // When a patient is selected, show a rich card instead of the search input
+  if (selectedPatient) {
+    return (
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1.5">
+          Paciente
+        </label>
+        <div className="relative rounded-xl border border-primary/30 bg-primary/[0.03] p-3 transition-colors">
+          <div className="flex items-center gap-3">
+            {/* Avatar */}
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <UserIcon className="w-5 h-5 text-primary/70" />
+            </div>
+
+            {/* Patient info */}
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm text-foreground truncate leading-tight">
+                {selectedPatient.name}
+              </p>
+              <div className="flex items-center gap-3 mt-0.5">
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  <PhoneIcon className="w-3 h-3" />
+                  {formatPhone(selectedPatient.phone)}
+                </span>
+                {selectedPatient.email && (
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground truncate min-w-0">
+                    <MailIcon className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate">{selectedPatient.email}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Clear button */}
+            <button
+              type="button"
+              onClick={onClearPatient}
+              className="flex-shrink-0 w-7 h-7 rounded-lg bg-muted/80 text-muted-foreground flex items-center justify-center hover:bg-muted hover:text-foreground transition-colors"
+              aria-label="Trocar paciente"
+            >
+              <XIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="relative">
-      <label htmlFor="patientSearch" className="block text-sm font-medium text-foreground mb-2">
+      <label htmlFor="patientSearch" className="block text-sm font-medium text-foreground mb-1.5">
         Paciente *
       </label>
       <div className="relative">
+        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
+          <SearchIcon className="w-4 h-4 text-muted-foreground" />
+        </div>
         <input
           ref={inputRef}
           id="patientSearch"
@@ -90,33 +141,33 @@ export function PatientSearch({
           value={value}
           onChange={(e) => handleInputChange(e.target.value)}
           onFocus={() => setShowDropdown(true)}
-          placeholder="Digite o nome do paciente..."
-          className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+          placeholder="Buscar paciente pelo nome..."
+          className="w-full h-11 pl-10 pr-10 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
         />
         {isSearching && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <LoaderIcon className="w-5 h-5 animate-spin text-muted-foreground" />
+          <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
+            <LoaderIcon className="w-4 h-4 animate-spin text-muted-foreground" />
           </div>
         )}
       </div>
 
       {/* Dropdown */}
       {showDropdown && patients.length > 0 && (
-        <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
+        <div className="absolute z-10 w-full mt-1.5 bg-card border border-border rounded-xl shadow-lg max-h-52 overflow-y-auto animate-scale-in">
           {patients.map((patient) => (
             <button
               key={patient.id}
               type="button"
               onClick={() => handleSelectPatient(patient)}
-              className="w-full px-4 py-3 text-left hover:bg-muted transition-colors flex items-center justify-between"
+              className="w-full px-3.5 py-2.5 text-left hover:bg-muted/60 transition-colors flex items-center gap-3 first:rounded-t-xl last:rounded-b-xl"
             >
-              <div>
-                <p className="font-medium text-foreground">{patient.name}</p>
-                <p className="text-sm text-muted-foreground">{formatPhone(patient.phone)}</p>
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                <UserIcon className="w-4 h-4 text-muted-foreground" />
               </div>
-              {selectedPatient?.id === patient.id && (
-                <CheckIcon className="w-5 h-5 text-primary" />
-              )}
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm text-foreground truncate">{patient.name}</p>
+                <p className="text-xs text-muted-foreground">{formatPhone(patient.phone)}</p>
+              </div>
             </button>
           ))}
         </div>
@@ -124,23 +175,13 @@ export function PatientSearch({
 
       {/* No results */}
       {showDropdown && value.length >= 2 && patients.length === 0 && !isSearching && (
-        <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-md shadow-lg p-4 text-center text-muted-foreground">
-          Nenhum paciente encontrado
+        <div className="absolute z-10 w-full mt-1.5 bg-card border border-border rounded-xl shadow-lg p-4 text-center animate-scale-in">
+          <p className="text-sm text-muted-foreground">Nenhum paciente encontrado</p>
         </div>
       )}
 
       {error && (
-        <p className="text-sm text-destructive mt-1">{error}</p>
-      )}
-
-      {selectedPatient && (
-        <div className="mt-2 p-3 bg-muted/50 rounded-md">
-          <p className="text-sm font-medium text-foreground">{selectedPatient.name}</p>
-          <p className="text-xs text-muted-foreground">{formatPhone(selectedPatient.phone)}</p>
-          {selectedPatient.email && (
-            <p className="text-xs text-muted-foreground">{selectedPatient.email}</p>
-          )}
-        </div>
+        <p className="text-xs text-destructive mt-1">{error}</p>
       )}
     </div>
   )

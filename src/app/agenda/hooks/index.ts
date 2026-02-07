@@ -15,3 +15,6 @@ export type { UseAppointmentEditParams, UseAppointmentEditReturn } from "./useAp
 
 export { useAppointmentActions } from "./useAppointmentActions"
 export type { UseAppointmentActionsParams, UseAppointmentActionsReturn } from "./useAppointmentActions"
+
+export { useCalendarEntryCreate } from "./useCalendarEntryCreate"
+export type { UseCalendarEntryCreateParams, UseCalendarEntryCreateReturn } from "./useCalendarEntryCreate"

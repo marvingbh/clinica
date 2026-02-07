@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
     appointment: {
       id: appointment.id,
       scheduledAt: appointment.scheduledAt,
-      patientName: appointment.patient.name,
+      patientName: appointment.patient?.name || appointment.title || null,
       professionalName: appointment.professionalProfile.user.name,
     },
   })

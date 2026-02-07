@@ -27,6 +27,22 @@ export interface CreateAppointmentData {
   }
 }
 
+export interface CreateCalendarEntryData {
+  type: "TAREFA" | "LEMBRETE" | "NOTA" | "REUNIAO"
+  title: string
+  date: string
+  startTime: string
+  notes?: string | null
+  duration?: number
+  professionalProfileId?: string
+  recurrence?: {
+    recurrenceType: "WEEKLY"
+    recurrenceEndType: "BY_DATE" | "BY_OCCURRENCES" | "INDEFINITE"
+    endDate?: string
+    occurrences?: number
+  }
+}
+
 export interface CreateAppointmentResponse {
   appointment?: Appointment
   totalOccurrences?: number
@@ -115,6 +131,27 @@ export async function createAppointment(
   if (!response.ok) {
     return {
       error: result.error || "Erro ao criar agendamento",
+      occurrenceIndex: result.occurrenceIndex,
+    }
+  }
+
+  return result
+}
+
+export async function createCalendarEntry(
+  data: CreateCalendarEntryData
+): Promise<CreateAppointmentResponse> {
+  const response = await fetch("/api/appointments", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+
+  const result = await response.json()
+
+  if (!response.ok) {
+    return {
+      error: result.error || "Erro ao criar entrada",
       occurrenceIndex: result.occurrenceIndex,
     }
   }

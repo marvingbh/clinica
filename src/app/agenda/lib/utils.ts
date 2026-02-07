@@ -83,6 +83,7 @@ export function canCancelAppointment(appointment: Appointment | null): boolean {
  */
 export function hasNotificationConsent(appointment: Appointment | null): boolean {
   if (!appointment) return false
+  if (appointment.type !== "CONSULTA" || !appointment.patient) return false
   return !!(appointment.patient.consentWhatsApp || appointment.patient.consentEmail)
 }
 
@@ -99,6 +100,7 @@ export function canMarkStatus(appointment: Appointment | null): boolean {
  */
 export function canResendConfirmation(appointment: Appointment | null): boolean {
   if (!appointment) return false
+  if (appointment.type !== "CONSULTA" || !appointment.patient) return false
   if (!["AGENDADO", "CONFIRMADO"].includes(appointment.status)) return false
   return !!(
     (appointment.patient.consentWhatsApp && appointment.patient.phone) ||

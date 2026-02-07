@@ -94,7 +94,7 @@ export const PATCH = withAuth(
     }
 
     const body = await req.json()
-    const { scheduledAt, endAt, status, modality, notes, price, cancellationReason } = body
+    const { scheduledAt, endAt, status, modality, notes, price, cancellationReason, title } = body
 
     // Store old values for audit log (only fields being updated)
     const oldValues: Prisma.JsonObject = {}
@@ -137,6 +137,11 @@ export const PATCH = withAuth(
       updateData.cancellationReason = cancellationReason
       updateData.cancelledAt = new Date()
     }
+    if (title !== undefined && existing.type !== "CONSULTA") {
+      oldValues.title = existing.title
+      newValues.title = title
+      updateData.title = title
+    }
 
     // Check if time is being updated - need conflict check
     const isTimeUpdate = scheduledAt !== undefined || endAt !== undefined
@@ -144,8 +149,9 @@ export const PATCH = withAuth(
     const newEndAt = endAt ? new Date(endAt) : existing.endAt
 
     // Use transaction with conflict check if time is being updated
+    // Only check conflicts for entries that block time
     const result = await prisma.$transaction(async (tx) => {
-      if (isTimeUpdate) {
+      if (isTimeUpdate && existing.blocksTime) {
         const conflictResult = await checkConflict({
           professionalProfileId: existing.professionalProfileId,
           scheduledAt: newScheduledAt,
@@ -182,9 +188,9 @@ export const PATCH = withAuth(
         },
       })
 
-      // Regenerate tokens if appointment is rescheduled (time changed)
+      // Regenerate tokens if CONSULTA appointment is rescheduled (time changed)
       let newTokens = null
-      if (isTimeUpdate) {
+      if (isTimeUpdate && existing.type === "CONSULTA") {
         newTokens = await regenerateAppointmentTokens(params.id, newScheduledAt, tx)
       }
 
@@ -278,8 +284,10 @@ export const DELETE = withAuth(
       entityType: "Appointment",
       entityId: params.id,
       oldValues: {
+        type: existing.type,
+        title: existing.title,
         patientId: existing.patientId,
-        patientName: existing.patient.name,
+        patientName: existing.patient?.name || null,
         professionalProfileId: existing.professionalProfileId,
         professionalName: existing.professionalProfile.user.name,
         scheduledAt: existing.scheduledAt.toISOString(),

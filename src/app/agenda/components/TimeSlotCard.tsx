@@ -41,11 +41,13 @@ export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointm
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <h4 className="font-medium text-foreground truncate">
-                    {appointment.patient.name}
+                    {appointment.patient?.name || appointment.title || "Sem titulo"}
                   </h4>
-                  <p className="text-sm text-muted-foreground">
-                    {formatPhone(appointment.patient.phone)}
-                  </p>
+                  {appointment.patient && (
+                    <p className="text-sm text-muted-foreground">
+                      {formatPhone(appointment.patient.phone)}
+                    </p>
+                  )}
                 </div>
                 <span
                   className={`flex-shrink-0 text-xs px-2 py-1 rounded-full border ${
@@ -56,9 +58,11 @@ export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointm
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-2">
-                <span className="text-xs text-muted-foreground">
-                  {appointment.modality === "ONLINE" ? "Online" : "Presencial"}
-                </span>
+                {appointment.modality && (
+                  <span className="text-xs text-muted-foreground">
+                    {appointment.modality === "ONLINE" ? "Online" : "Presencial"}
+                  </span>
+                )}
                 {appointment.recurrence && (
                   <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
                     <RefreshCwIcon className="w-3 h-3" />

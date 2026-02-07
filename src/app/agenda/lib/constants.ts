@@ -1,4 +1,4 @@
-import { AppointmentStatus } from "./types"
+import { AppointmentStatus, CalendarEntryType } from "./types"
 
 export const STATUS_LABELS: Record<AppointmentStatus, string> = {
   AGENDADO: "Agendado",
@@ -40,3 +40,63 @@ export const MODALITY_LABELS = {
 
 export const MAX_RECURRENCE_OCCURRENCES = 52
 export const DEFAULT_APPOINTMENT_DURATION = 50
+
+// ============================================================================
+// Calendar Entry Type Constants
+// ============================================================================
+
+export const ENTRY_TYPE_LABELS: Record<CalendarEntryType, string> = {
+  CONSULTA: "Consulta",
+  TAREFA: "Tarefa",
+  LEMBRETE: "Lembrete",
+  NOTA: "Nota",
+  REUNIAO: "Reuniao",
+}
+
+export const ENTRY_TYPE_COLORS: Record<CalendarEntryType, {
+  bg: string
+  border: string
+  text: string
+  accent: string
+}> = {
+  CONSULTA: {
+    bg: "bg-white dark:bg-card",
+    border: "border-blue-200 dark:border-blue-800",
+    text: "text-blue-700 dark:text-blue-300",
+    accent: "bg-blue-500",
+  },
+  TAREFA: {
+    bg: "bg-amber-50 dark:bg-amber-950/30",
+    border: "border-amber-200 dark:border-amber-800",
+    text: "text-amber-700 dark:text-amber-300",
+    accent: "bg-amber-500",
+  },
+  LEMBRETE: {
+    bg: "bg-sky-50 dark:bg-sky-950/30",
+    border: "border-sky-200 dark:border-sky-800",
+    text: "text-sky-700 dark:text-sky-300",
+    accent: "bg-sky-500",
+  },
+  NOTA: {
+    bg: "bg-slate-50 dark:bg-slate-950/30",
+    border: "border-slate-200 dark:border-slate-800",
+    text: "text-slate-700 dark:text-slate-300",
+    accent: "bg-slate-500",
+  },
+  REUNIAO: {
+    bg: "bg-violet-50 dark:bg-violet-950/30",
+    border: "border-violet-200 dark:border-violet-800",
+    text: "text-violet-700 dark:text-violet-300",
+    accent: "bg-violet-500",
+  },
+}
+
+export const TIME_BLOCKING_TYPES: CalendarEntryType[] = ["CONSULTA", "TAREFA", "REUNIAO"]
+export const NON_BLOCKING_TYPES: CalendarEntryType[] = ["LEMBRETE", "NOTA"]
+
+export const DEFAULT_ENTRY_DURATIONS: Record<string, number> = {
+  TAREFA: 60,
+  LEMBRETE: 15,
+  NOTA: 15,
+  REUNIAO: 60,
+}

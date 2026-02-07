@@ -7,6 +7,12 @@ import { audit, AuditAction } from "@/lib/rbac"
 // WhatsApp format validation: Brazilian format with country code
 const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
 
+const additionalPhoneSchema = z.object({
+  id: z.string().optional(),
+  phone: z.string().regex(phoneRegex, "Telefone inválido. Use formato WhatsApp: (11) 99999-9999"),
+  label: z.string().min(1, "Rótulo é obrigatório").max(30, "Rótulo deve ter no máximo 30 caracteres"),
+})
+
 const updatePatientSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(200).optional(),
   phone: z
@@ -23,6 +29,7 @@ const updatePatientSchema = z.object({
   isActive: z.boolean().optional(),
   consentWhatsApp: z.boolean().optional(),
   consentEmail: z.boolean().optional(),
+  additionalPhones: z.array(additionalPhoneSchema).max(4, "Máximo de 4 telefones adicionais").optional(),
 })
 
 /**
@@ -77,6 +84,14 @@ export const GET = withAuth(
               },
             },
           },
+        },
+        additionalPhones: {
+          select: {
+            id: true,
+            phone: true,
+            label: true,
+          },
+          orderBy: { createdAt: "asc" },
         },
         appointments: {
           orderBy: { scheduledAt: "desc" },
@@ -216,6 +231,73 @@ export const PATCH = withAuth(
       updateData.consentEmailAt = data.consentEmail ? now : null
     }
 
+    // Handle additional phones update (full replacement strategy)
+    if (data.additionalPhones !== undefined) {
+      const normalizedAdditionalPhones = data.additionalPhones.map((p) => ({
+        id: p.id,
+        phone: p.phone.replace(/\D/g, ""),
+        label: p.label,
+      }))
+
+      // Get the primary phone (updated or existing)
+      const primaryPhone = (updateData.phone as string) || existing.phone
+
+      // Check for duplicates among additional phones and primary phone
+      const allPhones = [primaryPhone, ...normalizedAdditionalPhones.map((p) => p.phone)]
+      const uniquePhones = new Set(allPhones)
+      if (uniquePhones.size !== allPhones.length) {
+        return NextResponse.json(
+          { error: "Números de telefone duplicados não são permitidos" },
+          { status: 400 }
+        )
+      }
+
+      // Check additional phones don't conflict with other patients/phones in the clinic
+      if (normalizedAdditionalPhones.length > 0) {
+        const existingAdditionalPhones = await prisma.patientPhone.findMany({
+          where: {
+            clinicId: user.clinicId,
+            phone: { in: normalizedAdditionalPhones.map((p) => p.phone) },
+            patientId: { not: params.id },
+          },
+          select: { phone: true },
+        })
+
+        const existingPrimaryPhones = await prisma.patient.findMany({
+          where: {
+            clinicId: user.clinicId,
+            phone: { in: normalizedAdditionalPhones.map((p) => p.phone) },
+            NOT: { id: params.id },
+          },
+          select: { phone: true },
+        })
+
+        const conflicting = [...existingAdditionalPhones, ...existingPrimaryPhones]
+        if (conflicting.length > 0) {
+          return NextResponse.json(
+            { error: `Telefone já cadastrado: ${conflicting[0].phone}` },
+            { status: 409 }
+          )
+        }
+      }
+
+      // Delete all existing additional phones and recreate
+      await prisma.patientPhone.deleteMany({
+        where: { patientId: params.id, clinicId: user.clinicId },
+      })
+
+      if (normalizedAdditionalPhones.length > 0) {
+        await prisma.patientPhone.createMany({
+          data: normalizedAdditionalPhones.map((p) => ({
+            patientId: params.id,
+            clinicId: user.clinicId,
+            phone: p.phone,
+            label: p.label,
+          })),
+        })
+      }
+    }
+
     const patient = await prisma.patient.update({
       where: { id: params.id },
       data: updateData,
@@ -247,6 +329,10 @@ export const PATCH = withAuth(
               },
             },
           },
+        },
+        additionalPhones: {
+          select: { id: true, phone: true, label: true },
+          orderBy: { createdAt: "asc" },
         },
       },
     })

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useRef, useEffect } from "react"
 import { Appointment, GroupSession } from "../../lib/types"
 import { getWeekDays, toDateString, isSameDay, isWeekend } from "../../lib/utils"
 import { DayHeader } from "./DayHeader"
@@ -156,104 +156,129 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], onAppo
 
   const gridHeight = HOURS.length * HOUR_HEIGHT
 
+  // Minimum width for the scrollable content: time column (56px) + 7 days * 120px
+  const minContentWidth = 56 + weekDays.length * 120
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll to center today's column on mount and week changes
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    const todayCol = container.querySelector('[data-today]') as HTMLElement | null
+    if (!todayCol) return
+
+    // Use getBoundingClientRect for accurate positioning regardless of nesting
+    const containerRect = container.getBoundingClientRect()
+    const colRect = todayCol.getBoundingClientRect()
+
+    const colCenterInContainer = (colRect.left - containerRect.left) + container.scrollLeft + colRect.width / 2
+    const targetScroll = colCenterInContainer - containerRect.width / 2
+
+    container.scrollLeft = Math.max(0, targetScroll)
+  }, [weekStart])
+
   return (
-    <div className="flex flex-col border border-border rounded-lg bg-card overflow-hidden">
-      {/* Day Headers Row */}
-      <div className="flex border-b border-border sticky top-0 bg-card z-10">
-        {/* Time column spacer */}
-        <div className="w-14 shrink-0 border-r border-border" />
+    <div className="border border-border rounded-lg bg-card overflow-hidden">
+      {/* Single horizontal scroll container for synchronized header + body scrolling */}
+      <div className="overflow-x-auto overscroll-x-contain" ref={scrollContainerRef}>
+        <div style={{ minWidth: `${minContentWidth}px` }}>
+          {/* Day Headers Row */}
+          <div className="flex border-b border-border sticky top-0 bg-card z-10">
+            {/* Time column spacer - sticky left */}
+            <div className="w-14 shrink-0 border-r border-border sticky left-0 bg-card z-20" />
 
-        {/* Day headers */}
-        <div className="flex flex-1 min-w-0 overflow-x-auto">
-          {weekDays.map((day, index) => (
-            <div
-              key={index}
-              className={`
-                flex-1 min-w-[120px] border-r border-border last:border-r-0
-                ${isSameDay(day, today) ? "bg-primary/5" : ""}
-                ${isWeekend(day) ? "bg-muted/30" : ""}
-              `}
-            >
-              <DayHeader date={day} />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Grid Body */}
-      <div className="flex overflow-x-auto">
-        {/* Time Column */}
-        <div className="w-14 shrink-0 border-r border-border">
-          {HOURS.map((hour) => (
-            <div
-              key={hour}
-              className="border-b border-border last:border-b-0 flex items-start justify-end pr-2 text-xs text-muted-foreground"
-              style={{ height: `${HOUR_HEIGHT}px` }}
-            >
-              <span className="-mt-2">{hour.toString().padStart(2, "0")}:00</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Day Columns */}
-        <div className="flex flex-1 min-w-0">
-          {weekDays.map((day, dayIndex) => {
-            const dateStr = toDateString(day)
-            const dayAppointments = appointmentsByDay[dateStr] || []
-            const dayGroupSessions = groupSessionsByDay[dateStr] || []
-            const isCurrentDay = isSameDay(day, today)
-            const weekend = isWeekend(day)
-
-            return (
+            {/* Day headers */}
+            {weekDays.map((day, index) => (
               <div
-                key={dayIndex}
+                key={index}
                 className={`
-                  flex-1 min-w-[120px] border-r border-border last:border-r-0 relative
-                  ${isCurrentDay ? "bg-primary/5" : ""}
-                  ${weekend ? "bg-muted/30" : ""}
+                  flex-1 min-w-[120px] border-r border-border last:border-r-0
+                  ${isSameDay(day, today) ? "bg-primary/5" : ""}
+                  ${isWeekend(day) ? "bg-muted/30" : ""}
                 `}
-                style={{ height: `${gridHeight}px` }}
               >
-                {/* Hour grid lines */}
-                {HOURS.map((hour) => (
-                  <div
-                    key={hour}
-                    className="absolute left-0 right-0 border-b border-border"
-                    style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
-                  >
-                    {/* 30-minute line */}
-                    <div
-                      className="absolute left-0 right-0 border-b border-border/50"
-                      style={{ top: `${HOUR_HEIGHT / 2}px` }}
-                    />
-                  </div>
-                ))}
-
-                {/* Appointments */}
-                {dayAppointments.map((appointment) => (
-                  <AppointmentBlock
-                    key={appointment.id}
-                    appointment={appointment}
-                    onClick={onAppointmentClick}
-                    showProfessional={showProfessional}
-                    columnIndex={appointment.columnIndex}
-                    totalColumns={appointment.totalColumns}
-                    professionalColorMap={professionalColorMap}
-                  />
-                ))}
-
-                {/* Group Sessions */}
-                {dayGroupSessions.map((session) => (
-                  <GroupSessionBlock
-                    key={`${session.groupId}-${session.scheduledAt}`}
-                    session={session}
-                    onClick={onGroupSessionClick}
-                    showProfessional={showProfessional}
-                  />
-                ))}
+                <DayHeader date={day} />
               </div>
-            )
-          })}
+            ))}
+          </div>
+
+          {/* Grid Body */}
+          <div className="flex">
+            {/* Time Column - sticky left so it stays visible while scrolling */}
+            <div className="w-14 shrink-0 border-r border-border sticky left-0 bg-card z-[5]">
+              {HOURS.map((hour) => (
+                <div
+                  key={hour}
+                  className="border-b border-border last:border-b-0 flex items-start justify-end pr-2 text-xs text-muted-foreground"
+                  style={{ height: `${HOUR_HEIGHT}px` }}
+                >
+                  <span className="-mt-2">{hour.toString().padStart(2, "0")}:00</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Day Columns */}
+            {weekDays.map((day, dayIndex) => {
+              const dateStr = toDateString(day)
+              const dayAppointments = appointmentsByDay[dateStr] || []
+              const dayGroupSessions = groupSessionsByDay[dateStr] || []
+              const isCurrentDay = isSameDay(day, today)
+              const weekend = isWeekend(day)
+
+              return (
+                <div
+                  key={dayIndex}
+                  {...(isCurrentDay ? { "data-today": true } : {})}
+                  className={`
+                    flex-1 min-w-[120px] border-r border-border last:border-r-0 relative
+                    ${isCurrentDay ? "bg-primary/5" : ""}
+                    ${weekend ? "bg-muted/30" : ""}
+                  `}
+                  style={{ height: `${gridHeight}px` }}
+                >
+                  {/* Hour grid lines */}
+                  {HOURS.map((hour) => (
+                    <div
+                      key={hour}
+                      className="absolute left-0 right-0 border-b border-border"
+                      style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
+                    >
+                      {/* 30-minute line */}
+                      <div
+                        className="absolute left-0 right-0 border-b border-border/50"
+                        style={{ top: `${HOUR_HEIGHT / 2}px` }}
+                      />
+                    </div>
+                  ))}
+
+                  {/* Appointments */}
+                  {dayAppointments.map((appointment) => (
+                    <AppointmentBlock
+                      key={appointment.id}
+                      appointment={appointment}
+                      onClick={onAppointmentClick}
+                      showProfessional={showProfessional}
+                      columnIndex={appointment.columnIndex}
+                      totalColumns={appointment.totalColumns}
+                      professionalColorMap={professionalColorMap}
+                    />
+                  ))}
+
+                  {/* Group Sessions */}
+                  {dayGroupSessions.map((session) => (
+                    <GroupSessionBlock
+                      key={`${session.groupId}-${session.scheduledAt}`}
+                      session={session}
+                      onClick={onGroupSessionClick}
+                      showProfessional={showProfessional}
+                    />
+                  ))}
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>
