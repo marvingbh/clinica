@@ -4,6 +4,7 @@ import { UseFormReturn } from "react-hook-form"
 import { Sheet } from "./Sheet"
 import { InlineAlert } from "./InlineAlert"
 import { ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
+import { calculateEndTime } from "../lib/utils"
 import type { CalendarEntryFormData, CalendarEntryType, RecurrenceEndType, Professional } from "../lib/types"
 
 type EntryType = Exclude<CalendarEntryType, "CONSULTA">
@@ -95,23 +96,25 @@ export function CalendarEntrySheet({
           Detalhes
         </p>
 
-        {/* 2. Date + Time */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* 2. Date */}
+        <div>
+          <label htmlFor="entry-date" className="block text-sm font-medium text-foreground mb-1.5">Data *</label>
+          <input
+            id="entry-date"
+            type="text"
+            placeholder="DD/MM/AAAA"
+            {...form.register("date")}
+            className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
+          />
+          {form.formState.errors.date && (
+            <p className="text-xs text-destructive mt-1">{form.formState.errors.date.message}</p>
+          )}
+        </div>
+
+        {/* Time + Duration + End Time */}
+        <div className="grid grid-cols-3 gap-3">
           <div>
-            <label htmlFor="entry-date" className="block text-sm font-medium text-foreground mb-1.5">Data *</label>
-            <input
-              id="entry-date"
-              type="text"
-              placeholder="DD/MM/AAAA"
-              {...form.register("date")}
-              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
-            />
-            {form.formState.errors.date && (
-              <p className="text-xs text-destructive mt-1">{form.formState.errors.date.message}</p>
-            )}
-          </div>
-          <div>
-            <label htmlFor="entry-time" className="block text-sm font-medium text-foreground mb-1.5">Horario *</label>
+            <label htmlFor="entry-time" className="block text-sm font-medium text-foreground mb-1.5">Inicio *</label>
             <input
               id="entry-time"
               type="text"
@@ -124,22 +127,26 @@ export function CalendarEntrySheet({
               <p className="text-xs text-destructive mt-1">{form.formState.errors.startTime.message}</p>
             )}
           </div>
-        </div>
-
-        {/* 3. Duration */}
-        <div>
-          <label htmlFor="entry-duration" className="block text-sm font-medium text-foreground mb-1.5">Duracao (minutos)</label>
-          <input
-            id="entry-duration"
-            type="number"
-            {...form.register("duration", {
-              setValueAs: (v) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v),
-            })}
-            min={5}
-            max={480}
-            step={5}
-            className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
-          />
+          <div>
+            <label htmlFor="entry-duration" className="block text-sm font-medium text-foreground mb-1.5">Duracao</label>
+            <input
+              id="entry-duration"
+              type="number"
+              {...form.register("duration", {
+                setValueAs: (v: string) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v),
+              })}
+              min={5}
+              max={480}
+              step={5}
+              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Fim</label>
+            <div className="h-11 px-3.5 rounded-xl border border-input bg-muted/50 text-foreground text-sm flex items-center">
+              {calculateEndTime(form.watch("startTime"), form.watch("duration")) || "—"}
+            </div>
+          </div>
         </div>
 
         {/* 4. Recurrence toggle */}

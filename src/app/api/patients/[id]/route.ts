@@ -38,7 +38,12 @@ const updatePatientSchema = z.object({
  */
 export const GET = withAuth(
   { resource: "patient", action: "read" },
-  async (_req, { user, scope }, params) => {
+  async (req, { user, scope }, params) => {
+    const { searchParams } = new URL(req.url)
+    const appointmentsLimit = Math.min(Number(searchParams.get("appointmentsLimit")) || 10, 50)
+    const appointmentsSkip = Math.max(Number(searchParams.get("appointmentsSkip")) || 0, 0)
+    const appointmentsStatus = searchParams.get("appointmentsStatus") // optional status filter
+
     // Build base query
     const where: Record<string, unknown> = {
       id: params.id,
@@ -54,75 +59,93 @@ export const GET = withAuth(
       }
     }
 
-    const patient = await prisma.patient.findFirst({
-      where,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        birthDate: true,
-        cpf: true,
-        fatherName: true,
-        motherName: true,
-        notes: true,
-        isActive: true,
-        lastVisitAt: true,
-        consentWhatsApp: true,
-        consentWhatsAppAt: true,
-        consentEmail: true,
-        consentEmailAt: true,
-        createdAt: true,
-        updatedAt: true,
-        referenceProfessionalId: true,
-        referenceProfessional: {
-          select: {
-            id: true,
-            user: {
-              select: {
-                name: true,
+    // Build appointment filter
+    const appointmentWhere: Record<string, unknown> = {}
+    if (appointmentsStatus) {
+      appointmentWhere.status = appointmentsStatus
+    }
+
+    const [patient, appointmentsTotal] = await Promise.all([
+      prisma.patient.findFirst({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          birthDate: true,
+          cpf: true,
+          fatherName: true,
+          motherName: true,
+          notes: true,
+          isActive: true,
+          lastVisitAt: true,
+          consentWhatsApp: true,
+          consentWhatsAppAt: true,
+          consentEmail: true,
+          consentEmailAt: true,
+          createdAt: true,
+          updatedAt: true,
+          referenceProfessionalId: true,
+          referenceProfessional: {
+            select: {
+              id: true,
+              user: {
+                select: {
+                  name: true,
+                },
               },
             },
           },
-        },
-        additionalPhones: {
-          select: {
-            id: true,
-            phone: true,
-            label: true,
+          additionalPhones: {
+            select: {
+              id: true,
+              phone: true,
+              label: true,
+            },
+            orderBy: { createdAt: "asc" },
           },
-          orderBy: { createdAt: "asc" },
-        },
-        appointments: {
-          orderBy: { scheduledAt: "desc" },
-          take: 20,
-          select: {
-            id: true,
-            scheduledAt: true,
-            endAt: true,
-            status: true,
-            modality: true,
-            notes: true,
-            professionalProfile: {
-              select: {
-                id: true,
-                user: {
-                  select: {
-                    name: true,
+          appointments: {
+            where: appointmentWhere,
+            orderBy: { scheduledAt: "asc" },
+            skip: appointmentsSkip,
+            take: appointmentsLimit,
+            select: {
+              id: true,
+              scheduledAt: true,
+              endAt: true,
+              status: true,
+              modality: true,
+              notes: true,
+              professionalProfile: {
+                select: {
+                  id: true,
+                  user: {
+                    select: {
+                      name: true,
+                    },
                   },
                 },
               },
             },
           },
         },
-      },
-    })
+      }),
+      // Count total appointments for pagination
+      prisma.appointment.count({
+        where: {
+          patientId: params.id,
+          clinicId: user.clinicId,
+          ...appointmentWhere,
+        },
+      }),
+    ])
 
     if (!patient) {
       return NextResponse.json({ error: "Paciente não encontrado" }, { status: 404 })
     }
 
-    return NextResponse.json({ patient })
+    return NextResponse.json({ patient, appointmentsTotal })
   }
 )
 

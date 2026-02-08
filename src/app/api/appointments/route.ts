@@ -185,45 +185,48 @@ export const GET = withAuth(
       },
     })
 
-    // For BIWEEKLY appointments, find the "paired" recurrence (same day, same time, different patient)
-    // This helps users see who else shares the same time slot on alternating weeks
-
-    // Collect all biweekly appointments that need paired recurrence lookup
-    // Only CONSULTA type with patient can have biweekly pairing
+    // For BIWEEKLY appointments, find the "paired" patient on the alternate week
+    // by looking at actual appointments ±7 days (same professional, same time, different patient)
     const biweeklyAppointments = appointments.filter(
       apt => apt.recurrence?.recurrenceType === "BIWEEKLY" && apt.recurrence.isActive && apt.type === "CONSULTA" && apt.patientId
     )
 
-    // Build lookup keys for batch query
-    // Use recurrence.startTime directly instead of extracting from scheduledAt to avoid timezone issues
-    const biweeklyLookupKeys = biweeklyAppointments.map(apt => {
-      return {
-        professionalProfileId: apt.professionalProfileId,
-        dayOfWeek: apt.recurrence!.dayOfWeek,
-        startTime: apt.recurrence!.startTime,
-        patientId: apt.patient!.id,
+    const pairedInfoMap = new Map<string, { id: string | null; name: string | null }>()
+
+    if (biweeklyAppointments.length > 0) {
+      // Collect unique adjacent-week date strings for all biweekly appointments
+      const msPerDay = 24 * 60 * 60 * 1000
+      const adjacentDateStrs = new Set<string>()
+      for (const apt of biweeklyAppointments) {
+        const t = apt.scheduledAt.getTime()
+        for (const offset of [-7, 7]) {
+          const d = new Date(t + offset * msPerDay)
+          adjacentDateStrs.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`)
+        }
       }
-    })
 
-    // Batch fetch all potential paired recurrences in a single query
-    let pairedRecurrencesMap = new Map<string, string | null>()
-
-    if (biweeklyLookupKeys.length > 0) {
-      // Get unique combinations of professionalProfileId, dayOfWeek, startTime
-      const uniqueProfessionalIds = [...new Set(biweeklyLookupKeys.map(k => k.professionalProfileId))]
-      const uniqueDaysOfWeek = [...new Set(biweeklyLookupKeys.map(k => k.dayOfWeek))]
-      const uniqueStartTimes = [...new Set(biweeklyLookupKeys.map(k => k.startTime))]
-
-      const allPairedRecurrences = await prisma.appointmentRecurrence.findMany({
+      const adjacentAppointments = await prisma.appointment.findMany({
         where: {
           clinicId: user.clinicId,
-          recurrenceType: "BIWEEKLY",
-          isActive: true,
-          professionalProfileId: { in: uniqueProfessionalIds },
-          dayOfWeek: { in: uniqueDaysOfWeek },
-          startTime: { in: uniqueStartTimes },
+          recurrenceId: { not: null },
+          recurrence: {
+            recurrenceType: "BIWEEKLY",
+            isActive: true,
+          },
+          type: "CONSULTA",
+          status: { notIn: ["CANCELADO_PACIENTE", "CANCELADO_PROFISSIONAL"] },
+          OR: [...adjacentDateStrs].map(ds => ({
+            scheduledAt: {
+              gte: new Date(ds + "T00:00:00"),
+              lte: new Date(ds + "T23:59:59.999"),
+            },
+          })),
         },
-        include: {
+        select: {
+          id: true,
+          scheduledAt: true,
+          professionalProfileId: true,
+          patientId: true,
           patient: {
             select: {
               id: true,
@@ -233,20 +236,25 @@ export const GET = withAuth(
         },
       })
 
-      // Create a lookup map: "professionalId|dayOfWeek|startTime|patientId" -> paired patient name
-      for (const biweeklyKey of biweeklyLookupKeys) {
-        const lookupKey = `${biweeklyKey.professionalProfileId}|${biweeklyKey.dayOfWeek}|${biweeklyKey.startTime}|${biweeklyKey.patientId}`
+      // Match each biweekly appointment with its pair on the adjacent week
+      for (const apt of biweeklyAppointments) {
+        const aptHours = apt.scheduledAt.getHours()
+        const aptMinutes = apt.scheduledAt.getMinutes()
+        const aptTime = apt.scheduledAt.getTime()
 
-        // Find a paired recurrence (same slot, different patient)
-        const pairedRecurrence = allPairedRecurrences.find(
-          rec =>
-            rec.professionalProfileId === biweeklyKey.professionalProfileId &&
-            rec.dayOfWeek === biweeklyKey.dayOfWeek &&
-            rec.startTime === biweeklyKey.startTime &&
-            rec.patient?.id !== biweeklyKey.patientId
-        )
+        const paired = adjacentAppointments.find(adj => {
+          if (adj.professionalProfileId !== apt.professionalProfileId) return false
+          if (adj.patientId === apt.patientId) return false
+          if (adj.scheduledAt.getHours() !== aptHours || adj.scheduledAt.getMinutes() !== aptMinutes) return false
+          // Verify it's exactly ±7 days away (within same day tolerance)
+          const daysDiff = Math.abs(adj.scheduledAt.getTime() - aptTime) / msPerDay
+          return daysDiff > 6 && daysDiff < 8
+        })
 
-        pairedRecurrencesMap.set(lookupKey, pairedRecurrence?.patient?.name || null)
+        pairedInfoMap.set(apt.id, {
+          id: paired?.id || null,
+          name: paired?.patient?.name || null,
+        })
       }
     }
 
@@ -256,16 +264,14 @@ export const GET = withAuth(
         return apt
       }
 
-      // Use recurrence.startTime directly instead of extracting from scheduledAt to avoid timezone issues
-      const lookupKey = `${apt.professionalProfileId}|${apt.recurrence.dayOfWeek}|${apt.recurrence.startTime}|${apt.patient.id}`
-
-      const pairedPatientName = pairedRecurrencesMap.get(lookupKey) || null
+      const paired = pairedInfoMap.get(apt.id)
 
       return {
         ...apt,
         alternateWeekInfo: {
-          pairedPatientName,
-          isAvailable: !pairedPatientName,
+          pairedAppointmentId: paired?.id || null,
+          pairedPatientName: paired?.name || null,
+          isAvailable: !paired?.name,
         },
       }
     })

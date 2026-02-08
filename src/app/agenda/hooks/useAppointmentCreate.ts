@@ -18,7 +18,7 @@ export interface UseAppointmentCreateParams {
 export interface UseAppointmentCreateReturn {
   // Sheet state
   isCreateSheetOpen: boolean
-  openCreateSheet: (slotTime?: string) => void
+  openCreateSheet: (slotTime?: string, overrides?: { date?: Date; appointmentType?: AppointmentType }) => void
   closeCreateSheet: () => void
 
   // Form
@@ -89,19 +89,20 @@ export function useAppointmentCreate({
   })
 
   const openCreateSheet = useCallback(
-    (slotTime?: string) => {
+    (slotTime?: string, overrides?: { date?: Date; appointmentType?: AppointmentType }) => {
+      const effectiveDate = overrides?.date || selectedDate
       setSelectedPatient(null)
       setPatientSearch("")
       setCreateProfessionalId(selectedProfessionalId || "")
       setApiError(null)
-      // Default to WEEKLY recurring appointment with no end date
-      setAppointmentType("WEEKLY")
+      // Default to WEEKLY recurring appointment with no end date, unless overridden
+      setAppointmentType(overrides?.appointmentType || "WEEKLY")
       setRecurrenceEndType("INDEFINITE")
       setRecurrenceEndDate("")
       setRecurrenceOccurrences(10)
       form.reset({
         patientId: "",
-        date: toDisplayDateFromDate(selectedDate),
+        date: toDisplayDateFromDate(effectiveDate),
         startTime: slotTime || "",
         modality: "PRESENCIAL",
         notes: "",

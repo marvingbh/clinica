@@ -91,6 +91,7 @@ export interface AppointmentRecurrence {
 }
 
 export interface AlternateWeekInfo {
+  pairedAppointmentId: string | null
   pairedPatientName: string | null
   isAvailable: boolean
 }

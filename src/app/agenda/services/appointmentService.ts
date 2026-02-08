@@ -92,6 +92,13 @@ export interface DeleteAppointmentResponse {
   error?: string
 }
 
+export async function fetchAppointmentById(id: string): Promise<Appointment | null> {
+  const response = await fetch(`/api/appointments/${id}`)
+  if (!response.ok) return null
+  const data = await response.json()
+  return data.appointment || null
+}
+
 export async function fetchAppointments({
   date,
   professionalProfileId,

@@ -10,6 +10,7 @@ const START_HOUR = 7
 interface AppointmentBlockProps {
   appointment: Appointment
   onClick: (appointment: Appointment) => void
+  onAlternateWeekClick?: (appointment: Appointment) => void
   showProfessional?: boolean
   columnIndex?: number
   totalColumns?: number
@@ -19,6 +20,7 @@ interface AppointmentBlockProps {
 export function AppointmentBlock({
   appointment,
   onClick,
+  onAlternateWeekClick,
   showProfessional = false,
   columnIndex = 0,
   totalColumns = 1,
@@ -102,9 +104,16 @@ export function AppointmentBlock({
         )}
         {/* Alternate week info for biweekly - show if there's enough height */}
         {height >= 64 && appointment.recurrence?.recurrenceType === "BIWEEKLY" && appointment.alternateWeekInfo && (
-          <p className="text-[9px] text-purple-600 dark:text-purple-400 truncate leading-tight flex items-center gap-0.5">
+          <p
+            role="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onAlternateWeekClick?.(appointment)
+            }}
+            className="text-[9px] text-purple-600 dark:text-purple-400 truncate leading-tight flex items-center gap-0.5 hover:text-purple-800 dark:hover:text-purple-200 cursor-pointer underline"
+          >
             <ArrowLeftRightIcon className="w-2.5 h-2.5 flex-shrink-0" />
-            {appointment.alternateWeekInfo.pairedPatientName || "Disponivel"}
+            {appointment.alternateWeekInfo.pairedPatientName || "Disponivel - Agendar"}
           </p>
         )}
       </div>

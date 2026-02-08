@@ -23,7 +23,7 @@ import {
   canResendConfirmation,
 } from "./lib/utils"
 
-import { toDateString } from "./lib/utils"
+import { toDateString, calculateEndTime } from "./lib/utils"
 
 import {
   Sheet,
@@ -39,7 +39,7 @@ import {
   CalendarEntrySheet,
 } from "./components"
 
-import type { GroupSession, CalendarEntryType } from "./lib/types"
+import type { Appointment, GroupSession, CalendarEntryType } from "./lib/types"
 
 import {
   useDateNavigation,
@@ -51,6 +51,7 @@ import {
   useCalendarEntryCreate,
 } from "./hooks"
 
+import { fetchAppointmentById } from "./services"
 import { createProfessionalColorMap } from "./lib/professional-colors"
 
 export default function AgendaPage() {
@@ -238,6 +239,28 @@ export default function AgendaPage() {
     onSuccess: refetchAppointments,
   })
 
+  // Handle alternate week click (biweekly appointments)
+  const handleAlternateWeekClick = useCallback(async (appointment: Appointment) => {
+    const scheduledAt = new Date(appointment.scheduledAt)
+    const startTime = `${scheduledAt.getHours().toString().padStart(2, "0")}:${scheduledAt.getMinutes().toString().padStart(2, "0")}`
+
+    if (appointment.alternateWeekInfo?.isAvailable) {
+      // No one scheduled — open create form pre-filled for the alternate date
+      const alternateDate = new Date(scheduledAt)
+      alternateDate.setDate(alternateDate.getDate() + 7)
+      setSelectedDate(alternateDate)
+      setTimeout(() => {
+        openCreateSheet(startTime, { date: alternateDate, appointmentType: "BIWEEKLY" })
+      }, 100)
+    } else if (appointment.alternateWeekInfo?.pairedAppointmentId) {
+      // Someone is paired — fetch the paired appointment and open edit sheet
+      const paired = await fetchAppointmentById(appointment.alternateWeekInfo.pairedAppointmentId)
+      if (paired) {
+        openEditSheet(paired)
+      }
+    }
+  }, [setSelectedDate, openCreateSheet, openEditSheet])
+
   // FAB menu state
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false)
 
@@ -302,6 +325,7 @@ export default function AgendaPage() {
         onSlotClick={openCreateSheet}
         onAppointmentClick={openEditSheet}
         onGroupSessionClick={openGroupSessionSheet}
+        onAlternateWeekClick={handleAlternateWeekClick}
         onSwipeLeft={goToNextDay}
         onSwipeRight={goToPreviousDay}
         professionalColorMap={professionalColorMap}
@@ -406,15 +430,17 @@ export default function AgendaPage() {
             Detalhes
           </p>
 
-          {/* 2. Date + Time (same row) */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* 2. Date */}
+          <div>
+            <label htmlFor="date" className="block text-sm font-medium text-foreground mb-1.5">Data *</label>
+            <input id="date" type="text" placeholder="DD/MM/AAAA" {...createForm.register("date")} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
+            {createForm.formState.errors.date && <p className="text-xs text-destructive mt-1">{createForm.formState.errors.date.message}</p>}
+          </div>
+
+          {/* Time + Duration + End Time */}
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <label htmlFor="date" className="block text-sm font-medium text-foreground mb-1.5">Data *</label>
-              <input id="date" type="text" placeholder="DD/MM/AAAA" {...createForm.register("date")} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
-              {createForm.formState.errors.date && <p className="text-xs text-destructive mt-1">{createForm.formState.errors.date.message}</p>}
-            </div>
-            <div>
-              <label htmlFor="startTime" className="block text-sm font-medium text-foreground mb-1.5">Horario *</label>
+              <label htmlFor="startTime" className="block text-sm font-medium text-foreground mb-1.5">Inicio *</label>
               <input
                 id="startTime"
                 type="text"
@@ -424,6 +450,16 @@ export default function AgendaPage() {
                 className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
               />
               {createForm.formState.errors.startTime && <p className="text-xs text-destructive mt-1">{createForm.formState.errors.startTime.message}</p>}
+            </div>
+            <div>
+              <label htmlFor="duration" className="block text-sm font-medium text-foreground mb-1.5">Duracao</label>
+              <input id="duration" type="number" {...createForm.register("duration", { setValueAs: (v: string) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v) })} placeholder={`${appointmentDuration}`} min={15} max={480} step={5} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Fim</label>
+              <div className="h-11 px-3.5 rounded-xl border border-input bg-muted/50 text-foreground text-sm flex items-center">
+                {calculateEndTime(createForm.watch("startTime"), createForm.watch("duration") || appointmentDuration) || "—"}
+              </div>
             </div>
           </div>
 
@@ -469,12 +505,8 @@ export default function AgendaPage() {
             </div>
           )}
 
-          {/* 5. Duration */}
-          <div>
-            <label htmlFor="duration" className="block text-sm font-medium text-foreground mb-1.5">Duracao (minutos)</label>
-            <input id="duration" type="number" {...createForm.register("duration", { setValueAs: (v) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v) })} placeholder={`Padrao: ${appointmentDuration} minutos`} min={15} max={480} step={5} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
-            <p className="text-xs text-muted-foreground mt-1">Se nao informado, usa a duracao padrao ({appointmentDuration} min)</p>
-          </div>
+          {/* Duration hint */}
+          <p className="text-xs text-muted-foreground -mt-2">Duracao padrao: {appointmentDuration} min</p>
 
           {/* 6. Modality */}
           <div>

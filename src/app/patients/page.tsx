@@ -175,6 +175,11 @@ export default function PatientsPage() {
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [isLoadingProfessionals, setIsLoadingProfessionals] = useState(false)
   const [additionalPhones, setAdditionalPhones] = useState<AdditionalPhone[]>([])
+  // Appointment history pagination
+  const [appointmentsTotal, setAppointmentsTotal] = useState(0)
+  const [appointmentsStatusFilter, setAppointmentsStatusFilter] = useState("")
+  const [isLoadingMoreAppointments, setIsLoadingMoreAppointments] = useState(false)
+  const APPOINTMENTS_PER_PAGE = 10
 
   const isAdmin = session?.user?.role === "ADMIN"
 
@@ -231,21 +236,38 @@ export default function PatientsPage() {
     }
   }, [searchDebounced, filterActive, pagination.page, router])
 
-  const fetchPatientDetails = useCallback(async (patientId: string) => {
-    setIsLoadingDetails(true)
+  const fetchPatientDetails = useCallback(async (patientId: string, statusFilter = "", skip = 0) => {
+    if (skip === 0) setIsLoadingDetails(true)
+    else setIsLoadingMoreAppointments(true)
     try {
-      const response = await fetch(`/api/patients/${patientId}`)
+      const params = new URLSearchParams({
+        appointmentsLimit: APPOINTMENTS_PER_PAGE.toString(),
+        appointmentsSkip: skip.toString(),
+      })
+      if (statusFilter) params.set("appointmentsStatus", statusFilter)
+
+      const response = await fetch(`/api/patients/${patientId}?${params.toString()}`)
       if (!response.ok) {
         throw new Error("Failed to fetch patient details")
       }
       const data = await response.json()
-      setViewingPatient(data.patient)
+      if (skip === 0) {
+        setViewingPatient(data.patient)
+      } else {
+        // Append to existing appointments
+        setViewingPatient(prev => prev ? {
+          ...prev,
+          appointments: [...(prev.appointments || []), ...(data.patient.appointments || [])],
+        } : data.patient)
+      }
+      setAppointmentsTotal(data.appointmentsTotal)
     } catch {
       toast.error("Erro ao carregar detalhes do paciente")
     } finally {
       setIsLoadingDetails(false)
+      setIsLoadingMoreAppointments(false)
     }
-  }, [])
+  }, [APPOINTMENTS_PER_PAGE])
 
   const fetchProfessionals = useCallback(async () => {
     setIsLoadingProfessionals(true)
@@ -313,6 +335,8 @@ export default function PatientsPage() {
 
   function openViewSheet(patient: Patient) {
     setEditingPatient(null)
+    setAppointmentsStatusFilter("")
+    setAppointmentsTotal(0)
     fetchPatientDetails(patient.id)
     setIsSheetOpen(true)
   }
@@ -322,6 +346,8 @@ export default function PatientsPage() {
     setEditingPatient(null)
     setViewingPatient(null)
     setAdditionalPhones([])
+    setAppointmentsStatusFilter("")
+    setAppointmentsTotal(0)
   }
 
   async function onSubmit(data: PatientFormData) {
@@ -790,36 +816,101 @@ export default function PatientsPage() {
 
                       {/* Appointment History */}
                       <div>
-                        <h3 className="text-lg font-medium text-foreground mb-4">
-                          Historico de Consultas
-                        </h3>
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-lg font-medium text-foreground">
+                            Historico de Consultas
+                          </h3>
+                          {appointmentsTotal > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              {viewingPatient.appointments?.length || 0} de {appointmentsTotal}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Status filter chips */}
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {[
+                            { value: "", label: "Todos" },
+                            { value: "AGENDADO", label: "Agendado" },
+                            { value: "CONFIRMADO", label: "Confirmado" },
+                            { value: "FINALIZADO", label: "Finalizado" },
+                            { value: "CANCELADO_PACIENTE", label: "Canc. Paciente" },
+                            { value: "CANCELADO_PROFISSIONAL", label: "Canc. Profissional" },
+                            { value: "NAO_COMPARECEU", label: "Faltou" },
+                          ].map((filter) => (
+                            <button
+                              key={filter.value}
+                              type="button"
+                              onClick={() => {
+                                setAppointmentsStatusFilter(filter.value)
+                                if (viewingPatient) {
+                                  fetchPatientDetails(viewingPatient.id, filter.value, 0)
+                                }
+                              }}
+                              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                                appointmentsStatusFilter === filter.value
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-background text-muted-foreground border-input hover:bg-muted"
+                              }`}
+                            >
+                              {filter.label}
+                            </button>
+                          ))}
+                        </div>
+
                         {viewingPatient.appointments && viewingPatient.appointments.length > 0 ? (
-                          <div className="space-y-3">
-                            {viewingPatient.appointments.map((appointment) => (
-                              <div
-                                key={appointment.id}
-                                className="bg-muted/50 rounded-lg p-4"
-                              >
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="font-medium">
-                                    {formatDateTime(appointment.scheduledAt)}
-                                  </span>
-                                  <span className={`text-xs px-2 py-1 rounded-full ${statusColors[appointment.status] || 'bg-gray-100 text-gray-800'}`}>
-                                    {statusLabels[appointment.status] || appointment.status}
-                                  </span>
+                          <>
+                            <div className="space-y-3">
+                              {viewingPatient.appointments.map((appointment) => (
+                                <div
+                                  key={appointment.id}
+                                  className="bg-muted/50 rounded-lg p-4"
+                                >
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="font-medium">
+                                      {formatDateTime(appointment.scheduledAt)}
+                                    </span>
+                                    <span className={`text-xs px-2 py-1 rounded-full ${statusColors[appointment.status] || 'bg-gray-100 text-gray-800'}`}>
+                                      {statusLabels[appointment.status] || appointment.status}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">
+                                    {appointment.professionalProfile.user.name}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {appointment.modality === "ONLINE" ? "Online" : "Presencial"}
+                                  </p>
                                 </div>
-                                <p className="text-sm text-muted-foreground">
-                                  {appointment.professionalProfile.user.name}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {appointment.modality === "ONLINE" ? "Online" : "Presencial"}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
+                              ))}
+                            </div>
+
+                            {/* Load more button */}
+                            {viewingPatient.appointments.length < appointmentsTotal && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (viewingPatient) {
+                                    fetchPatientDetails(
+                                      viewingPatient.id,
+                                      appointmentsStatusFilter,
+                                      viewingPatient.appointments?.length || 0
+                                    )
+                                  }
+                                }}
+                                disabled={isLoadingMoreAppointments}
+                                className="w-full mt-4 h-10 rounded-lg border border-input bg-background text-sm text-muted-foreground font-medium hover:bg-muted hover:text-foreground disabled:opacity-50 transition-colors"
+                              >
+                                {isLoadingMoreAppointments
+                                  ? "Carregando..."
+                                  : `Carregar mais (${appointmentsTotal - viewingPatient.appointments.length} restantes)`}
+                              </button>
+                            )}
+                          </>
                         ) : (
                           <p className="text-muted-foreground text-sm">
-                            Nenhuma consulta registrada
+                            {appointmentsStatusFilter
+                              ? "Nenhuma consulta com este filtro"
+                              : "Nenhuma consulta registrada"}
                           </p>
                         )}
                       </div>

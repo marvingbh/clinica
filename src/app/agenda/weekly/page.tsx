@@ -36,6 +36,7 @@ import {
 } from "../lib"
 
 import { fetchGroupSessions } from "../services/groupSessionService"
+import { fetchAppointmentById } from "../services/appointmentService"
 
 import {
   DEFAULT_APPOINTMENT_DURATION,
@@ -45,6 +46,8 @@ import {
   toDateString,
   toDisplayDateFromDate,
   toIsoDate,
+  toLocalDateTime,
+  calculateEndTime,
   canCancelAppointment,
   canMarkStatus,
   canResendConfirmation,
@@ -74,21 +77,57 @@ function WeeklyAgendaPageContent() {
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
 
-  // Initialize week from URL or default to current week
-  const [weekStart, setWeekStart] = useState(() => {
+  // Initialize week from URL, localStorage, or default to current week
+  const [weekStart, setWeekStartState] = useState(() => {
     const dateParam = searchParams.get("date")
     if (dateParam) {
       return getWeekStart(new Date(dateParam + "T12:00:00"))
     }
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("clinica:selectedDate")
+      if (stored) {
+        const [year, month, day] = stored.split("-").map(Number)
+        const date = new Date(year, month - 1, day)
+        if (!isNaN(date.getTime())) return getWeekStart(date)
+      }
+    }
     return getWeekStart(new Date())
   })
+
+  const setWeekStart = useCallback((dateOrFn: Date | ((prev: Date) => Date)) => {
+    setWeekStartState((prev) => {
+      const newDate = typeof dateOrFn === "function" ? dateOrFn(prev) : dateOrFn
+      if (typeof window !== "undefined") {
+        const y = newDate.getFullYear()
+        const m = String(newDate.getMonth() + 1).padStart(2, "0")
+        const d = String(newDate.getDate()).padStart(2, "0")
+        localStorage.setItem("clinica:selectedDate", `${y}-${m}-${d}`)
+      }
+      return newDate
+    })
+  }, [])
 
   // Core state
   const [isLoading, setIsLoading] = useState(true)
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [groupSessions, setGroupSessions] = useState<GroupSession[]>([])
   const [professionals, setProfessionals] = useState<Professional[]>([])
-  const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>("")
+  const [selectedProfessionalId, setSelectedProfessionalIdState] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("clinica:selectedProfessionalId") || ""
+    }
+    return ""
+  })
+  const setSelectedProfessionalId = useCallback((id: string) => {
+    setSelectedProfessionalIdState(id)
+    if (typeof window !== "undefined") {
+      if (id) {
+        localStorage.setItem("clinica:selectedProfessionalId", id)
+      } else {
+        localStorage.removeItem("clinica:selectedProfessionalId")
+      }
+    }
+  }, [])
   // Use session's appointmentDuration for non-admins, default for admins (will be updated when selecting professional)
   const [appointmentDuration, setAppointmentDuration] = useState(
     session?.user?.appointmentDuration || DEFAULT_APPOINTMENT_DURATION
@@ -290,20 +329,21 @@ function WeeklyAgendaPageContent() {
   // Create Appointment
   // ============================================================================
 
-  function openCreateSheet() {
+  function openCreateSheet(overrides?: { date?: Date; startTime?: string; appointmentType?: AppointmentType }) {
     setSelectedPatient(null)
     setPatientSearch("")
     setCreateProfessionalId(selectedProfessionalId || "")
     setCreateApiError(null)
-    // Default to WEEKLY recurring appointment with no end date
-    setAppointmentType("WEEKLY")
+    // Default to WEEKLY recurring appointment with no end date, unless overridden
+    setAppointmentType(overrides?.appointmentType || "WEEKLY")
     setRecurrenceEndType("INDEFINITE")
     setRecurrenceEndDate("")
     setRecurrenceOccurrences(10)
+    const effectiveDate = overrides?.date || weekStart
     reset({
       patientId: "",
-      date: toDisplayDateFromDate(weekStart),
-      startTime: "",
+      date: toDisplayDateFromDate(effectiveDate),
+      startTime: overrides?.startTime || "",
       modality: "PRESENCIAL",
       notes: "",
     })
@@ -317,6 +357,25 @@ function WeeklyAgendaPageContent() {
     setCreateProfessionalId("")
     setAppointmentType("WEEKLY")
   }
+
+  // Handle alternate week click (biweekly appointments)
+  const handleAlternateWeekClick = useCallback(async (appointment: Appointment) => {
+    const scheduledAt = new Date(appointment.scheduledAt)
+    const startTime = `${scheduledAt.getHours().toString().padStart(2, "0")}:${scheduledAt.getMinutes().toString().padStart(2, "0")}`
+
+    if (appointment.alternateWeekInfo?.isAvailable) {
+      // No one scheduled — open create form pre-filled for the alternate date
+      const alternateDate = new Date(scheduledAt)
+      alternateDate.setDate(alternateDate.getDate() + 7)
+      openCreateSheet({ date: alternateDate, startTime, appointmentType: "BIWEEKLY" })
+    } else if (appointment.alternateWeekInfo?.pairedAppointmentId) {
+      // Someone is paired — fetch the paired appointment and open edit sheet
+      const paired = await fetchAppointmentById(appointment.alternateWeekInfo.pairedAppointmentId)
+      if (paired) {
+        openEditSheet(paired)
+      }
+    }
+  }, [])
 
   const handleFabMenuSelect = useCallback((type: CalendarEntryType | "CONSULTA") => {
     setIsFabMenuOpen(false)
@@ -439,10 +498,7 @@ function WeeklyAgendaPageContent() {
 
     setIsUpdatingAppointment(true)
     try {
-      const [hours, minutes] = data.startTime.split(":").map(Number)
-      const isoDate = toIsoDate(data.date)
-      const scheduledAt = new Date(isoDate + "T12:00:00")
-      scheduledAt.setHours(hours, minutes, 0, 0)
+      const scheduledAt = toLocalDateTime(data.date, data.startTime)
 
       const durationMinutes = data.duration || appointmentDuration
       const endAt = new Date(scheduledAt.getTime() + durationMinutes * 60000)
@@ -846,6 +902,7 @@ function WeeklyAgendaPageContent() {
           groupSessions={groupSessions}
           onAppointmentClick={openEditSheet}
           onGroupSessionClick={openGroupSessionSheet}
+          onAlternateWeekClick={handleAlternateWeekClick}
           showProfessional={!selectedProfessionalId && isAdmin}
         />
       </div>
@@ -953,15 +1010,17 @@ function WeeklyAgendaPageContent() {
             Detalhes
           </p>
 
-          {/* 2. Date + Time (same row) */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* 2. Date */}
+          <div>
+            <label htmlFor="date" className="block text-sm font-medium text-foreground mb-1.5">Data *</label>
+            <input id="date" type="text" placeholder="DD/MM/AAAA" {...register("date")} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
+            {errors.date && <p className="text-xs text-destructive mt-1">{errors.date.message}</p>}
+          </div>
+
+          {/* Time + Duration + End Time */}
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <label htmlFor="date" className="block text-sm font-medium text-foreground mb-1.5">Data *</label>
-              <input id="date" type="text" placeholder="DD/MM/AAAA" {...register("date")} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
-              {errors.date && <p className="text-xs text-destructive mt-1">{errors.date.message}</p>}
-            </div>
-            <div>
-              <label htmlFor="startTime" className="block text-sm font-medium text-foreground mb-1.5">Horario *</label>
+              <label htmlFor="startTime" className="block text-sm font-medium text-foreground mb-1.5">Inicio *</label>
               <input
                 id="startTime"
                 type="text"
@@ -971,6 +1030,16 @@ function WeeklyAgendaPageContent() {
                 className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
               />
               {errors.startTime && <p className="text-xs text-destructive mt-1">{errors.startTime.message}</p>}
+            </div>
+            <div>
+              <label htmlFor="duration" className="block text-sm font-medium text-foreground mb-1.5">Duracao</label>
+              <input id="duration" type="number" {...register("duration", { setValueAs: (v: string) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v) })} placeholder={`${appointmentDuration}`} min={15} max={480} step={5} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Fim</label>
+              <div className="h-11 px-3.5 rounded-xl border border-input bg-muted/50 text-foreground text-sm flex items-center">
+                {calculateEndTime(watch("startTime"), watch("duration") || appointmentDuration) || "—"}
+              </div>
             </div>
           </div>
 
@@ -1016,12 +1085,8 @@ function WeeklyAgendaPageContent() {
             </div>
           )}
 
-          {/* 5. Duration */}
-          <div>
-            <label htmlFor="duration" className="block text-sm font-medium text-foreground mb-1.5">Duracao (minutos)</label>
-            <input id="duration" type="number" {...register("duration", { setValueAs: (v) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v) })} placeholder={`Padrao: ${appointmentDuration} minutos`} min={15} max={480} step={5} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
-            <p className="text-xs text-muted-foreground mt-1">Se nao informado, usa a duracao padrao ({appointmentDuration} min)</p>
-          </div>
+          {/* Duration hint */}
+          <p className="text-xs text-muted-foreground -mt-2">Duracao padrao: {appointmentDuration} min</p>
 
           {/* 6. Modality */}
           <div>

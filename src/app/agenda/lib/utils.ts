@@ -233,6 +233,31 @@ export function toIsoDate(displayDate: string): string {
 }
 
 /**
+ * Creates a local Date from a date string (DD/MM/YYYY or YYYY-MM-DD) and a time string (HH:MM).
+ * Uses explicit Date constructor to avoid timezone ambiguity from string parsing.
+ */
+export function toLocalDateTime(dateStr: string, timeStr: string): Date {
+  const isoDate = toIsoDate(dateStr)
+  const [year, month, day] = isoDate.split("-").map(Number)
+  const [hours, minutes] = timeStr.split(":").map(Number)
+  return new Date(year, month - 1, day, hours, minutes, 0, 0)
+}
+
+/**
+ * Calculates end time given a start time (HH:MM) and duration in minutes.
+ * Returns the end time as "HH:MM" or null if inputs are invalid.
+ */
+export function calculateEndTime(startTime: string, durationMinutes: number | undefined | null): string | null {
+  if (!startTime || !durationMinutes) return null
+  const match = startTime.match(/^(\d{1,2}):(\d{2})$/)
+  if (!match) return null
+  const totalMinutes = Number(match[1]) * 60 + Number(match[2]) + durationMinutes
+  const endHours = Math.floor(totalMinutes / 60) % 24
+  const endMins = totalMinutes % 60
+  return `${endHours.toString().padStart(2, "0")}:${endMins.toString().padStart(2, "0")}`
+}
+
+/**
  * Converts a Date to DD/MM/YYYY string (Brazilian format)
  */
 export function toDisplayDateFromDate(date: Date): string {

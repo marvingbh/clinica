@@ -121,12 +121,12 @@ export const POST = withAuth(
 
     // Handle series cancellation
     if (cancelType === "series" && existing.recurrenceId) {
-      // Find all future appointments in the series that can be cancelled
+      // Find all appointments in the series from the selected one onward that can be cancelled
       const futureAppointments = await prisma.appointment.findMany({
         where: {
           recurrenceId: existing.recurrenceId,
           clinicId: user.clinicId,
-          scheduledAt: { gte: now }, // Only future appointments
+          scheduledAt: { gte: existing.scheduledAt },
           status: { in: cancellableStatuses },
         },
         include: {

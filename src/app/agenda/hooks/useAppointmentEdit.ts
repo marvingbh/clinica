@@ -2,7 +2,7 @@ import { useState, useCallback } from "react"
 import { useForm, UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
-import { toDisplayDateFromDate, toIsoDate } from "../lib/utils"
+import { toDisplayDateFromDate, toLocalDateTime } from "../lib/utils"
 import { editAppointmentSchema, EditAppointmentFormData, Appointment } from "../lib/types"
 import { updateAppointment } from "../services"
 
@@ -83,10 +83,7 @@ export function useAppointmentEdit({
 
       setIsUpdating(true)
       try {
-        const [hours, minutes] = data.startTime.split(":").map(Number)
-        const isoDate = toIsoDate(data.date)
-        const scheduledAt = new Date(isoDate + "T12:00:00")
-        scheduledAt.setHours(hours, minutes, 0, 0)
+        const scheduledAt = toLocalDateTime(data.date, data.startTime)
 
         const durationMinutes = data.duration || appointmentDuration
         const endAt = new Date(scheduledAt.getTime() + durationMinutes * 60000)

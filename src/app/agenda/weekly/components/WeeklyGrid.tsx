@@ -20,6 +20,7 @@ interface WeeklyGridProps {
   groupSessions?: GroupSession[]
   onAppointmentClick: (appointment: Appointment) => void
   onGroupSessionClick?: (session: GroupSession) => void
+  onAlternateWeekClick?: (appointment: Appointment) => void
   showProfessional?: boolean
 }
 
@@ -97,7 +98,7 @@ function calculateAppointmentLayout(appointments: Appointment[]): AppointmentWit
   return result
 }
 
-export function WeeklyGrid({ weekStart, appointments, groupSessions = [], onAppointmentClick, onGroupSessionClick, showProfessional = false }: WeeklyGridProps) {
+export function WeeklyGrid({ weekStart, appointments, groupSessions = [], onAppointmentClick, onGroupSessionClick, onAlternateWeekClick, showProfessional = false }: WeeklyGridProps) {
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart])
   const today = new Date()
 
@@ -259,6 +260,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], onAppo
                       key={appointment.id}
                       appointment={appointment}
                       onClick={onAppointmentClick}
+                      onAlternateWeekClick={onAlternateWeekClick}
                       showProfessional={showProfessional}
                       columnIndex={appointment.columnIndex}
                       totalColumns={appointment.totalColumns}

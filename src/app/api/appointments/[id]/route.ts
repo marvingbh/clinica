@@ -23,15 +23,37 @@ export const GET = withAuth(
         clinicId: user.clinicId,
       },
       include: {
-        patient: true,
+        patient: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            consentWhatsApp: true,
+            consentEmail: true,
+          },
+        },
         professionalProfile: {
-          include: {
+          select: {
+            id: true,
             user: {
               select: {
                 name: true,
-                email: true,
               },
             },
+          },
+        },
+        recurrence: {
+          select: {
+            id: true,
+            recurrenceType: true,
+            recurrenceEndType: true,
+            occurrences: true,
+            endDate: true,
+            isActive: true,
+            exceptions: true,
+            dayOfWeek: true,
+            startTime: true,
           },
         },
       },

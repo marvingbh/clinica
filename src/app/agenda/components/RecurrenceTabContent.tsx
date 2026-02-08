@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Appointment, RecurrenceType, RecurrenceEndType, Modality } from "../lib/types"
 import { RECURRENCE_TYPE_LABELS, MAX_RECURRENCE_OCCURRENCES } from "../lib/constants"
-import { toDateString, toDisplayDate, toIsoDate, toDisplayDateFromDate } from "../lib/utils"
+import { toDateString, toDisplayDate, toIsoDate, toDisplayDateFromDate, calculateEndTime } from "../lib/utils"
 import { toast } from "sonner"
 import { Dialog } from "./Sheet"
 
@@ -20,7 +20,7 @@ export function RecurrenceTabContent({ appointment, onSave, onClose }: Recurrenc
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("WEEKLY")
   const [originalRecurrenceType, setOriginalRecurrenceType] = useState<RecurrenceType>("WEEKLY")
   const [startTime, setStartTime] = useState("")
-  const [endTime, setEndTime] = useState("")
+  const [duration, setDuration] = useState(50)
   const [modality, setModality] = useState<Modality>("PRESENCIAL")
   const [recurrenceEndType, setRecurrenceEndType] = useState<RecurrenceEndType>("BY_OCCURRENCES")
   const [endDate, setEndDate] = useState("")
@@ -48,7 +48,7 @@ export function RecurrenceTabContent({ appointment, onSave, onClose }: Recurrenc
       const scheduledAt = new Date(appointment.scheduledAt)
       const endAt = new Date(appointment.endAt)
       setStartTime(`${String(scheduledAt.getHours()).padStart(2, "0")}:${String(scheduledAt.getMinutes()).padStart(2, "0")}`)
-      setEndTime(`${String(endAt.getHours()).padStart(2, "0")}:${String(endAt.getMinutes()).padStart(2, "0")}`)
+      setDuration(Math.round((endAt.getTime() - scheduledAt.getTime()) / 60000))
 
       if (recurrence.endDate) {
         const date = new Date(recurrence.endDate)
@@ -71,10 +71,11 @@ export function RecurrenceTabContent({ appointment, onSave, onClose }: Recurrenc
     setIsSaving(true)
 
     try {
+      const computedEndTime = calculateEndTime(startTime, duration)
       const body: Record<string, unknown> = {
         recurrenceType,
         startTime,
-        endTime,
+        endTime: computedEndTime || startTime,
         modality,
         recurrenceEndType,
       }
@@ -237,35 +238,44 @@ export function RecurrenceTabContent({ appointment, onSave, onClose }: Recurrenc
           )}
         </div>
 
-        {/* Time */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Time + Duration + End Time */}
+        <div className="grid grid-cols-3 gap-3">
           <div>
-            <label htmlFor="recStartTime" className="block text-sm font-medium text-foreground mb-2">
+            <label htmlFor="recStartTime" className="block text-sm font-medium text-foreground mb-1.5">
               Inicio
             </label>
             <input
               id="recStartTime"
               type="text"
-              placeholder="HH:mm"
+              placeholder="HH:MM"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
               pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
-              className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
             />
           </div>
           <div>
-            <label htmlFor="recEndTime" className="block text-sm font-medium text-foreground mb-2">
-              Fim
+            <label htmlFor="recDuration" className="block text-sm font-medium text-foreground mb-1.5">
+              Duracao
             </label>
             <input
-              id="recEndTime"
-              type="text"
-              placeholder="HH:mm"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
-              className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+              id="recDuration"
+              type="number"
+              value={duration}
+              onChange={(e) => setDuration(Math.max(5, parseInt(e.target.value) || 5))}
+              min={5}
+              max={480}
+              step={5}
+              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Fim
+            </label>
+            <div className="h-11 px-3.5 rounded-xl border border-input bg-muted/50 text-foreground text-sm flex items-center">
+              {calculateEndTime(startTime, duration) || "—"}
+            </div>
           </div>
         </div>
 

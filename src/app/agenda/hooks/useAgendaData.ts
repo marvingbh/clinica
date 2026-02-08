@@ -47,7 +47,22 @@ export function useAgendaData({
   const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([])
   const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([])
   const [professionals, setProfessionals] = useState<Professional[]>([])
-  const [selectedProfessionalId, setSelectedProfessionalId] = useState("")
+  const [selectedProfessionalId, setSelectedProfessionalIdState] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("clinica:selectedProfessionalId") || ""
+    }
+    return ""
+  })
+  const setSelectedProfessionalId = useCallback((id: string) => {
+    setSelectedProfessionalIdState(id)
+    if (typeof window !== "undefined") {
+      if (id) {
+        localStorage.setItem("clinica:selectedProfessionalId", id)
+      } else {
+        localStorage.removeItem("clinica:selectedProfessionalId")
+      }
+    }
+  }, [])
   // Use session's appointmentDuration for non-admins, default for admins (will be updated when selecting professional)
   const [appointmentDuration, setAppointmentDuration] = useState(
     currentAppointmentDuration || DEFAULT_APPOINTMENT_DURATION

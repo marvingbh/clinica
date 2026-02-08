@@ -11,9 +11,10 @@ interface TimeSlotCardProps {
   selectedProfessionalId?: string
   onAppointmentClick: (appointment: Appointment) => void
   onCreateClick: (time: string) => void
+  onAlternateWeekClick?: (appointment: Appointment) => void
 }
 
-export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointmentClick, onCreateClick }: TimeSlotCardProps) {
+export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointmentClick, onCreateClick, onAlternateWeekClick }: TimeSlotCardProps) {
   return (
     <div className="flex items-stretch gap-3">
       {/* Time Label */}
@@ -78,13 +79,22 @@ export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointm
               </div>
               {/* Alternate week info for biweekly appointments */}
               {appointment.recurrence?.recurrenceType === "BIWEEKLY" && appointment.alternateWeekInfo && (
-                <div className="mt-1.5 text-xs text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onAlternateWeekClick?.(appointment)
+                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onAlternateWeekClick?.(appointment) } }}
+                  className="mt-1.5 text-xs text-purple-600 dark:text-purple-400 flex items-center gap-1 hover:text-purple-800 dark:hover:text-purple-200 cursor-pointer transition-colors"
+                >
                   <ArrowLeftRightIcon className="w-3 h-3" />
                   <span>Alterna com:</span>
                   {appointment.alternateWeekInfo.pairedPatientName ? (
-                    <span className="font-medium">{appointment.alternateWeekInfo.pairedPatientName}</span>
+                    <span className="font-medium underline">{appointment.alternateWeekInfo.pairedPatientName}</span>
                   ) : (
-                    <span className="text-green-600 dark:text-green-400 font-medium">Disponivel</span>
+                    <span className="text-green-600 dark:text-green-400 font-medium underline">Disponivel - Agendar</span>
                   )}
                 </div>
               )}

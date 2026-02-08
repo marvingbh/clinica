@@ -21,6 +21,7 @@ export interface AgendaTimelineProps {
   onSlotClick: (slotTime: string) => void
   onAppointmentClick: (appointment: Appointment) => void
   onGroupSessionClick: (session: GroupSession) => void
+  onAlternateWeekClick?: (appointment: Appointment) => void
   onSwipeLeft: () => void
   onSwipeRight: () => void
   professionalColorMap?: ProfessionalColorMap
@@ -66,6 +67,7 @@ export function AgendaTimeline({
   onSlotClick,
   onAppointmentClick,
   onGroupSessionClick,
+  onAlternateWeekClick,
   onSwipeLeft,
   onSwipeRight,
   professionalColorMap,
@@ -187,6 +189,7 @@ export function AgendaTimeline({
                             <AppointmentCard
                               appointment={appointment}
                               onClick={() => onAppointmentClick(appointment)}
+                              onAlternateWeekClick={onAlternateWeekClick}
                               showProfessional={!selectedProfessionalId}
                               compact={blockingAppointments.length > 1 || hasGroupSessions || showAvailableWithCancelledRecalc}
                               professionalColorMap={professionalColorMap}
