@@ -656,7 +656,15 @@ function OccurrenceTabContent({
       {/* Delete Confirmation Dialog */}
       {isDeleteDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in">
-          <div className="bg-background rounded-2xl p-6 max-w-sm mx-4 shadow-2xl animate-scale-in">
+          <div className="bg-background rounded-2xl p-6 max-w-sm mx-4 shadow-2xl animate-scale-in relative">
+            <button
+              type="button"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              aria-label="Fechar"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
             <div className="flex items-start gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/50 flex items-center justify-center flex-shrink-0">
                 <AlertTriangleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />

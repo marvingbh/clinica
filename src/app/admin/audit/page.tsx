@@ -421,20 +421,21 @@ export default function AdminAuditPage() {
           {/* Sheet */}
           <div className="fixed inset-x-0 bottom-0 z-50 bg-background border-t border-border rounded-t-2xl max-h-[85vh] overflow-y-auto animate-slide-up">
             <div className="max-w-2xl mx-auto px-4 py-6">
-              {/* Handle */}
-              <div className="flex justify-center mb-4">
+              {/* Handle + Close */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-8" />
                 <div className="w-12 h-1.5 rounded-full bg-muted" />
-              </div>
-
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-foreground">Detalhes do Log</h2>
                 <button
+                  type="button"
                   onClick={() => setSelectedLog(null)}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  aria-label="Fechar"
                 >
-                  Fechar
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
               </div>
+
+              <h2 className="text-xl font-semibold text-foreground mb-6">Detalhes do Log</h2>
 
               <div className="space-y-6">
                 {/* Basic Info */}

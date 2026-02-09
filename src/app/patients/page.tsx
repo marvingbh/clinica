@@ -698,11 +698,20 @@ export default function PatientsPage() {
           {/* Sheet Container - centered on larger screens */}
           <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center">
             {/* Sheet - full width on mobile, max-width on larger screens */}
-            <div className="w-full max-w-4xl bg-background border-t border-border rounded-t-2xl max-h-[90vh] overflow-y-auto animate-slide-up">
+            <div className="w-full max-w-4xl bg-background border-t border-border rounded-t-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden animate-slide-up">
               <div className="max-w-2xl mx-auto px-4 py-6">
-                {/* Handle */}
-                <div className="flex justify-center mb-4">
+                {/* Handle + Close */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-8" />
                   <div className="w-12 h-1.5 rounded-full bg-muted" />
+                  <button
+                    type="button"
+                    onClick={closeSheet}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    aria-label="Fechar"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                  </button>
                 </div>
 
               {/* View Mode */}
