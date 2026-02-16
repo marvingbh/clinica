@@ -12,9 +12,10 @@ interface TimeSlotCardProps {
   onAppointmentClick: (appointment: Appointment) => void
   onCreateClick: (time: string) => void
   onAlternateWeekClick?: (appointment: Appointment) => void
+  onBiweeklyHintClick?: (time: string) => void
 }
 
-export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointmentClick, onCreateClick, onAlternateWeekClick }: TimeSlotCardProps) {
+export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointmentClick, onCreateClick, onAlternateWeekClick, onBiweeklyHintClick }: TimeSlotCardProps) {
   return (
     <div className="flex items-stretch gap-3">
       {/* Time Label */}
@@ -113,13 +114,25 @@ export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointm
       ) : (
         // Only show available slots when a specific professional is selected
         selectedProfessionalId || !isAdmin ? (
-          <button
-            onClick={() => onCreateClick(slot.time)}
-            className="flex-1 border border-dashed border-border rounded-lg p-3 flex items-center justify-center text-muted-foreground hover:bg-muted/50 hover:border-primary/50 hover:text-primary transition-colors cursor-pointer"
-          >
-            <PlusIcon className="w-4 h-4 mr-2" />
-            <span className="text-sm">Disponivel</span>
-          </button>
+          slot.biweeklyHint ? (
+            <button
+              onClick={() => onBiweeklyHintClick?.(slot.time)}
+              className="flex-1 border border-dashed border-purple-300 dark:border-purple-700 rounded-lg p-3 flex items-center text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-400 dark:hover:border-purple-600 transition-colors cursor-pointer"
+            >
+              <ArrowLeftRightIcon className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span className="text-sm">
+                Disponivel p/ quinzenal <span className="mx-1">·</span> Alterna com: <span className="font-medium">{slot.biweeklyHint.patientName}</span>
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={() => onCreateClick(slot.time)}
+              className="flex-1 border border-dashed border-border rounded-lg p-3 flex items-center justify-center text-muted-foreground hover:bg-muted/50 hover:border-primary/50 hover:text-primary transition-colors cursor-pointer"
+            >
+              <PlusIcon className="w-4 h-4 mr-2" />
+              <span className="text-sm">Disponivel</span>
+            </button>
+          )
         ) : (
           // Empty placeholder when viewing all professionals (no appointments at this time)
           <div className="flex-1 border border-dashed border-border/50 rounded-lg p-3" />

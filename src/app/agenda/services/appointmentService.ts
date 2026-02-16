@@ -1,5 +1,5 @@
 import { toDateString } from "../lib/utils"
-import type { Appointment, CancelType } from "../lib/types"
+import type { Appointment, BiweeklyHint, CancelType } from "../lib/types"
 
 export interface FetchAppointmentsParams {
   date: Date
@@ -9,6 +9,7 @@ export interface FetchAppointmentsParams {
 
 export interface FetchAppointmentsResponse {
   appointments: Appointment[]
+  biweeklyHints?: BiweeklyHint[]
 }
 
 export interface CreateAppointmentData {

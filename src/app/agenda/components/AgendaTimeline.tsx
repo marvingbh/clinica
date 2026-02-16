@@ -1,6 +1,7 @@
 "use client"
 
 import { SwipeContainer, EmptyState, ClockIcon, BanIcon, PlusIcon } from "@/shared/components/ui"
+import { ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { formatTime, isSlotInPast } from "../lib/utils"
 import { ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
 import { AppointmentCard } from "./AppointmentCard"
@@ -22,6 +23,7 @@ export interface AgendaTimelineProps {
   onAppointmentClick: (appointment: Appointment) => void
   onGroupSessionClick: (session: GroupSession) => void
   onAlternateWeekClick?: (appointment: Appointment) => void
+  onBiweeklyHintClick?: (time: string) => void
   onSwipeLeft: () => void
   onSwipeRight: () => void
   professionalColorMap?: ProfessionalColorMap
@@ -68,6 +70,7 @@ export function AgendaTimeline({
   onAppointmentClick,
   onGroupSessionClick,
   onAlternateWeekClick,
+  onBiweeklyHintClick,
   onSwipeLeft,
   onSwipeRight,
   professionalColorMap,
@@ -197,13 +200,25 @@ export function AgendaTimeline({
                           </div>
                         ))}
                         {showAvailableWithCancelledRecalc && (
-                          <button
-                            onClick={() => onSlotClick(slot.time)}
-                            className="flex-1 min-w-0 min-h-[3rem] border border-dashed border-border rounded-xl p-3 flex items-center justify-center text-muted-foreground hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-normal group"
-                          >
-                            <PlusIcon className="w-4 h-4 mr-2 transition-transform group-hover:scale-110" />
-                            <span className="text-sm font-medium">Disponivel</span>
-                          </button>
+                          slot.biweeklyHint ? (
+                            <button
+                              onClick={() => onBiweeklyHintClick?.(slot.time)}
+                              className="flex-1 min-w-0 min-h-[3rem] border border-dashed border-purple-300 dark:border-purple-700 rounded-xl p-3 flex items-center text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-400 dark:hover:border-purple-600 transition-all duration-normal group"
+                            >
+                              <ArrowLeftRightIcon className="w-4 h-4 mr-2 flex-shrink-0" />
+                              <span className="text-sm font-medium">
+                                Disponivel p/ quinzenal <span className="mx-1 font-normal">·</span> Alterna com: {slot.biweeklyHint.patientName}
+                              </span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => onSlotClick(slot.time)}
+                              className="flex-1 min-w-0 min-h-[3rem] border border-dashed border-border rounded-xl p-3 flex items-center justify-center text-muted-foreground hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-normal group"
+                            >
+                              <PlusIcon className="w-4 h-4 mr-2 transition-transform group-hover:scale-110" />
+                              <span className="text-sm font-medium">Disponivel</span>
+                            </button>
+                          )
                         )}
                       </div>
                     ) : isBlocked && !hasNonBlockingAppointments ? (
@@ -214,13 +229,25 @@ export function AgendaTimeline({
                         </div>
                       </div>
                     ) : canShowAvailableButton ? (
-                      <button
-                        onClick={() => onSlotClick(slot.time)}
-                        className="w-full h-full min-h-[3rem] border border-dashed border-border rounded-xl p-3 flex items-center justify-center text-muted-foreground hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-normal group"
-                      >
-                        <PlusIcon className="w-4 h-4 mr-2 transition-transform group-hover:scale-110" />
-                        <span className="text-sm font-medium">Disponivel</span>
-                      </button>
+                      slot.biweeklyHint ? (
+                        <button
+                          onClick={() => onBiweeklyHintClick?.(slot.time)}
+                          className="w-full h-full min-h-[3rem] border border-dashed border-purple-300 dark:border-purple-700 rounded-xl p-3 flex items-center text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-400 dark:hover:border-purple-600 transition-all duration-normal group"
+                        >
+                          <ArrowLeftRightIcon className="w-4 h-4 mr-2 flex-shrink-0" />
+                          <span className="text-sm font-medium">
+                            Disponivel p/ quinzenal <span className="mx-1 font-normal">·</span> Alterna com: {slot.biweeklyHint.patientName}
+                          </span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => onSlotClick(slot.time)}
+                          className="w-full h-full min-h-[3rem] border border-dashed border-border rounded-xl p-3 flex items-center justify-center text-muted-foreground hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-normal group"
+                        >
+                          <PlusIcon className="w-4 h-4 mr-2 transition-transform group-hover:scale-110" />
+                          <span className="text-sm font-medium">Disponivel</span>
+                        </button>
+                      )
                     ) : !hasNonBlockingAppointments ? (
                       <div className="h-full min-h-[3rem]" />
                     ) : null}

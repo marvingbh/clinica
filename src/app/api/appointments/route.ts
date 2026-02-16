@@ -276,7 +276,70 @@ export const GET = withAuth(
       }
     })
 
-    return NextResponse.json({ appointments: appointmentsWithAlternateInfo })
+    // Compute biweeklyHints: for biweekly appointments on adjacent weeks (±7 days) that
+    // have NO matching appointment on the current date, emit a hint for the empty slot
+    const biweeklyHints: { time: string; professionalProfileId: string; patientName: string; appointmentId: string }[] = []
+
+    if (date) {
+      const msPerDay = 24 * 60 * 60 * 1000
+      const currentDayStart = new Date(date + "T00:00:00")
+      const prevDateStr = new Date(currentDayStart.getTime() - 7 * msPerDay).toISOString().split("T")[0]
+      const nextDateStr = new Date(currentDayStart.getTime() + 7 * msPerDay).toISOString().split("T")[0]
+
+      const adjacentBiweekly = await prisma.appointment.findMany({
+        where: {
+          clinicId: user.clinicId,
+          recurrenceId: { not: null },
+          recurrence: { recurrenceType: "BIWEEKLY", isActive: true },
+          type: "CONSULTA",
+          status: { notIn: ["CANCELADO_PACIENTE", "CANCELADO_PROFISSIONAL"] },
+          patientId: { not: null },
+          OR: [
+            { scheduledAt: { gte: new Date(prevDateStr + "T00:00:00"), lte: new Date(prevDateStr + "T23:59:59.999") } },
+            { scheduledAt: { gte: new Date(nextDateStr + "T00:00:00"), lte: new Date(nextDateStr + "T23:59:59.999") } },
+          ],
+          ...(where.professionalProfileId ? { professionalProfileId: where.professionalProfileId as string } : {}),
+        },
+        select: {
+          id: true,
+          scheduledAt: true,
+          professionalProfileId: true,
+          patient: { select: { name: true } },
+        },
+      })
+
+      // Build a set of (professionalProfileId, HH:mm) that already have appointments on the current date
+      const currentSlots = new Set<string>()
+      for (const apt of appointments) {
+        const h = String(apt.scheduledAt.getHours()).padStart(2, "0")
+        const m = String(apt.scheduledAt.getMinutes()).padStart(2, "0")
+        currentSlots.add(`${apt.professionalProfileId}|${h}:${m}`)
+      }
+
+      for (const adj of adjacentBiweekly) {
+        const h = String(adj.scheduledAt.getHours()).padStart(2, "0")
+        const m = String(adj.scheduledAt.getMinutes()).padStart(2, "0")
+        const timeStr = `${h}:${m}`
+        const slotKey = `${adj.professionalProfileId}|${timeStr}`
+
+        // Only emit hint if the current date has no appointment at that time+professional
+        if (!currentSlots.has(slotKey) && adj.patient?.name) {
+          const alreadyHinted = biweeklyHints.some(
+            hint => hint.time === timeStr && hint.professionalProfileId === adj.professionalProfileId
+          )
+          if (!alreadyHinted) {
+            biweeklyHints.push({
+              time: timeStr,
+              professionalProfileId: adj.professionalProfileId,
+              patientName: adj.patient.name,
+              appointmentId: adj.id,
+            })
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({ appointments: appointmentsWithAlternateInfo, biweeklyHints })
   }
 )
 

@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { toDateString } from "../lib/utils"
-import type { Appointment, AvailabilityRule, AvailabilityException, TimeSlot, AppointmentStatus } from "../lib/types"
+import type { Appointment, AvailabilityRule, AvailabilityException, TimeSlot, BiweeklyHint, AppointmentStatus } from "../lib/types"
 
 // Cancelled statuses - these appointments don't block the slot
 const CANCELLED_STATUSES: AppointmentStatus[] = [
@@ -22,6 +22,7 @@ export interface UseTimeSlotsParams {
   availabilityRules: AvailabilityRule[]
   availabilityExceptions: AvailabilityException[]
   appointments: Appointment[]
+  biweeklyHints?: BiweeklyHint[]
   appointmentDuration: number
   isAdmin: boolean
   selectedProfessionalId: string
@@ -42,6 +43,7 @@ export function useTimeSlots({
   availabilityRules,
   availabilityExceptions,
   appointments,
+  biweeklyHints,
   appointmentDuration,
   isAdmin,
   selectedProfessionalId,
@@ -240,6 +242,21 @@ export function useTimeSlots({
 
     slots.sort((a, b) => a.time.localeCompare(b.time))
 
+    // Attach biweekly hints to available empty slots
+    if (biweeklyHints && biweeklyHints.length > 0) {
+      for (const slot of slots) {
+        if (slot.isAvailable && slot.appointments.length === 0) {
+          const hint = biweeklyHints.find(h =>
+            h.time === slot.time &&
+            (!selectedProfessionalId || h.professionalProfileId === selectedProfessionalId)
+          )
+          if (hint) {
+            slot.biweeklyHint = hint
+          }
+        }
+      }
+    }
+
     return { slots, fullDayBlock: null }
-  }, [selectedDate, availabilityRules, availabilityExceptions, appointments, appointmentDuration, isAdmin, selectedProfessionalId])
+  }, [selectedDate, availabilityRules, availabilityExceptions, appointments, biweeklyHints, appointmentDuration, isAdmin, selectedProfessionalId])
 }

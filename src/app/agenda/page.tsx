@@ -76,6 +76,7 @@ export default function AgendaPage() {
   // Agenda data
   const {
     appointments,
+    biweeklyHints,
     groupSessions,
     availabilityRules,
     availabilityExceptions,
@@ -131,6 +132,7 @@ export default function AgendaPage() {
     availabilityRules,
     availabilityExceptions,
     appointments,
+    biweeklyHints,
     appointmentDuration,
     isAdmin,
     selectedProfessionalId,
@@ -261,6 +263,11 @@ export default function AgendaPage() {
     }
   }, [setSelectedDate, openCreateSheet, openEditSheet])
 
+  // Handle biweekly hint click — open create sheet pre-filled for biweekly
+  const handleBiweeklyHintClick = useCallback((time: string) => {
+    openCreateSheet(time, { appointmentType: "BIWEEKLY" })
+  }, [openCreateSheet])
+
   // FAB menu state
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false)
 
@@ -326,6 +333,7 @@ export default function AgendaPage() {
         onAppointmentClick={openEditSheet}
         onGroupSessionClick={openGroupSessionSheet}
         onAlternateWeekClick={handleAlternateWeekClick}
+        onBiweeklyHintClick={handleBiweeklyHintClick}
         onSwipeLeft={goToNextDay}
         onSwipeRight={goToPreviousDay}
         professionalColorMap={professionalColorMap}

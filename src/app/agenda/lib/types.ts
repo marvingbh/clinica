@@ -128,12 +128,20 @@ export interface Appointment {
   }
 }
 
+export interface BiweeklyHint {
+  time: string
+  professionalProfileId: string
+  patientName: string
+  appointmentId: string
+}
+
 export interface TimeSlot {
   time: string
   isAvailable: boolean
   appointments: Appointment[]
   isBlocked: boolean
   blockReason?: string
+  biweeklyHint?: BiweeklyHint
 }
 
 // ============================================================================
