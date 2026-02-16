@@ -404,7 +404,7 @@ async function handleCreateCalendarEntry(
         endAt: new Date(new Date(`${date}T${startTime}:00`).getTime() + entryDuration * 60 * 1000),
       }]
 
-  // Use transaction
+  // Use transaction (increased timeout for recurring appointments with many occurrences)
   const result = await prisma.$transaction(async (tx) => {
     // Check conflicts only for time-blocking entries
     if (blocksTime) {
@@ -488,7 +488,7 @@ async function handleCreateCalendarEntry(
     }
 
     return { appointments: createdAppointments, recurrenceId }
-  })
+  }, { timeout: 30000 })
 
   // Check for conflict
   if ("conflict" in result && result.conflict) {
@@ -786,6 +786,7 @@ async function handleCreateAppointment(
   }
 
   // Use transaction with database-level locking to prevent race conditions
+  // Increased timeout for recurring appointments with many occurrences
   const result = await prisma.$transaction(async (tx) => {
     // Check ALL appointments for conflicts before creating any
     for (let i = 0; i < appointmentDates.length; i++) {
@@ -897,7 +898,7 @@ async function handleCreateAppointment(
       tokens: createdTokens,
       recurrenceId,
     }
-  })
+  }, { timeout: 30000 })
 
   // Check if conflict was detected within the transaction
   if ("conflict" in result && result.conflict) {

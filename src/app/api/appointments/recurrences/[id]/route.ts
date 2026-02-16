@@ -529,7 +529,7 @@ export const PATCH = withAuth(
           updatedAppointmentsCount = remainingAppointments.length
         }
       }
-    })
+    }, { timeout: 30000 })
 
     // Create audit log
     await createAuditLog({
