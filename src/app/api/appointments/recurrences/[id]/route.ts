@@ -301,13 +301,28 @@ export const PATCH = withAuth(
         conflictWith: ConflictingAppointment
       }> = []
 
+      // If time is also changing, we need to apply the new time to day-shifted dates
+      const newStartTime = updateData.startTime || recurrence.startTime
+      const newEndTime = updateData.endTime || recurrence.endTime
+      const isAlsoTimeChange = updateData.startTime !== undefined || updateData.endTime !== undefined
+
       for (const apt of recurrence.appointments) {
-        const { scheduledAt: newScheduledAt, endAt: newEndAt } = calculateDayShiftedDates(
+        let { scheduledAt: newScheduledAt, endAt: newEndAt } = calculateDayShiftedDates(
           apt.scheduledAt,
           apt.endAt,
           currentDayOfWeek,
           newDayOfWeek
         )
+
+        // If time is also changing, apply the new time to the day-shifted dates
+        if (isAlsoTimeChange) {
+          const [startHours, startMinutes] = newStartTime.split(":").map(Number)
+          const [endHours, endMinutes] = newEndTime.split(":").map(Number)
+          newScheduledAt = new Date(newScheduledAt)
+          newScheduledAt.setHours(startHours, startMinutes, 0, 0)
+          newEndAt = new Date(newEndAt)
+          newEndAt.setHours(endHours, endMinutes, 0, 0)
+        }
 
         // Check for conflicts at the new date/time
         const conflictResult = await checkConflict({
