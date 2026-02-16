@@ -445,7 +445,7 @@ export const PATCH = withAuth(
       if (isDayOfWeekChange && dayShiftedAppointments.length > 0) {
         // Build VALUES clause for bulk update
         const values = dayShiftedAppointments.map(apt =>
-          `('${apt.id}'::uuid, '${apt.newScheduledAt.toISOString()}'::timestamptz, '${apt.newEndAt.toISOString()}'::timestamptz)`
+          `('${apt.id}'::text, '${apt.newScheduledAt.toISOString()}'::timestamptz, '${apt.newEndAt.toISOString()}'::timestamptz)`
         ).join(", ")
 
         const modalityClause = body.modality
@@ -494,7 +494,7 @@ export const PATCH = withAuth(
             newScheduledAt.setHours(startHours, startMinutes, 0, 0)
             const newEndAt = new Date(apt.scheduledAt)
             newEndAt.setHours(endHours, endMinutes, 0, 0)
-            return `('${apt.id}'::uuid, '${newScheduledAt.toISOString()}'::timestamptz, '${newEndAt.toISOString()}'::timestamptz)`
+            return `('${apt.id}'::text, '${newScheduledAt.toISOString()}'::timestamptz, '${newEndAt.toISOString()}'::timestamptz)`
           }).join(", ")
 
           const modalityClause = body.modality
