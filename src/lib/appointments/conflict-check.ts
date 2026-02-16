@@ -149,7 +149,7 @@ export async function checkConflictsBulk(
 
   let excludeClause = ""
   if (excludeAppointmentIds && excludeAppointmentIds.length > 0) {
-    const placeholders = excludeAppointmentIds.map((_, i) => `$${paramIndex + i}`).join(", ")
+    const placeholders = excludeAppointmentIds.map((_, i) => `$${paramIndex + i}::text`).join(", ")
     queryParams.push(...excludeAppointmentIds)
     excludeClause = `AND a.id NOT IN (${placeholders})`
     paramIndex += excludeAppointmentIds.length
@@ -157,7 +157,7 @@ export async function checkConflictsBulk(
 
   let excludeGroupClause = ""
   if (excludeGroupId) {
-    excludeGroupClause = `AND (a."groupId" IS NULL OR a."groupId" != $${paramIndex})`
+    excludeGroupClause = `AND (a."groupId" IS NULL OR a."groupId" != $${paramIndex}::text)`
     queryParams.push(excludeGroupId)
     paramIndex += 1
   }
@@ -165,7 +165,7 @@ export async function checkConflictsBulk(
   const sql = `
     SELECT DISTINCT ON (v.idx) v.idx, a.id, a."scheduledAt", a."endAt", p.name as "patientName", a.title, a.type
     FROM (VALUES ${valuesClauses.join(", ")}) AS v(idx, start_at, end_at)
-    JOIN "Appointment" a ON a."professionalProfileId" = $1
+    JOIN "Appointment" a ON a."professionalProfileId" = $1::text
       AND a.status NOT IN ('CANCELADO_PACIENTE', 'CANCELADO_PROFISSIONAL')
       AND a."blocksTime" = true
       AND a."scheduledAt" < v.end_at AND a."endAt" > v.start_at
