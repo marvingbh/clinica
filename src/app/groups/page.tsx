@@ -15,6 +15,7 @@ import {
   UsersIcon,
   ClockIcon,
 } from "@/shared/components/ui"
+import { CalendarIcon } from "@/shared/components/ui/icons"
 
 const DAY_OF_WEEK_LABELS = [
   "Domingo",
@@ -88,6 +89,23 @@ interface GroupDetails extends TherapyGroup {
   }>
 }
 
+interface GroupSessionItem {
+  groupId: string
+  groupName: string
+  scheduledAt: string
+  endAt: string
+  professionalProfileId: string
+  professionalName: string
+  participants: Array<{
+    appointmentId: string
+    patientId: string
+    patientName: string
+    status: string
+  }>
+}
+
+type ViewTab = "members" | "sessions"
+
 export default function GroupsPage() {
   const router = useRouter()
   const { data: session, status } = useSession()
@@ -101,12 +119,17 @@ export default function GroupsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingDetails, setIsLoadingDetails] = useState(false)
 
+  // View tab state
+  const [viewTab, setViewTab] = useState<ViewTab>("members")
+  const [groupSessions, setGroupSessions] = useState<GroupSessionItem[]>([])
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false)
+
   // Session generation state
   const [isGeneratingOpen, setIsGeneratingOpen] = useState(false)
   const [generateStartDate, setGenerateStartDate] = useState("")
   const [generateEndDate, setGenerateEndDate] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
-  const [generateMode, setGenerateMode] = useState<"generate" | "regenerate">("generate")
+  const [generateMode, setGenerateMode] = useState<"generate" | "regenerate" | "reschedule">("generate")
 
   // Member management state
   const [isAddingMember, setIsAddingMember] = useState(false)
@@ -181,6 +204,22 @@ export default function GroupsPage() {
     }
   }, [])
 
+  const fetchGroupSessions = useCallback(async (groupId: string) => {
+    setIsLoadingSessions(true)
+    try {
+      const response = await fetch(`/api/group-sessions?groupId=${groupId}`)
+      if (!response.ok) {
+        throw new Error("Failed to fetch sessions")
+      }
+      const data = await response.json()
+      setGroupSessions(data.groupSessions)
+    } catch {
+      toast.error("Erro ao carregar sessões")
+    } finally {
+      setIsLoadingSessions(false)
+    }
+  }, [])
+
   useEffect(() => {
     setIsMounted(true)
   }, [])
@@ -228,6 +267,8 @@ export default function GroupsPage() {
 
   function openViewSheet(group: TherapyGroup) {
     setEditingGroup(null)
+    setViewTab("members")
+    setGroupSessions([])
     fetchGroupDetails(group.id)
     setIsSheetOpen(true)
   }
@@ -237,6 +278,8 @@ export default function GroupsPage() {
     setEditingGroup(null)
     setViewingGroup(null)
     setIsGeneratingOpen(false)
+    setViewTab("members")
+    setGroupSessions([])
     resetAddMemberState()
   }
 
@@ -331,7 +374,7 @@ export default function GroupsPage() {
       farFuture.setFullYear(farFuture.getFullYear() + 5)
       endDateISO = farFuture.toISOString().split("T")[0]
     } else {
-      // For generate mode, require date inputs
+      // For generate and reschedule modes, require date inputs
       if (!generateStartDate || !generateEndDate) {
         toast.error("Selecione as datas de início e fim")
         return
@@ -366,6 +409,8 @@ export default function GroupsPage() {
         } else {
           toast.info("Todas as sessões já estão atualizadas")
         }
+      } else if (generateMode === "reschedule") {
+        toast.success(result.message)
       } else {
         toast.success(`${result.sessionsCreated} sessões geradas com ${result.appointmentsCreated} agendamentos`)
       }
@@ -373,6 +418,10 @@ export default function GroupsPage() {
       setGenerateStartDate("")
       setGenerateEndDate("")
       setGenerateMode("generate")
+      // Refresh sessions tab if it's active
+      if (viewTab === "sessions") {
+        fetchGroupSessions(viewingGroup.id)
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao gerar sessões")
     } finally {
@@ -722,17 +771,36 @@ export default function GroupsPage() {
                                         : "bg-background text-foreground hover:bg-muted"
                                     }`}
                                   >
-                                    Atualizar Existentes
+                                    Atualizar Membros
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setGenerateMode("reschedule")}
+                                    className={`flex-1 h-10 text-sm font-medium transition-colors ${
+                                      generateMode === "reschedule"
+                                        ? "bg-purple-600 text-white"
+                                        : "bg-background text-foreground hover:bg-muted"
+                                    }`}
+                                  >
+                                    Reagendar
                                   </button>
                                 </div>
 
                                 <p className="text-xs text-muted-foreground">
                                   {generateMode === "generate"
                                     ? "Cria novas sessões no período selecionado."
-                                    : "Adiciona novos membros a todas as sessões futuras já existentes."}
+                                    : generateMode === "regenerate"
+                                    ? "Adiciona novos membros a todas as sessões futuras já existentes."
+                                    : "Cancela todas as sessões futuras e recria com as configurações atuais do grupo."}
                                 </p>
 
-                                {generateMode === "generate" && (
+                                {generateMode === "reschedule" && (
+                                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                                    Todas as sessões futuras serão canceladas e recriadas com as configurações atuais do grupo.
+                                  </p>
+                                )}
+
+                                {(generateMode === "generate" || generateMode === "reschedule") && (
                                   <div className="grid grid-cols-2 gap-4">
                                     <div>
                                       <label className="block text-sm text-muted-foreground mb-1">Data Início</label>
@@ -764,7 +832,9 @@ export default function GroupsPage() {
                                       ? "Processando..."
                                       : generateMode === "generate"
                                       ? "Gerar Sessões"
-                                      : "Atualizar Sessões"}
+                                      : generateMode === "regenerate"
+                                      ? "Atualizar Sessões"
+                                      : "Reagendar Sessões"}
                                   </button>
                                   <button
                                     onClick={() => {
@@ -788,151 +858,268 @@ export default function GroupsPage() {
                           </div>
                         )}
 
-                        {/* Members List */}
-                        <div>
-                          <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-medium text-foreground">
-                              Membros ({viewingGroup.memberships.filter(m => !m.leaveDate).length})
-                            </h3>
-                            {isAdmin && viewingGroup.isActive && !isAddingMember && (
-                              <button
-                                onClick={() => {
-                                  setIsAddingMember(true)
-                                  // Set default join date to today
-                                  setMemberJoinDate(getTodayISO())
-                                }}
-                                className="h-8 px-3 rounded-md bg-purple-600 text-white text-sm font-medium hover:bg-purple-700"
-                              >
-                                + Adicionar Membro
-                              </button>
-                            )}
-                          </div>
+                        {/* Tabs */}
+                        <div className="flex rounded-lg border border-input overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setViewTab("members")}
+                            className={`flex-1 h-10 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                              viewTab === "members"
+                                ? "bg-purple-600 text-white"
+                                : "bg-background text-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <UsersIcon className="w-4 h-4" />
+                            Membros ({viewingGroup.memberships.filter(m => !m.leaveDate).length})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setViewTab("sessions")
+                              if (groupSessions.length === 0 && !isLoadingSessions) {
+                                fetchGroupSessions(viewingGroup.id)
+                              }
+                            }}
+                            className={`flex-1 h-10 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                              viewTab === "sessions"
+                                ? "bg-purple-600 text-white"
+                                : "bg-background text-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <CalendarIcon className="w-4 h-4" />
+                            Sessões
+                          </button>
+                        </div>
 
-                          {/* Add Member Form */}
-                          {isAddingMember && (
-                            <div className="mb-4 p-4 border border-purple-200 dark:border-purple-800 rounded-lg bg-purple-50/50 dark:bg-purple-950/30">
-                              <h4 className="font-medium text-foreground mb-3">Adicionar Novo Membro</h4>
-
-                              {/* Patient Search */}
-                              <div className="relative mb-3">
-                                <label className="block text-sm text-muted-foreground mb-1">Paciente *</label>
-                                {selectedPatient ? (
-                                  <div className="flex items-center justify-between h-10 px-3 rounded-md border border-input bg-background">
-                                    <span className="text-foreground">{selectedPatient.name}</span>
-                                    <button
-                                      type="button"
-                                      onClick={handleClearPatient}
-                                      className="text-muted-foreground hover:text-foreground"
-                                    >
-                                      ✕
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <input
-                                      type="text"
-                                      value={patientSearch}
-                                      onChange={(e) => setPatientSearch(e.target.value)}
-                                      placeholder="Buscar paciente por nome..."
-                                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                                    />
-                                    {/* Search Results Dropdown */}
-                                    {(patientSearchResults.length > 0 || isSearchingPatients) && (
-                                      <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                                        {isSearchingPatients ? (
-                                          <div className="p-3 text-sm text-muted-foreground">Buscando...</div>
-                                        ) : (
-                                          patientSearchResults.map((patient) => (
-                                            <button
-                                              key={patient.id}
-                                              type="button"
-                                              onClick={() => handleSelectPatient(patient)}
-                                              className="w-full px-3 py-2 text-left hover:bg-muted transition-colors"
-                                            >
-                                              <p className="font-medium text-foreground">{patient.name}</p>
-                                              <p className="text-xs text-muted-foreground">{patient.phone}</p>
-                                            </button>
-                                          ))
-                                        )}
-                                      </div>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-
-                              {/* Join Date */}
-                              <div className="mb-3">
-                                <label className="block text-sm text-muted-foreground mb-1">Data de Entrada *</label>
-                                <input
-                                  type="date"
-                                  value={memberJoinDate}
-                                  onChange={(e) => setMemberJoinDate(e.target.value)}
-                                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground"
-                                />
-                              </div>
-
-                              {/* Actions */}
-                              <div className="flex gap-2">
+                        {/* Members Tab */}
+                        {viewTab === "members" && (
+                          <div>
+                            <div className="flex items-center justify-end mb-4">
+                              {isAdmin && viewingGroup.isActive && !isAddingMember && (
                                 <button
-                                  onClick={handleAddMember}
-                                  disabled={isSavingMember || !selectedPatient || !memberJoinDate}
-                                  className="h-9 px-4 rounded-md bg-purple-600 text-white font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  onClick={() => {
+                                    setIsAddingMember(true)
+                                    setMemberJoinDate(getTodayISO())
+                                  }}
+                                  className="h-8 px-3 rounded-md bg-purple-600 text-white text-sm font-medium hover:bg-purple-700"
                                 >
-                                  {isSavingMember ? "Salvando..." : "Adicionar"}
+                                  + Adicionar Membro
                                 </button>
-                                <button
-                                  onClick={resetAddMemberState}
-                                  className="h-9 px-4 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted"
-                                >
-                                  Cancelar
-                                </button>
-                              </div>
+                              )}
                             </div>
-                          )}
 
-                          {viewingGroup.memberships.length > 0 ? (
-                            <div className="space-y-3">
-                              {viewingGroup.memberships.map((membership) => {
-                                const isActive = !membership.leaveDate
-                                return (
-                                  <div
-                                    key={membership.id}
-                                    className={`bg-muted/50 rounded-lg p-4 ${!isActive ? "opacity-60" : ""}`}
-                                  >
-                                    <div className="flex items-center justify-between">
-                                      <div>
-                                        <p className="font-medium text-foreground">{membership.patient.name}</p>
-                                        <p className="text-sm text-muted-foreground">{membership.patient.phone}</p>
-                                      </div>
-                                      <div className="flex items-center gap-3">
-                                        <div className="text-right">
-                                          <span className={`text-xs px-2 py-1 rounded-full ${isActive ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200" : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"}`}>
-                                            {isActive ? "Ativo" : "Saiu"}
-                                          </span>
-                                          <p className="text-xs text-muted-foreground mt-1">
-                                            Desde {new Date(membership.joinDate).toLocaleDateString("pt-BR")}
-                                          </p>
+                            {/* Add Member Form */}
+                            {isAddingMember && (
+                              <div className="mb-4 p-4 border border-purple-200 dark:border-purple-800 rounded-lg bg-purple-50/50 dark:bg-purple-950/30">
+                                <h4 className="font-medium text-foreground mb-3">Adicionar Novo Membro</h4>
+
+                                {/* Patient Search */}
+                                <div className="relative mb-3">
+                                  <label className="block text-sm text-muted-foreground mb-1">Paciente *</label>
+                                  {selectedPatient ? (
+                                    <div className="flex items-center justify-between h-10 px-3 rounded-md border border-input bg-background">
+                                      <span className="text-foreground">{selectedPatient.name}</span>
+                                      <button
+                                        type="button"
+                                        onClick={handleClearPatient}
+                                        className="text-muted-foreground hover:text-foreground"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <input
+                                        type="text"
+                                        value={patientSearch}
+                                        onChange={(e) => setPatientSearch(e.target.value)}
+                                        placeholder="Buscar paciente por nome..."
+                                        className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                                      />
+                                      {/* Search Results Dropdown */}
+                                      {(patientSearchResults.length > 0 || isSearchingPatients) && (
+                                        <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                          {isSearchingPatients ? (
+                                            <div className="p-3 text-sm text-muted-foreground">Buscando...</div>
+                                          ) : (
+                                            patientSearchResults.map((patient) => (
+                                              <button
+                                                key={patient.id}
+                                                type="button"
+                                                onClick={() => handleSelectPatient(patient)}
+                                                className="w-full px-3 py-2 text-left hover:bg-muted transition-colors"
+                                              >
+                                                <p className="font-medium text-foreground">{patient.name}</p>
+                                                <p className="text-xs text-muted-foreground">{patient.phone}</p>
+                                              </button>
+                                            ))
+                                          )}
                                         </div>
-                                        {isAdmin && isActive && (
-                                          <button
-                                            onClick={() => handleRemoveMember(membership.id, membership.patient.name)}
-                                            className="h-7 px-2 text-xs rounded border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
-                                          >
-                                            Remover
-                                          </button>
-                                        )}
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+
+                                {/* Join Date */}
+                                <div className="mb-3">
+                                  <label className="block text-sm text-muted-foreground mb-1">Data de Entrada *</label>
+                                  <input
+                                    type="date"
+                                    value={memberJoinDate}
+                                    onChange={(e) => setMemberJoinDate(e.target.value)}
+                                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground"
+                                  />
+                                </div>
+
+                                {/* Actions */}
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={handleAddMember}
+                                    disabled={isSavingMember || !selectedPatient || !memberJoinDate}
+                                    className="h-9 px-4 rounded-md bg-purple-600 text-white font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {isSavingMember ? "Salvando..." : "Adicionar"}
+                                  </button>
+                                  <button
+                                    onClick={resetAddMemberState}
+                                    className="h-9 px-4 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted"
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {viewingGroup.memberships.length > 0 ? (
+                              <div className="space-y-3">
+                                {viewingGroup.memberships.map((membership) => {
+                                  const isActive = !membership.leaveDate
+                                  return (
+                                    <div
+                                      key={membership.id}
+                                      className={`bg-muted/50 rounded-lg p-4 ${!isActive ? "opacity-60" : ""}`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <p className="font-medium text-foreground">{membership.patient.name}</p>
+                                          <p className="text-sm text-muted-foreground">{membership.patient.phone}</p>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                          <div className="text-right">
+                                            <span className={`text-xs px-2 py-1 rounded-full ${isActive ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200" : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"}`}>
+                                              {isActive ? "Ativo" : "Saiu"}
+                                            </span>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                              Desde {new Date(membership.joinDate).toLocaleDateString("pt-BR")}
+                                            </p>
+                                          </div>
+                                          {isAdmin && isActive && (
+                                            <button
+                                              onClick={() => handleRemoveMember(membership.id, membership.patient.name)}
+                                              className="h-7 px-2 text-xs rounded border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                                            >
+                                              Remover
+                                            </button>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          ) : (
-                            <p className="text-muted-foreground text-sm">
-                              Nenhum membro cadastrado. {isAdmin && viewingGroup.isActive && "Clique em \"+ Adicionar Membro\" para começar."}
-                            </p>
-                          )}
-                        </div>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-muted-foreground text-sm">
+                                Nenhum membro cadastrado. {isAdmin && viewingGroup.isActive && "Clique em \"+ Adicionar Membro\" para começar."}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Sessions Tab */}
+                        {viewTab === "sessions" && (
+                          <div>
+                            {isLoadingSessions ? (
+                              <div className="animate-pulse space-y-3">
+                                <div className="h-16 bg-muted rounded-lg" />
+                                <div className="h-16 bg-muted rounded-lg" />
+                                <div className="h-16 bg-muted rounded-lg" />
+                              </div>
+                            ) : groupSessions.length > 0 ? (
+                              <div className="space-y-2">
+                                {groupSessions.map((session) => {
+                                  const sessionDate = new Date(session.scheduledAt)
+                                  const endDate = new Date(session.endAt)
+                                  const isPast = sessionDate < new Date()
+                                  const dateStr = sessionDate.toLocaleDateString("pt-BR", {
+                                    weekday: "short",
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "numeric",
+                                    timeZone: "America/Sao_Paulo",
+                                  })
+                                  const startTime = sessionDate.toLocaleTimeString("pt-BR", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    timeZone: "America/Sao_Paulo",
+                                  })
+                                  const endTime = endDate.toLocaleTimeString("pt-BR", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    timeZone: "America/Sao_Paulo",
+                                  })
+
+                                  return (
+                                    <div
+                                      key={`${session.groupId}-${session.scheduledAt}`}
+                                      className={`bg-muted/50 rounded-lg p-4 ${isPast ? "opacity-60" : ""}`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <p className="font-medium text-foreground capitalize">{dateStr}</p>
+                                          <p className="text-sm text-muted-foreground">
+                                            {startTime} - {endTime}
+                                          </p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <span className={`text-xs px-2 py-1 rounded-full ${
+                                            isPast
+                                              ? "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+                                              : "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200"
+                                          }`}>
+                                            {session.participants.length} participante{session.participants.length !== 1 ? "s" : ""}
+                                          </span>
+                                          {isPast && (
+                                            <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                                              Realizada
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {session.participants.length > 0 && (
+                                        <div className="mt-2 flex flex-wrap gap-1">
+                                          {session.participants.map((p) => (
+                                            <span
+                                              key={p.appointmentId}
+                                              className="text-xs px-2 py-0.5 rounded-full bg-background border border-border text-muted-foreground"
+                                            >
+                                              {p.patientName}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <EmptyState
+                                title="Nenhuma sessão agendada"
+                                message={isAdmin && viewingGroup.isActive ? "Use \"Gerar / Atualizar Sessões\" para criar sessões" : "Ainda não há sessões para este grupo"}
+                                icon={<CalendarIcon className="w-8 h-8 text-muted-foreground" />}
+                              />
+                            )}
+                          </div>
+                        )}
 
                         <div className="pt-4">
                           <button

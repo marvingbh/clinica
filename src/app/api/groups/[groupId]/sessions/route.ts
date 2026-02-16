@@ -10,7 +10,7 @@ import { z } from "zod"
 const generateSessionsSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de data inválido (YYYY-MM-DD)"),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de data inválido (YYYY-MM-DD)"),
-  mode: z.enum(["generate", "regenerate"]).optional().default("generate"),
+  mode: z.enum(["generate", "regenerate", "reschedule"]).optional().default("generate"),
 })
 
 /**
@@ -158,12 +158,32 @@ export const POST = withAuth(
       )
     }
 
+    // Handle reschedule mode: cancel all future sessions, then generate new ones
+    let rescheduleCancelledCount = 0
+    if (mode === "reschedule") {
+      const now = new Date()
+      const cancelResult = await prisma.appointment.updateMany({
+        where: {
+          groupId,
+          scheduledAt: { gte: now },
+          status: { in: ["AGENDADO", "CONFIRMADO"] },
+        },
+        data: { status: "CANCELADO_PROFISSIONAL" },
+      })
+      rescheduleCancelledCount = cancelResult.count
+    }
+
     // Get existing session times for this group
+    // For reschedule mode, exclude cancelled sessions since we just cancelled them
+    const existingSessionsWhere: Record<string, unknown> = {
+      groupId,
+      scheduledAt: { gte: effectiveStart, lte: effectiveEnd },
+    }
+    if (mode === "reschedule") {
+      existingSessionsWhere.status = { in: ["AGENDADO", "CONFIRMADO"] }
+    }
     const existingSessions = await prisma.appointment.findMany({
-      where: {
-        groupId,
-        scheduledAt: { gte: effectiveStart, lte: effectiveEnd },
-      },
+      where: existingSessionsWhere,
       select: {
         scheduledAt: true,
         patientId: true,
@@ -568,7 +588,9 @@ export const POST = withAuth(
     }
 
     const totalAppointments = result.createdAppointments.length + regeneratedCount
-    const message = regeneratedCount > 0
+    const message = mode === "reschedule"
+      ? `${rescheduleCancelledCount} sessão(ões) cancelada(s), ${newSessionDates.length} nova(s) sessão(ões) criada(s)`
+      : regeneratedCount > 0
       ? `${newSessionDates.length} sessão(ões) criada(s), ${regeneratedCount} agendamento(s) adicionado(s) a sessões existentes`
       : "Sessões geradas com sucesso"
 
@@ -577,6 +599,7 @@ export const POST = withAuth(
       sessionsCreated: newSessionDates.length,
       appointmentsCreated: totalAppointments,
       regeneratedCount,
+      cancelledCount: rescheduleCancelledCount,
       sessions: newSessionDates.map(s => ({
         date: s.date,
         scheduledAt: s.scheduledAt.toISOString(),
