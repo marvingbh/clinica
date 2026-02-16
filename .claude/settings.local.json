@@ -13,7 +13,12 @@
       "Bash(npx prisma migrate dev:*)",
       "Bash(npx prisma db push:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(./node_modules/.bin/prisma db push:*)",
+      "Bash(ls:*)",
+      "Bash(git push:*)",
+      "Bash(npx prisma db execute:*)",
+      "Bash(find:*)"
     ]
   }
 }

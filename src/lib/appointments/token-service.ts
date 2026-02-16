@@ -166,6 +166,38 @@ export async function regenerateAppointmentTokens(
 }
 
 /**
+ * Creates confirm and cancel tokens for multiple appointments in a single createMany call.
+ * Much more efficient than calling createAppointmentTokens in a loop.
+ */
+export async function createBulkAppointmentTokens(
+  appointments: Array<{ id: string; scheduledAt: Date }>,
+  tx: Prisma.TransactionClient | PrismaClient,
+  expirationHours: number = DEFAULT_EXPIRATION_HOURS
+): Promise<void> {
+  if (appointments.length === 0) return
+
+  const tokenData = appointments.flatMap(apt => {
+    const expiresAt = calculateTokenExpiry(apt.scheduledAt, expirationHours)
+    return [
+      {
+        appointmentId: apt.id,
+        token: generateToken(),
+        action: "confirm" as const,
+        expiresAt,
+      },
+      {
+        appointmentId: apt.id,
+        token: generateToken(),
+        action: "cancel" as const,
+        expiresAt,
+      },
+    ]
+  })
+
+  await tx.appointmentToken.createMany({ data: tokenData })
+}
+
+/**
  * Builds the confirmation link URL
  */
 export function buildConfirmLink(baseUrl: string, token: string): string {

@@ -151,20 +151,17 @@ export const POST = withAuth(
         )
       }
 
-      // Cancel all future appointments in a transaction
-      const cancelledIds: string[] = []
+      // Cancel all future appointments in a transaction using bulk updateMany
+      const cancelledIds = futureAppointments.map(a => a.id)
       await prisma.$transaction(async (tx) => {
-        for (const apt of futureAppointments) {
-          await tx.appointment.update({
-            where: { id: apt.id },
-            data: {
-              status: "CANCELADO_PROFISSIONAL",
-              cancellationReason,
-              cancelledAt: now,
-            },
-          })
-          cancelledIds.push(apt.id)
-        }
+        await tx.appointment.updateMany({
+          where: { id: { in: cancelledIds } },
+          data: {
+            status: "CANCELADO_PROFISSIONAL",
+            cancellationReason,
+            cancelledAt: now,
+          },
+        })
 
         // Mark the recurrence as inactive
         await tx.appointmentRecurrence.update({

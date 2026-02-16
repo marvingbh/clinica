@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/api"
-import { checkConflict, formatConflictError, createAppointmentTokens, buildConfirmLink, buildCancelLink, validateRecurrenceOptions, calculateRecurrenceDates } from "@/lib/appointments"
+import { checkConflictsBulk, formatConflictError, createBulkAppointmentTokens, buildConfirmLink, buildCancelLink, validateRecurrenceOptions, calculateRecurrenceDates } from "@/lib/appointments"
 import { createNotification, getPatientPhoneNumbers } from "@/lib/notifications"
 import { NotificationChannel, NotificationType, RecurrenceType, RecurrenceEndType, AppointmentType } from "@prisma/client"
 import { audit, AuditAction, type AuthUser } from "@/lib/rbac"
@@ -406,22 +406,19 @@ async function handleCreateCalendarEntry(
 
   // Use transaction (increased timeout for recurring appointments with many occurrences)
   const result = await prisma.$transaction(async (tx) => {
-    // Check conflicts only for time-blocking entries
+    // Check conflicts only for time-blocking entries — bulk check all dates at once
     if (blocksTime) {
-      for (let i = 0; i < appointmentDates.length; i++) {
-        const apptDate = appointmentDates[i]
-        const conflictResult = await checkConflict({
-          professionalProfileId: targetProfessionalProfileId,
-          scheduledAt: apptDate.scheduledAt,
-          endAt: apptDate.endAt,
-        }, tx)
+      const bulkResult = await checkConflictsBulk({
+        professionalProfileId: targetProfessionalProfileId,
+        dates: appointmentDates.map(d => ({ scheduledAt: d.scheduledAt, endAt: d.endAt })),
+      }, tx)
 
-        if (conflictResult.hasConflict && conflictResult.conflictingAppointment) {
-          return {
-            conflict: conflictResult.conflictingAppointment,
-            conflictDate: apptDate.date,
-            occurrenceIndex: i + 1,
-          }
+      if (bulkResult.conflicts.length > 0) {
+        const first = bulkResult.conflicts[0]
+        return {
+          conflict: first.conflictingAppointment,
+          conflictDate: appointmentDates[first.index].date,
+          occurrenceIndex: first.index + 1,
         }
       }
     }
@@ -459,33 +456,47 @@ async function handleCreateCalendarEntry(
       recurrenceId = recurrenceRecord.id
     }
 
-    // Create all entries
-    const createdAppointments = []
-    for (const apptDate of appointmentDates) {
-      const newEntry = await tx.appointment.create({
-        data: {
-          clinicId: user.clinicId,
-          professionalProfileId: targetProfessionalProfileId,
-          type: type as AppointmentType,
-          title,
-          blocksTime,
-          recurrenceId,
-          scheduledAt: apptDate.scheduledAt,
-          endAt: apptDate.endAt,
-          modality: null,
-          notes: notes || null,
+    // Bulk create all entries
+    await tx.appointment.createMany({
+      data: appointmentDates.map(apptDate => ({
+        clinicId: user.clinicId,
+        professionalProfileId: targetProfessionalProfileId,
+        type: type as AppointmentType,
+        title,
+        blocksTime,
+        recurrenceId,
+        scheduledAt: apptDate.scheduledAt,
+        endAt: apptDate.endAt,
+        modality: null,
+        notes: notes || null,
+      })),
+    })
+
+    // Fetch created appointments with includes for the response
+    const createdAppointments = await tx.appointment.findMany({
+      where: {
+        clinicId: user.clinicId,
+        professionalProfileId: targetProfessionalProfileId,
+        recurrenceId: recurrenceId ?? undefined,
+        scheduledAt: {
+          gte: appointmentDates[0].scheduledAt,
+          lte: appointmentDates[appointmentDates.length - 1].scheduledAt,
         },
-        include: {
-          professionalProfile: {
-            select: {
-              id: true,
-              user: { select: { name: true } },
-            },
+        ...(recurrenceId ? {} : {
+          scheduledAt: appointmentDates[0].scheduledAt,
+          endAt: appointmentDates[0].endAt,
+        }),
+      },
+      include: {
+        professionalProfile: {
+          select: {
+            id: true,
+            user: { select: { name: true } },
           },
         },
-      })
-      createdAppointments.push(newEntry)
-    }
+      },
+      orderBy: { scheduledAt: "asc" },
+    })
 
     return { appointments: createdAppointments, recurrenceId }
   }, { timeout: 30000 })
@@ -788,23 +799,18 @@ async function handleCreateAppointment(
   // Use transaction with database-level locking to prevent race conditions
   // Increased timeout for recurring appointments with many occurrences
   const result = await prisma.$transaction(async (tx) => {
-    // Check ALL appointments for conflicts before creating any
-    for (let i = 0; i < appointmentDates.length; i++) {
-      const apptDate = appointmentDates[i]
+    // Bulk check ALL appointments for conflicts in a single query
+    const bulkConflictResult = await checkConflictsBulk({
+      professionalProfileId: targetProfessionalProfileId,
+      dates: appointmentDates.map(d => ({ scheduledAt: d.scheduledAt, endAt: d.endAt })),
+    }, tx)
 
-      const conflictResult = await checkConflict({
-        professionalProfileId: targetProfessionalProfileId,
-        scheduledAt: apptDate.scheduledAt,
-        endAt: apptDate.endAt,
-        bufferMinutes: professional.bufferBetweenSlots || 0,
-      }, tx)
-
-      if (conflictResult.hasConflict && conflictResult.conflictingAppointment) {
-        return {
-          conflict: conflictResult.conflictingAppointment,
-          conflictDate: apptDate.date,
-          occurrenceIndex: i + 1,
-        }
+    if (bulkConflictResult.conflicts.length > 0) {
+      const first = bulkConflictResult.conflicts[0]
+      return {
+        conflict: first.conflictingAppointment,
+        conflictDate: appointmentDates[first.index].date,
+        occurrenceIndex: first.index + 1,
       }
     }
 
@@ -842,50 +848,72 @@ async function handleCreateAppointment(
       recurrenceId = recurrenceRecord.id
     }
 
-    // Create all appointments
-    const createdAppointments = []
-    const createdTokens = []
+    // Bulk create all appointments
+    await tx.appointment.createMany({
+      data: appointmentDates.map(apptDate => ({
+        clinicId: user.clinicId,
+        professionalProfileId: targetProfessionalProfileId,
+        patientId,
+        recurrenceId,
+        scheduledAt: apptDate.scheduledAt,
+        endAt: apptDate.endAt,
+        modality,
+        notes: notes || null,
+      })),
+    })
 
-    for (const apptDate of appointmentDates) {
-      const newAppointment = await tx.appointment.create({
-        data: {
-          clinicId: user.clinicId,
-          professionalProfileId: targetProfessionalProfileId,
-          patientId,
-          recurrenceId,
-          scheduledAt: apptDate.scheduledAt,
-          endAt: apptDate.endAt,
-          modality,
-          notes: notes || null,
-        },
-        include: {
-          patient: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-            },
+    // Fetch created appointments with includes for the response
+    const createdAppointments = await tx.appointment.findMany({
+      where: {
+        clinicId: user.clinicId,
+        professionalProfileId: targetProfessionalProfileId,
+        patientId,
+        ...(recurrenceId
+          ? { recurrenceId }
+          : {
+              scheduledAt: appointmentDates[0].scheduledAt,
+              endAt: appointmentDates[0].endAt,
+            }),
+      },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
           },
-          professionalProfile: {
-            select: {
-              id: true,
-              user: {
-                select: {
-                  name: true,
-                },
+        },
+        professionalProfile: {
+          select: {
+            id: true,
+            user: {
+              select: {
+                name: true,
               },
             },
           },
         },
-      })
+      },
+      orderBy: { scheduledAt: "asc" },
+    })
 
-      // Create tokens for confirm/cancel actions
-      const tokens = await createAppointmentTokens(newAppointment.id, apptDate.scheduledAt, tx)
+    // Bulk create tokens for all appointments
+    await createBulkAppointmentTokens(
+      createdAppointments.map(a => ({ id: a.id, scheduledAt: a.scheduledAt })),
+      tx
+    )
 
-      createdAppointments.push(newAppointment)
-      createdTokens.push(tokens)
-    }
+    // Fetch the first appointment's tokens for the notification
+    const firstAppointmentTokens = await tx.appointmentToken.findMany({
+      where: {
+        appointmentId: createdAppointments[0].id,
+      },
+    })
+
+    const confirmToken = firstAppointmentTokens.find(t => t.action === "confirm")?.token || ""
+    const cancelToken = firstAppointmentTokens.find(t => t.action === "cancel")?.token || ""
+    const expiresAt = firstAppointmentTokens[0]?.expiresAt || new Date()
 
     // Update patient's lastVisitAt
     await tx.patient.update({
@@ -895,7 +923,7 @@ async function handleCreateAppointment(
 
     return {
       appointments: createdAppointments,
-      tokens: createdTokens,
+      tokens: [{ confirmToken, cancelToken, expiresAt }],
       recurrenceId,
     }
   }, { timeout: 30000 })

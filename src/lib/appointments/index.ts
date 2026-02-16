@@ -1,15 +1,19 @@
 export {
   checkConflict,
+  checkConflictsBulk,
   formatConflictError,
   type ConflictCheckParams,
   type ConflictCheckResult,
   type ConflictingAppointment,
+  type BulkConflictCheckParams,
+  type BulkConflictResult,
 } from "./conflict-check"
 
 export {
   generateToken,
   calculateTokenExpiry,
   createAppointmentTokens,
+  createBulkAppointmentTokens,
   validateToken,
   invalidateToken,
   regenerateAppointmentTokens,

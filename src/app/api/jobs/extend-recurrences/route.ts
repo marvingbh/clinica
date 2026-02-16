@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { RecurrenceEndType, AppointmentStatus } from "@prisma/client"
 import { calculateNextWindowDates } from "@/lib/appointments"
-import { createAppointmentTokens } from "@/lib/appointments"
+import { createBulkAppointmentTokens } from "@/lib/appointments"
 
 /**
  * GET /api/jobs/extend-recurrences
@@ -144,28 +144,41 @@ export async function GET(req: Request) {
           continue
         }
 
-        // Create new appointments in a transaction
+        // Bulk create new appointments in a transaction
         await prisma.$transaction(async (tx) => {
-          for (const dateInfo of nonConflictingDates) {
-            // Create the appointment
-            const newAppointment = await tx.appointment.create({
-              data: {
-                clinicId: recurrence.clinicId,
-                professionalProfileId: recurrence.professionalProfileId,
-                patientId: recurrence.patientId,
-                recurrenceId: recurrence.id,
-                scheduledAt: dateInfo.scheduledAt,
-                endAt: dateInfo.endAt,
-                modality: recurrence.modality,
-                status: AppointmentStatus.AGENDADO,
+          // Bulk create all appointments
+          await tx.appointment.createMany({
+            data: nonConflictingDates.map(dateInfo => ({
+              clinicId: recurrence.clinicId,
+              professionalProfileId: recurrence.professionalProfileId,
+              patientId: recurrence.patientId,
+              recurrenceId: recurrence.id,
+              scheduledAt: dateInfo.scheduledAt,
+              endAt: dateInfo.endAt,
+              modality: recurrence.modality,
+              status: AppointmentStatus.AGENDADO,
+            })),
+          })
+
+          // Fetch created appointment IDs for token creation
+          const createdAppointments = await tx.appointment.findMany({
+            where: {
+              recurrenceId: recurrence.id,
+              scheduledAt: {
+                gte: nonConflictingDates[0].scheduledAt,
+                lte: nonConflictingDates[nonConflictingDates.length - 1].scheduledAt,
               },
-            })
+            },
+            select: { id: true, scheduledAt: true },
+            orderBy: { scheduledAt: "asc" },
+          })
 
-            // Create tokens for confirm/cancel actions
-            await createAppointmentTokens(newAppointment.id, dateInfo.scheduledAt, tx)
-
-            results.appointmentsCreated++
+          // Bulk create tokens for all new appointments
+          if (recurrence.patientId) {
+            await createBulkAppointmentTokens(createdAppointments, tx)
           }
+
+          results.appointmentsCreated += nonConflictingDates.length
 
           // Update lastGeneratedDate
           await tx.appointmentRecurrence.update({

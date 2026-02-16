@@ -5,7 +5,7 @@ import { createAuditLog } from "@/lib/rbac/audit"
 import { RecurrenceType, RecurrenceEndType, AppointmentStatus, AppointmentModality } from "@prisma/client"
 import { z } from "zod"
 import { calculateDayShiftedDates } from "@/lib/appointments/recurrence"
-import { checkConflict, ConflictingAppointment } from "@/lib/appointments/conflict-check"
+import { checkConflictsBulk } from "@/lib/appointments/conflict-check"
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
 
@@ -293,20 +293,13 @@ export const PATCH = withAuth(
       const newDayOfWeek = updateData.dayOfWeek!
       const currentDayOfWeek = recurrence.dayOfWeek
 
-      // Calculate new dates for all future appointments and check for conflicts
-      const conflicts: Array<{
-        appointmentId: string
-        date: string
-        patientName: string | null
-        conflictWith: ConflictingAppointment
-      }> = []
-
       // If time is also changing, we need to apply the new time to day-shifted dates
       const newStartTime = updateData.startTime || recurrence.startTime
       const newEndTime = updateData.endTime || recurrence.endTime
       const isAlsoTimeChange = updateData.startTime !== undefined || updateData.endTime !== undefined
 
-      for (const apt of recurrence.appointments) {
+      // Pre-calculate all new dates
+      const shiftedDates = recurrence.appointments.map(apt => {
         let { scheduledAt: newScheduledAt, endAt: newEndAt } = calculateDayShiftedDates(
           apt.scheduledAt,
           apt.endAt,
@@ -314,7 +307,6 @@ export const PATCH = withAuth(
           newDayOfWeek
         )
 
-        // If time is also changing, apply the new time to the day-shifted dates
         if (isAlsoTimeChange) {
           const [startHours, startMinutes] = newStartTime.split(":").map(Number)
           const [endHours, endMinutes] = newEndTime.split(":").map(Number)
@@ -324,45 +316,42 @@ export const PATCH = withAuth(
           newEndAt.setHours(endHours, endMinutes, 0, 0)
         }
 
-        // Check for conflicts at the new date/time
-        const conflictResult = await checkConflict({
-          professionalProfileId: recurrence.professionalProfileId,
-          scheduledAt: newScheduledAt,
-          endAt: newEndAt,
-          excludeAppointmentId: apt.id,
-        })
+        return { apt, newScheduledAt, newEndAt }
+      })
 
-        if (conflictResult.hasConflict && conflictResult.conflictingAppointment) {
-          conflicts.push({
-            appointmentId: apt.id,
-            date: newScheduledAt.toLocaleDateString("pt-BR"),
-            patientName: conflictResult.conflictingAppointment.patientName,
-            conflictWith: conflictResult.conflictingAppointment,
-          })
-        } else {
-          dayShiftedAppointments.push({
-            id: apt.id,
-            oldScheduledAt: apt.scheduledAt,
-            oldEndAt: apt.endAt,
-            newScheduledAt,
-            newEndAt,
-          })
-        }
-      }
+      // Bulk check all conflicts in a single query
+      const bulkResult = await checkConflictsBulk({
+        professionalProfileId: recurrence.professionalProfileId,
+        dates: shiftedDates.map(d => ({ scheduledAt: d.newScheduledAt, endAt: d.newEndAt })),
+        excludeAppointmentIds: recurrence.appointments.map(a => a.id),
+      })
 
       // If there are conflicts, fail the operation
-      if (conflicts.length > 0) {
+      if (bulkResult.conflicts.length > 0) {
+        const conflicts = bulkResult.conflicts.map(c => ({
+          date: shiftedDates[c.index].newScheduledAt.toLocaleDateString("pt-BR"),
+          conflictsWith: c.conflictingAppointment.patientName,
+        }))
+
         return NextResponse.json(
           {
             error: "Conflitos de horario encontrados ao mudar o dia da semana",
             code: "DAY_CHANGE_CONFLICTS",
-            conflicts: conflicts.map((c) => ({
-              date: c.date,
-              conflictsWith: c.patientName,
-            })),
+            conflicts,
           },
           { status: 409 }
         )
+      }
+
+      // No conflicts — populate day shifted appointments
+      for (const { apt, newScheduledAt, newEndAt } of shiftedDates) {
+        dayShiftedAppointments.push({
+          id: apt.id,
+          oldScheduledAt: apt.scheduledAt,
+          oldEndAt: apt.endAt,
+          newScheduledAt,
+          newEndAt,
+        })
       }
     }
 
@@ -452,19 +441,26 @@ export const PATCH = withAuth(
         deletedAppointmentsCount = appointmentsToDelete.length
       }
 
-      // If day of week changed, update all future appointments with new dates
+      // If day of week changed, bulk update all future appointments with raw SQL
       if (isDayOfWeekChange && dayShiftedAppointments.length > 0) {
-        for (const apt of dayShiftedAppointments) {
-          await tx.appointment.update({
-            where: { id: apt.id },
-            data: {
-              scheduledAt: apt.newScheduledAt,
-              endAt: apt.newEndAt,
-              ...(body.modality && { modality: body.modality as AppointmentModality }),
-            },
-          })
-          updatedAppointmentsCount++
-        }
+        // Build VALUES clause for bulk update
+        const values = dayShiftedAppointments.map(apt =>
+          `('${apt.id}'::uuid, '${apt.newScheduledAt.toISOString()}'::timestamptz, '${apt.newEndAt.toISOString()}'::timestamptz)`
+        ).join(", ")
+
+        const modalityClause = body.modality
+          ? `, "modality" = '${body.modality}'`
+          : ""
+
+        await tx.$executeRawUnsafe(`
+          UPDATE "Appointment" SET
+            "scheduledAt" = v.new_start,
+            "endAt" = v.new_end
+            ${modalityClause}
+          FROM (VALUES ${values}) AS v(id, new_start, new_end)
+          WHERE "Appointment".id = v.id
+        `)
+        updatedAppointmentsCount = dayShiftedAppointments.length
       }
 
       // If applyTo is "future", update future appointments (for other fields)
@@ -485,35 +481,35 @@ export const PATCH = withAuth(
           appointmentUpdateData.modality = body.modality as AppointmentModality
         }
 
-        // Update times if startTime or endTime changed
+        // Update times if startTime or endTime changed — bulk raw SQL
         if (body.startTime || body.endTime) {
-          for (const apt of remainingAppointments) {
-            const aptDate = new Date(apt.scheduledAt)
-            const dateStr = aptDate.toISOString().split("T")[0]
+          const newStartTime = body.startTime || recurrence.startTime
+          const newEndTime = body.endTime || recurrence.endTime
 
-            const newStartTime = body.startTime || recurrence.startTime
-            const newEndTime = body.endTime || recurrence.endTime
+          const [startHours, startMinutes] = newStartTime.split(":").map(Number)
+          const [endHours, endMinutes] = newEndTime.split(":").map(Number)
 
-            const [startHours, startMinutes] = newStartTime.split(":").map(Number)
-            const [endHours, endMinutes] = newEndTime.split(":").map(Number)
-
-            const newScheduledAt = new Date(`${dateStr}T${newStartTime}:00`)
-            const newEndAt = new Date(`${dateStr}T${newEndTime}:00`)
-
-            // Adjust for timezone
+          const values = remainingAppointments.map(apt => {
+            const newScheduledAt = new Date(apt.scheduledAt)
             newScheduledAt.setHours(startHours, startMinutes, 0, 0)
+            const newEndAt = new Date(apt.scheduledAt)
             newEndAt.setHours(endHours, endMinutes, 0, 0)
+            return `('${apt.id}'::uuid, '${newScheduledAt.toISOString()}'::timestamptz, '${newEndAt.toISOString()}'::timestamptz)`
+          }).join(", ")
 
-            await tx.appointment.update({
-              where: { id: apt.id },
-              data: {
-                scheduledAt: newScheduledAt,
-                endAt: newEndAt,
-                ...(body.modality && { modality: body.modality as AppointmentModality }),
-              },
-            })
-            updatedAppointmentsCount++
-          }
+          const modalityClause = body.modality
+            ? `, "modality" = '${body.modality}'`
+            : ""
+
+          await tx.$executeRawUnsafe(`
+            UPDATE "Appointment" SET
+              "scheduledAt" = v.new_start,
+              "endAt" = v.new_end
+              ${modalityClause}
+            FROM (VALUES ${values}) AS v(id, new_start, new_end)
+            WHERE "Appointment".id = v.id
+          `)
+          updatedAppointmentsCount = remainingAppointments.length
         } else if (body.modality) {
           // Only update modality
           await tx.appointment.updateMany({
