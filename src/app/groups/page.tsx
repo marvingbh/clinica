@@ -126,6 +126,7 @@ export default function GroupsPage() {
   const [sessionFilter, setSessionFilter] = useState<"upcoming" | "past">("upcoming")
   const [sessionPage, setSessionPage] = useState(1)
   const [sessionTotal, setSessionTotal] = useState(0)
+  const [sessionGoToDate, setSessionGoToDate] = useState("")
   const SESSION_PAGE_SIZE = 10
 
   // Session generation state
@@ -208,12 +209,12 @@ export default function GroupsPage() {
     }
   }, [])
 
-  const fetchGroupSessions = useCallback(async (groupId: string, filter: string, page: number) => {
+  const fetchGroupSessions = useCallback(async (groupId: string, filter: string, page: number, referenceDate?: string) => {
     setIsLoadingSessions(true)
     try {
-      const response = await fetch(
-        `/api/group-sessions?groupId=${groupId}&filter=${filter}&page=${page}&limit=${SESSION_PAGE_SIZE}`
-      )
+      let url = `/api/group-sessions?groupId=${groupId}&filter=${filter}&page=${page}&limit=${SESSION_PAGE_SIZE}`
+      if (referenceDate) url += `&referenceDate=${referenceDate}`
+      const response = await fetch(url)
       if (!response.ok) {
         throw new Error("Failed to fetch sessions")
       }
@@ -290,6 +291,7 @@ export default function GroupsPage() {
     setSessionFilter("upcoming")
     setSessionPage(1)
     setSessionTotal(0)
+    setSessionGoToDate("")
     resetAddMemberState()
   }
 
@@ -1058,7 +1060,7 @@ export default function GroupsPage() {
                                     setSessionFilter("upcoming")
                                     setSessionPage(1)
                                     if (viewingGroup) {
-                                      fetchGroupSessions(viewingGroup.id, "upcoming", 1)
+                                      fetchGroupSessions(viewingGroup.id, "upcoming", 1, sessionGoToDate || undefined)
                                     }
                                   }
                                 }}
@@ -1077,7 +1079,7 @@ export default function GroupsPage() {
                                     setSessionFilter("past")
                                     setSessionPage(1)
                                     if (viewingGroup) {
-                                      fetchGroupSessions(viewingGroup.id, "past", 1)
+                                      fetchGroupSessions(viewingGroup.id, "past", 1, sessionGoToDate || undefined)
                                     }
                                   }
                                 }}
@@ -1089,6 +1091,39 @@ export default function GroupsPage() {
                               >
                                 Passadas
                               </button>
+                            </div>
+
+                            {/* Go to date */}
+                            <div className="flex items-center gap-2 mb-4">
+                              <label className="text-sm text-muted-foreground whitespace-nowrap">Ir para data:</label>
+                              <input
+                                type="date"
+                                value={sessionGoToDate}
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  setSessionGoToDate(val)
+                                  setSessionPage(1)
+                                  if (viewingGroup) {
+                                    fetchGroupSessions(viewingGroup.id, sessionFilter, 1, val || undefined)
+                                  }
+                                }}
+                                className="h-9 px-3 rounded-md border border-input bg-background text-foreground text-sm"
+                              />
+                              {sessionGoToDate && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSessionGoToDate("")
+                                    setSessionPage(1)
+                                    if (viewingGroup) {
+                                      fetchGroupSessions(viewingGroup.id, sessionFilter, 1)
+                                    }
+                                  }}
+                                  className="text-xs text-muted-foreground hover:text-foreground"
+                                >
+                                  Limpar
+                                </button>
+                              )}
                             </div>
 
                             {isLoadingSessions ? (
@@ -1180,7 +1215,7 @@ export default function GroupsPage() {
                                   onClick={() => {
                                     const prev = sessionPage - 1
                                     setSessionPage(prev)
-                                    if (viewingGroup) fetchGroupSessions(viewingGroup.id, sessionFilter, prev)
+                                    if (viewingGroup) fetchGroupSessions(viewingGroup.id, sessionFilter, prev, sessionGoToDate || undefined)
                                   }}
                                   disabled={sessionPage <= 1}
                                   className="h-8 px-3 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1195,7 +1230,7 @@ export default function GroupsPage() {
                                   onClick={() => {
                                     const next = sessionPage + 1
                                     setSessionPage(next)
-                                    if (viewingGroup) fetchGroupSessions(viewingGroup.id, sessionFilter, next)
+                                    if (viewingGroup) fetchGroupSessions(viewingGroup.id, sessionFilter, next, sessionGoToDate || undefined)
                                   }}
                                   disabled={sessionPage >= Math.ceil(sessionTotal / SESSION_PAGE_SIZE)}
                                   className="h-8 px-3 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"

@@ -49,7 +49,9 @@ export const GET = withAuth(
     }
 
     // Apply time-based filter (upcoming/past)
-    const now = new Date()
+    // referenceDate lets the client override "now" for navigation (e.g. "ir para data")
+    const referenceDateParam = searchParams.get("referenceDate")
+    const now = referenceDateParam ? new Date(referenceDateParam + "T00:00:00") : new Date()
     if (filter === "upcoming") {
       if (dateFilter) {
         // Merge: use the later of dateFilter.gte and now
