@@ -77,14 +77,14 @@ function WeeklyAgendaPageContent() {
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
 
-  // Initialize week from URL, localStorage, or default to current week
+  // Initialize week from URL, sessionStorage, or default to current week
   const [weekStart, setWeekStartState] = useState(() => {
     const dateParam = searchParams.get("date")
     if (dateParam) {
       return getWeekStart(new Date(dateParam + "T12:00:00"))
     }
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("clinica:selectedDate")
+      const stored = sessionStorage.getItem("clinica:selectedDate")
       if (stored) {
         const [year, month, day] = stored.split("-").map(Number)
         const date = new Date(year, month - 1, day)
@@ -101,7 +101,7 @@ function WeeklyAgendaPageContent() {
         const y = newDate.getFullYear()
         const m = String(newDate.getMonth() + 1).padStart(2, "0")
         const d = String(newDate.getDate()).padStart(2, "0")
-        localStorage.setItem("clinica:selectedDate", `${y}-${m}-${d}`)
+        sessionStorage.setItem("clinica:selectedDate", `${y}-${m}-${d}`)
       }
       return newDate
     })
@@ -114,7 +114,7 @@ function WeeklyAgendaPageContent() {
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [selectedProfessionalId, setSelectedProfessionalIdState] = useState<string>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("clinica:selectedProfessionalId") || ""
+      return sessionStorage.getItem("clinica:selectedProfessionalId") || ""
     }
     return ""
   })
@@ -122,9 +122,9 @@ function WeeklyAgendaPageContent() {
     setSelectedProfessionalIdState(id)
     if (typeof window !== "undefined") {
       if (id) {
-        localStorage.setItem("clinica:selectedProfessionalId", id)
+        sessionStorage.setItem("clinica:selectedProfessionalId", id)
       } else {
-        localStorage.removeItem("clinica:selectedProfessionalId")
+        sessionStorage.removeItem("clinica:selectedProfessionalId")
       }
     }
   }, [])

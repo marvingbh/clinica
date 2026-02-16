@@ -49,7 +49,7 @@ export function useAgendaData({
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [selectedProfessionalId, setSelectedProfessionalIdState] = useState(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("clinica:selectedProfessionalId") || ""
+      return sessionStorage.getItem("clinica:selectedProfessionalId") || ""
     }
     return ""
   })
@@ -57,9 +57,9 @@ export function useAgendaData({
     setSelectedProfessionalIdState(id)
     if (typeof window !== "undefined") {
       if (id) {
-        localStorage.setItem("clinica:selectedProfessionalId", id)
+        sessionStorage.setItem("clinica:selectedProfessionalId", id)
       } else {
-        localStorage.removeItem("clinica:selectedProfessionalId")
+        sessionStorage.removeItem("clinica:selectedProfessionalId")
       }
     }
   }, [])

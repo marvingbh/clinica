@@ -5,7 +5,7 @@ const STORAGE_KEY = "clinica:selectedDate"
 
 function loadPersistedDate(): Date {
   if (typeof window === "undefined") return new Date()
-  const stored = localStorage.getItem(STORAGE_KEY)
+  const stored = sessionStorage.getItem(STORAGE_KEY)
   if (stored) {
     const [year, month, day] = stored.split("-").map(Number)
     const date = new Date(year, month - 1, day)
@@ -16,7 +16,7 @@ function loadPersistedDate(): Date {
 
 function persistDate(date: Date) {
   if (typeof window !== "undefined") {
-    localStorage.setItem(STORAGE_KEY, toDateString(date))
+    sessionStorage.setItem(STORAGE_KEY, toDateString(date))
   }
 }
 
