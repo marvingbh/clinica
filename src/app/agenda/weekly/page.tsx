@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useCallback, useEffect, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
@@ -69,6 +69,7 @@ import type { AppointmentType } from "../components/RecurrenceOptions"
 import type { CalendarEntryType } from "../lib/types"
 
 import { useCalendarEntryCreate } from "../hooks"
+import { useAgendaContext } from "../context/AgendaContext"
 
 import { WeekNavigation, WeeklyGrid } from "./components"
 
@@ -76,58 +77,24 @@ function WeeklyAgendaPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
+  const { selectedDate, setSelectedDate, selectedProfessionalId, setSelectedProfessionalId } = useAgendaContext()
 
-  // Initialize week from URL, sessionStorage, or default to current week
-  const [weekStart, setWeekStartState] = useState(() => {
+  // Handle URL date parameter on mount
+  useEffect(() => {
     const dateParam = searchParams.get("date")
     if (dateParam) {
-      return getWeekStart(new Date(dateParam + "T12:00:00"))
+      setSelectedDate(getWeekStart(new Date(dateParam + "T12:00:00")))
     }
-    if (typeof window !== "undefined") {
-      const stored = sessionStorage.getItem("clinica:selectedDate")
-      if (stored) {
-        const [year, month, day] = stored.split("-").map(Number)
-        const date = new Date(year, month - 1, day)
-        if (!isNaN(date.getTime())) return getWeekStart(date)
-      }
-    }
-    return getWeekStart(new Date())
-  })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const setWeekStart = useCallback((dateOrFn: Date | ((prev: Date) => Date)) => {
-    setWeekStartState((prev) => {
-      const newDate = typeof dateOrFn === "function" ? dateOrFn(prev) : dateOrFn
-      if (typeof window !== "undefined") {
-        const y = newDate.getFullYear()
-        const m = String(newDate.getMonth() + 1).padStart(2, "0")
-        const d = String(newDate.getDate()).padStart(2, "0")
-        sessionStorage.setItem("clinica:selectedDate", `${y}-${m}-${d}`)
-      }
-      return newDate
-    })
-  }, [])
+  // Derive weekStart from the shared selectedDate
+  const weekStart = useMemo(() => getWeekStart(selectedDate), [selectedDate])
 
   // Core state
   const [isLoading, setIsLoading] = useState(true)
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [groupSessions, setGroupSessions] = useState<GroupSession[]>([])
   const [professionals, setProfessionals] = useState<Professional[]>([])
-  const [selectedProfessionalId, setSelectedProfessionalIdState] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      return sessionStorage.getItem("clinica:selectedProfessionalId") || ""
-    }
-    return ""
-  })
-  const setSelectedProfessionalId = useCallback((id: string) => {
-    setSelectedProfessionalIdState(id)
-    if (typeof window !== "undefined") {
-      if (id) {
-        sessionStorage.setItem("clinica:selectedProfessionalId", id)
-      } else {
-        sessionStorage.removeItem("clinica:selectedProfessionalId")
-      }
-    }
-  }, [])
   // Use session's appointmentDuration for non-admins, default for admins (will be updated when selecting professional)
   const [appointmentDuration, setAppointmentDuration] = useState(
     session?.user?.appointmentDuration || DEFAULT_APPOINTMENT_DURATION
@@ -206,23 +173,19 @@ function WeeklyAgendaPageContent() {
   // ============================================================================
 
   function goToPreviousWeek() {
-    setWeekStart((prev) => {
-      const newDate = new Date(prev)
-      newDate.setDate(newDate.getDate() - 7)
-      return newDate
-    })
+    const newDate = new Date(weekStart)
+    newDate.setDate(newDate.getDate() - 7)
+    setSelectedDate(newDate)
   }
 
   function goToNextWeek() {
-    setWeekStart((prev) => {
-      const newDate = new Date(prev)
-      newDate.setDate(newDate.getDate() + 7)
-      return newDate
-    })
+    const newDate = new Date(weekStart)
+    newDate.setDate(newDate.getDate() + 7)
+    setSelectedDate(newDate)
   }
 
   function goToToday() {
-    setWeekStart(getWeekStart(new Date()))
+    setSelectedDate(new Date())
   }
 
   // ============================================================================

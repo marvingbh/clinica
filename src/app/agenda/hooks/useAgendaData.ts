@@ -11,6 +11,7 @@ import {
   fetchProfessionals as fetchProfessionalsApi,
   fetchGroupSessions as fetchGroupSessionsApi,
 } from "../services"
+import { useAgendaContext } from "../context/AgendaContext"
 
 export interface UseAgendaDataParams {
   selectedDate: Date
@@ -41,28 +42,13 @@ export function useAgendaData({
   isAuthenticated,
 }: UseAgendaDataParams): UseAgendaDataReturn {
   const router = useRouter()
+  const { selectedProfessionalId, setSelectedProfessionalId } = useAgendaContext()
 
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [groupSessions, setGroupSessions] = useState<GroupSession[]>([])
   const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([])
   const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([])
   const [professionals, setProfessionals] = useState<Professional[]>([])
-  const [selectedProfessionalId, setSelectedProfessionalIdState] = useState(() => {
-    if (typeof window !== "undefined") {
-      return sessionStorage.getItem("clinica:selectedProfessionalId") || ""
-    }
-    return ""
-  })
-  const setSelectedProfessionalId = useCallback((id: string) => {
-    setSelectedProfessionalIdState(id)
-    if (typeof window !== "undefined") {
-      if (id) {
-        sessionStorage.setItem("clinica:selectedProfessionalId", id)
-      } else {
-        sessionStorage.removeItem("clinica:selectedProfessionalId")
-      }
-    }
-  }, [])
   // Use session's appointmentDuration for non-admins, default for admins (will be updated when selecting professional)
   const [appointmentDuration, setAppointmentDuration] = useState(
     currentAppointmentDuration || DEFAULT_APPOINTMENT_DURATION
