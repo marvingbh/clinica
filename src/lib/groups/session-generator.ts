@@ -8,7 +8,8 @@ export interface SessionDate {
 }
 
 /**
- * Gets the interval in days between sessions based on recurrence type
+ * Gets the interval in days between sessions based on recurrence type.
+ * MONTHLY means every 4 weeks (28 days), not calendar-monthly.
  */
 function getIntervalDays(recurrenceType: RecurrenceType): number {
   switch (recurrenceType) {
@@ -17,28 +18,10 @@ function getIntervalDays(recurrenceType: RecurrenceType): number {
     case RecurrenceType.BIWEEKLY:
       return 14
     case RecurrenceType.MONTHLY:
-      return 0 // Handled specially - same day of month
+      return 28
     default:
       return 7
   }
-}
-
-/**
- * Adds months to a date, keeping the same day of month (or last day if not available)
- */
-function addMonths(date: Date, months: number): Date {
-  const result = new Date(date)
-  const targetMonth = result.getMonth() + months
-  const targetDay = result.getDate()
-
-  result.setMonth(targetMonth)
-
-  // If the day changed (e.g., Jan 31 -> Mar 3), adjust to last day of target month
-  if (result.getDate() !== targetDay) {
-    result.setDate(0) // Go to last day of previous month
-  }
-
-  return result
 }
 
 /**
@@ -86,10 +69,7 @@ export function calculateGroupSessionDates(
   // Find first occurrence on or after start date
   let currentDate = findFirstDayOfWeek(start, dayOfWeek)
 
-  // For monthly recurrence, track which occurrence of the month we want
-  // (e.g., 2nd Thursday = the dayOfWeek on the 2nd week)
   const intervalDays = getIntervalDays(recurrenceType)
-  let monthCount = 0
 
   while (currentDate <= end) {
     // Create scheduled time
@@ -104,24 +84,8 @@ export function calculateGroupSessionDates(
       endAt: sessionEnd,
     })
 
-    // Calculate next date based on recurrence type
-    if (recurrenceType === RecurrenceType.MONTHLY) {
-      // For monthly, find the same day of week in the next month
-      monthCount++
-      const nextMonth = addMonths(start, monthCount)
-      currentDate = findFirstDayOfWeek(nextMonth, dayOfWeek)
-
-      // If we overshot (next month started mid-week), use the first occurrence
-      // of that day in the new month
-      const firstOfMonth = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 1)
-      currentDate = findFirstDayOfWeek(firstOfMonth, dayOfWeek)
-
-      // Adjust to match the original week-of-month if needed
-      // For simplicity, we just use the first occurrence of that day each month
-    } else {
-      // WEEKLY or BIWEEKLY
-      currentDate = new Date(currentDate.getTime() + intervalDays * 24 * 60 * 60 * 1000)
-    }
+    // Advance by interval (7 for WEEKLY, 14 for BIWEEKLY, 28 for MONTHLY)
+    currentDate = new Date(currentDate.getTime() + intervalDays * 24 * 60 * 60 * 1000)
   }
 
   return dates
