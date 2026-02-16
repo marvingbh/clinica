@@ -146,7 +146,6 @@ export function RecurrenceTabContent({ appointment, onSave, onClose }: Recurrenc
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             endDate: toIsoDate(finalizeDate),
-            cancelFutureAppointments: false,
           }),
         }
       )

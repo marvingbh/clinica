@@ -2,12 +2,11 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth, forbiddenResponse } from "@/lib/api"
 import { createAuditLog } from "@/lib/rbac/audit"
-import { RecurrenceEndType, AppointmentStatus } from "@prisma/client"
+import { RecurrenceEndType } from "@prisma/client"
 import { z } from "zod"
 
 const finalizeRecurrenceSchema = z.object({
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
-  cancelFutureAppointments: z.boolean().optional().default(false),
 })
 
 /**
@@ -52,7 +51,7 @@ export const POST = withAuth(
       )
     }
 
-    const { endDate, cancelFutureAppointments } = body
+    const { endDate } = body
 
     // Parse end date as local time by appending time component
     const endDateTime = new Date(endDate + "T23:59:59.999")
@@ -82,7 +81,7 @@ export const POST = withAuth(
               gt: endDateTime,
             },
             status: {
-              in: [AppointmentStatus.AGENDADO, AppointmentStatus.CONFIRMADO],
+              notIn: ["FINALIZADO"],
             },
           },
         },
@@ -125,7 +124,7 @@ export const POST = withAuth(
     const ipAddress = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? undefined
     const userAgent = req.headers.get("user-agent") ?? undefined
 
-    let cancelledAppointmentsCount = 0
+    const deletedAppointmentsCount = recurrence.appointments.length
 
     await prisma.$transaction(async (tx) => {
       // Update the recurrence to BY_DATE with the end date
@@ -138,21 +137,16 @@ export const POST = withAuth(
         },
       })
 
-      // Optionally cancel appointments after the end date
-      if (cancelFutureAppointments && recurrence.appointments.length > 0) {
-        await tx.appointment.updateMany({
+      // Permanently delete future appointments after the end date
+      // (tokens cascade-delete, notifications get appointmentId set to null)
+      if (recurrence.appointments.length > 0) {
+        await tx.appointment.deleteMany({
           where: {
             id: {
               in: recurrence.appointments.map((apt) => apt.id),
             },
           },
-          data: {
-            status: AppointmentStatus.CANCELADO_PROFISSIONAL,
-            cancellationReason: "Recorrencia finalizada",
-            cancelledAt: new Date(),
-          },
         })
-        cancelledAppointmentsCount = recurrence.appointments.length
       }
     })
 
@@ -166,7 +160,7 @@ export const POST = withAuth(
       newValues: {
         recurrenceEndType: RecurrenceEndType.BY_DATE,
         endDate,
-        cancelledAppointmentsCount,
+        deletedAppointmentsCount,
       },
       ipAddress,
       userAgent,
@@ -174,10 +168,9 @@ export const POST = withAuth(
 
     return NextResponse.json({
       success: true,
-      message: `Recorrencia finalizada com sucesso${cancelledAppointmentsCount > 0 ? `. ${cancelledAppointmentsCount} agendamento(s) cancelado(s).` : ""}`,
+      message: `Recorrencia finalizada com sucesso${deletedAppointmentsCount > 0 ? `. ${deletedAppointmentsCount} agendamento(s) removido(s).` : ""}`,
       endDate,
-      cancelledAppointmentsCount,
-      appointmentsAfterEndDate: recurrence.appointments.length,
+      deletedAppointmentsCount,
     })
   }
 )
