@@ -15,9 +15,13 @@ export const GET = withAuth(
     const startDate = searchParams.get("startDate")
     const endDate = searchParams.get("endDate")
     const professionalProfileId = searchParams.get("professionalProfileId")
+    const groupId = searchParams.get("groupId")
+    const filter = searchParams.get("filter") || "all" // "upcoming" | "past" | "all"
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50", 10)))
 
     // Build date filter
-    let dateFilter: { gte: Date; lt?: Date; lte?: Date }
+    let dateFilter: { gte: Date; lt?: Date; lte?: Date } | undefined
     if (date) {
       // Single date query
       const dayStart = new Date(date + "T00:00:00")
@@ -29,9 +33,10 @@ export const GET = withAuth(
         gte: new Date(startDate + "T00:00:00"),
         lte: new Date(endDate + "T23:59:59.999"),
       }
-    } else {
+    } else if (!groupId) {
+      // Date params required unless filtering by groupId
       return NextResponse.json(
-        { error: "Either 'date' or 'startDate' and 'endDate' are required" },
+        { error: "Either 'date', 'startDate'+'endDate', or 'groupId' is required" },
         { status: 400 }
       )
     }
@@ -39,9 +44,34 @@ export const GET = withAuth(
     // Build where clause
     const where: Record<string, unknown> = {
       clinicId: user.clinicId,
-      groupId: { not: null },
-      scheduledAt: dateFilter,
+      groupId: groupId ? groupId : { not: null },
       status: { notIn: ["CANCELADO_PACIENTE", "CANCELADO_PROFISSIONAL"] },
+    }
+
+    // Apply time-based filter (upcoming/past)
+    const now = new Date()
+    if (filter === "upcoming") {
+      if (dateFilter) {
+        // Merge: use the later of dateFilter.gte and now
+        dateFilter.gte = dateFilter.gte > now ? dateFilter.gte : now
+      } else {
+        dateFilter = { gte: now }
+      }
+    } else if (filter === "past") {
+      if (dateFilter) {
+        // Merge: use the earlier of dateFilter.lte and now
+        const filterEnd = dateFilter.lte || dateFilter.lt
+        if (!filterEnd || filterEnd > now) {
+          delete dateFilter.lte
+          dateFilter.lt = now
+        }
+      } else {
+        dateFilter = { gte: new Date(0), lt: now }
+      }
+    }
+
+    if (dateFilter) {
+      where.scheduledAt = dateFilter
     }
 
     // Filter by professional if scope is "own" or if explicitly requested
@@ -133,10 +163,17 @@ export const GET = withAuth(
     }
 
     // Convert to array and sort by time
-    const groupSessions = Array.from(sessionMap.values()).sort(
-      (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
-    )
+    const allSessions = Array.from(sessionMap.values()).sort((a, b) => {
+      const diff = new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+      // For past filter, show most recent first
+      return filter === "past" ? -diff : diff
+    })
 
-    return NextResponse.json({ groupSessions })
+    // Paginate aggregated sessions
+    const total = allSessions.length
+    const start = (page - 1) * limit
+    const groupSessions = allSessions.slice(start, start + limit)
+
+    return NextResponse.json({ groupSessions, total, page, limit })
   }
 )

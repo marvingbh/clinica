@@ -123,6 +123,10 @@ export default function GroupsPage() {
   const [viewTab, setViewTab] = useState<ViewTab>("members")
   const [groupSessions, setGroupSessions] = useState<GroupSessionItem[]>([])
   const [isLoadingSessions, setIsLoadingSessions] = useState(false)
+  const [sessionFilter, setSessionFilter] = useState<"upcoming" | "past">("upcoming")
+  const [sessionPage, setSessionPage] = useState(1)
+  const [sessionTotal, setSessionTotal] = useState(0)
+  const SESSION_PAGE_SIZE = 10
 
   // Session generation state
   const [isGeneratingOpen, setIsGeneratingOpen] = useState(false)
@@ -204,15 +208,18 @@ export default function GroupsPage() {
     }
   }, [])
 
-  const fetchGroupSessions = useCallback(async (groupId: string) => {
+  const fetchGroupSessions = useCallback(async (groupId: string, filter: string, page: number) => {
     setIsLoadingSessions(true)
     try {
-      const response = await fetch(`/api/group-sessions?groupId=${groupId}`)
+      const response = await fetch(
+        `/api/group-sessions?groupId=${groupId}&filter=${filter}&page=${page}&limit=${SESSION_PAGE_SIZE}`
+      )
       if (!response.ok) {
         throw new Error("Failed to fetch sessions")
       }
       const data = await response.json()
       setGroupSessions(data.groupSessions)
+      setSessionTotal(data.total ?? 0)
     } catch {
       toast.error("Erro ao carregar sessões")
     } finally {
@@ -280,6 +287,9 @@ export default function GroupsPage() {
     setIsGeneratingOpen(false)
     setViewTab("members")
     setGroupSessions([])
+    setSessionFilter("upcoming")
+    setSessionPage(1)
+    setSessionTotal(0)
     resetAddMemberState()
   }
 
@@ -420,7 +430,8 @@ export default function GroupsPage() {
       setGenerateMode("generate")
       // Refresh sessions tab if it's active
       if (viewTab === "sessions") {
-        fetchGroupSessions(viewingGroup.id)
+        setSessionPage(1)
+        fetchGroupSessions(viewingGroup.id, sessionFilter, 1)
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao gerar sessões")
@@ -877,7 +888,7 @@ export default function GroupsPage() {
                             onClick={() => {
                               setViewTab("sessions")
                               if (groupSessions.length === 0 && !isLoadingSessions) {
-                                fetchGroupSessions(viewingGroup.id)
+                                fetchGroupSessions(viewingGroup.id, sessionFilter, sessionPage)
                               }
                             }}
                             className={`flex-1 h-10 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
@@ -1038,6 +1049,48 @@ export default function GroupsPage() {
                         {/* Sessions Tab */}
                         {viewTab === "sessions" && (
                           <div>
+                            {/* Filter Toggle */}
+                            <div className="flex rounded-lg border border-input overflow-hidden mb-4">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (sessionFilter !== "upcoming") {
+                                    setSessionFilter("upcoming")
+                                    setSessionPage(1)
+                                    if (viewingGroup) {
+                                      fetchGroupSessions(viewingGroup.id, "upcoming", 1)
+                                    }
+                                  }
+                                }}
+                                className={`flex-1 h-9 text-sm font-medium transition-colors ${
+                                  sessionFilter === "upcoming"
+                                    ? "bg-purple-600 text-white"
+                                    : "bg-background text-foreground hover:bg-muted"
+                                }`}
+                              >
+                                Próximas
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (sessionFilter !== "past") {
+                                    setSessionFilter("past")
+                                    setSessionPage(1)
+                                    if (viewingGroup) {
+                                      fetchGroupSessions(viewingGroup.id, "past", 1)
+                                    }
+                                  }
+                                }}
+                                className={`flex-1 h-9 text-sm font-medium transition-colors ${
+                                  sessionFilter === "past"
+                                    ? "bg-purple-600 text-white"
+                                    : "bg-background text-foreground hover:bg-muted"
+                                }`}
+                              >
+                                Passadas
+                              </button>
+                            </div>
+
                             {isLoadingSessions ? (
                               <div className="animate-pulse space-y-3">
                                 <div className="h-16 bg-muted rounded-lg" />
@@ -1113,10 +1166,43 @@ export default function GroupsPage() {
                               </div>
                             ) : (
                               <EmptyState
-                                title="Nenhuma sessão agendada"
-                                message={isAdmin && viewingGroup.isActive ? "Use \"Gerar / Atualizar Sessões\" para criar sessões" : "Ainda não há sessões para este grupo"}
+                                title={sessionFilter === "upcoming" ? "Nenhuma sessão próxima" : "Nenhuma sessão passada"}
+                                message={isAdmin && viewingGroup.isActive && sessionFilter === "upcoming" ? "Use \"Gerar / Atualizar Sessões\" para criar sessões" : sessionFilter === "past" ? "Nenhuma sessão passada encontrada" : "Ainda não há sessões para este grupo"}
                                 icon={<CalendarIcon className="w-8 h-8 text-muted-foreground" />}
                               />
+                            )}
+
+                            {/* Pagination */}
+                            {sessionTotal > SESSION_PAGE_SIZE && (
+                              <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const prev = sessionPage - 1
+                                    setSessionPage(prev)
+                                    if (viewingGroup) fetchGroupSessions(viewingGroup.id, sessionFilter, prev)
+                                  }}
+                                  disabled={sessionPage <= 1}
+                                  className="h-8 px-3 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  &larr; Anterior
+                                </button>
+                                <span className="text-sm text-muted-foreground">
+                                  Página {sessionPage} de {Math.ceil(sessionTotal / SESSION_PAGE_SIZE)}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const next = sessionPage + 1
+                                    setSessionPage(next)
+                                    if (viewingGroup) fetchGroupSessions(viewingGroup.id, sessionFilter, next)
+                                  }}
+                                  disabled={sessionPage >= Math.ceil(sessionTotal / SESSION_PAGE_SIZE)}
+                                  className="h-8 px-3 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  Próxima &rarr;
+                                </button>
+                              </div>
                             )}
                           </div>
                         )}
