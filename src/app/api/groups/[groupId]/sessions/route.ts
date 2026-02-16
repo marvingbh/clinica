@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/api"
 import { calculateGroupSessionDates, filterExistingSessionDates } from "@/lib/groups"
-import { createAppointmentTokens, buildConfirmLink, buildCancelLink } from "@/lib/appointments"
+import { createBulkAppointmentTokens, buildConfirmLink, buildCancelLink } from "@/lib/appointments"
 import { createNotification } from "@/lib/notifications"
 import { NotificationChannel, NotificationType, AppointmentModality } from "@prisma/client"
 import { z } from "zod"
@@ -225,9 +225,19 @@ export const POST = withAuth(
 
       // For each existing session, find and add missing members + cancel left members
       const regenerateResult = await prisma.$transaction(async (tx) => {
-        const created = []
-        const tokens = []
         let cancelled = 0
+
+        // Collect all appointments to create and patients to remove across sessions
+        const appointmentsToCreate: Array<{
+          clinicId: string
+          professionalProfileId: string
+          patientId: string
+          groupId: string
+          scheduledAt: Date
+          endAt: Date
+          modality: typeof AppointmentModality.PRESENCIAL
+        }> = []
+        const allPatientsToRemoveBySession: Array<{ sessionTime: Date; patientIds: string[] }> = []
 
         for (const sessionTime of existingSessionTimes) {
           const sessionKey = sessionTime.toISOString()
@@ -237,116 +247,119 @@ export const POST = withAuth(
 
           // Find members who should be in this session but aren't
           const missingMembers = activeMembers.filter(member => {
-            // Skip if already has appointment for this session
             if (existingPatientIds.has(member.patientId)) return false
-
             const joinDate = new Date(member.joinDate)
             joinDate.setHours(0, 0, 0, 0)
             const leaveDate = member.leaveDate ? new Date(member.leaveDate) : null
             if (leaveDate) leaveDate.setHours(0, 0, 0, 0)
-
-            // Member must have joined before or on the session date
             if (joinDate > sessionDateObj) return false
-
-            // If member has left, they must have left after the session date
             if (leaveDate && leaveDate <= sessionDateObj) return false
-
             return true
           })
 
-          // Find patients who have appointments but should NOT (left the group or session is before join date)
+          // Find patients who have appointments but should NOT
           const patientsToRemove: string[] = []
           for (const patientId of existingPatientIds) {
             const membership = allMemberships.find(m => m.patientId === patientId)
-            if (!membership) {
-              // Patient is not a member at all - should be removed
-              patientsToRemove.push(patientId)
-              continue
-            }
-
+            if (!membership) { patientsToRemove.push(patientId); continue }
             const joinDate = new Date(membership.joinDate)
             joinDate.setHours(0, 0, 0, 0)
             const leaveDate = membership.leaveDate ? new Date(membership.leaveDate) : null
             if (leaveDate) leaveDate.setHours(0, 0, 0, 0)
-
-            // Session is before member joined
-            if (sessionDateObj < joinDate) {
-              patientsToRemove.push(patientId)
-              continue
-            }
-
-            // Member has left and leave date is on or before the session date
-            if (leaveDate && leaveDate <= sessionDateObj) {
-              patientsToRemove.push(patientId)
-              continue
-            }
+            if (sessionDateObj < joinDate) { patientsToRemove.push(patientId); continue }
+            if (leaveDate && leaveDate <= sessionDateObj) { patientsToRemove.push(patientId); continue }
           }
 
-          // Cancel appointments for patients who should be removed
           if (patientsToRemove.length > 0) {
-            const cancelResult = await tx.appointment.updateMany({
-              where: {
-                groupId,
-                scheduledAt: sessionTime,
-                patientId: { in: patientsToRemove },
-                status: { in: ["AGENDADO", "CONFIRMADO"] }, // Only cancel non-finalized appointments
-              },
-              data: {
-                status: "CANCELADO_PROFISSIONAL",
-              },
-            })
-            cancelled += cancelResult.count
+            allPatientsToRemoveBySession.push({ sessionTime, patientIds: patientsToRemove })
           }
 
-          // Create appointments for missing members
+          const endAt = new Date(sessionTime.getTime() + group.duration * 60 * 1000)
           for (const member of missingMembers) {
-            const endAt = new Date(sessionTime.getTime() + group.duration * 60 * 1000)
-
-            const appointment = await tx.appointment.create({
-              data: {
-                clinicId: user.clinicId,
-                professionalProfileId: group.professionalProfileId,
-                patientId: member.patientId,
-                groupId: group.id,
-                scheduledAt: sessionTime,
-                endAt,
-                modality: AppointmentModality.PRESENCIAL,
-              },
-              include: {
-                patient: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    phone: true,
-                    consentWhatsApp: true,
-                    consentEmail: true,
-                  },
-                },
-              },
+            appointmentsToCreate.push({
+              clinicId: user.clinicId,
+              professionalProfileId: group.professionalProfileId,
+              patientId: member.patientId,
+              groupId: group.id,
+              scheduledAt: sessionTime,
+              endAt,
+              modality: AppointmentModality.PRESENCIAL,
             })
-
-            // Create tokens for confirm/cancel actions
-            const appointmentTokens = await createAppointmentTokens(appointment.id, sessionTime, tx)
-
-            created.push(appointment)
-            tokens.push({ appointment, tokens: appointmentTokens, member })
           }
         }
 
-        return { created, tokens, cancelled }
-      })
+        // Bulk cancel
+        for (const { sessionTime, patientIds } of allPatientsToRemoveBySession) {
+          const cancelResult = await tx.appointment.updateMany({
+            where: {
+              groupId,
+              scheduledAt: sessionTime,
+              patientId: { in: patientIds },
+              status: { in: ["AGENDADO", "CONFIRMADO"] },
+            },
+            data: { status: "CANCELADO_PROFISSIONAL" },
+          })
+          cancelled += cancelResult.count
+        }
+
+        // Bulk create appointments
+        if (appointmentsToCreate.length > 0) {
+          await tx.appointment.createMany({ data: appointmentsToCreate })
+        }
+
+        // Fetch created appointments with patient info for notifications
+        const created = appointmentsToCreate.length > 0
+          ? await tx.appointment.findMany({
+              where: {
+                groupId: group.id,
+                scheduledAt: { in: appointmentsToCreate.map(a => a.scheduledAt) },
+                patientId: { in: appointmentsToCreate.map(a => a.patientId) },
+              },
+              include: {
+                patient: {
+                  select: { id: true, name: true, email: true, phone: true, consentWhatsApp: true, consentEmail: true },
+                },
+              },
+              orderBy: { scheduledAt: "asc" },
+            })
+          : []
+
+        // Bulk create tokens
+        if (created.length > 0) {
+          await createBulkAppointmentTokens(
+            created.map(a => ({ id: a.id, scheduledAt: a.scheduledAt })),
+            tx
+          )
+        }
+
+        return { created, cancelled }
+      }, { timeout: 30000 })
 
       regeneratedCount = regenerateResult.created.length
       cancelledCount = regenerateResult.cancelled
 
       // Queue notifications for regenerated appointments
-      if (regenerateResult.tokens.length > 0) {
+      if (regenerateResult.created.length > 0) {
         try {
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
           const professionalName = group.professionalProfile.user.name
 
-          for (const { appointment, tokens: tkns, member } of regenerateResult.tokens) {
+          // Fetch tokens for all created appointments
+          const allTokens = await prisma.appointmentToken.findMany({
+            where: { appointmentId: { in: regenerateResult.created.map(a => a.id) } },
+          })
+          const tokensByAppointment = new Map<string, { confirmToken: string; cancelToken: string }>()
+          for (const t of allTokens) {
+            const entry = tokensByAppointment.get(t.appointmentId) || { confirmToken: "", cancelToken: "" }
+            if (t.action === "confirm") entry.confirmToken = t.token
+            if (t.action === "cancel") entry.cancelToken = t.token
+            tokensByAppointment.set(t.appointmentId, entry)
+          }
+
+          for (const appointment of regenerateResult.created) {
+            const tkns = tokensByAppointment.get(appointment.id)
+            if (!tkns || !appointment.patient) continue
+
             const confirmLink = buildConfirmLink(baseUrl, tkns.confirmToken)
             const cancelLink = buildCancelLink(baseUrl, tkns.cancelToken)
 
@@ -361,28 +374,28 @@ export const POST = withAuth(
               minute: "2-digit",
             })
 
-            const notificationContent = `Ola ${member.patient.name}!\n\nVoce foi adicionado(a) às sessões do grupo "${group.name}".\n\n📅 Data: ${formattedDate}\n🕐 Horario: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n\nPara confirmar sua presenca, acesse:\n${confirmLink}\n\nPara cancelar, acesse:\n${cancelLink}`
+            const notificationContent = `Ola ${appointment.patient.name}!\n\nVoce foi adicionado(a) às sessões do grupo "${group.name}".\n\n📅 Data: ${formattedDate}\n🕐 Horario: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n\nPara confirmar sua presenca, acesse:\n${confirmLink}\n\nPara cancelar, acesse:\n${cancelLink}`
 
-            if (member.patient.consentWhatsApp && member.patient.phone) {
+            if (appointment.patient.phone) {
               createNotification({
                 clinicId: user.clinicId,
-                patientId: member.patientId,
+                patientId: appointment.patient.id,
                 appointmentId: appointment.id,
                 type: NotificationType.APPOINTMENT_CONFIRMATION,
                 channel: NotificationChannel.WHATSAPP,
-                recipient: member.patient.phone,
+                recipient: appointment.patient.phone,
                 content: notificationContent,
               }).catch(() => {})
             }
 
-            if (member.patient.consentEmail && member.patient.email) {
+            if (appointment.patient.email) {
               createNotification({
                 clinicId: user.clinicId,
-                patientId: member.patientId,
+                patientId: appointment.patient.id,
                 appointmentId: appointment.id,
                 type: NotificationType.APPOINTMENT_CONFIRMATION,
                 channel: NotificationChannel.EMAIL,
-                recipient: member.patient.email,
+                recipient: appointment.patient.email,
                 subject: `Adicionado ao Grupo - ${group.name}`,
                 content: notificationContent,
               }).catch(() => {})
@@ -426,72 +439,91 @@ export const POST = withAuth(
     }
 
     // Create appointments for each session date and each active member
-    const result = await prisma.$transaction(async (tx) => {
-      const createdAppointments = []
-      const createdTokens = []
+    // Build all appointment data first, then bulk create
+    const appointmentsData: Array<{
+      clinicId: string
+      professionalProfileId: string
+      patientId: string
+      groupId: string
+      scheduledAt: Date
+      endAt: Date
+      modality: typeof AppointmentModality.PRESENCIAL
+    }> = []
 
-      for (const sessionDate of newSessionDates) {
-        // Filter members who are active for this specific date
-        const membersForDate = activeMembers.filter(member => {
-          const joinDate = new Date(member.joinDate)
-          const leaveDate = member.leaveDate ? new Date(member.leaveDate) : null
+    for (const sessionDate of newSessionDates) {
+      const membersForDate = activeMembers.filter(member => {
+        const joinDate = new Date(member.joinDate)
+        const leaveDate = member.leaveDate ? new Date(member.leaveDate) : null
+        const sessionDateObj = new Date(sessionDate.date + "T00:00:00")
+        if (joinDate > sessionDateObj) return false
+        if (leaveDate && leaveDate <= sessionDateObj) return false
+        return true
+      })
 
-          const sessionDateObj = new Date(sessionDate.date + "T00:00:00")
-
-          // Member must have joined before or on the session date
-          if (joinDate > sessionDateObj) return false
-
-          // If member has left, they must have left after the session date
-          if (leaveDate && leaveDate <= sessionDateObj) return false
-
-          return true
+      for (const member of membersForDate) {
+        appointmentsData.push({
+          clinicId: user.clinicId,
+          professionalProfileId: group.professionalProfileId,
+          patientId: member.patientId,
+          groupId: group.id,
+          scheduledAt: sessionDate.scheduledAt,
+          endAt: sessionDate.endAt,
+          modality: AppointmentModality.PRESENCIAL,
         })
-
-        // Create an appointment for each member
-        for (const member of membersForDate) {
-          const appointment = await tx.appointment.create({
-            data: {
-              clinicId: user.clinicId,
-              professionalProfileId: group.professionalProfileId,
-              patientId: member.patientId,
-              groupId: group.id,
-              scheduledAt: sessionDate.scheduledAt,
-              endAt: sessionDate.endAt,
-              modality: AppointmentModality.PRESENCIAL,
-            },
-            include: {
-              patient: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  phone: true,
-                  consentWhatsApp: true,
-                  consentEmail: true,
-                },
-              },
-            },
-          })
-
-          // Create tokens for confirm/cancel actions
-          const tokens = await createAppointmentTokens(appointment.id, sessionDate.scheduledAt, tx)
-
-          createdAppointments.push(appointment)
-          createdTokens.push({ appointment, tokens, member })
-        }
       }
+    }
 
-      return { createdAppointments, createdTokens }
-    })
+    const result = await prisma.$transaction(async (tx) => {
+      // Bulk create all appointments
+      await tx.appointment.createMany({ data: appointmentsData })
+
+      // Fetch created appointments with patient info
+      const createdAppointments = await tx.appointment.findMany({
+        where: {
+          groupId: group.id,
+          scheduledAt: { in: newSessionDates.map(s => s.scheduledAt) },
+          patientId: { in: activeMembers.map(m => m.patientId) },
+        },
+        include: {
+          patient: {
+            select: { id: true, name: true, email: true, phone: true, consentWhatsApp: true, consentEmail: true },
+          },
+        },
+        orderBy: { scheduledAt: "asc" },
+      })
+
+      // Bulk create tokens
+      await createBulkAppointmentTokens(
+        createdAppointments.map(a => ({ id: a.id, scheduledAt: a.scheduledAt })),
+        tx
+      )
+
+      return { createdAppointments }
+    }, { timeout: 30000 })
 
     // Queue notifications for created appointments (async, non-blocking)
     try {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
       const professionalName = group.professionalProfile.user.name
 
-      for (const { appointment, tokens, member } of result.createdTokens) {
-        const confirmLink = buildConfirmLink(baseUrl, tokens.confirmToken)
-        const cancelLink = buildCancelLink(baseUrl, tokens.cancelToken)
+      // Fetch tokens for notifications
+      const allTokens = await prisma.appointmentToken.findMany({
+        where: { appointmentId: { in: result.createdAppointments.map(a => a.id) } },
+      })
+      const tokensByAppointment = new Map<string, { confirmToken: string; cancelToken: string }>()
+      for (const t of allTokens) {
+        const entry = tokensByAppointment.get(t.appointmentId) || { confirmToken: "", cancelToken: "" }
+        if (t.action === "confirm") entry.confirmToken = t.token
+        if (t.action === "cancel") entry.cancelToken = t.token
+        tokensByAppointment.set(t.appointmentId, entry)
+      }
+
+      for (const appointment of result.createdAppointments) {
+        const tkns = tokensByAppointment.get(appointment.id)
+        if (!tkns || !appointment.patient) continue
+
+        const confirmLink = buildConfirmLink(baseUrl, tkns.confirmToken)
+        const cancelLink = buildCancelLink(baseUrl, tkns.cancelToken)
 
         const formattedDate = appointment.scheduledAt.toLocaleDateString("pt-BR", {
           weekday: "long",
@@ -504,37 +536,31 @@ export const POST = withAuth(
           minute: "2-digit",
         })
 
-        const notificationContent = `Ola ${member.patient.name}!\n\nVoce foi agendado(a) para a sessao do grupo "${group.name}".\n\n📅 Data: ${formattedDate}\n🕐 Horario: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n\nPara confirmar sua presenca, acesse:\n${confirmLink}\n\nPara cancelar, acesse:\n${cancelLink}`
+        const notificationContent = `Ola ${appointment.patient.name}!\n\nVoce foi agendado(a) para a sessao do grupo "${group.name}".\n\n📅 Data: ${formattedDate}\n🕐 Horario: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n\nPara confirmar sua presenca, acesse:\n${confirmLink}\n\nPara cancelar, acesse:\n${cancelLink}`
 
-        // Queue WhatsApp notification if patient has consent
-        if (member.patient.consentWhatsApp && member.patient.phone) {
+        if (appointment.patient.phone) {
           createNotification({
             clinicId: user.clinicId,
-            patientId: member.patientId,
+            patientId: appointment.patient.id,
             appointmentId: appointment.id,
             type: NotificationType.APPOINTMENT_CONFIRMATION,
             channel: NotificationChannel.WHATSAPP,
-            recipient: member.patient.phone,
+            recipient: appointment.patient.phone,
             content: notificationContent,
-          }).catch(() => {
-            // Silently ignore - notification failure should not affect session generation
-          })
+          }).catch(() => {})
         }
 
-        // Queue email notification if patient has consent
-        if (member.patient.consentEmail && member.patient.email) {
+        if (appointment.patient.email) {
           createNotification({
             clinicId: user.clinicId,
-            patientId: member.patientId,
+            patientId: appointment.patient.id,
             appointmentId: appointment.id,
             type: NotificationType.APPOINTMENT_CONFIRMATION,
             channel: NotificationChannel.EMAIL,
-            recipient: member.patient.email,
+            recipient: appointment.patient.email,
             subject: `Sessao de Grupo Agendada - ${group.name}`,
             content: notificationContent,
-          }).catch(() => {
-            // Silently ignore
-          })
+          }).catch(() => {})
         }
       }
     } catch {
