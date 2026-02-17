@@ -87,20 +87,15 @@ export function AgendaTimeline({
     groupSessionsByTime.set(time, [...existing, session])
   }
 
-  // Track which slot times are covered by an ongoing group session (not starting, but overlapping)
-  const slotsOccupiedByGroupSession = new Set<string>()
-  for (const session of groupSessions) {
+  // Build group session time ranges for overlap checking
+  const groupSessionRanges = groupSessions.map((session) => {
     const start = new Date(session.scheduledAt)
     const end = new Date(session.endAt)
-    const startMin = start.getHours() * 60 + start.getMinutes()
-    const endMin = end.getHours() * 60 + end.getMinutes()
-    // Mark every 30-min slot between start (exclusive) and end
-    for (let m = startMin + 30; m < endMin; m += 30) {
-      const h = Math.floor(m / 60)
-      const mm = m % 60
-      slotsOccupiedByGroupSession.add(`${h.toString().padStart(2, "0")}:${mm.toString().padStart(2, "0")}`)
+    return {
+      startMin: start.getHours() * 60 + start.getMinutes(),
+      endMin: end.getHours() * 60 + end.getMinutes(),
     }
-  }
+  })
   return (
     <SwipeContainer onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} className="max-w-4xl mx-auto px-4 py-6">
       {/* Swipe hint */}
@@ -136,7 +131,11 @@ export function AgendaTimeline({
             const hasAppointments = slot.appointments.length > 0
             const slotGroupSessions = groupSessionsByTime.get(slot.time) || []
             const hasGroupSessions = slotGroupSessions.length > 0
-            const isOccupiedByOngoingSession = slotsOccupiedByGroupSession.has(slot.time)
+            const [slotH, slotM] = slot.time.split(":").map(Number)
+            const slotMin = slotH * 60 + slotM
+            const isOccupiedByOngoingSession = groupSessionRanges.some(
+              (r) => r.startMin < slotMin && r.endMin > slotMin
+            )
             const hasContent = hasAppointments || hasGroupSessions
             const isBlocked = slot.isBlocked
             const isPast = isSlotInPast(selectedDate, slot.time)
