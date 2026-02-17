@@ -35,6 +35,7 @@ const professionalSchema = z.object({
     .min(0, "Intervalo não pode ser negativo")
     .max(60, "Intervalo máximo é 60 minutos")
     .optional(),
+  isAdminRole: z.boolean().optional(),
 })
 
 type ProfessionalFormData = z.infer<typeof professionalSchema>
@@ -159,6 +160,7 @@ export default function ProfessionalsPage() {
       registrationNumber: "",
       appointmentDuration: 50,
       bufferBetweenSlots: 0,
+      isAdminRole: false,
     })
     setIsSheetOpen(true)
   }
@@ -174,6 +176,7 @@ export default function ProfessionalsPage() {
       registrationNumber: professional.professionalProfile?.registrationNumber ?? "",
       appointmentDuration: professional.professionalProfile?.appointmentDuration ?? 50,
       bufferBetweenSlots: professional.professionalProfile?.bufferBetweenSlots ?? 0,
+      isAdminRole: professional.role === "ADMIN",
     })
     setIsSheetOpen(true)
   }
@@ -210,6 +213,11 @@ export default function ProfessionalsPage() {
       // Only include password if creating or if password was provided
       if (!editingProfessional || (data.password && data.password.length > 0)) {
         payload.password = data.password
+      }
+
+      // Send role when editing
+      if (editingProfessional) {
+        payload.role = data.isAdminRole ? "ADMIN" : "PROFESSIONAL"
       }
 
       const response = await fetch(url, {
@@ -443,6 +451,18 @@ export default function ProfessionalsPage() {
                             )}
                           </p>
                         </div>
+                        <div>
+                          <label className="text-sm text-muted-foreground">Perfil</label>
+                          <p className="text-foreground">
+                            {viewingProfessional.role === "ADMIN" ? (
+                              <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                                Administrador
+                              </span>
+                            ) : (
+                              "Profissional"
+                            )}
+                          </p>
+                        </div>
                       </div>
 
                       {/* Professional Info */}
@@ -581,6 +601,25 @@ export default function ProfessionalsPage() {
                         helperText="Tempo de intervalo entre consultas (0-60 minutos). Use 0 para permitir consultas consecutivas."
                       />
                     </div>
+
+                    {editingProfessional && (
+                      <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-border">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Administrador</p>
+                          <p className="text-xs text-muted-foreground">
+                            Concede acesso administrativo completo
+                          </p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            {...register("isAdminRole")}
+                          />
+                          <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-primary" />
+                        </label>
+                      </div>
+                    )}
 
                     <div className="flex flex-col sm:flex-row gap-3 pt-4">
                       <button

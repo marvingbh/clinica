@@ -81,5 +81,13 @@ export { Bell as BellIcon } from "lucide-react"
 export { StickyNote as StickyNoteIcon } from "lucide-react"
 export { UsersRound as UsersRoundIcon } from "lucide-react"
 
+// Security
+export { Shield as ShieldIcon } from "lucide-react"
+
+// Dashboard
+export { TrendingUp as TrendingUpIcon } from "lucide-react"
+export { DollarSign as DollarSignIcon } from "lucide-react"
+export { Activity as ActivityIcon } from "lucide-react"
+
 // Re-export LucideIcon type for custom components
 export type { LucideIcon } from "lucide-react"

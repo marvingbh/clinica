@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth, forbiddenResponse } from "@/lib/api"
 import { hashPassword } from "@/lib/password"
-import { Role } from "@prisma/client"
 
 /**
  * GET /api/professionals/:id
@@ -20,7 +19,7 @@ export const GET = withAuth(
       where: {
         id: params.id,
         clinicId: user.clinicId,
-        role: Role.PROFESSIONAL,
+        professionalProfile: { isNot: null },
       },
       select: {
         id: true,
@@ -69,7 +68,7 @@ export const PATCH = withAuth(
       where: {
         id: params.id,
         clinicId: user.clinicId,
-        role: Role.PROFESSIONAL,
+        professionalProfile: { isNot: null },
       },
       include: {
         professionalProfile: true,
@@ -86,6 +85,7 @@ export const PATCH = withAuth(
       email,
       password,
       isActive,
+      role,
       specialty,
       registrationNumber,
       bio,
@@ -118,6 +118,9 @@ export const PATCH = withAuth(
     if (name !== undefined) userUpdateData.name = name
     if (email !== undefined) userUpdateData.email = email
     if (isActive !== undefined) userUpdateData.isActive = isActive
+    if (role !== undefined && (role === "ADMIN" || role === "PROFESSIONAL")) {
+      userUpdateData.role = role
+    }
     if (password !== undefined && password.length > 0) {
       userUpdateData.passwordHash = await hashPassword(password)
     }
@@ -196,7 +199,7 @@ export const DELETE = withAuth(
       where: {
         id: params.id,
         clinicId: user.clinicId,
-        role: Role.PROFESSIONAL,
+        professionalProfile: { isNot: null },
       },
     })
 

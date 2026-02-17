@@ -13,7 +13,7 @@ const updateRecurrenceSchema = z.object({
   recurrenceType: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]).optional(),
   startTime: z.string().regex(timeRegex, "Invalid time format (HH:mm)").optional(),
   endTime: z.string().regex(timeRegex, "Invalid time format (HH:mm)").optional(),
-  modality: z.enum(["ONLINE", "PRESENCIAL"]).optional(),
+  modality: z.enum(["ONLINE", "PRESENCIAL"]).optional().nullable(),
   recurrenceEndType: z.enum(["BY_DATE", "BY_OCCURRENCES", "INDEFINITE"]).optional(),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional().nullable(),
   occurrences: z.number().int().min(1).max(52).optional().nullable(),

@@ -22,7 +22,7 @@ export const GET = withAuth(
 
     const where: Record<string, unknown> = {
       clinicId: user.clinicId,
-      role: Role.PROFESSIONAL,
+      professionalProfile: { isNot: null },
     }
 
     if (search) {

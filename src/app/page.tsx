@@ -13,15 +13,62 @@ import {
   PlusIcon,
   ClockIcon,
   StethoscopeIcon,
+  ShieldIcon,
+  TrendingUpIcon,
+  DollarSignIcon,
+  ActivityIcon,
 } from "@/shared/components/ui/icons"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Skeleton, SkeletonAvatar, SkeletonText } from "@/shared/components/ui/skeleton"
 import { FAB } from "@/shared/components/ui/fab"
+import { useDashboard } from "@/app/hooks/useDashboard"
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts"
+
+// --- Helpers ---
+
+function formatCurrency(value: number): string {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+}
+
+function formatTime(isoString: string): string {
+  return new Date(isoString).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  AGENDADO: "#3b82f6",
+  CONFIRMADO: "#22c55e",
+  CANCELADO_PACIENTE: "#ef4444",
+  CANCELADO_PROFISSIONAL: "#f97316",
+  NAO_COMPARECEU: "#6b7280",
+  FINALIZADO: "#14b8a6",
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  AGENDADO: "Agendado",
+  CONFIRMADO: "Confirmado",
+  CANCELADO_PACIENTE: "Canc. paciente",
+  CANCELADO_PROFISSIONAL: "Canc. profissional",
+  NAO_COMPARECEU: "Faltou",
+  FINALIZADO: "Finalizado",
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  CONSULTA: "Consulta",
+  TAREFA: "Tarefa",
+  LEMBRETE: "Lembrete",
+  NOTA: "Nota",
+  REUNIAO: "Reuniao",
+}
+
+// --- Skeleton ---
 
 function HomeSkeleton() {
   return (
     <main className="min-h-screen bg-background pb-24">
-      {/* Hero Section Skeleton */}
+      {/* Hero */}
       <div className="bg-gradient-to-br from-primary/5 via-background to-background px-4 pt-12 pb-8">
         <div className="max-w-4xl mx-auto">
           <Skeleton className="h-8 w-24 mb-2" />
@@ -29,10 +76,10 @@ function HomeSkeleton() {
         </div>
       </div>
 
-      {/* Quick Stats Skeleton */}
+      {/* Quick Stats 2x2 */}
       <div className="max-w-4xl mx-auto px-4 -mt-4">
-        <div className="grid grid-cols-2 gap-3 mb-8">
-          {[1, 2].map((i) => (
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          {[1, 2, 3, 4].map((i) => (
             <Card key={i} elevation="md" className="p-4">
               <Skeleton className="h-8 w-12 mb-2" />
               <Skeleton className="h-4 w-20" />
@@ -41,7 +88,23 @@ function HomeSkeleton() {
         </div>
       </div>
 
-      {/* Action Cards Skeleton */}
+      {/* Next appointment */}
+      <div className="max-w-4xl mx-auto px-4 mb-6">
+        <Card elevation="md" className="p-4">
+          <Skeleton className="h-5 w-40 mb-3" />
+          <Skeleton className="h-4 w-56" />
+        </Card>
+      </div>
+
+      {/* Chart placeholder */}
+      <div className="max-w-4xl mx-auto px-4 mb-6">
+        <Card elevation="md" className="p-4">
+          <Skeleton className="h-5 w-32 mb-3" />
+          <Skeleton className="h-40 w-full rounded-lg" />
+        </Card>
+      </div>
+
+      {/* Action Cards */}
       <div className="max-w-4xl mx-auto px-4">
         <Skeleton className="h-5 w-32 mb-4" />
         <div className="space-y-3">
@@ -60,6 +123,8 @@ function HomeSkeleton() {
     </main>
   )
 }
+
+// --- Components ---
 
 function QuickStatCard({
   icon: Icon,
@@ -86,6 +151,118 @@ function QuickStatCard({
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+function NextAppointmentCard({
+  appointment,
+}: {
+  appointment: { patientName: string; time: string; type: string } | null
+}) {
+  return (
+    <Link href="/agenda">
+      <Card elevation="md" hoverable className="overflow-hidden border-l-4 border-l-primary">
+        <CardContent className="py-4">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+            Proximo agendamento
+          </p>
+          {appointment ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-foreground">{appointment.patientName}</p>
+                <p className="text-sm text-muted-foreground">{formatTime(appointment.time)}</p>
+              </div>
+              <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
+                {TYPE_LABELS[appointment.type] ?? appointment.type}
+              </span>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Nenhum agendamento proximo</p>
+          )}
+        </CardContent>
+      </Card>
+    </Link>
+  )
+}
+
+function StatusChart({ breakdown }: { breakdown: { status: string; count: number }[] }) {
+  const data = breakdown.map((item) => ({
+    name: STATUS_LABELS[item.status] ?? item.status,
+    value: item.count,
+    color: STATUS_COLORS[item.status] ?? "#6b7280",
+  }))
+
+  return (
+    <Card elevation="md" className="overflow-hidden">
+      <CardContent className="py-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+          Status de hoje
+        </p>
+        <div className="h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={data}
+                cx="50%"
+                cy="50%"
+                innerRadius={45}
+                outerRadius={70}
+                dataKey="value"
+                paddingAngle={2}
+                strokeWidth={0}
+              >
+                {data.map((entry, index) => (
+                  <Cell key={index} fill={entry.color} />
+                ))}
+              </Pie>
+              <Legend
+                verticalAlign="bottom"
+                iconType="circle"
+                iconSize={8}
+                formatter={(value: string) => (
+                  <span className="text-xs text-muted-foreground">{value}</span>
+                )}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function RevenueCards({
+  todayRevenue,
+  monthlyRevenue,
+}: {
+  todayRevenue: number
+  monthlyRevenue: number
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <Card elevation="md" className="overflow-hidden">
+        <CardContent className="py-4">
+          <div className="flex items-center gap-2 mb-2">
+            <DollarSignIcon className="w-4 h-4 text-success" />
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Hoje
+            </p>
+          </div>
+          <p className="text-lg font-bold text-foreground">{formatCurrency(todayRevenue)}</p>
+        </CardContent>
+      </Card>
+      <Card elevation="md" className="overflow-hidden">
+        <CardContent className="py-4">
+          <div className="flex items-center gap-2 mb-2">
+            <DollarSignIcon className="w-4 h-4 text-success" />
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Mes
+            </p>
+          </div>
+          <p className="text-lg font-bold text-foreground">{formatCurrency(monthlyRevenue)}</p>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 
@@ -130,7 +307,7 @@ function LogoutCard({ onLogout }: { onLogout: () => void }) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-destructive">Sair</p>
-              <p className="text-sm text-muted-foreground">Encerrar sessão</p>
+              <p className="text-sm text-muted-foreground">Encerrar sessao</p>
             </div>
           </div>
         </CardContent>
@@ -139,9 +316,12 @@ function LogoutCard({ onLogout }: { onLogout: () => void }) {
   )
 }
 
+// --- Main Page ---
+
 export default function Home() {
   const router = useRouter()
   const { data: session, status } = useSession()
+  const { data: dashboard, isLoading: dashboardLoading } = useDashboard()
 
   async function handleLogout() {
     await signOut({ redirect: false })
@@ -166,13 +346,13 @@ export default function Home() {
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
               <StethoscopeIcon className="w-8 h-8 text-primary" />
             </div>
-            <h1 className="text-3xl font-bold text-foreground tracking-tight">Clínica</h1>
-            <p className="mt-2 text-muted-foreground">Sistema de gestão de consultas</p>
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">Clinica</h1>
+            <p className="mt-2 text-muted-foreground">Sistema de gestao de consultas</p>
           </div>
 
           <Card elevation="lg" className="p-6">
             <p className="text-sm text-muted-foreground mb-6">
-              Faça login para acessar sua agenda e gerenciar pacientes.
+              Faca login para acessar sua agenda e gerenciar pacientes.
             </p>
             <Link
               href="/login"
@@ -189,11 +369,17 @@ export default function Home() {
   // Get current time greeting
   const hour = new Date().getHours()
   const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite"
-  const firstName = session?.user?.name?.split(" ")[0] || "Usuário"
+  const firstName = session?.user?.name?.split(" ")[0] || "Usuario"
+  const isAdmin = session?.user?.role === "ADMIN"
+
+  // Show skeleton while dashboard loads
+  if (dashboardLoading || !dashboard) {
+    return <HomeSkeleton />
+  }
 
   return (
     <main className="min-h-screen bg-background pb-24">
-      {/* Hero Section */}
+      {/* A. Hero Section */}
       <div className="bg-gradient-to-br from-primary/5 via-background to-background px-4 pt-12 pb-8">
         <div className="max-w-4xl mx-auto">
           <p className="text-muted-foreground text-sm font-medium">{greeting},</p>
@@ -203,25 +389,62 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Quick Stats */}
+      {/* B. Quick Stats 2x2 */}
       <div className="max-w-4xl mx-auto px-4 -mt-4">
-        <div className="grid grid-cols-2 gap-3 mb-8">
+        <div className="grid grid-cols-2 gap-3 mb-6">
           <QuickStatCard
             icon={CalendarIcon}
-            value="—"
+            value={dashboard.todayCount}
             label="Hoje"
             color="bg-info"
           />
           <QuickStatCard
             icon={ClockIcon}
-            value="—"
+            value={dashboard.pendingCount}
             label="Pendentes"
             color="bg-warning"
+          />
+          <QuickStatCard
+            icon={ActivityIcon}
+            value={dashboard.activePatients}
+            label="Pacientes ativos"
+            color="bg-success"
+          />
+          <QuickStatCard
+            icon={TrendingUpIcon}
+            value={dashboard.completionRate !== null ? `${dashboard.completionRate}%` : "—"}
+            label="Comparecimento"
+            color="bg-purple-500"
           />
         </div>
       </div>
 
-      {/* Action Cards */}
+      {/* C. Next Appointment */}
+      <div className="max-w-4xl mx-auto px-4 mb-6">
+        <NextAppointmentCard appointment={dashboard.nextAppointment} />
+      </div>
+
+      {/* D. Today's Status Chart */}
+      {dashboard.todayCount > 0 && dashboard.statusBreakdown.length > 0 && (
+        <div className="max-w-4xl mx-auto px-4 mb-6">
+          <StatusChart breakdown={dashboard.statusBreakdown} />
+        </div>
+      )}
+
+      {/* E. Revenue Cards (ADMIN only) */}
+      {isAdmin && dashboard.todayRevenue !== null && dashboard.monthlyRevenue !== null && (
+        <div className="max-w-4xl mx-auto px-4 mb-6">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+            Faturamento
+          </p>
+          <RevenueCards
+            todayRevenue={dashboard.todayRevenue}
+            monthlyRevenue={dashboard.monthlyRevenue}
+          />
+        </div>
+      )}
+
+      {/* F. Action Cards */}
       <div className="max-w-4xl mx-auto px-4">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
           Menu Principal
@@ -243,10 +466,21 @@ export default function Home() {
             iconBgColor="bg-success/10"
             iconColor="text-success"
             title="Pacientes"
-            description="Cadastro e histórico"
+            description="Cadastro e historico"
           />
 
-          {session?.user?.role === "ADMIN" && (
+          {isAdmin && (
+            <ActionCard
+              href="/users"
+              icon={ShieldIcon}
+              iconBgColor="bg-purple-500/10"
+              iconColor="text-purple-500"
+              title="Usuários"
+              description="Gerenciar contas de acesso"
+            />
+          )}
+
+          {isAdmin && (
             <ActionCard
               href="/professionals"
               icon={StethoscopeIcon}
@@ -262,12 +496,12 @@ export default function Home() {
             icon={SettingsIcon}
             iconBgColor="bg-info/10"
             iconColor="text-info"
-            title="Configurações"
-            description="Disponibilidade e preferências"
+            title="Configuracoes"
+            description="Disponibilidade e preferencias"
           />
         </div>
 
-        {/* Account Section */}
+        {/* G. Account Section */}
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-8 mb-4">
           Conta
         </h2>

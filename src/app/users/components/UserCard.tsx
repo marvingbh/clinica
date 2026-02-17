@@ -1,31 +1,19 @@
 "use client"
 
 import { Card, CardContent } from "@/shared/components/ui/card"
-import { ClockIcon } from "@/shared/components/ui/icons"
 
-interface ProfessionalProfile {
-  id: string
-  specialty: string | null
-  registrationNumber: string | null
-  bio: string | null
-  appointmentDuration: number
-  bufferBetweenSlots: number
-  allowOnlineBooking: boolean
-  maxAdvanceBookingDays: number
-}
-
-interface Professional {
+interface UserData {
   id: string
   name: string
   email: string
   role: string
   isActive: boolean
   createdAt: string
-  professionalProfile: ProfessionalProfile | null
+  professionalProfile: { id: string } | null
 }
 
-interface ProfessionalCardProps {
-  professional: Professional
+interface UserCardProps {
+  user: UserData
   onClick: () => void
   onEdit?: () => void
   onDeactivate?: () => void
@@ -57,23 +45,23 @@ function getAvatarColor(name: string): string {
   return colors[index]
 }
 
-export function ProfessionalCard({
-  professional,
+export function UserCard({
+  user,
   onClick,
   onEdit,
   onDeactivate,
   onReactivate,
   isAdmin,
-}: ProfessionalCardProps) {
-  const initials = getInitials(professional.name)
-  const avatarColor = getAvatarColor(professional.name)
+}: UserCardProps) {
+  const initials = getInitials(user.name)
+  const avatarColor = getAvatarColor(user.name)
 
   return (
     <Card
       elevation="sm"
       hoverable
       className={`group cursor-pointer transition-all duration-normal ${
-        !professional.isActive ? "opacity-60" : ""
+        !user.isActive ? "opacity-60" : ""
       }`}
       onClick={onClick}
     >
@@ -90,39 +78,28 @@ export function ProfessionalCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-foreground truncate">
-                {professional.name}
+                {user.name}
               </h3>
-              {professional.role === "ADMIN" && (
+              {user.role === "ADMIN" && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium flex-shrink-0">
                   Admin
                 </span>
               )}
-              {!professional.isActive && (
+              {!user.isActive && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex-shrink-0">
                   Inativo
                 </span>
               )}
             </div>
 
-            {professional.professionalProfile?.specialty && (
-              <p className="text-sm text-muted-foreground truncate">
-                {professional.professionalProfile.specialty}
-              </p>
-            )}
+            <p className="text-sm text-muted-foreground truncate">
+              {user.email}
+            </p>
 
-            {professional.professionalProfile?.registrationNumber && (
-              <p className="text-xs text-muted-foreground/70 mt-0.5">
-                {professional.professionalProfile.registrationNumber}
+            {user.professionalProfile && (
+              <p className="text-xs text-muted-foreground/70 mt-1">
+                Tem perfil profissional
               </p>
-            )}
-
-            {professional.professionalProfile && (
-              <div className="flex items-center gap-1.5 mt-2">
-                <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-primary/10 text-primary font-medium">
-                  <ClockIcon className="w-3 h-3" />
-                  {professional.professionalProfile.appointmentDuration} min
-                </span>
-              </div>
             )}
           </div>
         </div>
@@ -139,7 +116,7 @@ export function ProfessionalCard({
             >
               Editar
             </button>
-            {professional.isActive ? (
+            {user.isActive ? (
               <button
                 onClick={(e) => {
                   e.stopPropagation()

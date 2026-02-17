@@ -1,6 +1,6 @@
 "use client"
 
-import { forwardRef, useState, useId } from "react"
+import { forwardRef, useState, useId, useRef, useCallback, useEffect } from "react"
 
 type InputVariant = "default" | "floating"
 type InputSize = "sm" | "md" | "lg"
@@ -58,10 +58,28 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   ) => {
     const generatedId = useId()
     const inputId = id || generatedId
+    const internalRef = useRef<HTMLInputElement>(null)
     const [isFocused, setIsFocused] = useState(false)
     const [hasValue, setHasValue] = useState(
       Boolean(value || defaultValue || placeholder)
     )
+
+    const setRefs = useCallback((node: HTMLInputElement | null) => {
+      internalRef.current = node
+      if (typeof ref === "function") ref(node)
+      else if (ref) (ref as React.MutableRefObject<HTMLInputElement | null>).current = node
+    }, [ref])
+
+    // Sync hasValue with actual DOM value (handles react-hook-form reset() which sets values via ref)
+    useEffect(() => {
+      const node = internalRef.current
+      if (node) {
+        const hasActualValue = Boolean(node.value)
+        if (hasActualValue !== hasValue) {
+          setHasValue(hasActualValue)
+        }
+      }
+    })
 
     const sizes = sizeClasses[inputSize]
     const isFloating = variant === "floating"
@@ -114,7 +132,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               </div>
             )}
             <input
-              ref={ref}
+              ref={setRefs}
               id={inputId}
               disabled={disabled}
               required={required}
@@ -194,7 +212,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             </div>
           )}
           <input
-            ref={ref}
+            ref={setRefs}
             id={inputId}
             disabled={disabled}
             required={required}
