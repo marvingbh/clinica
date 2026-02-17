@@ -227,6 +227,7 @@ export function AgendaTimeline({
                               onClick={() => onGroupSessionClick(session)}
                               showProfessional={!selectedProfessionalId}
                               compact={hasBlockingAppointments || slotGroupSessions.length > 1}
+                              professionalColorMap={professionalColorMap}
                             />
                           </div>
                         ))}

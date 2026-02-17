@@ -54,7 +54,7 @@ export function AppointmentCard({
       className={`group cursor-pointer overflow-hidden transition-all duration-normal active:scale-[0.98] ${
         isCancelled ? "opacity-50" : ""
       } ${!appointment.blocksTime ? "border-dashed" : ""} ${
-        showProfessional && isConsulta ? colors.bg : ""
+        showProfessional && isConsulta ? `${colors.bg} border-l-[3px] ${colors.border}` : ""
       } ${entryColors ? `${entryColors.bg} border ${entryColors.border}` : ""}`}
       onClick={onClick}
     >

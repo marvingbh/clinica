@@ -3,12 +3,14 @@
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { UsersIcon, ClockIcon } from "@/shared/components/ui/icons"
 import type { GroupSession } from "../lib/types"
+import { getProfessionalColor, ProfessionalColorMap } from "../lib/professional-colors"
 
 interface GroupSessionCardProps {
   session: GroupSession
   onClick: () => void
   showProfessional?: boolean
   compact?: boolean
+  professionalColorMap?: ProfessionalColorMap
 }
 
 function getParticipantStatusSummary(participants: GroupSession["participants"]): {
@@ -36,25 +38,33 @@ export function GroupSessionCard({
   onClick,
   showProfessional = false,
   compact = false,
+  professionalColorMap,
 }: GroupSessionCardProps) {
   const statusSummary = getParticipantStatusSummary(session.participants)
   const startTime = formatTime(session.scheduledAt)
   const endTime = formatTime(session.endAt)
 
+  // Use professional color when showing all professionals, otherwise default purple
+  const colors = showProfessional && professionalColorMap
+    ? getProfessionalColor(session.professionalProfileId, professionalColorMap)
+    : null
+
   return (
     <Card
       elevation="sm"
       hoverable
-      className="group cursor-pointer overflow-hidden transition-all duration-normal active:scale-[0.98] bg-purple-50 dark:bg-purple-950/30"
+      className={`group cursor-pointer overflow-hidden transition-all duration-normal active:scale-[0.98] ${
+        colors ? `${colors.bg} border-l-[3px] ${colors.border}` : "bg-purple-50 dark:bg-purple-950/30"
+      }`}
       onClick={onClick}
     >
-      {/* Purple accent bar for group sessions */}
-      <div className="h-1 bg-purple-500" />
+      {/* Accent bar */}
+      <div className={`h-1 ${colors ? colors.accent : "bg-purple-500"}`} />
 
       <CardContent className={compact ? "py-3" : "py-4"}>
         {/* Professional name - shown when viewing all */}
         {showProfessional && (
-          <p className="text-xs font-semibold mb-2 truncate text-purple-700 dark:text-purple-300">
+          <p className={`text-xs font-semibold mb-2 truncate ${colors ? colors.text : "text-purple-700 dark:text-purple-300"}`}>
             {session.professionalName}
           </p>
         )}

@@ -120,11 +120,14 @@ export default function AgendaPage() {
     }
   }, [groupSessions, selectedGroupSession])
 
-  // Professional color map for consistent coloring
+  // Professional color map for consistent coloring (includes both appointment and group session professionals)
   const professionalColorMap = useMemo(() => {
-    const professionalIds = appointments.map(apt => apt.professionalProfile.id)
+    const professionalIds = [
+      ...appointments.map(apt => apt.professionalProfile.id),
+      ...groupSessions.map(gs => gs.professionalProfileId),
+    ]
     return createProfessionalColorMap(professionalIds)
-  }, [appointments])
+  }, [appointments, groupSessions])
 
   // Time slots
   const { slots: timeSlots, fullDayBlock } = useTimeSlots({
