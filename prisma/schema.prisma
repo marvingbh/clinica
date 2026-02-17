@@ -164,13 +164,16 @@ model ProfessionalProfile {
   updatedAt DateTime @updatedAt
 
   // Relations
-  user                   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  availabilityRules      AvailabilityRule[]
-  availabilityExceptions AvailabilityException[]
-  appointments           Appointment[]
-  appointmentRecurrences AppointmentRecurrence[]
-  therapyGroups          TherapyGroup[]
-  referencePatients      Patient[]              @relation("ReferenceProfessional")
+  user                       User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availabilityRules          AvailabilityRule[]
+  availabilityExceptions     AvailabilityException[]
+  appointments               Appointment[]
+  appointmentRecurrences     AppointmentRecurrence[]
+  therapyGroups              TherapyGroup[]
+  referencePatients          Patient[]                  @relation("ReferenceProfessional")
+  appointmentParticipations  AppointmentProfessional[]  @relation("AppointmentParticipations")
+  groupParticipations        TherapyGroupProfessional[] @relation("GroupParticipations")
+  recurrenceParticipations   RecurrenceProfessional[]   @relation("RecurrenceParticipations")
 
   @@index([userId])
 }
@@ -313,13 +316,14 @@ model Appointment {
   updatedAt DateTime @updatedAt
 
   // Relations
-  clinic              Clinic                 @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  professionalProfile ProfessionalProfile    @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
-  patient             Patient?               @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  recurrence          AppointmentRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
-  group               TherapyGroup?          @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  tokens              AppointmentToken[]
-  notifications       Notification[]
+  clinic                  Clinic                    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile     ProfessionalProfile       @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  patient                 Patient?                  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  recurrence              AppointmentRecurrence?    @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  group                   TherapyGroup?             @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  tokens                  AppointmentToken[]
+  notifications           Notification[]
+  additionalProfessionals AppointmentProfessional[]
 
   @@index([clinicId])
   @@index([professionalProfileId])
@@ -363,10 +367,11 @@ model AppointmentRecurrence {
   updatedAt DateTime @updatedAt
 
   // Relations
-  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
-  patient             Patient?            @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  appointments        Appointment[]
+  clinic                  Clinic                   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile     ProfessionalProfile      @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  patient                 Patient?                 @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  appointments            Appointment[]
+  additionalProfessionals RecurrenceProfessional[]
 
   @@index([clinicId])
   @@index([professionalProfileId])
@@ -504,10 +509,11 @@ model TherapyGroup {
   updatedAt DateTime @updatedAt
 
   // Relations
-  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
-  memberships         GroupMembership[]
-  appointments        Appointment[]
+  clinic                  Clinic                      @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile     ProfessionalProfile         @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  memberships             GroupMembership[]
+  appointments            Appointment[]
+  additionalProfessionals TherapyGroupProfessional[]
 
   @@index([clinicId])
   @@index([professionalProfileId])
@@ -535,4 +541,50 @@ model GroupMembership {
   @@index([clinicId])
   @@index([groupId])
   @@index([patientId])
+}
+
+// ============================================================================
+// MULTI-PROFESSIONAL JOIN TABLES
+// ============================================================================
+
+/// Links additional professionals to an appointment (beyond the primary owner)
+model AppointmentProfessional {
+  id                    String @id @default(cuid())
+  appointmentId         String
+  professionalProfileId String
+
+  appointment         Appointment         @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile @relation("AppointmentParticipations", fields: [professionalProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([appointmentId, professionalProfileId])
+  @@index([professionalProfileId])
+  @@index([appointmentId])
+}
+
+/// Links additional professionals to a therapy group (co-leaders)
+model TherapyGroupProfessional {
+  id                    String @id @default(cuid())
+  groupId               String
+  professionalProfileId String
+
+  group               TherapyGroup        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile @relation("GroupParticipations", fields: [professionalProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, professionalProfileId])
+  @@index([professionalProfileId])
+  @@index([groupId])
+}
+
+/// Links additional professionals to a recurrence pattern
+model RecurrenceProfessional {
+  id                    String @id @default(cuid())
+  recurrenceId          String
+  professionalProfileId String
+
+  recurrence          AppointmentRecurrence @relation(fields: [recurrenceId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile   @relation("RecurrenceParticipations", fields: [professionalProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([recurrenceId, professionalProfileId])
+  @@index([professionalProfileId])
+  @@index([recurrenceId])
 }

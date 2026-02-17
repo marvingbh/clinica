@@ -8,6 +8,7 @@ const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
 const createGroupSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(100),
   professionalProfileId: z.string().optional(),
+  additionalProfessionalIds: z.array(z.string()).optional(),
   dayOfWeek: z.number().int().min(0).max(6),
   startTime: z.string().regex(timeRegex, "Formato de horário inválido (HH:mm)"),
   duration: z.number().int().min(15).max(480).default(90),
@@ -29,12 +30,18 @@ export const GET = withAuth(
       clinicId: user.clinicId,
     }
 
-    // If scope is "own", filter to only the professional's groups
+    // If scope is "own", filter to only the professional's groups (including as co-leader)
     if (scope === "own" && user.professionalProfileId) {
-      where.professionalProfileId = user.professionalProfileId
+      where.OR = [
+        { professionalProfileId: user.professionalProfileId },
+        { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },
+      ]
     } else if (professionalProfileId && scope === "clinic") {
-      // ADMIN can filter by specific professional
-      where.professionalProfileId = professionalProfileId
+      // ADMIN can filter by specific professional (including as co-leader)
+      where.OR = [
+        { professionalProfileId },
+        { additionalProfessionals: { some: { professionalProfileId } } },
+      ]
     }
 
     // Apply optional filter
@@ -52,6 +59,13 @@ export const GET = withAuth(
               select: {
                 name: true,
               },
+            },
+          },
+        },
+        additionalProfessionals: {
+          select: {
+            professionalProfile: {
+              select: { id: true, user: { select: { name: true } } },
             },
           },
         },
@@ -150,29 +164,79 @@ export const POST = withAuth(
       )
     }
 
-    // Create the group
-    const group = await prisma.therapyGroup.create({
-      data: {
-        clinicId: user.clinicId,
-        professionalProfileId: targetProfessionalProfileId,
-        name,
-        dayOfWeek,
-        startTime,
-        duration,
-        recurrenceType,
-      },
-      include: {
-        professionalProfile: {
-          select: {
-            id: true,
-            user: {
-              select: {
-                name: true,
+    // Process additional professionals
+    let additionalProfessionalIds: string[] = []
+    if (validation.data.additionalProfessionalIds?.length) {
+      additionalProfessionalIds = validation.data.additionalProfessionalIds.filter(
+        id => id !== targetProfessionalProfileId
+      )
+      if (additionalProfessionalIds.length > 0) {
+        const validProfs = await prisma.professionalProfile.findMany({
+          where: {
+            id: { in: additionalProfessionalIds },
+            user: { clinicId: user.clinicId },
+          },
+          select: { id: true },
+        })
+        const validIds = new Set(validProfs.map(p => p.id))
+        additionalProfessionalIds = additionalProfessionalIds.filter(id => validIds.has(id))
+      }
+    }
+
+    // Create the group with additional professionals
+    const group = await prisma.$transaction(async (tx) => {
+      const created = await tx.therapyGroup.create({
+        data: {
+          clinicId: user.clinicId,
+          professionalProfileId: targetProfessionalProfileId,
+          name,
+          dayOfWeek,
+          startTime,
+          duration,
+          recurrenceType,
+        },
+        include: {
+          professionalProfile: {
+            select: {
+              id: true,
+              user: {
+                select: {
+                  name: true,
+                },
               },
             },
           },
         },
-      },
+      })
+
+      if (additionalProfessionalIds.length > 0) {
+        await tx.therapyGroupProfessional.createMany({
+          data: additionalProfessionalIds.map(profId => ({
+            groupId: created.id,
+            professionalProfileId: profId,
+          })),
+        })
+      }
+
+      // Re-fetch to include additional professionals
+      return tx.therapyGroup.findUniqueOrThrow({
+        where: { id: created.id },
+        include: {
+          professionalProfile: {
+            select: {
+              id: true,
+              user: { select: { name: true } },
+            },
+          },
+          additionalProfessionals: {
+            select: {
+              professionalProfile: {
+                select: { id: true, user: { select: { name: true } } },
+              },
+            },
+          },
+        },
+      })
     })
 
     return NextResponse.json({ group }, { status: 201 })

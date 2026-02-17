@@ -2,7 +2,7 @@ import { useState, useCallback } from "react"
 import { useForm, UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
-import { toDisplayDateFromDate, toIsoDate } from "../lib/utils"
+import { toDateString, toIsoDate } from "../lib/utils"
 import { calendarEntrySchema, CalendarEntryFormData, CalendarEntryType, RecurrenceEndType, Professional } from "../lib/types"
 import { createCalendarEntry, CreateCalendarEntryData } from "../services"
 import { DEFAULT_ENTRY_DURATIONS } from "../lib/constants"
@@ -35,6 +35,8 @@ export interface UseCalendarEntryCreateReturn {
   setRecurrenceEndDate: (date: string) => void
   recurrenceOccurrences: number
   setRecurrenceOccurrences: (occurrences: number) => void
+  additionalProfessionalIds: string[]
+  setAdditionalProfessionalIds: (ids: string[]) => void
   apiError: string | null
   clearApiError: () => void
   isSaving: boolean
@@ -62,6 +64,7 @@ export function useCalendarEntryCreate({
   const [recurrenceEndType, setRecurrenceEndType] = useState<RecurrenceEndType>("INDEFINITE")
   const [recurrenceEndDate, setRecurrenceEndDate] = useState("")
   const [recurrenceOccurrences, setRecurrenceOccurrences] = useState(10)
+  const [additionalProfessionalIds, setAdditionalProfessionalIds] = useState<string[]>([])
 
   const form = useForm<CalendarEntryFormData>({
     resolver: zodResolver(calendarEntrySchema),
@@ -76,9 +79,10 @@ export function useCalendarEntryCreate({
       setRecurrenceEndType("INDEFINITE")
       setRecurrenceEndDate("")
       setRecurrenceOccurrences(10)
+      setAdditionalProfessionalIds([])
       form.reset({
         title: "",
-        date: toDisplayDateFromDate(selectedDate),
+        date: toDateString(selectedDate),
         startTime: slotTime || "",
         duration: DEFAULT_ENTRY_DURATIONS[type] || 60,
         notes: "",
@@ -118,6 +122,10 @@ export function useCalendarEntryCreate({
 
         if (isAdmin && effectiveProfessionalId) {
           body.professionalProfileId = effectiveProfessionalId
+        }
+
+        if (entryType === "REUNIAO" && additionalProfessionalIds.length > 0) {
+          body.additionalProfessionalIds = additionalProfessionalIds
         }
 
         if (isRecurring) {
@@ -163,6 +171,7 @@ export function useCalendarEntryCreate({
       recurrenceEndType,
       recurrenceEndDate,
       recurrenceOccurrences,
+      additionalProfessionalIds,
       closeSheet,
       onSuccess,
     ]
@@ -185,6 +194,8 @@ export function useCalendarEntryCreate({
     setRecurrenceEndDate,
     recurrenceOccurrences,
     setRecurrenceOccurrences,
+    additionalProfessionalIds,
+    setAdditionalProfessionalIds,
     apiError,
     clearApiError,
     isSaving,

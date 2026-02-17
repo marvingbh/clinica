@@ -19,6 +19,7 @@ const updateRecurrenceSchema = z.object({
   occurrences: z.number().int().min(1).max(52).optional().nullable(),
   dayOfWeek: z.number().int().min(0).max(6).optional(), // 0 = Sunday, 6 = Saturday
   applyTo: z.enum(["future"]).optional(), // Only "future" is supported for now
+  additionalProfessionalIds: z.array(z.string()).optional(),
 })
 
 /**
@@ -160,7 +161,7 @@ export const PATCH = withAuth(
       )
     }
 
-    // Fetch the recurrence
+    // Fetch the recurrence with additional professionals
     const recurrence = await prisma.appointmentRecurrence.findFirst({
       where: {
         id: recurrenceId,
@@ -176,6 +177,9 @@ export const PATCH = withAuth(
               in: [AppointmentStatus.AGENDADO, AppointmentStatus.CONFIRMADO],
             },
           },
+        },
+        additionalProfessionals: {
+          select: { professionalProfileId: true },
         },
       },
     })
@@ -272,7 +276,8 @@ export const PATCH = withAuth(
     }
 
     // If no updates provided, return error
-    if (Object.keys(updateData).length === 0) {
+    const hasAdditionalProfChange = body.additionalProfessionalIds !== undefined
+    if (Object.keys(updateData).length === 0 && !hasAdditionalProfChange) {
       return NextResponse.json(
         { error: "Nenhuma alteracao fornecida" },
         { status: 400 }
@@ -320,10 +325,14 @@ export const PATCH = withAuth(
       })
 
       // Bulk check all conflicts in a single query
+      // Use new additional prof IDs if provided, otherwise use existing ones
+      const effectiveAdditionalProfIds = body.additionalProfessionalIds
+        ?? recurrence.additionalProfessionals.map(ap => ap.professionalProfileId)
       const bulkResult = await checkConflictsBulk({
         professionalProfileId: recurrence.professionalProfileId,
         dates: shiftedDates.map(d => ({ scheduledAt: d.newScheduledAt, endAt: d.newEndAt })),
         excludeAppointmentIds: recurrence.appointments.map(a => a.id),
+        additionalProfessionalIds: effectiveAdditionalProfIds,
       })
 
       // If there are conflicts, fail the operation
@@ -523,6 +532,44 @@ export const PATCH = withAuth(
             },
           })
           updatedAppointmentsCount = remainingAppointments.length
+        }
+      }
+
+      // Update additional professionals on recurrence + future appointments
+      if (hasAdditionalProfChange) {
+        const newAdditionalIds = body.additionalProfessionalIds!.filter(
+          (id: string) => id !== recurrence.professionalProfileId
+        )
+
+        // Delete + recreate RecurrenceProfessional
+        await tx.recurrenceProfessional.deleteMany({
+          where: { recurrenceId },
+        })
+        if (newAdditionalIds.length > 0) {
+          await tx.recurrenceProfessional.createMany({
+            data: newAdditionalIds.map((profId: string) => ({
+              recurrenceId,
+              professionalProfileId: profId,
+            })),
+          })
+        }
+
+        // Update AppointmentProfessional on all remaining future appointments
+        const futureAptIds = remainingAppointments.map(a => a.id)
+        if (futureAptIds.length > 0) {
+          await tx.appointmentProfessional.deleteMany({
+            where: { appointmentId: { in: futureAptIds } },
+          })
+          if (newAdditionalIds.length > 0) {
+            await tx.appointmentProfessional.createMany({
+              data: futureAptIds.flatMap(aptId =>
+                newAdditionalIds.map((profId: string) => ({
+                  appointmentId: aptId,
+                  professionalProfileId: profId,
+                }))
+              ),
+            })
+          }
         }
       }
     }, { timeout: 30000 })

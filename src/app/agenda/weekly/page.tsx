@@ -44,7 +44,6 @@ import {
 
 import {
   toDateString,
-  toDisplayDateFromDate,
   toIsoDate,
   toLocalDateTime,
   calculateEndTime,
@@ -64,6 +63,7 @@ import {
   InlineAlert,
   GroupSessionSheet,
   CalendarEntrySheet,
+  TimeInput,
 } from "../components"
 import type { AppointmentType } from "../components/RecurrenceOptions"
 import type { CalendarEntryType } from "../lib/types"
@@ -118,12 +118,14 @@ function WeeklyAgendaPageContent() {
   const [recurrenceEndType, setRecurrenceEndType] = useState<RecurrenceEndType>("INDEFINITE")
   const [recurrenceEndDate, setRecurrenceEndDate] = useState("")
   const [recurrenceOccurrences, setRecurrenceOccurrences] = useState(10)
+  const [createAdditionalProfIds, setCreateAdditionalProfIds] = useState<string[]>([])
 
   // Edit appointment state
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false)
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
   const [isUpdatingAppointment, setIsUpdatingAppointment] = useState(false)
   const [editApiError, setEditApiError] = useState<string | null>(null)
+  const [editAdditionalProfIds, setEditAdditionalProfIds] = useState<string[]>([])
 
   // Cancel dialog state
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
@@ -273,6 +275,8 @@ function WeeklyAgendaPageContent() {
     setRecurrenceEndDate: setEntryRecurrenceEndDate,
     recurrenceOccurrences: entryRecurrenceOccurrences,
     setRecurrenceOccurrences: setEntryRecurrenceOccurrences,
+    additionalProfessionalIds: entryAdditionalProfIds,
+    setAdditionalProfessionalIds: setEntryAdditionalProfIds,
     apiError: entryApiError,
     clearApiError: clearEntryApiError,
     isSaving: isSavingEntry,
@@ -302,10 +306,11 @@ function WeeklyAgendaPageContent() {
     setRecurrenceEndType("INDEFINITE")
     setRecurrenceEndDate("")
     setRecurrenceOccurrences(10)
+    setCreateAdditionalProfIds([])
     const effectiveDate = overrides?.date || weekStart
     reset({
       patientId: "",
-      date: toDisplayDateFromDate(effectiveDate),
+      date: toDateString(effectiveDate),
       startTime: overrides?.startTime || "",
       modality: "PRESENCIAL",
       notes: "",
@@ -383,6 +388,10 @@ function WeeklyAgendaPageContent() {
         body.duration = data.duration
       }
 
+      if (createAdditionalProfIds.length > 0) {
+        body.additionalProfessionalIds = createAdditionalProfIds
+      }
+
       // Only add recurrence if not SINGLE
       const isRecurring = appointmentType !== "SINGLE"
       if (isRecurring) {
@@ -433,12 +442,15 @@ function WeeklyAgendaPageContent() {
   function openEditSheet(appointment: Appointment) {
     setSelectedAppointment(appointment)
     setEditApiError(null)
+    setEditAdditionalProfIds(
+      appointment.additionalProfessionals?.map(ap => ap.professionalProfile.id) || []
+    )
     const scheduledDate = new Date(appointment.scheduledAt)
     const endDate = new Date(appointment.endAt)
     const durationMinutes = Math.round((endDate.getTime() - scheduledDate.getTime()) / 60000)
 
     editForm.reset({
-      date: toDisplayDateFromDate(scheduledDate),
+      date: toDateString(scheduledDate),
       startTime: `${scheduledDate.getHours().toString().padStart(2, "0")}:${scheduledDate.getMinutes().toString().padStart(2, "0")}`,
       duration: durationMinutes,
       modality: appointment.modality as "ONLINE" | "PRESENCIAL",
@@ -472,6 +484,7 @@ function WeeklyAgendaPageContent() {
         modality: data.modality,
         notes: data.notes || null,
         price: data.price !== undefined && data.price !== "" ? Number(data.price) : null,
+        additionalProfessionalIds: editAdditionalProfIds,
       }
 
       const response = await fetch(`/api/appointments/${selectedAppointment.id}`, {
@@ -976,7 +989,7 @@ function WeeklyAgendaPageContent() {
           {/* 2. Date */}
           <div>
             <label htmlFor="date" className="block text-sm font-medium text-foreground mb-1.5">Data *</label>
-            <input id="date" type="text" placeholder="DD/MM/AAAA" {...register("date")} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
+            <input id="date" type="date" {...register("date")} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
             {errors.date && <p className="text-xs text-destructive mt-1">{errors.date.message}</p>}
           </div>
 
@@ -984,11 +997,9 @@ function WeeklyAgendaPageContent() {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label htmlFor="startTime" className="block text-sm font-medium text-foreground mb-1.5">Inicio *</label>
-              <input
+              <TimeInput
                 id="startTime"
-                type="text"
                 placeholder="HH:MM"
-                pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
                 {...register("startTime")}
                 className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
               />
@@ -1045,6 +1056,40 @@ function WeeklyAgendaPageContent() {
                   ))}
                 </select>
               )}
+            </div>
+          )}
+
+          {/* 5. Additional professionals */}
+          {professionals.length > 1 && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Profissionais adicionais</label>
+              <div className="space-y-2 p-3 rounded-xl border border-input bg-background">
+                {professionals
+                  .filter(p => {
+                    const profId = p.professionalProfile?.id
+                    if (!profId) return false
+                    const effectivePrimaryId = selectedProfessionalId || createProfessionalId
+                    return profId !== effectivePrimaryId
+                  })
+                  .map(prof => (
+                    <label key={prof.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={createAdditionalProfIds.includes(prof.professionalProfile!.id)}
+                        onChange={(e) => {
+                          const id = prof.professionalProfile!.id
+                          if (e.target.checked) {
+                            setCreateAdditionalProfIds([...createAdditionalProfIds, id])
+                          } else {
+                            setCreateAdditionalProfIds(createAdditionalProfIds.filter(x => x !== id))
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-input text-primary focus:ring-ring/40"
+                      />
+                      <span className="text-sm">{prof.name}</span>
+                    </label>
+                  ))}
+              </div>
             </div>
           )}
 
@@ -1115,6 +1160,9 @@ function WeeklyAgendaPageContent() {
         onToggleException={handleToggleException}
         isManagingException={isManagingException}
         onRecurrenceSave={fetchAppointments}
+        professionals={professionals}
+        editAdditionalProfIds={editAdditionalProfIds}
+        setEditAdditionalProfIds={setEditAdditionalProfIds}
       />
 
       {/* Cancel Dialog */}
@@ -1131,6 +1179,8 @@ function WeeklyAgendaPageContent() {
         onClose={closeGroupSessionSheet}
         session={selectedGroupSession}
         onStatusUpdated={fetchAppointments}
+        professionals={professionals}
+        isAdmin={isAdmin}
       />
 
       {/* Calendar Entry Sheet */}
@@ -1153,6 +1203,8 @@ function WeeklyAgendaPageContent() {
         setRecurrenceEndDate={setEntryRecurrenceEndDate}
         recurrenceOccurrences={entryRecurrenceOccurrences}
         setRecurrenceOccurrences={setEntryRecurrenceOccurrences}
+        additionalProfessionalIds={entryAdditionalProfIds}
+        setAdditionalProfessionalIds={setEntryAdditionalProfIds}
         apiError={entryApiError}
         onDismissError={clearEntryApiError}
         isSaving={isSavingEntry}

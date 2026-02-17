@@ -77,10 +77,17 @@ export const GET = withAuth(
     }
 
     // Filter by professional if scope is "own" or if explicitly requested
+    // Use OR to include appointments where the professional is a participant
     if (scope === "own" && user.professionalProfileId) {
-      where.professionalProfileId = user.professionalProfileId
+      where.OR = [
+        { professionalProfileId: user.professionalProfileId },
+        { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },
+      ]
     } else if (professionalProfileId) {
-      where.professionalProfileId = professionalProfileId
+      where.OR = [
+        { professionalProfileId },
+        { additionalProfessionals: { some: { professionalProfileId } } },
+      ]
     }
 
     // Get all group appointments for the date
@@ -96,6 +103,13 @@ export const GET = withAuth(
           select: {
             id: true,
             name: true,
+          },
+        },
+        additionalProfessionals: {
+          select: {
+            professionalProfile: {
+              select: { id: true, user: { select: { name: true } } },
+            },
           },
         },
         group: {
@@ -128,6 +142,10 @@ export const GET = withAuth(
         endAt: string
         professionalProfileId: string
         professionalName: string
+        additionalProfessionals: Array<{
+          professionalProfileId: string
+          professionalName: string
+        }>
         participants: Array<{
           appointmentId: string
           patientId: string
@@ -143,6 +161,11 @@ export const GET = withAuth(
       const key = `${apt.groupId}:${apt.scheduledAt.toISOString()}`
 
       if (!sessionMap.has(key)) {
+        // Get additional professionals from first appointment in session
+        const addlProfs = apt.additionalProfessionals.map(ap => ({
+          professionalProfileId: ap.professionalProfile.id,
+          professionalName: ap.professionalProfile.user.name,
+        }))
         sessionMap.set(key, {
           groupId: apt.groupId,
           groupName: apt.group.name,
@@ -150,6 +173,7 @@ export const GET = withAuth(
           endAt: apt.endAt.toISOString(),
           professionalProfileId: apt.group.professionalProfile.id,
           professionalName: apt.group.professionalProfile.user.name,
+          additionalProfessionals: addlProfs,
           participants: [],
         })
       }

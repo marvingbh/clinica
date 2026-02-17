@@ -48,6 +48,7 @@ const calendarEntryRecurrenceSchema = z.object({
 const createAppointmentSchema = z.object({
   patientId: z.string().min(1, "Patient ID is required"),
   professionalProfileId: z.string().optional(),
+  additionalProfessionalIds: z.array(z.string()).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
   startTime: z.string().regex(timeRegex, "Invalid time format (HH:mm)"),
   duration: z.number().int().min(15).max(480).optional(),
@@ -60,6 +61,7 @@ const createCalendarEntrySchema = z.object({
   type: z.enum(["TAREFA", "LEMBRETE", "NOTA", "REUNIAO"]),
   title: z.string().min(1, "Titulo e obrigatorio").max(200),
   professionalProfileId: z.string().optional(),
+  additionalProfessionalIds: z.array(z.string()).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
   startTime: z.string().regex(timeRegex, "Invalid time format (HH:mm)"),
   duration: z.number().int().min(5).max(480).optional(),
@@ -100,12 +102,18 @@ export const GET = withAuth(
       clinicId: user.clinicId,
     }
 
-    // If scope is "own", filter to only the professional's appointments
+    // If scope is "own", filter to only the professional's appointments (including as participant)
     if (scope === "own" && user.professionalProfileId) {
-      where.professionalProfileId = user.professionalProfileId
+      where.OR = [
+        { professionalProfileId: user.professionalProfileId },
+        { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },
+      ]
     } else if (professionalProfileId && scope === "clinic") {
-      // ADMIN can filter by specific professional
-      where.professionalProfileId = professionalProfileId
+      // ADMIN can filter by specific professional (including as participant)
+      where.OR = [
+        { professionalProfileId },
+        { additionalProfessionals: { some: { professionalProfileId } } },
+      ]
     }
 
     // Apply optional filters
@@ -177,6 +185,16 @@ export const GET = withAuth(
             exceptions: true,
             dayOfWeek: true,
             startTime: true,
+          },
+        },
+        additionalProfessionals: {
+          select: {
+            professionalProfile: {
+              select: {
+                id: true,
+                user: { select: { name: true } },
+              },
+            },
           },
         },
       },
@@ -437,6 +455,26 @@ async function handleCreateCalendarEntry(
     )
   }
 
+  // Process additional professionals (only for REUNIAO)
+  let additionalProfessionalIds: string[] = []
+  if (type === "REUNIAO" && validation.data.additionalProfessionalIds?.length) {
+    // Filter out primary professional to prevent duplicates
+    additionalProfessionalIds = validation.data.additionalProfessionalIds.filter(
+      id => id !== targetProfessionalProfileId
+    )
+    if (additionalProfessionalIds.length > 0) {
+      const validProfs = await prisma.professionalProfile.findMany({
+        where: {
+          id: { in: additionalProfessionalIds },
+          user: { clinicId: user.clinicId },
+        },
+        select: { id: true },
+      })
+      const validIds = new Set(validProfs.map(p => p.id))
+      additionalProfessionalIds = additionalProfessionalIds.filter(id => validIds.has(id))
+    }
+  }
+
   const entryDuration = duration || DEFAULT_DURATIONS[type] || 60
   const blocksTime = getBlocksTime(type as AppointmentType)
 
@@ -474,6 +512,7 @@ async function handleCreateCalendarEntry(
       const bulkResult = await checkConflictsBulk({
         professionalProfileId: targetProfessionalProfileId,
         dates: appointmentDates.map(d => ({ scheduledAt: d.scheduledAt, endAt: d.endAt })),
+        additionalProfessionalIds,
       }, tx)
 
       if (bulkResult.conflicts.length > 0) {
@@ -517,6 +556,16 @@ async function handleCreateCalendarEntry(
         },
       })
       recurrenceId = recurrenceRecord.id
+
+      // Create recurrence professional records for additional professionals
+      if (additionalProfessionalIds.length > 0) {
+        await tx.recurrenceProfessional.createMany({
+          data: additionalProfessionalIds.map(profId => ({
+            recurrenceId: recurrenceRecord.id,
+            professionalProfileId: profId,
+          })),
+        })
+      }
     }
 
     // Bulk create all entries
@@ -557,9 +606,28 @@ async function handleCreateCalendarEntry(
             user: { select: { name: true } },
           },
         },
+        additionalProfessionals: {
+          select: {
+            professionalProfile: {
+              select: { id: true, user: { select: { name: true } } },
+            },
+          },
+        },
       },
       orderBy: { scheduledAt: "asc" },
     })
+
+    // Create additional professional records for each created appointment
+    if (additionalProfessionalIds.length > 0) {
+      await tx.appointmentProfessional.createMany({
+        data: createdAppointments.flatMap(apt =>
+          additionalProfessionalIds.map(profId => ({
+            appointmentId: apt.id,
+            professionalProfileId: profId,
+          }))
+        ),
+      })
+    }
 
     return { appointments: createdAppointments, recurrenceId }
   }, { timeout: 30000 })
@@ -682,6 +750,25 @@ async function handleCreateAppointment(
       { error: "Você só pode criar agendamentos para si mesmo" },
       { status: 403 }
     )
+  }
+
+  // Process additional professionals for CONSULTA
+  let additionalProfessionalIds: string[] = []
+  if (validation.data.additionalProfessionalIds?.length) {
+    additionalProfessionalIds = validation.data.additionalProfessionalIds.filter(
+      id => id !== targetProfessionalProfileId
+    )
+    if (additionalProfessionalIds.length > 0) {
+      const validProfs = await prisma.professionalProfile.findMany({
+        where: {
+          id: { in: additionalProfessionalIds },
+          user: { clinicId: user.clinicId },
+        },
+        select: { id: true },
+      })
+      const validIds = new Set(validProfs.map(p => p.id))
+      additionalProfessionalIds = additionalProfessionalIds.filter(id => validIds.has(id))
+    }
   }
 
   // Validate that the patient belongs to the same clinic and is active
@@ -866,6 +953,7 @@ async function handleCreateAppointment(
     const bulkConflictResult = await checkConflictsBulk({
       professionalProfileId: targetProfessionalProfileId,
       dates: appointmentDates.map(d => ({ scheduledAt: d.scheduledAt, endAt: d.endAt })),
+      additionalProfessionalIds,
     }, tx)
 
     if (bulkConflictResult.conflicts.length > 0) {
@@ -909,6 +997,16 @@ async function handleCreateAppointment(
         },
       })
       recurrenceId = recurrenceRecord.id
+
+      // Create recurrence professional records for additional professionals
+      if (additionalProfessionalIds.length > 0) {
+        await tx.recurrenceProfessional.createMany({
+          data: additionalProfessionalIds.map(profId => ({
+            recurrenceId: recurrenceRecord.id,
+            professionalProfileId: profId,
+          })),
+        })
+      }
     }
 
     // Bulk create all appointments
@@ -957,9 +1055,28 @@ async function handleCreateAppointment(
             },
           },
         },
+        additionalProfessionals: {
+          select: {
+            professionalProfile: {
+              select: { id: true, user: { select: { name: true } } },
+            },
+          },
+        },
       },
       orderBy: { scheduledAt: "asc" },
     })
+
+    // Create additional professional records for each created appointment
+    if (additionalProfessionalIds.length > 0) {
+      await tx.appointmentProfessional.createMany({
+        data: createdAppointments.flatMap(apt =>
+          additionalProfessionalIds.map(profId => ({
+            appointmentId: apt.id,
+            professionalProfileId: profId,
+          }))
+        ),
+      })
+    }
 
     // Bulk create tokens for all appointments
     await createBulkAppointmentTokens(

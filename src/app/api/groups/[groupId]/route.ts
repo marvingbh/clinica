@@ -12,6 +12,7 @@ const updateGroupSchema = z.object({
   duration: z.number().int().min(15).max(480).optional(),
   recurrenceType: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]).optional(),
   isActive: z.boolean().optional(),
+  additionalProfessionalIds: z.array(z.string()).optional(),
 })
 
 /**
@@ -28,9 +29,12 @@ export const GET = withAuth(
       clinicId: user.clinicId,
     }
 
-    // If scope is "own", only allow access to own groups
+    // If scope is "own", only allow access to own groups (including as co-leader)
     if (scope === "own" && user.professionalProfileId) {
-      where.professionalProfileId = user.professionalProfileId
+      where.OR = [
+        { professionalProfileId: user.professionalProfileId },
+        { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },
+      ]
     }
 
     const group = await prisma.therapyGroup.findFirst({
@@ -43,6 +47,13 @@ export const GET = withAuth(
               select: {
                 name: true,
               },
+            },
+          },
+        },
+        additionalProfessionals: {
+          select: {
+            professionalProfile: {
+              select: { id: true, user: { select: { name: true } } },
             },
           },
         },
@@ -102,9 +113,12 @@ export const PATCH = withAuth(
       clinicId: user.clinicId,
     }
 
-    // If scope is "own", only allow access to own groups
+    // If scope is "own", only allow access to own groups (including as co-leader)
     if (scope === "own" && user.professionalProfileId) {
-      where.professionalProfileId = user.professionalProfileId
+      where.OR = [
+        { professionalProfileId: user.professionalProfileId },
+        { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },
+      ]
     }
 
     // Check if group exists
@@ -119,22 +133,67 @@ export const PATCH = withAuth(
       )
     }
 
-    // Update the group
-    const group = await prisma.therapyGroup.update({
-      where: { id: groupId },
-      data: validation.data,
-      include: {
-        professionalProfile: {
-          select: {
-            id: true,
-            user: {
-              select: {
-                name: true,
+    const { additionalProfessionalIds, ...updateData } = validation.data
+
+    // Update the group with additional professionals in a transaction
+    const group = await prisma.$transaction(async (tx) => {
+      // Update group fields
+      await tx.therapyGroup.update({
+        where: { id: groupId },
+        data: updateData,
+      })
+
+      // Update additional professionals if provided
+      if (additionalProfessionalIds !== undefined) {
+        const newIds = additionalProfessionalIds.filter(
+          id => id !== existingGroup.professionalProfileId
+        )
+
+        // Validate additional professionals belong to clinic
+        let validIds: string[] = []
+        if (newIds.length > 0) {
+          const validProfs = await tx.professionalProfile.findMany({
+            where: {
+              id: { in: newIds },
+              user: { clinicId: user.clinicId },
+            },
+            select: { id: true },
+          })
+          validIds = validProfs.map(p => p.id)
+        }
+
+        // Delete existing + recreate
+        await tx.therapyGroupProfessional.deleteMany({
+          where: { groupId },
+        })
+        if (validIds.length > 0) {
+          await tx.therapyGroupProfessional.createMany({
+            data: validIds.map(profId => ({
+              groupId,
+              professionalProfileId: profId,
+            })),
+          })
+        }
+      }
+
+      return tx.therapyGroup.findUniqueOrThrow({
+        where: { id: groupId },
+        include: {
+          professionalProfile: {
+            select: {
+              id: true,
+              user: { select: { name: true } },
+            },
+          },
+          additionalProfessionals: {
+            select: {
+              professionalProfile: {
+                select: { id: true, user: { select: { name: true } } },
               },
             },
           },
         },
-      },
+      })
     })
 
     return NextResponse.json({ group })
@@ -155,9 +214,12 @@ export const DELETE = withAuth(
       clinicId: user.clinicId,
     }
 
-    // If scope is "own", only allow access to own groups
+    // If scope is "own", only allow access to own groups (including as co-leader)
     if (scope === "own" && user.professionalProfileId) {
-      where.professionalProfileId = user.professionalProfileId
+      where.OR = [
+        { professionalProfileId: user.professionalProfileId },
+        { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },
+      ]
     }
 
     // Check if group exists

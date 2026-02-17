@@ -2,7 +2,7 @@ import { useState, useCallback } from "react"
 import { useForm, UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
-import { toDisplayDateFromDate, toLocalDateTime } from "../lib/utils"
+import { toDateString, toLocalDateTime } from "../lib/utils"
 import { editAppointmentSchema, EditAppointmentFormData, Appointment } from "../lib/types"
 import { updateAppointment } from "../services"
 
@@ -24,6 +24,10 @@ export interface UseAppointmentEditReturn {
   // Form
   form: UseFormReturn<EditAppointmentFormData>
 
+  // Additional professionals
+  editAdditionalProfIds: string[]
+  setEditAdditionalProfIds: (ids: string[]) => void
+
   // API error (shown inline)
   apiError: string | null
   clearApiError: () => void
@@ -41,6 +45,7 @@ export function useAppointmentEdit({
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
+  const [editAdditionalProfIds, setEditAdditionalProfIds] = useState<string[]>([])
 
   const clearApiError = useCallback(() => setApiError(null), [])
 
@@ -52,12 +57,15 @@ export function useAppointmentEdit({
     (appointment: Appointment) => {
       setSelectedAppointment(appointment)
       setApiError(null)
+      setEditAdditionalProfIds(
+        appointment.additionalProfessionals?.map(ap => ap.professionalProfile.id) || []
+      )
       const scheduledDate = new Date(appointment.scheduledAt)
       const endDate = new Date(appointment.endAt)
       const durationMinutes = Math.round((endDate.getTime() - scheduledDate.getTime()) / 60000)
 
       form.reset({
-        date: toDisplayDateFromDate(scheduledDate),
+        date: toDateString(scheduledDate),
         startTime: `${scheduledDate.getHours().toString().padStart(2, "0")}:${scheduledDate.getMinutes().toString().padStart(2, "0")}`,
         duration: durationMinutes,
         modality: appointment.modality as "ONLINE" | "PRESENCIAL",
@@ -94,6 +102,7 @@ export function useAppointmentEdit({
           modality: data.modality,
           notes: data.notes || null,
           price: data.price !== undefined && data.price !== "" ? Number(data.price) : null,
+          additionalProfessionalIds: editAdditionalProfIds,
         })
 
         if (result.error) {
@@ -110,7 +119,7 @@ export function useAppointmentEdit({
         setIsUpdating(false)
       }
     },
-    [selectedAppointment, appointmentDuration, closeEditSheet, onSuccess]
+    [selectedAppointment, appointmentDuration, editAdditionalProfIds, closeEditSheet, onSuccess]
   )
 
   return {
@@ -120,6 +129,8 @@ export function useAppointmentEdit({
     selectedAppointment,
     setSelectedAppointment,
     form,
+    editAdditionalProfIds,
+    setEditAdditionalProfIds,
     apiError,
     clearApiError,
     isUpdating,

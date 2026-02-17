@@ -15,6 +15,7 @@ import {
   UsersIcon,
   ClockIcon,
 } from "@/shared/components/ui"
+import { TimeInput } from "@/app/agenda/components"
 import { CalendarIcon } from "@/shared/components/ui/icons"
 
 const DAY_OF_WEEK_LABELS = [
@@ -58,6 +59,13 @@ interface Professional {
   } | null
 }
 
+interface AdditionalProfessionalRef {
+  professionalProfile: {
+    id: string
+    user: { name: string }
+  }
+}
+
 interface TherapyGroup {
   id: string
   name: string
@@ -74,6 +82,7 @@ interface TherapyGroup {
       name: string
     }
   }
+  additionalProfessionals?: AdditionalProfessionalRef[]
 }
 
 interface GroupDetails extends TherapyGroup {
@@ -96,6 +105,10 @@ interface GroupSessionItem {
   endAt: string
   professionalProfileId: string
   professionalName: string
+  additionalProfessionals?: Array<{
+    professionalProfileId: string
+    professionalName: string
+  }>
   participants: Array<{
     appointmentId: string
     patientId: string
@@ -144,6 +157,9 @@ export default function GroupsPage() {
   const [isSearchingPatients, setIsSearchingPatients] = useState(false)
   const [isSavingMember, setIsSavingMember] = useState(false)
   const [memberJoinDate, setMemberJoinDate] = useState("")
+
+  // Additional professionals state
+  const [additionalProfessionalIds, setAdditionalProfessionalIds] = useState<string[]>([])
 
   const isAdmin = session?.user?.role === "ADMIN"
 
@@ -247,6 +263,7 @@ export default function GroupsPage() {
   function openCreateSheet() {
     setEditingGroup(null)
     setViewingGroup(null)
+    setAdditionalProfessionalIds([])
     reset({
       name: "",
       professionalProfileId: "",
@@ -262,6 +279,9 @@ export default function GroupsPage() {
     setEditingGroup(group)
     // Also fetch group details to show members in edit mode
     fetchGroupDetails(group.id)
+    setAdditionalProfessionalIds(
+      group.additionalProfessionals?.map(ap => ap.professionalProfile.id) || []
+    )
     reset({
       name: group.name,
       professionalProfileId: group.professionalProfile.id,
@@ -306,7 +326,10 @@ export default function GroupsPage() {
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          additionalProfessionalIds: additionalProfessionalIds.length > 0 ? additionalProfessionalIds : [],
+        }),
       })
 
       if (!response.ok) {
@@ -638,6 +661,11 @@ export default function GroupsPage() {
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
                       {group.professionalProfile.user.name}
+                      {group.additionalProfessionals && group.additionalProfessionals.length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          {" "}+{group.additionalProfessionals.length}
+                        </span>
+                      )}
                     </p>
                     <div className="flex gap-3 mt-2">
                       <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200">
@@ -716,6 +744,11 @@ export default function GroupsPage() {
                         </h2>
                         <p className="text-sm text-muted-foreground">
                           {viewingGroup.professionalProfile.user.name}
+                          {viewingGroup.additionalProfessionals && viewingGroup.additionalProfessionals.length > 0 && (
+                            <span>
+                              {" "}+ {viewingGroup.additionalProfessionals.map(ap => ap.professionalProfile.user.name).join(", ")}
+                            </span>
+                          )}
                         </p>
                       </div>
                       {isAdmin && (
@@ -1302,6 +1335,42 @@ export default function GroupsPage() {
                         )}
                       </div>
 
+                      {/* Additional Professionals */}
+                      {professionals.length > 1 && (
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-2">
+                            Profissionais adicionais
+                          </label>
+                          <div className="space-y-2 p-3 rounded-xl border border-input bg-background">
+                            {professionals
+                              .filter(p => {
+                                const formProfId = editingGroup
+                                  ? editingGroup.professionalProfile.id
+                                  : undefined
+                                return p.professionalProfile?.id && p.professionalProfile.id !== formProfId
+                              })
+                              .map(prof => (
+                                <label key={prof.id} className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={additionalProfessionalIds.includes(prof.professionalProfile!.id)}
+                                    onChange={() => {
+                                      const profId = prof.professionalProfile!.id
+                                      setAdditionalProfessionalIds(prev =>
+                                        prev.includes(profId)
+                                          ? prev.filter(id => id !== profId)
+                                          : [...prev, profId]
+                                      )
+                                    }}
+                                    className="w-4 h-4 rounded border-input text-primary focus:ring-ring/40"
+                                  />
+                                  <span className="text-sm">{prof.name}</span>
+                                </label>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label htmlFor="dayOfWeek" className="block text-sm font-medium text-foreground mb-2">
@@ -1325,9 +1394,8 @@ export default function GroupsPage() {
                           <label htmlFor="startTime" className="block text-sm font-medium text-foreground mb-2">
                             Horário *
                           </label>
-                          <input
+                          <TimeInput
                             id="startTime"
-                            type="text"
                             placeholder="Ex: 14:00"
                             {...register("startTime")}
                             className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"

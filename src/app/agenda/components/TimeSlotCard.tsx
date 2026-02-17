@@ -38,6 +38,9 @@ export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointm
               {!selectedProfessionalId && (
                 <p className="text-xs font-medium text-primary mb-1 truncate">
                   {appointment.professionalProfile.user.name}
+                  {(appointment.additionalProfessionals?.length ?? 0) > 0 && (
+                    <span className="text-muted-foreground font-normal"> +{appointment.additionalProfessionals!.length}</span>
+                  )}
                 </p>
               )}
               <div className="flex items-start justify-between gap-2">

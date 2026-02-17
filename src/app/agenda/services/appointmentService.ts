@@ -20,6 +20,7 @@ export interface CreateAppointmentData {
   notes?: string | null
   duration?: number
   professionalProfileId?: string
+  additionalProfessionalIds?: string[]
   recurrence?: {
     recurrenceType: "WEEKLY" | "BIWEEKLY" | "MONTHLY"
     recurrenceEndType: "BY_DATE" | "BY_OCCURRENCES" | "INDEFINITE"
@@ -36,6 +37,7 @@ export interface CreateCalendarEntryData {
   notes?: string | null
   duration?: number
   professionalProfileId?: string
+  additionalProfessionalIds?: string[]
   recurrence?: {
     recurrenceType: "WEEKLY"
     recurrenceEndType: "BY_DATE" | "BY_OCCURRENCES" | "INDEFINITE"
@@ -52,11 +54,12 @@ export interface CreateAppointmentResponse {
 }
 
 export interface UpdateAppointmentData {
-  scheduledAt: string
-  endAt: string
-  modality: "ONLINE" | "PRESENCIAL"
+  scheduledAt?: string
+  endAt?: string
+  modality?: "ONLINE" | "PRESENCIAL" | null
   notes?: string | null
   price?: number | null
+  additionalProfessionalIds?: string[]
 }
 
 export interface CancelAppointmentData {

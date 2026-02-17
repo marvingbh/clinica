@@ -56,6 +56,13 @@ export const GET = withAuth(
             startTime: true,
           },
         },
+        additionalProfessionals: {
+          select: {
+            professionalProfile: {
+              select: { id: true, user: { select: { name: true } } },
+            },
+          },
+        },
       },
     })
 
@@ -63,8 +70,11 @@ export const GET = withAuth(
       return NextResponse.json({ error: "Appointment not found" }, { status: 404 })
     }
 
-    // Check ownership for "own" scope
-    if (scope === "own" && appointment.professionalProfileId !== user.professionalProfileId) {
+    // Check ownership for "own" scope (includes additional professionals)
+    const isParticipant = appointment.additionalProfessionals.some(
+      ap => ap.professionalProfile.id === user.professionalProfileId
+    )
+    if (scope === "own" && appointment.professionalProfileId !== user.professionalProfileId && !isParticipant) {
       return forbiddenResponse("You can only view your own appointments")
     }
 
@@ -103,6 +113,9 @@ export const PATCH = withAuth(
             bufferBetweenSlots: true,
           },
         },
+        additionalProfessionals: {
+          select: { professionalProfileId: true },
+        },
       },
     })
 
@@ -110,13 +123,16 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: "Appointment not found" }, { status: 404 })
     }
 
-    // Check ownership for "own" scope
-    if (scope === "own" && existing.professionalProfileId !== user.professionalProfileId) {
+    // Check ownership for "own" scope (includes additional professionals)
+    const isParticipant = existing.additionalProfessionals.some(
+      ap => ap.professionalProfileId === user.professionalProfileId
+    )
+    if (scope === "own" && existing.professionalProfileId !== user.professionalProfileId && !isParticipant) {
       return forbiddenResponse("You can only update your own appointments")
     }
 
     const body = await req.json()
-    const { scheduledAt, endAt, status, modality, notes, price, cancellationReason, title } = body
+    const { scheduledAt, endAt, status, modality, notes, price, cancellationReason, title, additionalProfessionalIds } = body
 
     // Store old values for audit log (only fields being updated)
     const oldValues: Prisma.JsonObject = {}
@@ -167,23 +183,51 @@ export const PATCH = withAuth(
 
     // Check if time is being updated - need conflict check
     const isTimeUpdate = scheduledAt !== undefined || endAt !== undefined
+    const hasAdditionalProfChange = additionalProfessionalIds !== undefined
     const newScheduledAt = scheduledAt ? new Date(scheduledAt) : existing.scheduledAt
     const newEndAt = endAt ? new Date(endAt) : existing.endAt
 
-    // Use transaction with conflict check if time is being updated
+    // Use transaction with conflict check if time or professionals are being updated
     // Only check conflicts for entries that block time
     const result = await prisma.$transaction(async (tx) => {
-      if (isTimeUpdate && existing.blocksTime) {
+      // Resolve the effective additional professional IDs for conflict checking
+      const effectiveAdditionalProfIds = hasAdditionalProfChange
+        ? (additionalProfessionalIds as string[]).filter((id: string) => id !== existing.professionalProfileId)
+        : existing.additionalProfessionals.map(ap => ap.professionalProfileId)
+
+      // Run conflict check when time changes OR when additional professionals change
+      if ((isTimeUpdate || hasAdditionalProfChange) && existing.blocksTime) {
         const conflictResult = await checkConflict({
           professionalProfileId: existing.professionalProfileId,
           scheduledAt: newScheduledAt,
           endAt: newEndAt,
           excludeAppointmentId: params.id,
+          excludeGroupId: existing.groupId || undefined,
+          additionalProfessionalIds: effectiveAdditionalProfIds,
           bufferMinutes: existing.professionalProfile?.bufferBetweenSlots || 0,
         }, tx)
 
         if (conflictResult.hasConflict && conflictResult.conflictingAppointment) {
           return { conflict: conflictResult.conflictingAppointment }
+        }
+      }
+
+      // Update additional professionals if provided
+      if (additionalProfessionalIds !== undefined) {
+        // Delete existing + recreate pattern
+        await tx.appointmentProfessional.deleteMany({
+          where: { appointmentId: params.id },
+        })
+        const filteredIds = (additionalProfessionalIds as string[]).filter(
+          (id: string) => id !== existing.professionalProfileId
+        )
+        if (filteredIds.length > 0) {
+          await tx.appointmentProfessional.createMany({
+            data: filteredIds.map((profId: string) => ({
+              appointmentId: params.id,
+              professionalProfileId: profId,
+            })),
+          })
         }
       }
 
@@ -204,6 +248,13 @@ export const PATCH = withAuth(
                 select: {
                   name: true,
                 },
+              },
+            },
+          },
+          additionalProfessionals: {
+            select: {
+              professionalProfile: {
+                select: { id: true, user: { select: { name: true } } },
               },
             },
           },
@@ -290,7 +341,7 @@ export const DELETE = withAuth(
       return NextResponse.json({ error: "Appointment not found" }, { status: 404 })
     }
 
-    // Check ownership for "own" scope
+    // Only primary professional or ADMIN can delete (participants cannot)
     if (scope === "own" && existing.professionalProfileId !== user.professionalProfileId) {
       return forbiddenResponse("You can only delete your own appointments")
     }

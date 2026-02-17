@@ -22,6 +22,8 @@ export interface ConflictCheckParams {
   excludeAppointmentId?: string
   /** Exclude appointments with the same groupId (for group sessions) */
   excludeGroupId?: string
+  /** Additional professional IDs to check for conflicts (multi-professional support) */
+  additionalProfessionalIds?: string[]
   /** @deprecated Buffer is no longer used in conflict checks - it only affects available slots */
   bufferMinutes?: number
 }
@@ -46,7 +48,10 @@ export async function checkConflict(
   tx?: Prisma.TransactionClient
 ): Promise<ConflictCheckResult> {
   const client = tx || prisma
-  const { professionalProfileId, scheduledAt, endAt, excludeAppointmentId, excludeGroupId } = params
+  const { professionalProfileId, scheduledAt, endAt, excludeAppointmentId, excludeGroupId, additionalProfessionalIds } = params
+
+  // Build the list of all professional IDs to check
+  const allProfIds = [professionalProfileId, ...(additionalProfessionalIds || [])]
 
   // Use raw query with FOR UPDATE to acquire row-level lock
   // This prevents race conditions when multiple requests try to book the same slot
@@ -54,6 +59,7 @@ export async function checkConflict(
   // Back-to-back appointments where end1 = start2 are allowed
   // For group sessions: exclude appointments with the same groupId (they share the same time slot intentionally)
   // Only blocking entries (blocksTime = true) are considered for conflicts
+  // Multi-professional: check both primary owner and additional professionals via join table
   const conflictingAppointments = await client.$queryRaw<Array<{
     id: string
     scheduledAt: Date
@@ -71,7 +77,14 @@ export async function checkConflict(
       a.type
     FROM "Appointment" a
     LEFT JOIN "Patient" p ON a."patientId" = p.id
-    WHERE a."professionalProfileId" = ${professionalProfileId}
+    WHERE (
+      a."professionalProfileId" = ANY(${allProfIds}::text[])
+      OR EXISTS (
+        SELECT 1 FROM "AppointmentProfessional" ap
+        WHERE ap."appointmentId" = a.id
+        AND ap."professionalProfileId" = ANY(${allProfIds}::text[])
+      )
+    )
       AND a.status NOT IN ('CANCELADO_PACIENTE', 'CANCELADO_PROFISSIONAL')
       AND a."blocksTime" = true
       AND a."scheduledAt" < ${endAt}
@@ -106,6 +119,8 @@ export interface BulkConflictCheckParams {
   dates: Array<{ scheduledAt: Date; endAt: Date }>
   excludeAppointmentIds?: string[]
   excludeGroupId?: string
+  /** Additional professional IDs to check for conflicts (multi-professional support) */
+  additionalProfessionalIds?: string[]
   bufferMinutes?: number
 }
 
@@ -129,16 +144,20 @@ export async function checkConflictsBulk(
   tx?: Prisma.TransactionClient
 ): Promise<BulkConflictResult> {
   const client = tx || prisma
-  const { professionalProfileId, dates, excludeAppointmentIds, excludeGroupId } = params
+  const { professionalProfileId, dates, excludeAppointmentIds, excludeGroupId, additionalProfessionalIds } = params
 
   if (dates.length === 0) {
     return { conflicts: [] }
   }
 
+  // Build the list of all professional IDs to check
+  const allProfIds = [professionalProfileId, ...(additionalProfessionalIds || [])]
+
   // Build VALUES clause for all date ranges
   // We use a parameterized approach: flatten all values into a single array
+  // $1 is now text[] (array of professional IDs)
   const valuesClauses: string[] = []
-  const queryParams: unknown[] = [professionalProfileId]
+  const queryParams: unknown[] = [allProfIds]
   let paramIndex = 2
 
   for (let i = 0; i < dates.length; i++) {
@@ -165,7 +184,14 @@ export async function checkConflictsBulk(
   const sql = `
     SELECT DISTINCT ON (v.idx) v.idx, a.id, a."scheduledAt", a."endAt", p.name as "patientName", a.title, a.type
     FROM (VALUES ${valuesClauses.join(", ")}) AS v(idx, start_at, end_at)
-    JOIN "Appointment" a ON a."professionalProfileId" = $1::text
+    JOIN "Appointment" a ON (
+      a."professionalProfileId" = ANY($1::text[])
+      OR EXISTS (
+        SELECT 1 FROM "AppointmentProfessional" ap
+        WHERE ap."appointmentId" = a.id
+        AND ap."professionalProfileId" = ANY($1::text[])
+      )
+    )
       AND a.status NOT IN ('CANCELADO_PACIENTE', 'CANCELADO_PROFISSIONAL')
       AND a."blocksTime" = true
       AND a."scheduledAt" < v.end_at AND a."endAt" > v.start_at

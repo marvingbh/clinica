@@ -5,11 +5,11 @@ import { z } from "zod"
 // ============================================================================
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
-const brDateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/ // DD/MM/YYYY
+const isoDateRegex = /^(\d{4})-(\d{2})-(\d{2})$/ // YYYY-MM-DD (native date picker)
 
 export const appointmentSchema = z.object({
   patientId: z.string().min(1, "Selecione um paciente"),
-  date: z.string().regex(brDateRegex, "Data inválida (DD/MM/AAAA)"),
+  date: z.string().regex(isoDateRegex, "Data inválida"),
   startTime: z.string().regex(timeRegex, "Horário inválido (HH:mm)"),
   duration: z.number().int().min(15).max(480).optional(),
   modality: z.enum(["ONLINE", "PRESENCIAL"]),
@@ -17,17 +17,17 @@ export const appointmentSchema = z.object({
 })
 
 export const editAppointmentSchema = z.object({
-  date: z.string().regex(brDateRegex, "Data inválida (DD/MM/AAAA)"),
+  date: z.string().regex(isoDateRegex, "Data inválida"),
   startTime: z.string().regex(timeRegex, "Horário inválido (HH:mm)"),
   duration: z.number().int().min(15).max(480).optional(),
-  modality: z.enum(["ONLINE", "PRESENCIAL"]),
+  modality: z.enum(["ONLINE", "PRESENCIAL"]).nullable().optional(),
   notes: z.string().max(2000).optional().nullable(),
   price: z.union([z.number().min(0), z.string(), z.null()]).optional().nullable(),
 })
 
 export const calendarEntrySchema = z.object({
   title: z.string().min(1, "Titulo e obrigatorio").max(200),
-  date: z.string().regex(brDateRegex, "Data inválida (DD/MM/AAAA)"),
+  date: z.string().regex(isoDateRegex, "Data inválida"),
   startTime: z.string().regex(timeRegex, "Horário inválido (HH:mm)"),
   duration: z.number().int().min(5).max(480).optional(),
   notes: z.string().max(2000).optional().nullable(),
@@ -98,6 +98,13 @@ export interface AlternateWeekInfo {
   isAvailable: boolean
 }
 
+export interface AdditionalProfessional {
+  professionalProfile: {
+    id: string
+    user: { name: string }
+  }
+}
+
 export interface Appointment {
   id: string
   scheduledAt: string
@@ -114,6 +121,7 @@ export interface Appointment {
   groupId: string | null  // Links to TherapyGroup for group sessions
   recurrence: AppointmentRecurrence | null
   alternateWeekInfo?: AlternateWeekInfo // For biweekly appointments, shows who is in the alternate week
+  additionalProfessionals?: AdditionalProfessional[]
   patient: {
     id: string
     name: string
@@ -182,5 +190,9 @@ export interface GroupSession {
   endAt: string
   professionalProfileId: string
   professionalName: string
+  additionalProfessionals?: Array<{
+    professionalProfileId: string
+    professionalName: string
+  }>
   participants: GroupSessionParticipant[]
 }

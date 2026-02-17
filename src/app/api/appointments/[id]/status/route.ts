@@ -112,6 +112,9 @@ export const PATCH = withAuth(
             },
           },
         },
+        additionalProfessionals: {
+          select: { professionalProfileId: true },
+        },
       },
     })
 
@@ -122,8 +125,11 @@ export const PATCH = withAuth(
       )
     }
 
-    // Check ownership for "own" scope
-    if (scope === "own" && existing.professionalProfileId !== user.professionalProfileId) {
+    // Check ownership for "own" scope (includes additional professionals)
+    const isParticipant = existing.additionalProfessionals.some(
+      ap => ap.professionalProfileId === user.professionalProfileId
+    )
+    if (scope === "own" && existing.professionalProfileId !== user.professionalProfileId && !isParticipant) {
       return forbiddenResponse("Você só pode atualizar seus próprios agendamentos")
     }
 

@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Appointment, RecurrenceType, RecurrenceEndType, Modality } from "../lib/types"
+import { Appointment, RecurrenceType, RecurrenceEndType, Modality, Professional } from "../lib/types"
 import { RECURRENCE_TYPE_LABELS, MAX_RECURRENCE_OCCURRENCES } from "../lib/constants"
-import { toDateString, toDisplayDate, toIsoDate, toDisplayDateFromDate, calculateEndTime } from "../lib/utils"
+import { TimeInput } from "./TimeInput"
+import { toDateString, calculateEndTime } from "../lib/utils"
 import { toast } from "sonner"
 import { Dialog } from "./Sheet"
 
@@ -11,12 +12,13 @@ interface RecurrenceTabContentProps {
   appointment: Appointment
   onSave: () => void
   onClose: () => void
+  professionals?: Professional[]
 }
 
 const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"]
 const FULL_DAY_NAMES = ["domingo", "segunda-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sabado"]
 
-export function RecurrenceTabContent({ appointment, onSave, onClose }: RecurrenceTabContentProps) {
+export function RecurrenceTabContent({ appointment, onSave, onClose, professionals }: RecurrenceTabContentProps) {
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("WEEKLY")
   const [originalRecurrenceType, setOriginalRecurrenceType] = useState<RecurrenceType>("WEEKLY")
   const [startTime, setStartTime] = useState("")
@@ -29,6 +31,8 @@ export function RecurrenceTabContent({ appointment, onSave, onClose }: Recurrenc
   const [originalDayOfWeek, setOriginalDayOfWeek] = useState<number>(0)
   const [applyToFuture, setApplyToFuture] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+
+  const [additionalProfIds, setAdditionalProfIds] = useState<string[]>([])
 
   // Finalize dialog state
   const [isFinalizeDialogOpen, setIsFinalizeDialogOpen] = useState(false)
@@ -43,6 +47,9 @@ export function RecurrenceTabContent({ appointment, onSave, onClose }: Recurrenc
       setOriginalRecurrenceType(recurrence.recurrenceType)
       setRecurrenceEndType(recurrence.recurrenceEndType)
       setModality(appointment.modality as Modality)
+      setAdditionalProfIds(
+        appointment.additionalProfessionals?.map(ap => ap.professionalProfile.id) || []
+      )
       setApplyToFuture(true)
 
       const scheduledAt = new Date(appointment.scheduledAt)
@@ -90,6 +97,8 @@ export function RecurrenceTabContent({ appointment, onSave, onClose }: Recurrenc
         body.dayOfWeek = dayOfWeek
       }
 
+      body.additionalProfessionalIds = additionalProfIds
+
       if (applyToFuture) {
         body.applyTo = "future"
       }
@@ -130,9 +139,9 @@ export function RecurrenceTabContent({ appointment, onSave, onClose }: Recurrenc
   async function handleFinalize() {
     if (!appointment?.recurrence || !finalizeDate) return
 
-    // Validate date format
-    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(finalizeDate)) {
-      toast.error("Data invalida. Use o formato DD/MM/AAAA")
+    // Validate date format (YYYY-MM-DD from native date picker)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(finalizeDate)) {
+      toast.error("Data invalida")
       return
     }
 
@@ -145,7 +154,7 @@ export function RecurrenceTabContent({ appointment, onSave, onClose }: Recurrenc
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            endDate: toIsoDate(finalizeDate),
+            endDate: finalizeDate,
           }),
         }
       )
@@ -243,13 +252,11 @@ export function RecurrenceTabContent({ appointment, onSave, onClose }: Recurrenc
             <label htmlFor="recStartTime" className="block text-sm font-medium text-foreground mb-1.5">
               Inicio
             </label>
-            <input
+            <TimeInput
               id="recStartTime"
-              type="text"
               placeholder="HH:MM"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
               className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
             />
           </div>
@@ -308,6 +315,40 @@ export function RecurrenceTabContent({ appointment, onSave, onClose }: Recurrenc
             </button>
           </div>
         </div>
+
+        {/* Additional professionals */}
+        {professionals && professionals.length > 1 && (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Profissionais adicionais
+            </label>
+            <div className="space-y-2 p-3 rounded-xl border border-input bg-background">
+              {professionals
+                .filter(p => {
+                  const profId = p.professionalProfile?.id
+                  return profId && profId !== appointment.professionalProfile.id
+                })
+                .map(prof => (
+                  <label key={prof.id} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={additionalProfIds.includes(prof.professionalProfile!.id)}
+                      onChange={(e) => {
+                        const id = prof.professionalProfile!.id
+                        if (e.target.checked) {
+                          setAdditionalProfIds([...additionalProfIds, id])
+                        } else {
+                          setAdditionalProfIds(additionalProfIds.filter(x => x !== id))
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-input text-primary focus:ring-ring/40"
+                    />
+                    <span className="text-sm">{prof.name}</span>
+                  </label>
+                ))}
+            </div>
+          </div>
+        )}
 
         {/* End Type */}
         <div>
@@ -377,20 +418,11 @@ export function RecurrenceTabContent({ appointment, onSave, onClose }: Recurrenc
             </label>
             <input
               id="recEndDate"
-              type="text"
-              placeholder="DD/MM/AAAA"
-              value={endDate ? toDisplayDate(endDate) : ""}
-              onChange={(e) => {
-                const value = e.target.value
-                if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
-                  setEndDate(toIsoDate(value))
-                } else if (value === "") {
-                  setEndDate("")
-                }
-              }}
-              className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+              type="date"
+              value={endDate || ""}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
             />
-            <p className="text-xs text-muted-foreground mt-1">Formato: DD/MM/AAAA</p>
           </div>
         )}
 
@@ -427,7 +459,7 @@ export function RecurrenceTabContent({ appointment, onSave, onClose }: Recurrenc
             <button
               type="button"
               onClick={() => {
-                setFinalizeDate(toDisplayDateFromDate(new Date()))
+                setFinalizeDate(toDateString(new Date()))
                 setIsFinalizeDialogOpen(true)
               }}
               className="w-full h-11 rounded-md border border-orange-500 bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 font-medium hover:bg-orange-100 dark:hover:bg-orange-950/50 transition-colors"
@@ -477,13 +509,11 @@ export function RecurrenceTabContent({ appointment, onSave, onClose }: Recurrenc
           </label>
           <input
             id="finalizeDate"
-            type="text"
-            placeholder="DD/MM/AAAA"
+            type="date"
             value={finalizeDate}
             onChange={(e) => setFinalizeDate(e.target.value)}
-            className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+            className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
           />
-          <p className="text-xs text-muted-foreground mt-1">Formato: DD/MM/AAAA</p>
         </div>
 
         <div className="flex gap-3">

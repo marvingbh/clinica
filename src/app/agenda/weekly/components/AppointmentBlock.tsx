@@ -92,6 +92,9 @@ export function AppointmentBlock({
         {showProfessional && (
           <p className={`text-[10px] font-semibold truncate leading-tight ${colors.text} ${appointment.recurrence ? "pr-3" : ""}`}>
             {appointment.professionalProfile.user.name}
+            {(appointment.additionalProfessionals?.length ?? 0) > 0 && (
+              <span className="font-normal opacity-70"> +{appointment.additionalProfessionals!.length}</span>
+            )}
           </p>
         )}
         <p className={`text-[11px] font-medium text-foreground truncate leading-tight ${appointment.recurrence && !showProfessional ? "pr-3" : ""}`}>

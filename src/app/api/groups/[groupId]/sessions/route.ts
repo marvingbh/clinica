@@ -63,12 +63,15 @@ export const POST = withAuth(
       isActive: true,
     }
 
-    // If scope is "own", only allow access to own groups
+    // If scope is "own", only allow access to own groups (including as co-leader)
     if (scope === "own" && user.professionalProfileId) {
-      groupWhere.professionalProfileId = user.professionalProfileId
+      groupWhere.OR = [
+        { professionalProfileId: user.professionalProfileId },
+        { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },
+      ]
     }
 
-    // Get the group
+    // Get the group with additional professionals
     const group = await prisma.therapyGroup.findFirst({
       where: groupWhere,
       include: {
@@ -81,6 +84,9 @@ export const POST = withAuth(
               },
             },
           },
+        },
+        additionalProfessionals: {
+          select: { professionalProfileId: true },
         },
       },
     })
@@ -327,6 +333,27 @@ export const POST = withAuth(
           await tx.appointment.createMany({ data: appointmentsToCreate })
         }
 
+        // Create additional professional records for newly created appointments
+        const regenGroupAdditionalProfIds = group.additionalProfessionals.map(ap => ap.professionalProfileId)
+        if (appointmentsToCreate.length > 0 && regenGroupAdditionalProfIds.length > 0) {
+          const newAppts = await tx.appointment.findMany({
+            where: {
+              groupId: group.id,
+              scheduledAt: { in: appointmentsToCreate.map(a => a.scheduledAt) },
+              patientId: { in: appointmentsToCreate.map(a => a.patientId) },
+            },
+            select: { id: true },
+          })
+          await tx.appointmentProfessional.createMany({
+            data: newAppts.flatMap(apt =>
+              regenGroupAdditionalProfIds.map(profId => ({
+                appointmentId: apt.id,
+                professionalProfileId: profId,
+              }))
+            ),
+          })
+        }
+
         // Fetch created appointments with patient info for notifications
         const created = appointmentsToCreate.length > 0
           ? await tx.appointment.findMany({
@@ -493,6 +520,8 @@ export const POST = withAuth(
       }
     }
 
+    const groupAdditionalProfIds = group.additionalProfessionals.map(ap => ap.professionalProfileId)
+
     const result = await prisma.$transaction(async (tx) => {
       // Bulk create all appointments
       await tx.appointment.createMany({ data: appointmentsData })
@@ -511,6 +540,18 @@ export const POST = withAuth(
         },
         orderBy: { scheduledAt: "asc" },
       })
+
+      // Create additional professional records for each created appointment
+      if (groupAdditionalProfIds.length > 0) {
+        await tx.appointmentProfessional.createMany({
+          data: createdAppointments.flatMap(apt =>
+            groupAdditionalProfIds.map(profId => ({
+              appointmentId: apt.id,
+              professionalProfileId: profId,
+            }))
+          ),
+        })
+      }
 
       // Bulk create tokens
       await createBulkAppointmentTokens(

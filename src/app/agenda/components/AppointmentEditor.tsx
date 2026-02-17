@@ -6,7 +6,8 @@ import { Sheet } from "./Sheet"
 import { InlineAlert } from "./InlineAlert"
 import { SegmentedControl, Segment } from "./SegmentedControl"
 import { RecurrenceTabContent } from "./RecurrenceTabContent"
-import { Appointment, EditAppointmentFormData, CalendarEntryType } from "../lib/types"
+import { Appointment, EditAppointmentFormData, CalendarEntryType, Professional } from "../lib/types"
+import { TimeInput } from "./TimeInput"
 import { STATUS_LABELS, STATUS_COLORS, RECURRENCE_TYPE_LABELS, ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
 import { formatPhone, isDateException, calculateEndTime } from "../lib/utils"
 import {
@@ -72,6 +73,10 @@ interface AppointmentEditorProps {
   onToggleException: (action: "skip" | "unskip") => Promise<void>
   isManagingException: boolean
   onRecurrenceSave: () => void
+  // Additional professionals editing
+  professionals?: Professional[]
+  editAdditionalProfIds?: string[]
+  setEditAdditionalProfIds?: (ids: string[]) => void
 }
 
 type EditorTab = "occurrence" | "recurrence"
@@ -100,6 +105,9 @@ export function AppointmentEditor({
   onToggleException,
   isManagingException,
   onRecurrenceSave,
+  professionals,
+  editAdditionalProfIds,
+  setEditAdditionalProfIds,
 }: AppointmentEditorProps) {
   const [activeTab, setActiveTab] = useState<EditorTab>("occurrence")
 
@@ -212,7 +220,12 @@ export function AppointmentEditor({
           {/* Professional + modality row */}
           <div className="flex items-center gap-2 text-sm">
             <UserIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-            <span className="text-muted-foreground">{appointment.professionalProfile.user.name}</span>
+            <span className="text-muted-foreground">
+              {appointment.professionalProfile.user.name}
+              {(appointment.additionalProfessionals?.length ?? 0) > 0 && (
+                <span className="text-xs"> +{appointment.additionalProfessionals!.map(ap => ap.professionalProfile.user.name).join(", ")}</span>
+              )}
+            </span>
             {isConsulta && appointment.modality && (
               <>
                 <span className="text-muted-foreground/40">·</span>
@@ -309,12 +322,16 @@ export function AppointmentEditor({
             onDeleteAppointment={onDeleteAppointment}
             isRecurring={isRecurring}
             isConsulta={isConsulta}
+            professionals={professionals}
+            editAdditionalProfIds={editAdditionalProfIds}
+            setEditAdditionalProfIds={setEditAdditionalProfIds}
           />
         ) : (
           <RecurrenceTabContent
             appointment={appointment}
             onSave={onRecurrenceSave}
             onClose={handleClose}
+            professionals={professionals}
           />
         )}
       </div>
@@ -348,6 +365,9 @@ interface OccurrenceTabContentProps {
   onDeleteAppointment: () => Promise<void>
   isRecurring: boolean
   isConsulta: boolean
+  professionals?: Professional[]
+  editAdditionalProfIds?: string[]
+  setEditAdditionalProfIds?: (ids: string[]) => void
 }
 
 function OccurrenceTabContent({
@@ -372,6 +392,9 @@ function OccurrenceTabContent({
   onDeleteAppointment,
   isRecurring,
   isConsulta,
+  professionals,
+  editAdditionalProfIds,
+  setEditAdditionalProfIds,
 }: OccurrenceTabContentProps) {
   const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_PACIENTE"].includes(appointment.status)
   const isNoShow = appointment.status === "NAO_COMPARECEU"
@@ -514,8 +537,7 @@ function OccurrenceTabContent({
           </label>
           <input
             id="editDate"
-            type="text"
-            placeholder="DD/MM/AAAA"
+            type="date"
             {...form.register("date")}
             className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
           />
@@ -530,11 +552,9 @@ function OccurrenceTabContent({
             <label htmlFor="editStartTime" className="block text-sm font-medium text-foreground mb-1.5">
               Inicio
             </label>
-            <input
+            <TimeInput
               id="editStartTime"
-              type="text"
               placeholder="HH:MM"
-              pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
               {...form.register("startTime")}
               className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
             />
@@ -622,6 +642,40 @@ function OccurrenceTabContent({
           />
         </div>
       </div>
+
+      {/* Additional professionals editor */}
+      {professionals && editAdditionalProfIds && setEditAdditionalProfIds &&
+       (isConsulta || appointment.type === "REUNIAO") &&
+       professionals.length > 1 && (
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Profissionais adicionais</label>
+          <div className="space-y-2 p-3 rounded-xl border border-input bg-background">
+            {professionals
+              .filter(p => {
+                const profId = p.professionalProfile?.id
+                return profId && profId !== appointment.professionalProfile.id
+              })
+              .map(prof => (
+                <label key={prof.id} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editAdditionalProfIds.includes(prof.professionalProfile!.id)}
+                    onChange={(e) => {
+                      const id = prof.professionalProfile!.id
+                      if (e.target.checked) {
+                        setEditAdditionalProfIds([...editAdditionalProfIds, id])
+                      } else {
+                        setEditAdditionalProfIds(editAdditionalProfIds.filter(x => x !== id))
+                      }
+                    }}
+                    className="w-4 h-4 rounded border-input text-primary focus:ring-ring/40"
+                  />
+                  <span className="text-sm">{prof.name}</span>
+                </label>
+              ))}
+          </div>
+        </div>
+      )}
 
       {/* Recurring helper */}
       {isRecurring && (

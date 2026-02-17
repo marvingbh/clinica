@@ -2,7 +2,7 @@ import { useState, useCallback } from "react"
 import { useForm, UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
-import { toDisplayDateFromDate, toIsoDate } from "../lib/utils"
+import { toDateString, toIsoDate } from "../lib/utils"
 import { appointmentSchema, AppointmentFormData, Patient, RecurrenceType, RecurrenceEndType, Professional } from "../lib/types"
 import { createAppointment, CreateAppointmentData } from "../services"
 import { AppointmentType } from "../components/RecurrenceOptions"
@@ -46,6 +46,10 @@ export interface UseAppointmentCreateReturn {
   recurrenceOccurrences: number
   setRecurrenceOccurrences: (occurrences: number) => void
 
+  // Additional professionals (multi-professional support)
+  additionalProfessionalIds: string[]
+  setAdditionalProfessionalIds: (ids: string[]) => void
+
   // API error (shown inline)
   apiError: string | null
   clearApiError: () => void
@@ -80,6 +84,7 @@ export function useAppointmentCreate({
   const [recurrenceEndType, setRecurrenceEndType] = useState<RecurrenceEndType>("INDEFINITE")
   const [recurrenceEndDate, setRecurrenceEndDate] = useState("")
   const [recurrenceOccurrences, setRecurrenceOccurrences] = useState(10)
+  const [additionalProfessionalIds, setAdditionalProfessionalIds] = useState<string[]>([])
 
   const form = useForm<AppointmentFormData>({
     resolver: zodResolver(appointmentSchema),
@@ -100,9 +105,10 @@ export function useAppointmentCreate({
       setRecurrenceEndType("INDEFINITE")
       setRecurrenceEndDate("")
       setRecurrenceOccurrences(10)
+      setAdditionalProfessionalIds([])
       form.reset({
         patientId: "",
-        date: toDisplayDateFromDate(effectiveDate),
+        date: toDateString(effectiveDate),
         startTime: slotTime || "",
         modality: "PRESENCIAL",
         notes: "",
@@ -174,6 +180,10 @@ export function useAppointmentCreate({
           }
         }
 
+        if (additionalProfessionalIds.length > 0) {
+          body.additionalProfessionalIds = additionalProfessionalIds
+        }
+
         const result = await createAppointment(body)
 
         if (result.error) {
@@ -207,6 +217,7 @@ export function useAppointmentCreate({
       recurrenceEndType,
       recurrenceEndDate,
       recurrenceOccurrences,
+      additionalProfessionalIds,
       closeCreateSheet,
       onSuccess,
     ]
@@ -233,6 +244,8 @@ export function useAppointmentCreate({
     setRecurrenceEndDate,
     recurrenceOccurrences,
     setRecurrenceOccurrences,
+    additionalProfessionalIds,
+    setAdditionalProfessionalIds,
     apiError,
     clearApiError,
     isSaving,

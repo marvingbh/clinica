@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { CalendarIcon, RefreshCwIcon } from "@/shared/components/ui/icons"
 import { RecurrenceType, RecurrenceEndType } from "../lib/types"
 import { MAX_RECURRENCE_OCCURRENCES } from "../lib/constants"
-import { toDisplayDate, addMonthsToDate, toIsoDate } from "../lib/utils"
+import { addMonthsToDate } from "../lib/utils"
 
 // Extended appointment type that includes SINGLE (one-time)
 export type AppointmentType = RecurrenceType | "SINGLE"
@@ -270,19 +270,10 @@ export function RecurrenceOptions({
               </label>
               <input
                 id="recurrenceEndDate"
-                type="text"
-                placeholder="DD/MM/AAAA"
-                value={endDate ? toDisplayDate(endDate) : ""}
-                onChange={(e) => {
-                  const value = e.target.value
-                  // If valid Brazilian format, convert to ISO
-                  if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
-                    onEndDateChange(toIsoDate(value))
-                  } else if (value === "") {
-                    onEndDateChange("")
-                  }
-                }}
-                className="w-full h-10 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
+                type="date"
+                value={endDate}
+                onChange={(e) => onEndDateChange(e.target.value)}
+                className="w-full h-10 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
               />
             </div>
           )}

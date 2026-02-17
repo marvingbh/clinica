@@ -311,6 +311,9 @@ export function DailyOverviewGrid({
                   {showProfessional && (
                     <p className={`text-xs font-semibold truncate ${profColors.text}`}>
                       {appointment.professionalProfile.user.name}
+                      {(appointment.additionalProfessionals?.length ?? 0) > 0 && (
+                        <span className="font-normal opacity-70"> +{appointment.additionalProfessionals!.length}</span>
+                      )}
                     </p>
                   )}
 

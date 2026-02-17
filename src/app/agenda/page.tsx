@@ -37,6 +37,7 @@ import {
   InlineAlert,
   GroupSessionSheet,
   CalendarEntrySheet,
+  TimeInput,
 } from "./components"
 
 import type { Appointment, GroupSession, CalendarEntryType } from "./lib/types"
@@ -164,6 +165,8 @@ export default function AgendaPage() {
     setRecurrenceEndDate,
     recurrenceOccurrences,
     setRecurrenceOccurrences,
+    additionalProfessionalIds: createAdditionalProfIds,
+    setAdditionalProfessionalIds: setCreateAdditionalProfIds,
     apiError: createApiError,
     clearApiError: clearCreateApiError,
     isSaving: isSavingAppointment,
@@ -184,6 +187,8 @@ export default function AgendaPage() {
     selectedAppointment,
     setSelectedAppointment,
     form: editForm,
+    editAdditionalProfIds,
+    setEditAdditionalProfIds,
     apiError: editApiError,
     clearApiError: clearEditApiError,
     isUpdating: isUpdatingAppointment,
@@ -233,6 +238,8 @@ export default function AgendaPage() {
     setRecurrenceEndDate: setEntryRecurrenceEndDate,
     recurrenceOccurrences: entryRecurrenceOccurrences,
     setRecurrenceOccurrences: setEntryRecurrenceOccurrences,
+    additionalProfessionalIds: entryAdditionalProfIds,
+    setAdditionalProfessionalIds: setEntryAdditionalProfIds,
     apiError: entryApiError,
     clearApiError: clearEntryApiError,
     isSaving: isSavingEntry,
@@ -446,7 +453,7 @@ export default function AgendaPage() {
           {/* 2. Date */}
           <div>
             <label htmlFor="date" className="block text-sm font-medium text-foreground mb-1.5">Data *</label>
-            <input id="date" type="text" placeholder="DD/MM/AAAA" {...createForm.register("date")} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
+            <input id="date" type="date" {...createForm.register("date")} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
             {createForm.formState.errors.date && <p className="text-xs text-destructive mt-1">{createForm.formState.errors.date.message}</p>}
           </div>
 
@@ -454,11 +461,9 @@ export default function AgendaPage() {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label htmlFor="startTime" className="block text-sm font-medium text-foreground mb-1.5">Inicio *</label>
-              <input
+              <TimeInput
                 id="startTime"
-                type="text"
                 placeholder="HH:MM"
-                pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
                 {...createForm.register("startTime")}
                 className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
               />
@@ -515,6 +520,40 @@ export default function AgendaPage() {
                   ))}
                 </select>
               )}
+            </div>
+          )}
+
+          {/* 5. Additional professionals */}
+          {professionals.length > 1 && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Profissionais adicionais</label>
+              <div className="space-y-2 p-3 rounded-xl border border-input bg-background">
+                {professionals
+                  .filter(p => {
+                    const profId = p.professionalProfile?.id
+                    if (!profId) return false
+                    const effectivePrimaryId = selectedProfessionalId || createProfessionalId
+                    return profId !== effectivePrimaryId
+                  })
+                  .map(prof => (
+                    <label key={prof.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={createAdditionalProfIds.includes(prof.professionalProfile!.id)}
+                        onChange={(e) => {
+                          const id = prof.professionalProfile!.id
+                          if (e.target.checked) {
+                            setCreateAdditionalProfIds([...createAdditionalProfIds, id])
+                          } else {
+                            setCreateAdditionalProfIds(createAdditionalProfIds.filter(x => x !== id))
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-input text-primary focus:ring-ring/40"
+                      />
+                      <span className="text-sm">{prof.name}</span>
+                    </label>
+                  ))}
+              </div>
             </div>
           )}
 
@@ -585,6 +624,9 @@ export default function AgendaPage() {
         onToggleException={handleToggleException}
         isManagingException={isManagingException}
         onRecurrenceSave={refetchAppointments}
+        professionals={professionals}
+        editAdditionalProfIds={editAdditionalProfIds}
+        setEditAdditionalProfIds={setEditAdditionalProfIds}
       />
 
       {/* Cancel Dialog */}
@@ -601,6 +643,8 @@ export default function AgendaPage() {
         onClose={closeGroupSessionSheet}
         session={selectedGroupSession}
         onStatusUpdated={refetchAppointments}
+        professionals={professionals}
+        isAdmin={isAdmin}
       />
 
       {/* Calendar Entry Sheet */}
@@ -623,6 +667,8 @@ export default function AgendaPage() {
         setRecurrenceEndDate={setEntryRecurrenceEndDate}
         recurrenceOccurrences={entryRecurrenceOccurrences}
         setRecurrenceOccurrences={setEntryRecurrenceOccurrences}
+        additionalProfessionalIds={entryAdditionalProfIds}
+        setAdditionalProfessionalIds={setEntryAdditionalProfIds}
         apiError={entryApiError}
         onDismissError={clearEntryApiError}
         isSaving={isSavingEntry}

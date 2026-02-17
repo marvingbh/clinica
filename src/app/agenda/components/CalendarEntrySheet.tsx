@@ -3,6 +3,7 @@
 import { UseFormReturn } from "react-hook-form"
 import { Sheet } from "./Sheet"
 import { InlineAlert } from "./InlineAlert"
+import { TimeInput } from "./TimeInput"
 import { ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
 import { calculateEndTime } from "../lib/utils"
 import type { CalendarEntryFormData, CalendarEntryType, RecurrenceEndType, Professional } from "../lib/types"
@@ -30,6 +31,9 @@ interface CalendarEntrySheetProps {
   setRecurrenceEndDate: (date: string) => void
   recurrenceOccurrences: number
   setRecurrenceOccurrences: (occurrences: number) => void
+  // Additional professionals (REUNIAO only)
+  additionalProfessionalIds: string[]
+  setAdditionalProfessionalIds: (ids: string[]) => void
   // State
   apiError: string | null
   onDismissError: () => void
@@ -56,6 +60,8 @@ export function CalendarEntrySheet({
   setRecurrenceEndDate,
   recurrenceOccurrences,
   setRecurrenceOccurrences,
+  additionalProfessionalIds,
+  setAdditionalProfessionalIds,
   apiError,
   onDismissError,
   isSaving,
@@ -101,8 +107,7 @@ export function CalendarEntrySheet({
           <label htmlFor="entry-date" className="block text-sm font-medium text-foreground mb-1.5">Data *</label>
           <input
             id="entry-date"
-            type="text"
-            placeholder="DD/MM/AAAA"
+            type="date"
             {...form.register("date")}
             className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
           />
@@ -115,11 +120,9 @@ export function CalendarEntrySheet({
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label htmlFor="entry-time" className="block text-sm font-medium text-foreground mb-1.5">Inicio *</label>
-            <input
+            <TimeInput
               id="entry-time"
-              type="text"
               placeholder="HH:MM"
-              pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
               {...form.register("startTime")}
               className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
             />
@@ -208,11 +211,10 @@ export function CalendarEntrySheet({
                 </label>
                 {recurrenceEndType === "BY_DATE" && (
                   <input
-                    type="text"
-                    placeholder="DD/MM/AAAA"
+                    type="date"
                     value={recurrenceEndDate}
                     onChange={(e) => setRecurrenceEndDate(e.target.value)}
-                    className="ml-6 w-40 h-10 px-3 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
+                    className="ml-6 w-40 h-10 px-3 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
                   />
                 )}
               </div>
@@ -247,7 +249,41 @@ export function CalendarEntrySheet({
           </div>
         )}
 
-        {/* 6. Notes */}
+        {/* 6. Additional professionals (REUNIAO only) */}
+        {entryType === "REUNIAO" && professionals.length > 1 && (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Profissionais adicionais</label>
+            <div className="space-y-2 p-3 rounded-xl border border-input bg-background">
+              {professionals
+                .filter(p => {
+                  const profId = p.professionalProfile?.id
+                  if (!profId) return false
+                  const effectivePrimaryId = selectedProfessionalId || createProfessionalId
+                  return profId !== effectivePrimaryId
+                })
+                .map(prof => (
+                  <label key={prof.id} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={additionalProfessionalIds.includes(prof.professionalProfile!.id)}
+                      onChange={(e) => {
+                        const id = prof.professionalProfile!.id
+                        if (e.target.checked) {
+                          setAdditionalProfessionalIds([...additionalProfessionalIds, id])
+                        } else {
+                          setAdditionalProfessionalIds(additionalProfessionalIds.filter(x => x !== id))
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-input text-primary focus:ring-ring/40"
+                    />
+                    <span className="text-sm">{prof.name}</span>
+                  </label>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {/* 7. Notes */}
         <div>
           <label htmlFor="entry-notes" className="block text-sm font-medium text-foreground mb-1.5">Observacoes</label>
           <textarea
