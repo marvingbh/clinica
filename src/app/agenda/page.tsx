@@ -132,6 +132,7 @@ export default function AgendaPage() {
     availabilityRules,
     availabilityExceptions,
     appointments,
+    groupSessions,
     biweeklyHints,
     appointmentDuration,
     isAdmin,

@@ -96,6 +96,27 @@ export function AgendaTimeline({
       endMin: end.getHours() * 60 + end.getMinutes(),
     }
   })
+
+  // Pre-compute which slots to hide (within ongoing group sessions)
+  // and how many extra slots each group session start spans
+  const hiddenSlotTimes = new Set<string>()
+  const groupSessionSpanCount = new Map<string, number>()
+
+  for (const session of groupSessions) {
+    const startTime = getTimeFromISO(session.scheduledAt)
+    const endTime = getTimeFromISO(session.endAt)
+    let count = 0
+    for (const slot of timeSlots) {
+      if (slot.time > startTime && slot.time < endTime) {
+        hiddenSlotTimes.add(slot.time)
+        count++
+      }
+    }
+    if (count > 0) {
+      groupSessionSpanCount.set(startTime, Math.max(groupSessionSpanCount.get(startTime) || 0, count))
+    }
+  }
+
   return (
     <SwipeContainer onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} className="max-w-4xl mx-auto px-4 py-6">
       {/* Swipe hint */}
@@ -128,6 +149,9 @@ export function AgendaTimeline({
       {timeSlots.length > 0 && (
         <div className="space-y-1">
           {timeSlots.map((slot) => {
+            // Skip slots hidden by an ongoing group session (they're visually merged into the session start slot)
+            if (hiddenSlotTimes.has(slot.time)) return null
+
             const hasAppointments = slot.appointments.length > 0
             const slotGroupSessions = groupSessionsByTime.get(slot.time) || []
             const hasGroupSessions = slotGroupSessions.length > 0
@@ -179,10 +203,14 @@ export function AgendaTimeline({
             // Non-blocking entries alone don't make the slot "active"
             const hasActiveContentRecalc = (hasBlockingAppointments && !allBlockingCancelled) || hasGroupSessions || isOccupiedByOngoingSession
 
+            // Extra height for group sessions that span multiple slots
+            const extraSpan = groupSessionSpanCount.get(slot.time) || 0
+
             return (
               <div
                 key={slot.time}
                 className={`flex items-stretch min-h-[4.5rem] ${isBlocked && !hasAnyContent ? "opacity-50" : ""}`}
+                style={extraSpan > 0 ? { minHeight: `${4.5 + extraSpan * 4.75}rem` } : undefined}
               >
                 <TimeLabel time={slot.time} hasAppointments={hasActiveContentRecalc} />
                 <TimelineConnector isActive={hasActiveContentRecalc} />

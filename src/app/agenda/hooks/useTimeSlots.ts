@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { toDateString } from "../lib/utils"
-import type { Appointment, AvailabilityRule, AvailabilityException, TimeSlot, BiweeklyHint, AppointmentStatus } from "../lib/types"
+import type { Appointment, AvailabilityRule, AvailabilityException, TimeSlot, BiweeklyHint, AppointmentStatus, GroupSession } from "../lib/types"
 
 // Cancelled statuses - these appointments don't block the slot
 const CANCELLED_STATUSES: AppointmentStatus[] = [
@@ -17,23 +17,24 @@ function isBlockingAppointment(apt: Appointment): boolean {
   return apt.blocksTime && !CANCELLED_STATUSES.includes(apt.status)
 }
 
-/** Check if any blocking appointment overlaps this slot time (started before but still running) */
-function hasOverlappingBlockingAppointment(
-  appointments: Appointment[],
-  dateStr: string,
+/** Build group session time ranges for fast overlap checking */
+function buildGroupSessionRanges(groupSessions: GroupSession[]): Array<{ startMin: number; endMin: number }> {
+  return groupSessions.map((session) => {
+    const start = new Date(session.scheduledAt)
+    const end = new Date(session.endAt)
+    return {
+      startMin: start.getHours() * 60 + start.getMinutes(),
+      endMin: end.getHours() * 60 + end.getMinutes(),
+    }
+  })
+}
+
+/** Check if a slot time falls within any ongoing group session (started before, not yet ended) */
+function isSlotOccupiedByGroupSession(
+  ranges: Array<{ startMin: number; endMin: number }>,
   slotMinutes: number,
 ): boolean {
-  return appointments.some((apt) => {
-    if (!isBlockingAppointment(apt)) return false
-    const aptStart = new Date(apt.scheduledAt)
-    if (toDateString(aptStart) !== dateStr) return false
-    const aptStartMin = aptStart.getHours() * 60 + aptStart.getMinutes()
-    // Skip appointments that start at this exact slot (handled separately)
-    if (aptStartMin === slotMinutes) return false
-    const aptEnd = new Date(apt.endAt)
-    const aptEndMin = aptEnd.getHours() * 60 + aptEnd.getMinutes()
-    return aptStartMin < slotMinutes && aptEndMin > slotMinutes
-  })
+  return ranges.some((r) => r.startMin < slotMinutes && r.endMin > slotMinutes)
 }
 
 export interface UseTimeSlotsParams {
@@ -41,6 +42,7 @@ export interface UseTimeSlotsParams {
   availabilityRules: AvailabilityRule[]
   availabilityExceptions: AvailabilityException[]
   appointments: Appointment[]
+  groupSessions?: GroupSession[]
   biweeklyHints?: BiweeklyHint[]
   appointmentDuration: number
   isAdmin: boolean
@@ -62,6 +64,7 @@ export function useTimeSlots({
   availabilityRules,
   availabilityExceptions,
   appointments,
+  groupSessions,
   biweeklyHints,
   appointmentDuration,
   isAdmin,
@@ -69,6 +72,7 @@ export function useTimeSlots({
 }: UseTimeSlotsParams): UseTimeSlotsResult {
   return useMemo(() => {
     const dateStr = toDateString(selectedDate)
+    const gsRanges = buildGroupSessionRanges(groupSessions || [])
 
     // When viewing all professionals (admin with no specific professional selected),
     // show a simplified grid of hours (7am-9pm) with appointments
@@ -85,10 +89,10 @@ export function useTimeSlots({
           // Only time-blocking, non-cancelled appointments affect slot availability
           const blockingAppointments = slotAppointments.filter(isBlockingAppointment)
           const slotMinutes = hour * 60 + min
-          const hasOverlap = hasOverlappingBlockingAppointment(appointments, dateStr, slotMinutes)
+          const occupiedByGroup = isSlotOccupiedByGroupSession(gsRanges, slotMinutes)
           slots.push({
             time: timeStr,
-            isAvailable: blockingAppointments.length === 0 && !hasOverlap,
+            isAvailable: blockingAppointments.length === 0 && !occupiedByGroup,
             appointments: slotAppointments,
             isBlocked: false,
           })
@@ -202,11 +206,11 @@ export function useTimeSlots({
         })
         // Only time-blocking, non-cancelled appointments affect slot availability
         const blockingAppointments = slotAppointments.filter(isBlockingAppointment)
-        const hasOverlap = hasOverlappingBlockingAppointment(appointments, dateStr, currentMinutes)
+        const occupiedByGroup = isSlotOccupiedByGroupSession(gsRanges, currentMinutes)
 
         slots.push({
           time: timeStr,
-          isAvailable: !exception && blockingAppointments.length === 0 && !hasOverlap,
+          isAvailable: !exception && blockingAppointments.length === 0 && !occupiedByGroup,
           appointments: slotAppointments,
           isBlocked: !!exception,
           blockReason: exception?.reason || undefined,
@@ -280,5 +284,5 @@ export function useTimeSlots({
     }
 
     return { slots, fullDayBlock: null }
-  }, [selectedDate, availabilityRules, availabilityExceptions, appointments, biweeklyHints, appointmentDuration, isAdmin, selectedProfessionalId])
+  }, [selectedDate, availabilityRules, availabilityExceptions, appointments, groupSessions, biweeklyHints, appointmentDuration, isAdmin, selectedProfessionalId])
 }
