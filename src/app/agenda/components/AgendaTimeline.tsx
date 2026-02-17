@@ -6,12 +6,14 @@ import { formatTime, isSlotInPast } from "../lib/utils"
 import { ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
 import { AppointmentCard } from "./AppointmentCard"
 import { GroupSessionCard } from "./GroupSessionCard"
+import { DailyOverviewGrid } from "./DailyOverviewGrid"
 import { AgendaTimelineSkeleton } from "./AgendaSkeleton"
 import type { TimeSlot, Appointment, GroupSession, CalendarEntryType } from "../lib/types"
 import type { FullDayBlock } from "../hooks/useTimeSlots"
 import { ProfessionalColorMap } from "../lib/professional-colors"
 
 export interface AgendaTimelineProps {
+  appointments?: Appointment[]
   timeSlots: TimeSlot[]
   groupSessions: GroupSession[]
   fullDayBlock: FullDayBlock | null
@@ -59,6 +61,7 @@ function getTimeFromISO(isoString: string): string {
 }
 
 export function AgendaTimeline({
+  appointments = [],
   timeSlots,
   groupSessions,
   fullDayBlock,
@@ -78,6 +81,31 @@ export function AgendaTimeline({
   // Show skeleton while loading data
   if (isLoading) {
     return <AgendaTimelineSkeleton />
+  }
+
+  // Admin "Todos" mode: time-proportional grid with all professionals
+  if (isAdmin && !selectedProfessionalId) {
+    return (
+      <SwipeContainer onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} className="max-w-4xl mx-auto px-4 py-6">
+        {/* Swipe hint */}
+        <p className="text-xs text-muted-foreground text-center mb-6 flex items-center justify-center gap-2">
+          <span className="w-8 h-0.5 bg-muted-foreground/30 rounded-full" />
+          Deslize para mudar o dia
+          <span className="w-8 h-0.5 bg-muted-foreground/30 rounded-full" />
+        </p>
+
+        <DailyOverviewGrid
+          appointments={appointments}
+          groupSessions={groupSessions}
+          selectedDate={selectedDate}
+          showProfessional
+          professionalColorMap={professionalColorMap}
+          onAppointmentClick={onAppointmentClick}
+          onGroupSessionClick={onGroupSessionClick}
+          onSlotClick={onSlotClick}
+        />
+      </SwipeContainer>
+    )
   }
   // Create a map of group sessions by their start time
   const groupSessionsByTime = new Map<string, GroupSession[]>()

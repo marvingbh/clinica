@@ -28,7 +28,9 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
   ({ elevation = "sm", hoverable = false, className = "", children, ...props }, ref) => {
-    const baseClasses = "bg-card text-card-foreground rounded-xl border border-border"
+    // Skip default bg-card when className provides a custom background
+    const hasBgOverride = className.includes("bg-")
+    const baseClasses = `${hasBgOverride ? "" : "bg-card "}text-card-foreground rounded-xl border border-border`
     const shadowClass = elevationClasses[elevation]
     const hoverClass = hoverable ? hoverElevationClasses[elevation] : ""
     const transitionClass = hoverable ? "transition-shadow duration-normal ease-in-out" : ""

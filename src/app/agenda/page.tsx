@@ -326,6 +326,7 @@ export default function AgendaPage() {
 
       {/* Timeline Content */}
       <AgendaTimeline
+        appointments={appointments}
         timeSlots={timeSlots}
         groupSessions={groupSessions}
         fullDayBlock={fullDayBlock}

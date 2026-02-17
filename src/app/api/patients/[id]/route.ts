@@ -275,35 +275,6 @@ export const PATCH = withAuth(
         )
       }
 
-      // Check additional phones don't conflict with other patients/phones in the clinic
-      if (normalizedAdditionalPhones.length > 0) {
-        const existingAdditionalPhones = await prisma.patientPhone.findMany({
-          where: {
-            clinicId: user.clinicId,
-            phone: { in: normalizedAdditionalPhones.map((p) => p.phone) },
-            patientId: { not: params.id },
-          },
-          select: { phone: true },
-        })
-
-        const existingPrimaryPhones = await prisma.patient.findMany({
-          where: {
-            clinicId: user.clinicId,
-            phone: { in: normalizedAdditionalPhones.map((p) => p.phone) },
-            NOT: { id: params.id },
-          },
-          select: { phone: true },
-        })
-
-        const conflicting = [...existingAdditionalPhones, ...existingPrimaryPhones]
-        if (conflicting.length > 0) {
-          return NextResponse.json(
-            { error: `Telefone já cadastrado: ${conflicting[0].phone}` },
-            { status: 409 }
-          )
-        }
-      }
-
       // Delete all existing additional phones and recreate
       await prisma.patientPhone.deleteMany({
         where: { patientId: params.id, clinicId: user.clinicId },

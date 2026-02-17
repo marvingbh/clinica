@@ -46,6 +46,8 @@ export interface Patient {
   name: string
   phone: string
   email: string | null
+  motherName?: string | null
+  fatherName?: string | null
 }
 
 export interface Professional {

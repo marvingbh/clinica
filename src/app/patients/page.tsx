@@ -167,6 +167,7 @@ export default function PatientsPage() {
   const [search, setSearch] = useState("")
   const [searchDebounced, setSearchDebounced] = useState("")
   const [filterActive, setFilterActive] = useState<string>("all")
+  const [filterProfessional, setFilterProfessional] = useState<string>("")
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null)
   const [viewingPatient, setViewingPatient] = useState<Patient | null>(null)
@@ -214,6 +215,7 @@ export default function PatientsPage() {
       const params = new URLSearchParams()
       if (searchDebounced) params.set("search", searchDebounced)
       if (filterActive !== "all") params.set("isActive", filterActive)
+      if (filterProfessional) params.set("referenceProfessionalId", filterProfessional)
       params.set("page", pagination.page.toString())
       params.set("limit", ITEMS_PER_PAGE.toString())
 
@@ -234,7 +236,7 @@ export default function PatientsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [searchDebounced, filterActive, pagination.page, router])
+  }, [searchDebounced, filterActive, filterProfessional, pagination.page, router])
 
   const fetchPatientDetails = useCallback(async (patientId: string, statusFilter = "", skip = 0) => {
     if (skip === 0) setIsLoadingDetails(true)
@@ -496,6 +498,23 @@ export default function PatientsPage() {
             />
           </div>
           <select
+            value={filterProfessional}
+            onChange={(e) => {
+              setFilterProfessional(e.target.value)
+              setPagination((prev) => ({ ...prev, page: 1 }))
+            }}
+            className="h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+          >
+            <option value="">Todos profissionais</option>
+            {professionals
+              .filter((prof) => prof.professionalProfile)
+              .map((prof) => (
+                <option key={prof.professionalProfile!.id} value={prof.professionalProfile!.id}>
+                  {prof.name}
+                </option>
+              ))}
+          </select>
+          <select
             value={filterActive}
             onChange={(e) => {
               setFilterActive(e.target.value)
@@ -512,9 +531,9 @@ export default function PatientsPage() {
         {/* Patients Table */}
         {patients.length === 0 ? (
           <EmptyState
-            title={search || filterActive !== "all" ? "Nenhum paciente encontrado" : "Nenhum paciente cadastrado"}
-            message={search || filterActive !== "all" ? "Tente ajustar os filtros de busca" : "Adicione seu primeiro paciente para comecar"}
-            action={isAdmin && !search && filterActive === "all" ? { label: "Adicionar paciente", onClick: openCreateSheet } : undefined}
+            title={search || filterActive !== "all" || filterProfessional ? "Nenhum paciente encontrado" : "Nenhum paciente cadastrado"}
+            message={search || filterActive !== "all" || filterProfessional ? "Tente ajustar os filtros de busca" : "Adicione seu primeiro paciente para comecar"}
+            action={isAdmin && !search && filterActive === "all" && !filterProfessional ? { label: "Adicionar paciente", onClick: openCreateSheet } : undefined}
             icon={<UsersIcon className="w-8 h-8 text-muted-foreground" />}
           />
         ) : (

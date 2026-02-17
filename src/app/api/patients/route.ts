@@ -41,11 +41,85 @@ export const GET = withAuth(
     const { searchParams } = new URL(req.url)
     const search = searchParams.get("search")
     const isActive = searchParams.get("isActive")
+    const referenceProfessionalId = searchParams.get("referenceProfessionalId")
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)))
     const skip = (page - 1) * limit
 
-    // Base query always filters by clinic
+    // When a search term is present, use raw SQL for accent-insensitive matching
+    // via PostgreSQL's unaccent() extension. Also searches motherName/fatherName.
+    if (search) {
+      const params: unknown[] = [user.clinicId, search]
+      let paramIndex = 3
+
+      const conditions: string[] = [
+        `p."clinicId" = $1`,
+        `(
+          unaccent(p."name") ILIKE unaccent('%' || $2 || '%')
+          OR unaccent(COALESCE(p."email", '')) ILIKE unaccent('%' || $2 || '%')
+          OR p."phone" LIKE '%' || $2 || '%'
+          OR unaccent(COALESCE(p."motherName", '')) ILIKE unaccent('%' || $2 || '%')
+          OR unaccent(COALESCE(p."fatherName", '')) ILIKE unaccent('%' || $2 || '%')
+        )`,
+      ]
+
+      if (isActive !== null) {
+        conditions.push(`p."isActive" = $${paramIndex}`)
+        params.push(isActive === "true")
+        paramIndex++
+      }
+
+      if (referenceProfessionalId) {
+        conditions.push(`p."referenceProfessionalId" = $${paramIndex}`)
+        params.push(referenceProfessionalId)
+        paramIndex++
+      }
+
+      if (scope === "own" && user.professionalProfileId) {
+        conditions.push(
+          `EXISTS (SELECT 1 FROM "Appointment" a WHERE a."patientId" = p."id" AND a."professionalProfileId" = $${paramIndex})`
+        )
+        params.push(user.professionalProfileId)
+        paramIndex++
+      }
+
+      const whereClause = conditions.join(" AND ")
+
+      const selectQuery = `
+        SELECT p."id", p."name", p."email", p."phone", p."motherName", p."fatherName"
+        FROM "Patient" p
+        WHERE ${whereClause}
+        ORDER BY p."name" ASC
+        LIMIT ${limit} OFFSET ${skip}
+      `
+      const countQuery = `
+        SELECT COUNT(*)::int as count
+        FROM "Patient" p
+        WHERE ${whereClause}
+      `
+
+      const [patients, countResult] = await Promise.all([
+        prisma.$queryRawUnsafe<Array<{
+          id: string
+          name: string
+          email: string | null
+          phone: string
+          motherName: string | null
+          fatherName: string | null
+        }>>(selectQuery, ...params),
+        prisma.$queryRawUnsafe<Array<{ count: number }>>(countQuery, ...params),
+      ])
+
+      const total = countResult[0]?.count ?? 0
+      const totalPages = Math.ceil(total / limit)
+
+      return NextResponse.json({
+        patients,
+        pagination: { page, limit, total, totalPages },
+      })
+    }
+
+    // Non-search listing: use standard Prisma query
     const where: Record<string, unknown> = {
       clinicId: user.clinicId,
     }
@@ -59,17 +133,12 @@ export const GET = withAuth(
       }
     }
 
-    // Apply optional filters
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { email: { contains: search, mode: "insensitive" } },
-        { phone: { contains: search } },
-      ]
-    }
-
     if (isActive !== null) {
       where.isActive = isActive === "true"
+    }
+
+    if (referenceProfessionalId) {
+      where.referenceProfessionalId = referenceProfessionalId
     }
 
     // Fetch patients and total count in parallel
@@ -156,23 +225,6 @@ export const POST = withAuth(
     // Normalize phone number (remove non-digits, ensure country code)
     const normalizedPhone = phone.replace(/\D/g, "")
 
-    // Check for duplicate phone within clinic
-    const existingPhone = await prisma.patient.findUnique({
-      where: {
-        clinicId_phone: {
-          clinicId: user.clinicId,
-          phone: normalizedPhone,
-        },
-      },
-    })
-
-    if (existingPhone) {
-      return NextResponse.json(
-        { error: "Já existe um paciente com este telefone" },
-        { status: 409 }
-      )
-    }
-
     // Check for duplicate CPF if provided
     const normalizedCpf = cpf ? cpf.replace(/\D/g, "") : null
     if (normalizedCpf) {
@@ -207,34 +259,6 @@ export const POST = withAuth(
         { error: "Números de telefone duplicados não são permitidos" },
         { status: 400 }
       )
-    }
-
-    // Check additional phones don't conflict with existing patients in the clinic
-    if (normalizedAdditionalPhones.length > 0) {
-      const existingAdditionalPhones = await prisma.patientPhone.findMany({
-        where: {
-          clinicId: user.clinicId,
-          phone: { in: normalizedAdditionalPhones.map((p) => p.phone) },
-        },
-        select: { phone: true },
-      })
-
-      // Also check against existing patient primary phones
-      const existingPrimaryPhones = await prisma.patient.findMany({
-        where: {
-          clinicId: user.clinicId,
-          phone: { in: normalizedAdditionalPhones.map((p) => p.phone) },
-        },
-        select: { phone: true },
-      })
-
-      const conflicting = [...existingAdditionalPhones, ...existingPrimaryPhones]
-      if (conflicting.length > 0) {
-        return NextResponse.json(
-          { error: `Telefone já cadastrado: ${conflicting[0].phone}` },
-          { status: 409 }
-        )
-      }
     }
 
     const now = new Date()

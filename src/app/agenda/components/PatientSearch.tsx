@@ -62,6 +62,20 @@ export function PatientSearch({
     return () => clearTimeout(timer)
   }, [value, searchPatients])
 
+  // Check if a patient matched via parent name (not by name/email/phone)
+  function getParentMatch(patient: Patient): string | null {
+    if (!value || value.length < 2) return null
+    const q = value.toLowerCase()
+    // If the patient's own name, email, or phone already matches, don't show parent info
+    if (patient.name.toLowerCase().includes(q)) return null
+    if (patient.email?.toLowerCase().includes(q)) return null
+    if (patient.phone.includes(q)) return null
+    // Check parent names
+    if (patient.motherName?.toLowerCase().includes(q)) return `Mãe: ${patient.motherName}`
+    if (patient.fatherName?.toLowerCase().includes(q)) return `Pai: ${patient.fatherName}`
+    return null
+  }
+
   function handleInputChange(newValue: string) {
     onChange(newValue)
     setShowDropdown(true)
@@ -154,22 +168,28 @@ export function PatientSearch({
       {/* Dropdown */}
       {showDropdown && patients.length > 0 && (
         <div className="absolute z-10 w-full mt-1.5 bg-card border border-border rounded-xl shadow-lg max-h-52 overflow-y-auto animate-scale-in">
-          {patients.map((patient) => (
-            <button
-              key={patient.id}
-              type="button"
-              onClick={() => handleSelectPatient(patient)}
-              className="w-full px-3.5 py-2.5 text-left hover:bg-muted/60 transition-colors flex items-center gap-3 first:rounded-t-xl last:rounded-b-xl"
-            >
-              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                <UserIcon className="w-4 h-4 text-muted-foreground" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm text-foreground truncate">{patient.name}</p>
-                <p className="text-xs text-muted-foreground">{formatPhone(patient.phone)}</p>
-              </div>
-            </button>
-          ))}
+          {patients.map((patient) => {
+            const parentMatch = getParentMatch(patient)
+            return (
+              <button
+                key={patient.id}
+                type="button"
+                onClick={() => handleSelectPatient(patient)}
+                className="w-full px-3.5 py-2.5 text-left hover:bg-muted/60 transition-colors flex items-center gap-3 first:rounded-t-xl last:rounded-b-xl"
+              >
+                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                  <UserIcon className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm text-foreground truncate">{patient.name}</p>
+                  <p className="text-xs text-muted-foreground">{formatPhone(patient.phone)}</p>
+                  {parentMatch && (
+                    <p className="text-xs text-primary/70 truncate">({parentMatch})</p>
+                  )}
+                </div>
+              </button>
+            )
+          })}
         </div>
       )}
 

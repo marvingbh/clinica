@@ -76,20 +76,25 @@ export function useTimeSlots({
 
     // When viewing all professionals (admin with no specific professional selected),
     // show a simplified grid of hours (7am-9pm) with appointments
+    // Appointments are assigned to the 30-min slot window they fall within
+    // (e.g., 8:45 goes into the 8:30 slot so overlapping professionals share a slot)
     if (isAdmin && !selectedProfessionalId) {
       const slots: TimeSlot[] = []
       for (let hour = 7; hour < 21; hour++) {
         for (const min of [0, 30]) {
+          const slotStart = hour * 60 + min
+          const slotEnd = slotStart + 30
           const timeStr = `${hour.toString().padStart(2, "0")}:${min.toString().padStart(2, "0")}`
           const slotAppointments = appointments.filter((apt) => {
             const aptTime = new Date(apt.scheduledAt)
             const aptDateStr = toDateString(aptTime)
-            return aptDateStr === dateStr && aptTime.getHours() === hour && aptTime.getMinutes() === min
+            if (aptDateStr !== dateStr) return false
+            const aptMinutes = aptTime.getHours() * 60 + aptTime.getMinutes()
+            return aptMinutes >= slotStart && aptMinutes < slotEnd
           })
           // Only time-blocking, non-cancelled appointments affect slot availability
           const blockingAppointments = slotAppointments.filter(isBlockingAppointment)
-          const slotMinutes = hour * 60 + min
-          const occupiedByGroup = isSlotOccupiedByGroupSession(gsRanges, slotMinutes)
+          const occupiedByGroup = isSlotOccupiedByGroupSession(gsRanges, slotStart)
           slots.push({
             time: timeStr,
             isAvailable: blockingAppointments.length === 0 && !occupiedByGroup,
