@@ -17,6 +17,25 @@ function isBlockingAppointment(apt: Appointment): boolean {
   return apt.blocksTime && !CANCELLED_STATUSES.includes(apt.status)
 }
 
+/** Check if any blocking appointment overlaps this slot time (started before but still running) */
+function hasOverlappingBlockingAppointment(
+  appointments: Appointment[],
+  dateStr: string,
+  slotMinutes: number,
+): boolean {
+  return appointments.some((apt) => {
+    if (!isBlockingAppointment(apt)) return false
+    const aptStart = new Date(apt.scheduledAt)
+    if (toDateString(aptStart) !== dateStr) return false
+    const aptStartMin = aptStart.getHours() * 60 + aptStart.getMinutes()
+    // Skip appointments that start at this exact slot (handled separately)
+    if (aptStartMin === slotMinutes) return false
+    const aptEnd = new Date(apt.endAt)
+    const aptEndMin = aptEnd.getHours() * 60 + aptEnd.getMinutes()
+    return aptStartMin < slotMinutes && aptEndMin > slotMinutes
+  })
+}
+
 export interface UseTimeSlotsParams {
   selectedDate: Date
   availabilityRules: AvailabilityRule[]
@@ -65,9 +84,11 @@ export function useTimeSlots({
           })
           // Only time-blocking, non-cancelled appointments affect slot availability
           const blockingAppointments = slotAppointments.filter(isBlockingAppointment)
+          const slotMinutes = hour * 60 + min
+          const hasOverlap = hasOverlappingBlockingAppointment(appointments, dateStr, slotMinutes)
           slots.push({
             time: timeStr,
-            isAvailable: blockingAppointments.length === 0,
+            isAvailable: blockingAppointments.length === 0 && !hasOverlap,
             appointments: slotAppointments,
             isBlocked: false,
           })
@@ -181,10 +202,11 @@ export function useTimeSlots({
         })
         // Only time-blocking, non-cancelled appointments affect slot availability
         const blockingAppointments = slotAppointments.filter(isBlockingAppointment)
+        const hasOverlap = hasOverlappingBlockingAppointment(appointments, dateStr, currentMinutes)
 
         slots.push({
           time: timeStr,
-          isAvailable: !exception && blockingAppointments.length === 0,
+          isAvailable: !exception && blockingAppointments.length === 0 && !hasOverlap,
           appointments: slotAppointments,
           isBlocked: !!exception,
           blockReason: exception?.reason || undefined,

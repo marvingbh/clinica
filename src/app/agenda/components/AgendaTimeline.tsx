@@ -86,6 +86,21 @@ export function AgendaTimeline({
     const existing = groupSessionsByTime.get(time) || []
     groupSessionsByTime.set(time, [...existing, session])
   }
+
+  // Track which slot times are covered by an ongoing group session (not starting, but overlapping)
+  const slotsOccupiedByGroupSession = new Set<string>()
+  for (const session of groupSessions) {
+    const start = new Date(session.scheduledAt)
+    const end = new Date(session.endAt)
+    const startMin = start.getHours() * 60 + start.getMinutes()
+    const endMin = end.getHours() * 60 + end.getMinutes()
+    // Mark every 30-min slot between start (exclusive) and end
+    for (let m = startMin + 30; m < endMin; m += 30) {
+      const h = Math.floor(m / 60)
+      const mm = m % 60
+      slotsOccupiedByGroupSession.add(`${h.toString().padStart(2, "0")}:${mm.toString().padStart(2, "0")}`)
+    }
+  }
   return (
     <SwipeContainer onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} className="max-w-4xl mx-auto px-4 py-6">
       {/* Swipe hint */}
@@ -121,10 +136,11 @@ export function AgendaTimeline({
             const hasAppointments = slot.appointments.length > 0
             const slotGroupSessions = groupSessionsByTime.get(slot.time) || []
             const hasGroupSessions = slotGroupSessions.length > 0
+            const isOccupiedByOngoingSession = slotsOccupiedByGroupSession.has(slot.time)
             const hasContent = hasAppointments || hasGroupSessions
             const isBlocked = slot.isBlocked
             const isPast = isSlotInPast(selectedDate, slot.time)
-            const canShowAvailableButton = !isBlocked && !isPast && (!!selectedProfessionalId || !isAdmin)
+            const canShowAvailableButton = slot.isAvailable && !isBlocked && !isPast && (!!selectedProfessionalId || !isAdmin)
 
             // Check if all appointments in the slot are cancelled
             const cancelledStatuses = ["CANCELADO_PACIENTE", "CANCELADO_PROFISSIONAL"]
@@ -156,13 +172,13 @@ export function AgendaTimeline({
             // Show available button based on blocking content only:
             // 1. All blocking appointments are cancelled, or
             // 2. Only non-blocking entries exist (no blocking appointments at all)
-            const noActiveBlockingContent = !hasGroupSessions && (
+            const noActiveBlockingContent = !hasGroupSessions && !isOccupiedByOngoingSession && (
               (hasBlockingAppointments && allBlockingCancelled) ||
               (!hasBlockingAppointments)
             )
             const showAvailableWithCancelledRecalc = noActiveBlockingContent && canShowAvailableButton
             // Non-blocking entries alone don't make the slot "active"
-            const hasActiveContentRecalc = (hasBlockingAppointments && !allBlockingCancelled) || hasGroupSessions
+            const hasActiveContentRecalc = (hasBlockingAppointments && !allBlockingCancelled) || hasGroupSessions || isOccupiedByOngoingSession
 
             return (
               <div
