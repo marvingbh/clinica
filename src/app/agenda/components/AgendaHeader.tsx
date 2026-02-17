@@ -4,7 +4,7 @@ import { useState, useMemo } from "react"
 import Link from "next/link"
 import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from "@/shared/components/ui/icons"
 import { Card, CardContent } from "@/shared/components/ui/card"
-import { formatDateHeader, toDateString, toDisplayDateFromDate, toIsoDate } from "../lib/utils"
+import { formatDateHeader, toDateString, toDisplayDateFromDate } from "../lib/utils"
 import type { Professional } from "../lib/types"
 
 export interface AgendaHeaderProps {
@@ -60,15 +60,14 @@ export function AgendaHeader({
   onGoToNext,
   onGoToToday,
 }: AgendaHeaderProps) {
-  const [dateInputValue, setDateInputValue] = useState(toDisplayDateFromDate(selectedDate))
+  const [dateInputValue, setDateInputValue] = useState(toDateString(selectedDate))
 
   const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate])
 
   function handleDateInputChange(value: string) {
     setDateInputValue(value)
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
-      const isoDate = toIsoDate(value)
-      const date = new Date(isoDate + "T12:00:00")
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const date = new Date(value + "T12:00:00")
       if (!isNaN(date.getTime())) {
         onDateChange(date)
       }
@@ -76,12 +75,9 @@ export function AgendaHeader({
   }
 
   // Update input when selectedDate changes from external navigation
-  if (toDisplayDateFromDate(selectedDate) !== dateInputValue && /^\d{2}\/\d{2}\/\d{4}$/.test(dateInputValue)) {
-    const inputIso = toIsoDate(dateInputValue)
-    const selectedIso = toDateString(selectedDate)
-    if (inputIso !== selectedIso) {
-      setDateInputValue(toDisplayDateFromDate(selectedDate))
-    }
+  const selectedIso = toDateString(selectedDate)
+  if (dateInputValue !== selectedIso) {
+    setDateInputValue(selectedIso)
   }
 
   return (
@@ -187,12 +183,10 @@ export function AgendaHeader({
             <CardContent className="py-4">
               <label className="text-sm text-muted-foreground mb-2 block">Ir para data</label>
               <input
-                type="text"
-                placeholder="DD/MM/AAAA"
+                type="date"
                 value={dateInputValue}
                 onChange={(e) => handleDateInputChange(e.target.value)}
-                className="w-full h-12 px-4 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-normal"
-                autoFocus
+                className="w-full h-12 px-4 rounded-xl border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-normal"
               />
               <button
                 onClick={onToggleDatePicker}
