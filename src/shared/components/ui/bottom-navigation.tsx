@@ -1,8 +1,10 @@
 "use client"
 
 import { usePathname, useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { useTheme } from "@/shared/components/theme-provider"
 import { HomeIcon, CalendarIcon, StethoscopeIcon, UserIcon, UsersIcon, SunIcon, MoonIcon } from "./icons"
+import type { Feature } from "@/lib/rbac/types"
 
 interface NavItem {
   href: string
@@ -10,6 +12,7 @@ interface NavItem {
   icon: React.ReactNode
   activeIcon: React.ReactNode
   matchPaths?: string[]
+  feature?: Feature
 }
 
 const navItems: NavItem[] = [
@@ -25,6 +28,7 @@ const navItems: NavItem[] = [
     icon: <CalendarIcon className="w-6 h-6" strokeWidth={1.5} />,
     activeIcon: <CalendarIcon className="w-6 h-6" strokeWidth={2} />,
     matchPaths: ["/agenda"],
+    feature: "agenda_own",
   },
   {
     href: "/professionals",
@@ -32,6 +36,7 @@ const navItems: NavItem[] = [
     icon: <StethoscopeIcon className="w-6 h-6" strokeWidth={1.5} />,
     activeIcon: <StethoscopeIcon className="w-6 h-6" strokeWidth={2} />,
     matchPaths: ["/professionals", "/admin/professionals"],
+    feature: "professionals",
   },
   {
     href: "/groups",
@@ -39,6 +44,7 @@ const navItems: NavItem[] = [
     icon: <UsersIcon className="w-6 h-6" strokeWidth={1.5} />,
     activeIcon: <UsersIcon className="w-6 h-6" strokeWidth={2} />,
     matchPaths: ["/groups"],
+    feature: "groups",
   },
   {
     href: "/profile",
@@ -75,6 +81,9 @@ function ThemeToggle() {
 export function BottomNavigation() {
   const router = useRouter()
   const pathname = usePathname()
+  const { data: session } = useSession()
+
+  const permissions = session?.user?.permissions
 
   const isActive = (item: NavItem) => {
     if (item.matchPaths) {
@@ -89,6 +98,12 @@ export function BottomNavigation() {
     return null
   }
 
+  const visibleItems = navItems.filter((item) => {
+    if (!item.feature) return true
+    const access = permissions?.[item.feature]
+    return access === "READ" || access === "WRITE"
+  })
+
   return (
     <nav
       className="fixed bottom-0 inset-x-0 bg-background border-t border-border z-40 safe-area-pb md:hidden"
@@ -96,7 +111,7 @@ export function BottomNavigation() {
     >
       <div className="max-w-lg mx-auto px-2">
         <div className="flex items-center justify-around h-16">
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const active = isActive(item)
             return (
               <button

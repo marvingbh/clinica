@@ -17,13 +17,14 @@ import {
   SunIcon,
   MoonIcon,
 } from "./icons"
+import type { Feature } from "@/lib/rbac/types"
 
 interface NavItem {
   href: string
   label: string
   icon: React.ReactNode
   matchPaths?: string[]
-  adminOnly?: boolean
+  feature?: Feature
 }
 
 const navItems: NavItem[] = [
@@ -37,24 +38,28 @@ const navItems: NavItem[] = [
     label: "Agenda",
     icon: <CalendarIcon className="w-4 h-4" />,
     matchPaths: ["/agenda"],
+    feature: "agenda_own",
   },
   {
     href: "/professionals",
     label: "Profissionais",
     icon: <StethoscopeIcon className="w-4 h-4" />,
     matchPaths: ["/professionals", "/admin/professionals"],
+    feature: "professionals",
   },
   {
     href: "/patients",
     label: "Pacientes",
     icon: <UserIcon className="w-4 h-4" />,
     matchPaths: ["/patients"],
+    feature: "patients",
   },
   {
     href: "/groups",
     label: "Grupos",
     icon: <UsersIcon className="w-4 h-4" />,
     matchPaths: ["/groups"],
+    feature: "groups",
   },
 ]
 
@@ -172,7 +177,9 @@ function ThemeToggle() {
 
 export function DesktopHeader() {
   const pathname = usePathname()
-  const { status } = useSession()
+  const { data: session, status } = useSession()
+
+  const permissions = session?.user?.permissions
 
   const isActive = (item: NavItem) => {
     if (item.matchPaths) {
@@ -186,6 +193,12 @@ export function DesktopHeader() {
   if (publicPaths.some(p => pathname.startsWith(p)) || status === "unauthenticated") {
     return null
   }
+
+  const visibleItems = navItems.filter((item) => {
+    if (!item.feature) return true
+    const access = permissions?.[item.feature]
+    return access === "READ" || access === "WRITE"
+  })
 
   return (
     <header className="hidden md:block fixed top-0 inset-x-0 bg-background/80 backdrop-blur-md border-b border-border z-40">
@@ -203,7 +216,7 @@ export function DesktopHeader() {
 
           {/* Navigation */}
           <nav className="flex items-center gap-1" aria-label="Main navigation">
-            {navItems.map((item) => {
+            {visibleItems.map((item) => {
               const active = isActive(item)
               return (
                 <Link
