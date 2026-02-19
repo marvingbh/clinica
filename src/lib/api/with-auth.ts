@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { Role } from "@prisma/client"
+import { Role, FeatureAccess } from "@prisma/client"
 import {
   authorize,
   canPerform,
   getPermissionScope,
   logPermissionDenied,
+  meetsMinAccess,
+  resolvePermissions,
   type AuthUser,
   type Resource,
   type Action,
   type AuthorizationResult,
+  type Feature,
 } from "@/lib/rbac"
 
 /**
@@ -108,6 +111,7 @@ export function withAuth(
       clinicId: session.user.clinicId,
       role: session.user.role as Role,
       professionalProfileId: session.user.professionalProfileId,
+      permissions: session.user.permissions ?? resolvePermissions(session.user.role as Role, {}),
     }
 
     // Resolve params from the route context
@@ -188,10 +192,83 @@ export function withAuthentication(
       clinicId: session.user.clinicId,
       role: session.user.role as Role,
       professionalProfileId: session.user.professionalProfileId,
+      permissions: session.user.permissions ?? resolvePermissions(session.user.role as Role, {}),
     }
 
     const params = routeContext?.params ? await routeContext.params : {}
 
     return handler(req, user, params)
+  }
+}
+
+/**
+ * Options for feature-based auth
+ */
+export interface FeatureAuthOptions {
+  feature: Feature
+  minAccess: FeatureAccess
+}
+
+/**
+ * Context provided to feature-authorized route handlers
+ */
+export interface FeatureAuthContext {
+  user: AuthUser
+  /** The resolved access level for the requested feature */
+  access: FeatureAccess
+}
+
+type FeatureAuthorizedHandler = (
+  req: NextRequest,
+  context: FeatureAuthContext,
+  params: Record<string, string>
+) => Promise<NextResponse>
+
+/**
+ * Higher-order function that wraps an API route handler with feature-based
+ * authentication and authorization checks.
+ *
+ * Usage:
+ * ```ts
+ * export const GET = withFeatureAuth(
+ *   { feature: "patients", minAccess: "READ" },
+ *   async (req, { user, access }, params) => {
+ *     // access = user's resolved FeatureAccess for "patients"
+ *   }
+ * )
+ * ```
+ */
+export function withFeatureAuth(
+  options: FeatureAuthOptions,
+  handler: FeatureAuthorizedHandler
+) {
+  return async (
+    req: NextRequest,
+    routeContext?: RouteParams
+  ): Promise<NextResponse> => {
+    const session = await auth()
+
+    if (!session?.user) {
+      return unauthorizedResponse()
+    }
+
+    const user: AuthUser = {
+      id: session.user.id,
+      clinicId: session.user.clinicId,
+      role: session.user.role as Role,
+      professionalProfileId: session.user.professionalProfileId,
+      permissions: session.user.permissions ?? resolvePermissions(session.user.role as Role, {}),
+    }
+
+    const params = routeContext?.params ? await routeContext.params : {}
+    const access = user.permissions[options.feature]
+
+    if (!meetsMinAccess(access, options.minAccess)) {
+      return forbiddenResponse(
+        `Sem permissao para acessar ${options.feature}`
+      )
+    }
+
+    return handler(req, { user, access }, params)
   }
 }
