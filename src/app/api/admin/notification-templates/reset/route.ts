@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { resetTemplateToDefault } from "@/lib/notifications"
 import { NotificationChannel, NotificationType } from "@prisma/client"
 
@@ -13,13 +13,9 @@ const resetSchema = z.object({
  * POST /api/admin/notification-templates/reset
  * Resets a template to default by deleting the custom version
  */
-export const POST = withAuth(
-  { resource: "notification-template", action: "update" },
-  async (req, { user, scope }) => {
-    if (scope !== "clinic") {
-      return forbiddenResponse("Apenas administradores podem resetar templates")
-    }
-
+export const POST = withFeatureAuth(
+  { feature: "notifications", minAccess: "WRITE" },
+  async (req, { user }) => {
     let body: unknown
     try {
       body = await req.json()

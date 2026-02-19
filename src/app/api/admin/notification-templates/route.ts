@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import {
   getTemplatesForClinic,
   upsertTemplate,
@@ -21,13 +21,9 @@ const updateTemplateSchema = z.object({
  * GET /api/admin/notification-templates
  * Returns all notification templates for the clinic (custom + defaults)
  */
-export const GET = withAuth(
-  { resource: "notification-template", action: "list" },
-  async (req, { user, scope }) => {
-    if (scope !== "clinic") {
-      return forbiddenResponse("Apenas administradores podem visualizar templates")
-    }
-
+export const GET = withFeatureAuth(
+  { feature: "notifications", minAccess: "READ" },
+  async (req, { user }) => {
     const templates = await getTemplatesForClinic(user.clinicId)
 
     return NextResponse.json({
@@ -41,13 +37,9 @@ export const GET = withAuth(
  * POST /api/admin/notification-templates
  * Creates or updates a notification template
  */
-export const POST = withAuth(
-  { resource: "notification-template", action: "update" },
-  async (req, { user, scope }) => {
-    if (scope !== "clinic") {
-      return forbiddenResponse("Apenas administradores podem editar templates")
-    }
-
+export const POST = withFeatureAuth(
+  { feature: "notifications", minAccess: "WRITE" },
+  async (req, { user }) => {
     let body: unknown
     try {
       body = await req.json()

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { hashPassword } from "@/lib/password"
 import { Role } from "@prisma/client"
 
@@ -8,13 +8,9 @@ import { Role } from "@prisma/client"
  * GET /api/users
  * List all users - ADMIN only
  */
-export const GET = withAuth(
-  { resource: "user", action: "list" },
-  async (req, { user, scope }) => {
-    if (scope !== "clinic") {
-      return forbiddenResponse("Only administrators can list users")
-    }
-
+export const GET = withFeatureAuth(
+  { feature: "users", minAccess: "READ" },
+  async (req, { user }) => {
     const { searchParams } = new URL(req.url)
     const search = searchParams.get("search")
     const role = searchParams.get("role")
@@ -65,13 +61,9 @@ export const GET = withAuth(
  * POST /api/users
  * Create a new user (without ProfessionalProfile) - ADMIN only
  */
-export const POST = withAuth(
-  { resource: "user", action: "create" },
-  async (req, { user, scope }) => {
-    if (scope !== "clinic") {
-      return forbiddenResponse("Only administrators can create users")
-    }
-
+export const POST = withFeatureAuth(
+  { feature: "users", minAccess: "WRITE" },
+  async (req, { user }) => {
     const body = await req.json()
     const { name, email, password, role } = body
 

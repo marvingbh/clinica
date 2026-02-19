@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
+import { meetsMinAccess } from "@/lib/rbac"
 
 /**
  * GET /api/group-sessions
  * Fetch aggregated group sessions for a date (or date range)
  * Returns one entry per unique (groupId, scheduledAt) with participant count
  */
-export const GET = withAuth(
-  { resource: "appointment", action: "read" },
-  async (req: NextRequest, { user, scope }) => {
+export const GET = withFeatureAuth(
+  { feature: "groups", minAccess: "READ" },
+  async (req: NextRequest, { user }) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "READ")
     const { searchParams } = new URL(req.url)
     const date = searchParams.get("date")
     const startDate = searchParams.get("startDate")
@@ -76,9 +78,8 @@ export const GET = withAuth(
       where.scheduledAt = dateFilter
     }
 
-    // Filter by professional if scope is "own" or if explicitly requested
-    // Use OR to include appointments where the professional is a participant
-    if (scope === "own" && user.professionalProfileId) {
+    // Filter by professional if user cannot see others' or if explicitly requested
+    if (!canSeeOthers && user.professionalProfileId) {
       where.OR = [
         { professionalProfileId: user.professionalProfileId },
         { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },

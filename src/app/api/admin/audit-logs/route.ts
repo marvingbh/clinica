@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 
 /**
  * GET /api/admin/audit-logs
@@ -16,14 +16,9 @@ import { withAuth, forbiddenResponse } from "@/lib/api"
  * - page: Page number (default: 1)
  * - limit: Items per page (default: 50, max: 100)
  */
-export const GET = withAuth(
-  { resource: "audit-log", action: "list" },
-  async (req, { user, scope }) => {
-    // Only ADMIN can view audit logs (clinic scope required)
-    if (scope !== "clinic") {
-      return forbiddenResponse("Apenas administradores podem visualizar logs de auditoria")
-    }
-
+export const GET = withFeatureAuth(
+  { feature: "audit_logs", minAccess: "READ" },
+  async (req, { user }) => {
     const { searchParams } = new URL(req.url)
 
     // Parse query parameters

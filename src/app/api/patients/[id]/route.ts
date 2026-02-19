@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac"
 
 // WhatsApp format validation: Brazilian format with country code
@@ -25,6 +25,11 @@ const updatePatientSchema = z.object({
   fatherName: z.string().max(200).optional().nullable().or(z.literal("")),
   motherName: z.string().max(200).optional().nullable().or(z.literal("")),
   notes: z.string().max(2000).optional().nullable().or(z.literal("")),
+  schoolName: z.string().max(200).optional().nullable().or(z.literal("")),
+  firstAppointmentDate: z.string().optional().nullable(),
+  lastFeeAdjustmentDate: z.string().optional().nullable(),
+  sessionFee: z.number().min(0).optional().nullable(),
+  therapeuticProject: z.string().max(5000).optional().nullable().or(z.literal("")),
   referenceProfessionalId: z.string().optional().nullable().or(z.literal("")),
   isActive: z.boolean().optional(),
   consentWhatsApp: z.boolean().optional(),
@@ -36,9 +41,9 @@ const updatePatientSchema = z.object({
  * GET /api/patients/:id
  * Get a specific patient with appointment history
  */
-export const GET = withAuth(
-  { resource: "patient", action: "read" },
-  async (req, { user, scope }, params) => {
+export const GET = withFeatureAuth(
+  { feature: "patients", minAccess: "READ" },
+  async (req, { user }, params) => {
     const { searchParams } = new URL(req.url)
     const appointmentsLimit = Math.min(Number(searchParams.get("appointmentsLimit")) || 10, 50)
     const appointmentsSkip = Math.max(Number(searchParams.get("appointmentsSkip")) || 0, 0)
@@ -48,15 +53,6 @@ export const GET = withAuth(
     const where: Record<string, unknown> = {
       id: params.id,
       clinicId: user.clinicId,
-    }
-
-    // For "own" scope, verify the professional has appointments with this patient
-    if (scope === "own" && user.professionalProfileId) {
-      where.appointments = {
-        some: {
-          professionalProfileId: user.professionalProfileId,
-        },
-      }
     }
 
     // Build appointment filter
@@ -78,6 +74,11 @@ export const GET = withAuth(
           fatherName: true,
           motherName: true,
           notes: true,
+          schoolName: true,
+          firstAppointmentDate: true,
+          lastFeeAdjustmentDate: true,
+          sessionFee: true,
+          therapeuticProject: true,
           isActive: true,
           lastVisitAt: true,
           consentWhatsApp: true,
@@ -153,13 +154,9 @@ export const GET = withAuth(
  * PATCH /api/patients/:id
  * Update a patient - ADMIN only
  */
-export const PATCH = withAuth(
-  { resource: "patient", action: "update" },
-  async (req, { user, scope }, params) => {
-    // Only ADMIN can update (clinic scope required)
-    if (scope !== "clinic") {
-      return forbiddenResponse("Apenas administradores podem atualizar pacientes")
-    }
+export const PATCH = withFeatureAuth(
+  { feature: "patients", minAccess: "WRITE" },
+  async (req, { user }, params) => {
 
     // Verify the patient exists and belongs to the clinic
     const existing = await prisma.patient.findFirst({
@@ -194,6 +191,29 @@ export const PATCH = withAuth(
     if (data.fatherName !== undefined) updateData.fatherName = data.fatherName || null
     if (data.motherName !== undefined) updateData.motherName = data.motherName || null
     if (data.notes !== undefined) updateData.notes = data.notes || null
+    if (data.schoolName !== undefined) updateData.schoolName = data.schoolName || null
+    if (data.firstAppointmentDate !== undefined) {
+      updateData.firstAppointmentDate = data.firstAppointmentDate ? new Date(data.firstAppointmentDate + "T00:00:00") : null
+    }
+    if (data.therapeuticProject !== undefined) updateData.therapeuticProject = data.therapeuticProject || null
+
+    // Handle sessionFee with auto-update of lastFeeAdjustmentDate
+    if (data.sessionFee !== undefined) {
+      const newFee = data.sessionFee
+      const oldFee = existing.sessionFee ? Number(existing.sessionFee) : null
+      updateData.sessionFee = newFee
+
+      // Auto-update lastFeeAdjustmentDate only when changing from one non-null value to another
+      if (oldFee !== null && newFee !== null && oldFee !== newFee) {
+        updateData.lastFeeAdjustmentDate = new Date()
+      }
+    }
+
+    // Handle explicit lastFeeAdjustmentDate if provided manually
+    if (data.lastFeeAdjustmentDate !== undefined && updateData.lastFeeAdjustmentDate === undefined) {
+      updateData.lastFeeAdjustmentDate = data.lastFeeAdjustmentDate ? new Date(data.lastFeeAdjustmentDate + "T00:00:00") : null
+    }
+
     if (data.referenceProfessionalId !== undefined) updateData.referenceProfessionalId = data.referenceProfessionalId || null
     if (data.isActive !== undefined) updateData.isActive = data.isActive
 
@@ -305,6 +325,11 @@ export const PATCH = withAuth(
         fatherName: true,
         motherName: true,
         notes: true,
+        schoolName: true,
+        firstAppointmentDate: true,
+        lastFeeAdjustmentDate: true,
+        sessionFee: true,
+        therapeuticProject: true,
         isActive: true,
         lastVisitAt: true,
         consentWhatsApp: true,
@@ -381,13 +406,9 @@ export const PATCH = withAuth(
  * DELETE /api/patients/:id
  * Soft-delete (deactivate) a patient - ADMIN only
  */
-export const DELETE = withAuth(
-  { resource: "patient", action: "delete" },
-  async (req, { user, scope }, params) => {
-    // Only ADMIN can delete (clinic scope required)
-    if (scope !== "clinic") {
-      return forbiddenResponse("Apenas administradores podem desativar pacientes")
-    }
+export const DELETE = withFeatureAuth(
+  { feature: "patients", minAccess: "WRITE" },
+  async (req, { user }, params) => {
 
     // Verify the patient exists and belongs to the clinic
     const existing = await prisma.patient.findFirst({

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
+import { meetsMinAccess } from "@/lib/rbac"
 import { createAuditLog } from "@/lib/rbac/audit"
 import { AppointmentStatus } from "@prisma/client"
 
@@ -54,13 +55,10 @@ const STATUS_LABELS: Record<AppointmentStatus, string> = {
  *
  * Note: For cancellations with reason and notifications, use POST /api/appointments/:id/cancel instead.
  */
-export const PATCH = withAuth(
-  {
-    resource: "appointment",
-    action: "update",
-    getResourceOwnerId: (_req, params) => params?.id,
-  },
-  async (req, { user, scope }, params) => {
+export const PATCH = withFeatureAuth(
+  { feature: "agenda_own", minAccess: "WRITE" },
+  async (req, { user }, params) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "WRITE")
     // Parse request body
     let body: { status?: string }
     try {
@@ -125,11 +123,11 @@ export const PATCH = withAuth(
       )
     }
 
-    // Check ownership for "own" scope (includes additional professionals)
+    // Check ownership if user cannot manage others' appointments
     const isParticipant = existing.additionalProfessionals.some(
       ap => ap.professionalProfileId === user.professionalProfileId
     )
-    if (scope === "own" && existing.professionalProfileId !== user.professionalProfileId && !isParticipant) {
+    if (!canSeeOthers && existing.professionalProfileId !== user.professionalProfileId && !isParticipant) {
       return forbiddenResponse("Você só pode atualizar seus próprios agendamentos")
     }
 

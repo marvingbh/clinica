@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth } from "@/lib/api/with-auth"
+import { withFeatureAuth } from "@/lib/api/with-auth"
+import { meetsMinAccess } from "@/lib/rbac"
 import { getNotificationsByAppointment } from "@/lib/notifications"
 
 /**
  * GET /api/appointments/:id/notifications
  * Returns all notifications for a specific appointment
  */
-export const GET = withAuth(
-  { resource: "notification", action: "list" },
-  async (req: NextRequest, { user, scope }, params) => {
+export const GET = withFeatureAuth(
+  { feature: "agenda_own", minAccess: "READ" },
+  async (req: NextRequest, { user }, params) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "READ")
     const appointmentId = params.id
 
     // First verify the appointment exists and belongs to the user's clinic
@@ -37,9 +39,9 @@ export const GET = withAuth(
       )
     }
 
-    // For professionals with 'own' scope, verify they own the appointment
+    // If user cannot see others' appointments, verify they own the appointment
     if (
-      scope === "own" &&
+      !canSeeOthers &&
       appointment.professionalProfileId !== user.professionalProfileId
     ) {
       return NextResponse.json(

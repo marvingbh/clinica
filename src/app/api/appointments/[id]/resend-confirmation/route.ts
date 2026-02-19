@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
+import { meetsMinAccess } from "@/lib/rbac"
 import { regenerateAppointmentTokens, buildConfirmLink, buildCancelLink } from "@/lib/appointments"
 import { createAndSendNotification } from "@/lib/notifications"
 import { NotificationChannel, NotificationType } from "@prisma/client"
@@ -21,13 +22,10 @@ const RESEND_COOLDOWN_MS = 60 * 60 * 1000
  * - ADMIN can resend for any appointment in the clinic
  * - PROFESSIONAL can only resend for their own appointments
  */
-export const POST = withAuth(
-  {
-    resource: "appointment",
-    action: "update",
-    getResourceOwnerId: (_req, params) => params?.id,
-  },
-  async (req, { user, scope }, params) => {
+export const POST = withFeatureAuth(
+  { feature: "agenda_own", minAccess: "WRITE" },
+  async (req, { user }, params) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "WRITE")
     // Fetch the appointment with patient data and tokens
     const appointment = await prisma.appointment.findFirst({
       where: {
@@ -73,8 +71,8 @@ export const POST = withAuth(
       )
     }
 
-    // Check ownership for "own" scope
-    if (scope === "own" && appointment.professionalProfileId !== user.professionalProfileId) {
+    // Check ownership if user cannot manage others' appointments
+    if (!canSeeOthers && appointment.professionalProfileId !== user.professionalProfileId) {
       return forbiddenResponse("Voce so pode reenviar confirmacao de seus proprios agendamentos")
     }
 

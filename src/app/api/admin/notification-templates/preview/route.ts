@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { previewTemplate } from "@/lib/notifications"
 
 const previewSchema = z.object({
@@ -12,13 +12,9 @@ const previewSchema = z.object({
  * POST /api/admin/notification-templates/preview
  * Previews a template with sample data
  */
-export const POST = withAuth(
-  { resource: "notification-template", action: "read" },
-  async (req, { scope }) => {
-    if (scope !== "clinic") {
-      return forbiddenResponse("Apenas administradores podem visualizar preview")
-    }
-
+export const POST = withFeatureAuth(
+  { feature: "notifications", minAccess: "READ" },
+  async (req) => {
     let body: unknown
     try {
       body = await req.json()

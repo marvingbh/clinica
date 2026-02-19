@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { z } from "zod"
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
@@ -19,22 +19,14 @@ const updateGroupSchema = z.object({
  * GET /api/groups/[groupId]
  * Get a therapy group with its members
  */
-export const GET = withAuth(
-  { resource: "therapy-group", action: "read" },
-  async (req, { user, scope }, params) => {
+export const GET = withFeatureAuth(
+  { feature: "groups", minAccess: "READ" },
+  async (req, { user }, params) => {
     const { groupId } = params
 
     const where: Record<string, unknown> = {
       id: groupId,
       clinicId: user.clinicId,
-    }
-
-    // If scope is "own", only allow access to own groups (including as co-leader)
-    if (scope === "own" && user.professionalProfileId) {
-      where.OR = [
-        { professionalProfileId: user.professionalProfileId },
-        { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },
-      ]
     }
 
     const group = await prisma.therapyGroup.findFirst({
@@ -93,9 +85,9 @@ export const GET = withAuth(
  * PATCH /api/groups/[groupId]
  * Update a therapy group
  */
-export const PATCH = withAuth(
-  { resource: "therapy-group", action: "update" },
-  async (req, { user, scope }, params) => {
+export const PATCH = withFeatureAuth(
+  { feature: "groups", minAccess: "WRITE" },
+  async (req, { user }, params) => {
     const { groupId } = params
     const body = await req.json()
 
@@ -111,14 +103,6 @@ export const PATCH = withAuth(
     const where: Record<string, unknown> = {
       id: groupId,
       clinicId: user.clinicId,
-    }
-
-    // If scope is "own", only allow access to own groups (including as co-leader)
-    if (scope === "own" && user.professionalProfileId) {
-      where.OR = [
-        { professionalProfileId: user.professionalProfileId },
-        { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },
-      ]
     }
 
     // Check if group exists
@@ -204,22 +188,14 @@ export const PATCH = withAuth(
  * DELETE /api/groups/[groupId]
  * Delete a therapy group
  */
-export const DELETE = withAuth(
-  { resource: "therapy-group", action: "delete" },
-  async (req, { user, scope }, params) => {
+export const DELETE = withFeatureAuth(
+  { feature: "groups", minAccess: "WRITE" },
+  async (req, { user }, params) => {
     const { groupId } = params
 
     const where: Record<string, unknown> = {
       id: groupId,
       clinicId: user.clinicId,
-    }
-
-    // If scope is "own", only allow access to own groups (including as co-leader)
-    if (scope === "own" && user.professionalProfileId) {
-      where.OR = [
-        { professionalProfileId: user.professionalProfileId },
-        { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },
-      ]
     }
 
     // Check if group exists

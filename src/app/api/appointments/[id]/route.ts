@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
+import { meetsMinAccess } from "@/lib/rbac"
 import { checkConflict, formatConflictError, regenerateAppointmentTokens } from "@/lib/appointments"
 import { createAuditLog, audit, AuditAction } from "@/lib/rbac/audit"
 
@@ -9,14 +10,10 @@ import { createAuditLog, audit, AuditAction } from "@/lib/rbac/audit"
  * GET /api/appointments/:id
  * Get a specific appointment - ADMIN can view any in clinic, PROFESSIONAL only their own
  */
-export const GET = withAuth(
-  {
-    resource: "appointment",
-    action: "read",
-    // Note: We don't use getResourceOwnerId here because we do manual ownership check
-    // inside the handler after fetching the appointment
-  },
-  async (req, { user, scope }, params) => {
+export const GET = withFeatureAuth(
+  { feature: "agenda_own", minAccess: "READ" },
+  async (req, { user }, params) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "READ")
     const appointment = await prisma.appointment.findFirst({
       where: {
         id: params.id,
@@ -70,11 +67,11 @@ export const GET = withAuth(
       return NextResponse.json({ error: "Appointment not found" }, { status: 404 })
     }
 
-    // Check ownership for "own" scope (includes additional professionals)
+    // Check ownership if user cannot see others' appointments
     const isParticipant = appointment.additionalProfessionals.some(
       ap => ap.professionalProfile.id === user.professionalProfileId
     )
-    if (scope === "own" && appointment.professionalProfileId !== user.professionalProfileId && !isParticipant) {
+    if (!canSeeOthers && appointment.professionalProfileId !== user.professionalProfileId && !isParticipant) {
       return forbiddenResponse("You can only view your own appointments")
     }
 
@@ -93,14 +90,10 @@ export const GET = withAuth(
  * - Performs conflict check with database-level locking
  * - Regenerates confirmation tokens
  */
-export const PATCH = withAuth(
-  {
-    resource: "appointment",
-    action: "update",
-    // Note: We don't use getResourceOwnerId here because we do manual ownership check
-    // inside the handler after fetching the appointment
-  },
-  async (req, { user, scope }, params) => {
+export const PATCH = withFeatureAuth(
+  { feature: "agenda_own", minAccess: "WRITE" },
+  async (req, { user }, params) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "WRITE")
     // First, verify the appointment exists and belongs to the clinic
     const existing = await prisma.appointment.findFirst({
       where: {
@@ -123,11 +116,11 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: "Appointment not found" }, { status: 404 })
     }
 
-    // Check ownership for "own" scope (includes additional professionals)
+    // Check ownership if user cannot manage others' appointments
     const isParticipant = existing.additionalProfessionals.some(
       ap => ap.professionalProfileId === user.professionalProfileId
     )
-    if (scope === "own" && existing.professionalProfileId !== user.professionalProfileId && !isParticipant) {
+    if (!canSeeOthers && existing.professionalProfileId !== user.professionalProfileId && !isParticipant) {
       return forbiddenResponse("You can only update your own appointments")
     }
 
@@ -311,14 +304,10 @@ export const PATCH = withAuth(
  * DELETE /api/appointments/:id
  * Delete an appointment - ADMIN can delete any in clinic, PROFESSIONAL only their own
  */
-export const DELETE = withAuth(
-  {
-    resource: "appointment",
-    action: "delete",
-    // Note: We don't use getResourceOwnerId here because we do manual ownership check
-    // inside the handler after fetching the appointment
-  },
-  async (req, { user, scope }, params) => {
+export const DELETE = withFeatureAuth(
+  { feature: "agenda_own", minAccess: "WRITE" },
+  async (req, { user }, params) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "WRITE")
     // First, verify the appointment exists and belongs to the clinic
     const existing = await prisma.appointment.findFirst({
       where: {
@@ -341,8 +330,8 @@ export const DELETE = withAuth(
       return NextResponse.json({ error: "Appointment not found" }, { status: 404 })
     }
 
-    // Only primary professional or ADMIN can delete (participants cannot)
-    if (scope === "own" && existing.professionalProfileId !== user.professionalProfileId) {
+    // Only primary professional or users with agenda_others can delete (participants cannot)
+    if (!canSeeOthers && existing.professionalProfileId !== user.professionalProfileId) {
       return forbiddenResponse("You can only delete your own appointments")
     }
 

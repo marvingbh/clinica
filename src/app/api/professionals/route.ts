@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { hashPassword } from "@/lib/password"
 import { Role } from "@prisma/client"
 
@@ -8,14 +8,9 @@ import { Role } from "@prisma/client"
  * GET /api/professionals
  * List professionals - ADMIN only
  */
-export const GET = withAuth(
-  { resource: "user", action: "list" },
-  async (req, { user, scope }) => {
-    // Only ADMIN can access (clinic scope required)
-    if (scope !== "clinic") {
-      return forbiddenResponse("Only administrators can list professionals")
-    }
-
+export const GET = withFeatureAuth(
+  { feature: "professionals", minAccess: "READ" },
+  async (req, { user }) => {
     const { searchParams } = new URL(req.url)
     const search = searchParams.get("search")
     const isActive = searchParams.get("isActive")
@@ -71,14 +66,9 @@ export const GET = withAuth(
  * POST /api/professionals
  * Create a new professional (User + ProfessionalProfile) - ADMIN only
  */
-export const POST = withAuth(
-  { resource: "user", action: "create" },
-  async (req, { user, scope }) => {
-    // Only ADMIN can create (clinic scope required)
-    if (scope !== "clinic") {
-      return forbiddenResponse("Only administrators can create professionals")
-    }
-
+export const POST = withFeatureAuth(
+  { feature: "professionals", minAccess: "WRITE" },
+  async (req, { user }) => {
     const body = await req.json()
     const { name, email, password, specialty, registrationNumber, appointmentDuration, bufferBetweenSlots } = body
 

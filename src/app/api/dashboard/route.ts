@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth } from "@/lib/api/with-auth"
+import { withFeatureAuth } from "@/lib/api"
+import { meetsMinAccess } from "@/lib/rbac"
 import { Prisma } from "@prisma/client"
 
-export const GET = withAuth(
-  { resource: "appointment", action: "read" },
-  async (_req, { user, scope }) => {
+export const GET = withFeatureAuth(
+  { feature: "agenda_own", minAccess: "READ" },
+  async (_req, { user }) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "READ")
     const now = new Date()
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const todayEnd = new Date(todayStart)
@@ -30,12 +32,12 @@ export const GET = withAuth(
     // Base filter: always scope by clinic, optionally by professional
     const baseWhere: Prisma.AppointmentWhereInput = {
       clinicId: user.clinicId,
-      ...(scope === "own" && user.professionalProfileId
+      ...(!canSeeOthers && user.professionalProfileId
         ? { professionalProfileId: user.professionalProfileId }
         : {}),
     }
 
-    const isAdmin = scope === "clinic" || scope === "all"
+    const isAdmin = canSeeOthers
 
     const [
       todayCount,

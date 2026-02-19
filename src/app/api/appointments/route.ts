@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
+import { meetsMinAccess } from "@/lib/rbac"
 import { checkConflictsBulk, formatConflictError, createBulkAppointmentTokens, buildConfirmLink, buildCancelLink, validateRecurrenceOptions, calculateRecurrenceDates } from "@/lib/appointments"
 import { createNotification, getPatientPhoneNumbers } from "@/lib/notifications"
 import { NotificationChannel, NotificationType, RecurrenceType, RecurrenceEndType, AppointmentType } from "@prisma/client"
@@ -86,9 +87,10 @@ const DEFAULT_DURATIONS: Record<string, number> = {
  * GET /api/appointments
  * List appointments - ADMIN sees all clinic appointments, PROFESSIONAL sees only their own
  */
-export const GET = withAuth(
-  { resource: "appointment", action: "list" },
-  async (req, { user, scope }) => {
+export const GET = withFeatureAuth(
+  { feature: "agenda_own", minAccess: "READ" },
+  async (req, { user }) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "READ")
     const { searchParams } = new URL(req.url)
     const status = searchParams.get("status")
     const date = searchParams.get("date") // Single day filter (YYYY-MM-DD)
@@ -102,14 +104,14 @@ export const GET = withAuth(
       clinicId: user.clinicId,
     }
 
-    // If scope is "own", filter to only the professional's appointments (including as participant)
-    if (scope === "own" && user.professionalProfileId) {
+    // If user cannot see others' appointments, filter to only their own (including as participant)
+    if (!canSeeOthers && user.professionalProfileId) {
       where.OR = [
         { professionalProfileId: user.professionalProfileId },
         { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },
       ]
-    } else if (professionalProfileId && scope === "clinic") {
-      // ADMIN can filter by specific professional (including as participant)
+    } else if (professionalProfileId && canSeeOthers) {
+      // Users with agenda_others can filter by specific professional (including as participant)
       where.OR = [
         { professionalProfileId },
         { additionalProfessionals: { some: { professionalProfileId } } },
@@ -381,19 +383,20 @@ export const GET = withAuth(
  * - date, startTime, duration, notes, recurrence (WEEKLY only)
  * - professionalProfileId (optional)
  */
-export const POST = withAuth(
-  { resource: "appointment", action: "create" },
-  async (req, { user, scope }) => {
+export const POST = withFeatureAuth(
+  { feature: "agenda_own", minAccess: "WRITE" },
+  async (req, { user }) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "WRITE")
     const body = await req.json()
 
     // Determine if this is a calendar entry or a regular appointment
     const isCalendarEntry = body.type && body.type !== "CONSULTA"
 
     if (isCalendarEntry) {
-      return handleCreateCalendarEntry(body, user, scope, req)
+      return handleCreateCalendarEntry(body, user, canSeeOthers, req)
     }
 
-    return handleCreateAppointment(body, user, scope, req)
+    return handleCreateAppointment(body, user, canSeeOthers, req)
   }
 )
 
@@ -403,7 +406,7 @@ export const POST = withAuth(
 async function handleCreateCalendarEntry(
   body: unknown,
   user: AuthUser,
-  scope: string,
+  canSeeOthers: boolean,
   req: Request
 ) {
   const validation = createCalendarEntrySchema.safeParse(body)
@@ -448,7 +451,7 @@ async function handleCreateCalendarEntry(
     )
   }
 
-  if (scope === "own" && targetProfessionalProfileId !== user.professionalProfileId) {
+  if (!canSeeOthers && targetProfessionalProfileId !== user.professionalProfileId) {
     return NextResponse.json(
       { error: "Você só pode criar entradas para si mesmo" },
       { status: 403 }
@@ -688,7 +691,7 @@ async function handleCreateCalendarEntry(
 async function handleCreateAppointment(
   body: unknown,
   user: AuthUser,
-  scope: string,
+  canSeeOthers: boolean,
   req: Request
 ) {
   // Validate request body
@@ -744,8 +747,8 @@ async function handleCreateAppointment(
     )
   }
 
-  // If scope is "own", professional can only create appointments for themselves
-  if (scope === "own" && targetProfessionalProfileId !== user.professionalProfileId) {
+  // If user can't manage others' agenda, they can only create appointments for themselves
+  if (!canSeeOthers && targetProfessionalProfileId !== user.professionalProfileId) {
     return NextResponse.json(
       { error: "Você só pode criar agendamentos para si mesmo" },
       { status: 403 }

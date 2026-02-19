@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
+import { meetsMinAccess } from "@/lib/rbac"
 import { createAuditLog } from "@/lib/rbac/audit"
 import { NotificationChannel, NotificationType, AppointmentStatus } from "@prisma/client"
 import { createAndSendNotification, getPatientPhoneNumbers } from "@/lib/notifications"
@@ -23,13 +24,10 @@ import { createAndSendNotification, getPatientPhoneNumbers } from "@/lib/notific
  * - Creates audit log entry
  * - Optionally creates notification record if patient has consent
  */
-export const POST = withAuth(
-  {
-    resource: "appointment",
-    action: "update",
-    getResourceOwnerId: (_req, params) => params?.id,
-  },
-  async (req, { user, scope }, params) => {
+export const POST = withFeatureAuth(
+  { feature: "agenda_own", minAccess: "WRITE" },
+  async (req, { user }, params) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "WRITE")
     // Get request body
     let body: { reason?: string; notifyPatient?: boolean; cancelType?: "single" | "series" }
     try {
@@ -102,11 +100,11 @@ export const POST = withAuth(
       )
     }
 
-    // Check ownership for "own" scope (includes additional professionals)
+    // Check ownership if user cannot manage others' appointments
     const isParticipant = existing.additionalProfessionals.some(
       ap => ap.professionalProfileId === user.professionalProfileId
     )
-    if (scope === "own" && existing.professionalProfileId !== user.professionalProfileId && !isParticipant) {
+    if (!canSeeOthers && existing.professionalProfileId !== user.professionalProfileId && !isParticipant) {
       return forbiddenResponse("Voce so pode cancelar seus proprios agendamentos")
     }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
+import { meetsMinAccess } from "@/lib/rbac"
 import { z } from "zod"
 
 const timeBlockSchema = z.object({
@@ -20,17 +21,18 @@ const updateAvailabilitySchema = z.object({
  * GET /api/availability
  * Returns the current user's availability rules (or specific professional's if ADMIN)
  */
-export const GET = withAuth(
-  { resource: "availability-rule", action: "list" },
-  async (req, { user, scope }) => {
+export const GET = withFeatureAuth(
+  { feature: "availability_own", minAccess: "READ" },
+  async (req, { user }) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.availability_others, "READ")
     const { searchParams } = new URL(req.url)
     const professionalProfileId = searchParams.get("professionalProfileId")
 
     // Determine which professional's availability to return
     let targetProfileId: string | null = null
 
-    if (professionalProfileId && scope === "clinic") {
-      // ADMIN can view any professional's availability
+    if (professionalProfileId && canSeeOthers) {
+      // Users with availability_others can view any professional's availability
       // Verify the professional belongs to the same clinic
       const profile = await prisma.professionalProfile.findFirst({
         where: {
@@ -75,9 +77,10 @@ export const GET = withAuth(
  * POST /api/availability
  * Creates or updates availability rules (replaces all rules for a day)
  */
-export const POST = withAuth(
-  { resource: "availability-rule", action: "update" },
-  async (req, { user, scope }) => {
+export const POST = withFeatureAuth(
+  { feature: "availability_own", minAccess: "WRITE" },
+  async (req, { user }) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.availability_others, "WRITE")
     const body = await req.json()
 
     const validation = updateAvailabilitySchema.safeParse(body)
@@ -93,8 +96,8 @@ export const POST = withAuth(
     // Determine target professional profile
     let targetProfileId: string | null = null
 
-    if (professionalProfileId && scope === "clinic") {
-      // ADMIN can update any professional's availability
+    if (professionalProfileId && canSeeOthers) {
+      // Users with availability_others can update any professional's availability
       const profile = await prisma.professionalProfile.findFirst({
         where: {
           id: professionalProfileId,

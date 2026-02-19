@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { z } from "zod"
 
 const updateMemberSchema = z.object({
@@ -11,9 +11,9 @@ const updateMemberSchema = z.object({
  * PATCH /api/groups/[groupId]/members/[memberId]
  * Update a member (set leaveDate to remove from group)
  */
-export const PATCH = withAuth(
-  { resource: "therapy-group", action: "update" },
-  async (req, { user, scope }, params) => {
+export const PATCH = withFeatureAuth(
+  { feature: "groups", minAccess: "WRITE" },
+  async (req, { user }, params) => {
     const { groupId, memberId } = params
     const body = await req.json()
 
@@ -32,11 +32,6 @@ export const PATCH = withAuth(
     const groupWhere: Record<string, unknown> = {
       id: groupId,
       clinicId: user.clinicId,
-    }
-
-    // If scope is "own", only allow access to own groups
-    if (scope === "own" && user.professionalProfileId) {
-      groupWhere.professionalProfileId = user.professionalProfileId
     }
 
     // Check if group exists and user has access

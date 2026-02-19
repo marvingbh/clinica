@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { z } from "zod"
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
@@ -19,9 +19,9 @@ const createGroupSchema = z.object({
  * GET /api/groups
  * List therapy groups - ADMIN sees all clinic groups, PROFESSIONAL sees only their own
  */
-export const GET = withAuth(
-  { resource: "therapy-group", action: "list" },
-  async (req, { user, scope }) => {
+export const GET = withFeatureAuth(
+  { feature: "groups", minAccess: "READ" },
+  async (req, { user, access }) => {
     const { searchParams } = new URL(req.url)
     const isActive = searchParams.get("isActive")
     const professionalProfileId = searchParams.get("professionalProfileId")
@@ -30,14 +30,8 @@ export const GET = withAuth(
       clinicId: user.clinicId,
     }
 
-    // If scope is "own", filter to only the professional's groups (including as co-leader)
-    if (scope === "own" && user.professionalProfileId) {
-      where.OR = [
-        { professionalProfileId: user.professionalProfileId },
-        { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },
-      ]
-    } else if (professionalProfileId && scope === "clinic") {
-      // ADMIN can filter by specific professional (including as co-leader)
+    // Filter by specific professional if requested
+    if (professionalProfileId) {
       where.OR = [
         { professionalProfileId },
         { additionalProfessionals: { some: { professionalProfileId } } },
@@ -100,9 +94,9 @@ export const GET = withAuth(
  * POST /api/groups
  * Create a new therapy group
  */
-export const POST = withAuth(
-  { resource: "therapy-group", action: "create" },
-  async (req, { user, scope }) => {
+export const POST = withFeatureAuth(
+  { feature: "groups", minAccess: "WRITE" },
+  async (req, { user, access }) => {
     const body = await req.json()
 
     // Validate request body
@@ -153,14 +147,6 @@ export const POST = withAuth(
       return NextResponse.json(
         { error: "Profissional não encontrado na sua clínica" },
         { status: 404 }
-      )
-    }
-
-    // If scope is "own", professional can only create groups for themselves
-    if (scope === "own" && targetProfessionalProfileId !== user.professionalProfileId) {
-      return NextResponse.json(
-        { error: "Você só pode criar grupos para si mesmo" },
-        { status: 403 }
       )
     }
 

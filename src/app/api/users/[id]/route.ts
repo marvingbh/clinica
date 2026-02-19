@@ -1,19 +1,15 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { hashPassword } from "@/lib/password"
 
 /**
  * GET /api/users/:id
  * Get a specific user - ADMIN only
  */
-export const GET = withAuth(
-  { resource: "user", action: "read" },
-  async (_req, { user, scope }, params) => {
-    if (scope !== "clinic") {
-      return forbiddenResponse("Only administrators can view user details")
-    }
-
+export const GET = withFeatureAuth(
+  { feature: "users", minAccess: "READ" },
+  async (_req, { user }, params) => {
     const targetUser = await prisma.user.findFirst({
       where: {
         id: params.id,
@@ -46,13 +42,9 @@ export const GET = withAuth(
  * PATCH /api/users/:id
  * Update a user - ADMIN only
  */
-export const PATCH = withAuth(
-  { resource: "user", action: "update" },
-  async (req, { user, scope }, params) => {
-    if (scope !== "clinic") {
-      return forbiddenResponse("Only administrators can update users")
-    }
-
+export const PATCH = withFeatureAuth(
+  { feature: "users", minAccess: "WRITE" },
+  async (req, { user }, params) => {
     const existing = await prisma.user.findFirst({
       where: {
         id: params.id,
@@ -138,13 +130,9 @@ export const PATCH = withAuth(
  * DELETE /api/users/:id
  * Soft-delete (deactivate) a user - ADMIN only
  */
-export const DELETE = withAuth(
-  { resource: "user", action: "delete" },
-  async (_req, { user, scope }, params) => {
-    if (scope !== "clinic") {
-      return forbiddenResponse("Only administrators can deactivate users")
-    }
-
+export const DELETE = withFeatureAuth(
+  { feature: "users", minAccess: "WRITE" },
+  async (_req, { user }, params) => {
     const existing = await prisma.user.findFirst({
       where: {
         id: params.id,

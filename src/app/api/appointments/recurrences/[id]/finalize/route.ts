@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
+import { meetsMinAccess } from "@/lib/rbac"
 import { createAuditLog } from "@/lib/rbac/audit"
 import { RecurrenceEndType } from "@prisma/client"
 import { z } from "zod"
@@ -23,12 +24,10 @@ const finalizeRecurrenceSchema = z.object({
  * - Optionally cancels appointments after the end date
  * - Keeps all existing appointments before/on the end date
  */
-export const POST = withAuth(
-  {
-    resource: "appointment",
-    action: "update",
-  },
-  async (req, { user, scope }) => {
+export const POST = withFeatureAuth(
+  { feature: "agenda_own", minAccess: "WRITE" },
+  async (req, { user }) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "WRITE")
     const url = new URL(req.url)
     const pathParts = url.pathname.split("/")
     const recurrenceId = pathParts[pathParts.indexOf("recurrences") + 1]
@@ -95,8 +94,8 @@ export const POST = withAuth(
       )
     }
 
-    // Check ownership for "own" scope
-    if (scope === "own" && recurrence.professionalProfileId !== user.professionalProfileId) {
+    // Check ownership if user cannot manage others' appointments
+    if (!canSeeOthers && recurrence.professionalProfileId !== user.professionalProfileId) {
       return forbiddenResponse("Voce so pode modificar suas proprias recorrencias")
     }
 

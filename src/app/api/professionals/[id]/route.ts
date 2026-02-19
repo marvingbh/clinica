@@ -1,20 +1,15 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { hashPassword } from "@/lib/password"
 
 /**
  * GET /api/professionals/:id
  * Get a specific professional - ADMIN only
  */
-export const GET = withAuth(
-  { resource: "user", action: "read" },
-  async (_req, { user, scope }, params) => {
-    // Only ADMIN can access (clinic scope required)
-    if (scope !== "clinic") {
-      return forbiddenResponse("Only administrators can view professional details")
-    }
-
+export const GET = withFeatureAuth(
+  { feature: "professionals", minAccess: "READ" },
+  async (_req, { user }, params) => {
     const professional = await prisma.user.findFirst({
       where: {
         id: params.id,
@@ -55,14 +50,9 @@ export const GET = withAuth(
  * PATCH /api/professionals/:id
  * Update a professional - ADMIN only
  */
-export const PATCH = withAuth(
-  { resource: "user", action: "update" },
-  async (req, { user, scope }, params) => {
-    // Only ADMIN can update (clinic scope required)
-    if (scope !== "clinic") {
-      return forbiddenResponse("Only administrators can update professionals")
-    }
-
+export const PATCH = withFeatureAuth(
+  { feature: "professionals", minAccess: "WRITE" },
+  async (req, { user }, params) => {
     // Verify the professional exists and belongs to the clinic
     const existing = await prisma.user.findFirst({
       where: {
@@ -186,14 +176,9 @@ export const PATCH = withAuth(
  * DELETE /api/professionals/:id
  * Soft-delete (deactivate) a professional - ADMIN only
  */
-export const DELETE = withAuth(
-  { resource: "user", action: "delete" },
-  async (_req, { user, scope }, params) => {
-    // Only ADMIN can delete (clinic scope required)
-    if (scope !== "clinic") {
-      return forbiddenResponse("Only administrators can deactivate professionals")
-    }
-
+export const DELETE = withFeatureAuth(
+  { feature: "professionals", minAccess: "WRITE" },
+  async (_req, { user }, params) => {
     // Verify the professional exists and belongs to the clinic
     const existing = await prisma.user.findFirst({
       where: {

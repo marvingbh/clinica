@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
+import { meetsMinAccess } from "@/lib/rbac"
 import { z } from "zod"
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
@@ -22,9 +23,10 @@ const createExceptionSchema = z.object({
  * Returns availability exceptions for a date range
  * Includes both professional-specific and clinic-wide exceptions
  */
-export const GET = withAuth(
-  { resource: "availability-exception", action: "list" },
-  async (req, { user, scope }) => {
+export const GET = withFeatureAuth(
+  { feature: "availability_own", minAccess: "READ" },
+  async (req, { user }) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.availability_others, "READ")
     const { searchParams } = new URL(req.url)
     const professionalProfileId = searchParams.get("professionalProfileId")
     const startDate = searchParams.get("startDate")
@@ -59,8 +61,8 @@ export const GET = withAuth(
     // Determine which professional's exceptions to return
     let targetProfileId: string | null = null
 
-    if (professionalProfileId && scope === "clinic") {
-      // ADMIN can view any professional's exceptions
+    if (professionalProfileId && canSeeOthers) {
+      // Users with availability_others can view any professional's exceptions
       const profile = await prisma.professionalProfile.findFirst({
         where: {
           id: professionalProfileId,
@@ -117,8 +119,8 @@ export const GET = withAuth(
       })
     }
 
-    // For admin listing all exceptions (no specific professional selected)
-    if (scope === "clinic" && !professionalProfileId) {
+    // For users with availability_others listing all exceptions (no specific professional selected)
+    if (canSeeOthers && !professionalProfileId) {
       // Fetch all professional exceptions with names
       const allProfessionalExceptions = await prisma.availabilityException.findMany({
         where: {
@@ -223,9 +225,10 @@ export const GET = withAuth(
  * Creates a new availability exception (block or override)
  * Can be clinic-wide (affects all professionals) or professional-specific
  */
-export const POST = withAuth(
-  { resource: "availability-exception", action: "create" },
-  async (req, { user, scope }) => {
+export const POST = withFeatureAuth(
+  { feature: "availability_own", minAccess: "WRITE" },
+  async (req, { user }) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.availability_others, "WRITE")
     const body = await req.json()
 
     const validation = createExceptionSchema.safeParse(body)
@@ -252,8 +255,8 @@ export const POST = withAuth(
       )
     }
 
-    // Clinic-wide exceptions require admin scope
-    if (isClinicWide && scope !== "clinic") {
+    // Clinic-wide exceptions require availability_others permission
+    if (isClinicWide && !canSeeOthers) {
       return forbiddenResponse("Only administrators can create clinic-wide exceptions")
     }
 
@@ -343,8 +346,8 @@ export const POST = withAuth(
     // Professional-specific exception
     let targetProfileId: string | null = null
 
-    if (professionalProfileId && scope === "clinic") {
-      // ADMIN can create exceptions for any professional
+    if (professionalProfileId && canSeeOthers) {
+      // Users with availability_others can create exceptions for any professional
       const profile = await prisma.professionalProfile.findFirst({
         where: {
           id: professionalProfileId,

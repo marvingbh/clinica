@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { calculateGroupSessionDates, filterExistingSessionDates } from "@/lib/groups"
 import { createBulkAppointmentTokens, buildConfirmLink, buildCancelLink } from "@/lib/appointments"
 import { createNotification } from "@/lib/notifications"
@@ -17,9 +17,9 @@ const generateSessionsSchema = z.object({
  * POST /api/groups/[groupId]/sessions
  * Generate sessions (appointments) for the group within a date range
  */
-export const POST = withAuth(
-  { resource: "therapy-group", action: "update" },
-  async (req, { user, scope }, params) => {
+export const POST = withFeatureAuth(
+  { feature: "groups", minAccess: "WRITE" },
+  async (req, { user }, params) => {
     const { groupId } = params
     const body = await req.json()
 
@@ -61,14 +61,6 @@ export const POST = withAuth(
       id: groupId,
       clinicId: user.clinicId,
       isActive: true,
-    }
-
-    // If scope is "own", only allow access to own groups (including as co-leader)
-    if (scope === "own" && user.professionalProfileId) {
-      groupWhere.OR = [
-        { professionalProfileId: user.professionalProfileId },
-        { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },
-      ]
     }
 
     // Get the group with additional professionals

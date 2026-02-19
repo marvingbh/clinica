@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 
 const updateSettingsSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(200).optional(),
@@ -28,14 +28,9 @@ const updateSettingsSchema = z.object({
  * GET /api/admin/settings
  * Returns clinic settings - ADMIN only
  */
-export const GET = withAuth(
-  { resource: "clinic", action: "read" },
-  async (req, { user, scope }) => {
-    // Only ADMIN can view clinic settings
-    if (scope !== "own" && scope !== "clinic") {
-      return forbiddenResponse("Apenas administradores podem visualizar configurações")
-    }
-
+export const GET = withFeatureAuth(
+  { feature: "clinic_settings", minAccess: "READ" },
+  async (req, { user }) => {
     const clinic = await prisma.clinic.findUnique({
       where: { id: user.clinicId },
       select: {
@@ -63,14 +58,9 @@ export const GET = withAuth(
  * PATCH /api/admin/settings
  * Updates clinic settings - ADMIN only
  */
-export const PATCH = withAuth(
-  { resource: "clinic", action: "update" },
-  async (req, { user, scope }) => {
-    // Only ADMIN can update clinic settings
-    if (scope !== "own" && scope !== "clinic") {
-      return forbiddenResponse("Apenas administradores podem atualizar configurações")
-    }
-
+export const PATCH = withFeatureAuth(
+  { feature: "clinic_settings", minAccess: "WRITE" },
+  async (req, { user }) => {
     let body: unknown
     try {
       body = await req.json()

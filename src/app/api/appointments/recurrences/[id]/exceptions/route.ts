@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
+import { meetsMinAccess } from "@/lib/rbac"
 import { createAuditLog } from "@/lib/rbac/audit"
 import { addException, removeException } from "@/lib/appointments/recurrence"
 import { AppointmentStatus } from "@prisma/client"
@@ -18,12 +19,10 @@ import { AppointmentStatus } from "@prisma/client"
  * - When skipping a date, the corresponding appointment is cancelled
  * - When unskipping a date, the appointment is restored if it was cancelled via exception
  */
-export const POST = withAuth(
-  {
-    resource: "appointment",
-    action: "update",
-  },
-  async (req, { user, scope }) => {
+export const POST = withFeatureAuth(
+  { feature: "agenda_own", minAccess: "WRITE" },
+  async (req, { user }) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "WRITE")
     const url = new URL(req.url)
     const pathParts = url.pathname.split("/")
     const recurrenceId = pathParts[pathParts.indexOf("recurrences") + 1]
@@ -88,8 +87,8 @@ export const POST = withAuth(
       )
     }
 
-    // Check ownership for "own" scope
-    if (scope === "own" && recurrence.professionalProfileId !== user.professionalProfileId) {
+    // Check ownership if user cannot manage others' appointments
+    if (!canSeeOthers && recurrence.professionalProfileId !== user.professionalProfileId) {
       return forbiddenResponse("Voce so pode modificar suas proprias recorrencias")
     }
 
@@ -228,12 +227,10 @@ export const POST = withAuth(
  * GET /api/appointments/recurrences/:id/exceptions
  * Get all exceptions for a recurrence
  */
-export const GET = withAuth(
-  {
-    resource: "appointment",
-    action: "read",
-  },
-  async (req, { user, scope }) => {
+export const GET = withFeatureAuth(
+  { feature: "agenda_own", minAccess: "READ" },
+  async (req, { user }) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "READ")
     const url = new URL(req.url)
     const pathParts = url.pathname.split("/")
     const recurrenceId = pathParts[pathParts.indexOf("recurrences") + 1]
@@ -265,8 +262,8 @@ export const GET = withAuth(
       )
     }
 
-    // Check ownership for "own" scope
-    if (scope === "own" && recurrence.professionalProfileId !== user.professionalProfileId) {
+    // Check ownership if user cannot see others' appointments
+    if (!canSeeOthers && recurrence.professionalProfileId !== user.professionalProfileId) {
       return forbiddenResponse("Voce so pode visualizar suas proprias recorrencias")
     }
 

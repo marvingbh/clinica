@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withAuth, forbiddenResponse } from "@/lib/api"
+import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
+import { meetsMinAccess } from "@/lib/rbac"
 import { createAuditLog } from "@/lib/rbac/audit"
 import { RecurrenceType, RecurrenceEndType, AppointmentStatus, AppointmentModality } from "@prisma/client"
 import { z } from "zod"
@@ -26,12 +27,10 @@ const updateRecurrenceSchema = z.object({
  * GET /api/appointments/recurrences/:id
  * Get recurrence details with future appointments
  */
-export const GET = withAuth(
-  {
-    resource: "appointment",
-    action: "read",
-  },
-  async (req, { user, scope }) => {
+export const GET = withFeatureAuth(
+  { feature: "agenda_own", minAccess: "READ" },
+  async (req, { user }) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "READ")
     const url = new URL(req.url)
     const pathParts = url.pathname.split("/")
     const recurrenceId = pathParts[pathParts.indexOf("recurrences") + 1]
@@ -90,8 +89,8 @@ export const GET = withAuth(
       )
     }
 
-    // Check ownership for "own" scope
-    if (scope === "own" && recurrence.professionalProfileId !== user.professionalProfileId) {
+    // Check ownership if user cannot see others' appointments
+    if (!canSeeOthers && recurrence.professionalProfileId !== user.professionalProfileId) {
       return forbiddenResponse("Voce so pode visualizar suas proprias recorrencias")
     }
 
@@ -133,12 +132,10 @@ export const GET = withAuth(
  * - occurrences: number (optional, for BY_OCCURRENCES)
  * - applyTo: "future" (optional, apply changes to future appointments only)
  */
-export const PATCH = withAuth(
-  {
-    resource: "appointment",
-    action: "update",
-  },
-  async (req, { user, scope }) => {
+export const PATCH = withFeatureAuth(
+  { feature: "agenda_own", minAccess: "WRITE" },
+  async (req, { user }) => {
+    const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "WRITE")
     const url = new URL(req.url)
     const pathParts = url.pathname.split("/")
     const recurrenceId = pathParts[pathParts.indexOf("recurrences") + 1]
@@ -191,8 +188,8 @@ export const PATCH = withAuth(
       )
     }
 
-    // Check ownership for "own" scope
-    if (scope === "own" && recurrence.professionalProfileId !== user.professionalProfileId) {
+    // Check ownership if user cannot manage others' appointments
+    if (!canSeeOthers && recurrence.professionalProfileId !== user.professionalProfileId) {
       return forbiddenResponse("Voce so pode modificar suas proprias recorrencias")
     }
 

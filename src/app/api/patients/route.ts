@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { withAuth } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac"
 
 // WhatsApp format validation: Brazilian format with country code
@@ -24,6 +24,11 @@ const createPatientSchema = z.object({
   fatherName: z.string().max(200).optional().nullable().or(z.literal("")),
   motherName: z.string().max(200).optional().nullable().or(z.literal("")),
   notes: z.string().max(2000).optional().nullable().or(z.literal("")),
+  schoolName: z.string().max(200).optional().nullable().or(z.literal("")),
+  firstAppointmentDate: z.string().optional().nullable(),
+  lastFeeAdjustmentDate: z.string().optional().nullable(),
+  sessionFee: z.number().min(0).optional().nullable(),
+  therapeuticProject: z.string().max(5000).optional().nullable().or(z.literal("")),
   referenceProfessionalId: z.string().optional().nullable().or(z.literal("")),
   consentWhatsApp: z.boolean().default(false),
   consentEmail: z.boolean().default(false),
@@ -35,9 +40,9 @@ const createPatientSchema = z.object({
  * List patients - ADMIN sees all clinic patients, PROFESSIONAL sees only patients they have appointments with
  * Supports pagination with page and limit query params
  */
-export const GET = withAuth(
-  { resource: "patient", action: "list" },
-  async (req, { user, scope }) => {
+export const GET = withFeatureAuth(
+  { feature: "patients", minAccess: "READ" },
+  async (req, { user }) => {
     const { searchParams } = new URL(req.url)
     const search = searchParams.get("search")
     const isActive = searchParams.get("isActive")
@@ -72,14 +77,6 @@ export const GET = withAuth(
       if (referenceProfessionalId) {
         conditions.push(`p."referenceProfessionalId" = $${paramIndex}`)
         params.push(referenceProfessionalId)
-        paramIndex++
-      }
-
-      if (scope === "own" && user.professionalProfileId) {
-        conditions.push(
-          `EXISTS (SELECT 1 FROM "Appointment" a WHERE a."patientId" = p."id" AND a."professionalProfileId" = $${paramIndex})`
-        )
-        params.push(user.professionalProfileId)
         paramIndex++
       }
 
@@ -124,15 +121,6 @@ export const GET = withAuth(
       clinicId: user.clinicId,
     }
 
-    // For "own" scope, only show patients the professional has appointments with
-    if (scope === "own" && user.professionalProfileId) {
-      where.appointments = {
-        some: {
-          professionalProfileId: user.professionalProfileId,
-        },
-      }
-    }
-
     if (isActive !== null) {
       where.isActive = isActive === "true"
     }
@@ -157,6 +145,11 @@ export const GET = withAuth(
           fatherName: true,
           motherName: true,
           notes: true,
+          schoolName: true,
+          firstAppointmentDate: true,
+          lastFeeAdjustmentDate: true,
+          sessionFee: true,
+          therapeuticProject: true,
           isActive: true,
           lastVisitAt: true,
           consentWhatsApp: true,
@@ -206,8 +199,8 @@ export const GET = withAuth(
  * POST /api/patients
  * Create a new patient - only ADMIN can create patients
  */
-export const POST = withAuth(
-  { resource: "patient", action: "create" },
+export const POST = withFeatureAuth(
+  { feature: "patients", minAccess: "WRITE" },
   async (req, { user }) => {
     const body = await req.json()
 
@@ -219,7 +212,7 @@ export const POST = withAuth(
       )
     }
 
-    const { name, email, phone, birthDate, cpf, fatherName, motherName, notes, referenceProfessionalId, consentWhatsApp, consentEmail, additionalPhones } =
+    const { name, email, phone, birthDate, cpf, fatherName, motherName, notes, schoolName, firstAppointmentDate, lastFeeAdjustmentDate, sessionFee, therapeuticProject, referenceProfessionalId, consentWhatsApp, consentEmail, additionalPhones } =
       validation.data
 
     // Normalize phone number (remove non-digits, ensure country code)
@@ -273,6 +266,11 @@ export const POST = withAuth(
         fatherName: fatherName || null,
         motherName: motherName || null,
         notes: notes || null,
+        schoolName: schoolName || null,
+        firstAppointmentDate: firstAppointmentDate ? new Date(firstAppointmentDate + "T00:00:00") : null,
+        lastFeeAdjustmentDate: lastFeeAdjustmentDate ? new Date(lastFeeAdjustmentDate + "T00:00:00") : null,
+        sessionFee: sessionFee ?? null,
+        therapeuticProject: therapeuticProject || null,
         referenceProfessionalId: referenceProfessionalId || null,
         consentWhatsApp,
         consentWhatsAppAt: consentWhatsApp ? now : null,
