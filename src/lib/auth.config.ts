@@ -43,6 +43,7 @@ export const authConfig: NextAuthConfig = {
         token.role = user.role
         token.professionalProfileId = user.professionalProfileId
         token.appointmentDuration = user.appointmentDuration
+        token.permissions = user.permissions
       }
       return token
     },
@@ -53,6 +54,7 @@ export const authConfig: NextAuthConfig = {
         session.user.role = token.role as string
         session.user.professionalProfileId = token.professionalProfileId as string | null
         session.user.appointmentDuration = token.appointmentDuration as number | null
+        session.user.permissions = token.permissions
       }
       return session
     },

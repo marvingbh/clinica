@@ -4,6 +4,9 @@ import bcrypt from "bcrypt"
 import { prisma } from "./prisma"
 import { authConfig } from "./auth.config"
 import { logAuthEvent, AuditAction } from "./rbac/audit"
+import { resolvePermissions } from "./rbac"
+import type { Feature } from "./rbac/types"
+import { FeatureAccess } from "@prisma/client"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -68,6 +71,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // Silently ignore audit errors to not affect login flow
         })
 
+        // Load per-user permission overrides
+        const userPermissions = await prisma.userPermission.findMany({
+          where: { userId: user.id },
+          select: { feature: true, access: true },
+        })
+        const overrides: Partial<Record<Feature, FeatureAccess>> = {}
+        for (const p of userPermissions) {
+          overrides[p.feature as Feature] = p.access
+        }
+        const permissions = resolvePermissions(user.role, overrides)
+
         return {
           id: user.id,
           email: user.email,
@@ -76,6 +90,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           professionalProfileId: user.professionalProfile?.id ?? null,
           appointmentDuration: user.professionalProfile?.appointmentDuration ?? null,
+          permissions,
         }
       },
     }),
