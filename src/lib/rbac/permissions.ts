@@ -1,5 +1,6 @@
-import { Role } from "@prisma/client"
-import type { Resource, Action, Permission } from "./types"
+import { Role, FeatureAccess } from "@prisma/client"
+import type { Resource, Action, Permission, Feature, ResolvedPermissions } from "./types"
+import { FEATURES } from "./types"
 
 type RolePermissions = Record<Role, Permission[]>
 
@@ -129,4 +130,62 @@ export function hasPermission(
 ): Permission | null {
   const permissions = rolePermissions[role]
   return permissions.find(p => p.resource === resource && p.action === action) ?? null
+}
+
+// ---- Feature-based permission system ----
+
+export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
+  ADMIN: {
+    agenda_own: "WRITE",
+    agenda_others: "WRITE",
+    patients: "WRITE",
+    groups: "WRITE",
+    users: "WRITE",
+    clinic_settings: "WRITE",
+    professionals: "WRITE",
+    notifications: "WRITE",
+    audit_logs: "READ",
+    availability_own: "WRITE",
+    availability_others: "WRITE",
+  },
+  PROFESSIONAL: {
+    agenda_own: "WRITE",
+    agenda_others: "NONE",
+    patients: "READ",
+    groups: "WRITE",
+    users: "NONE",
+    clinic_settings: "NONE",
+    professionals: "NONE",
+    notifications: "NONE",
+    audit_logs: "NONE",
+    availability_own: "WRITE",
+    availability_others: "NONE",
+  },
+}
+
+/**
+ * Resolve permissions for a user by merging role defaults with per-user overrides.
+ */
+export function resolvePermissions(
+  role: Role,
+  overrides: Partial<Record<Feature, FeatureAccess>>
+): ResolvedPermissions {
+  const defaults = ROLE_DEFAULTS[role]
+  const resolved = {} as ResolvedPermissions
+  for (const feature of FEATURES) {
+    resolved[feature] = overrides[feature] ?? defaults[feature] ?? "NONE"
+  }
+  return resolved
+}
+
+/**
+ * Check if an access level meets a minimum requirement.
+ * WRITE > READ > NONE
+ */
+export function meetsMinAccess(
+  actual: FeatureAccess,
+  required: FeatureAccess
+): boolean {
+  const levels: Record<FeatureAccess, number> = { NONE: 0, READ: 1, WRITE: 2 }
+  return levels[actual] >= levels[required]
 }
