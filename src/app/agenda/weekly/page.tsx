@@ -70,6 +70,7 @@ import type { CalendarEntryType } from "../lib/types"
 
 import { useCalendarEntryCreate } from "../hooks"
 import { useAgendaContext } from "../context/AgendaContext"
+import { usePermission } from "@/shared/hooks/usePermission"
 
 import { WeekNavigation, WeeklyGrid } from "./components"
 
@@ -160,7 +161,8 @@ function WeeklyAgendaPageContent() {
     resolver: zodResolver(editAppointmentSchema),
   })
 
-  const isAdmin = session?.user?.role === "ADMIN"
+  const { canRead: canReadOthersAgenda } = usePermission("agenda_others")
+  const isAdmin = canReadOthersAgenda
   const currentProfessionalProfileId = session?.user?.professionalProfileId
   const activeProfessionalProfileId = isAdmin && selectedProfessionalId
     ? selectedProfessionalId

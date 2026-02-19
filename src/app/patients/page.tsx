@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { useForm } from "react-hook-form"
+import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
@@ -19,7 +19,9 @@ import {
   PencilIcon,
   BanIcon,
   RotateCcwIcon,
+  DatePickerInput,
 } from "@/shared/components/ui"
+import { usePermission } from "@/shared/hooks/usePermission"
 
 // WhatsApp format validation
 const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
@@ -31,8 +33,14 @@ const patientSchema = z.object({
     .min(1, "Telefone é obrigatório")
     .regex(phoneRegex, "Telefone inválido. Use formato: 11999999999"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
+  birthDate: z.string().optional().or(z.literal("")),
   fatherName: z.string().max(200).optional().or(z.literal("")),
   motherName: z.string().max(200).optional().or(z.literal("")),
+  schoolName: z.string().max(200).optional().or(z.literal("")),
+  firstAppointmentDate: z.string().optional().or(z.literal("")),
+  sessionFee: z.string().optional().or(z.literal("")),
+  lastFeeAdjustmentDate: z.string().optional().or(z.literal("")),
+  therapeuticProject: z.string().max(5000).optional().or(z.literal("")),
   notes: z.string().max(2000).optional().or(z.literal("")),
   referenceProfessionalId: z.string().optional().or(z.literal("")),
   consentWhatsApp: z.boolean(),
@@ -85,6 +93,11 @@ interface Patient {
   birthDate: string | null
   fatherName: string | null
   motherName: string | null
+  schoolName: string | null
+  firstAppointmentDate: string | null
+  lastFeeAdjustmentDate: string | null
+  sessionFee: string | number | null
+  therapeuticProject: string | null
   notes: string | null
   isActive: boolean
   lastVisitAt: string | null
@@ -120,6 +133,33 @@ function formatPhone(phone: string): string {
 function formatDate(dateString: string | null): string {
   if (!dateString) return "-"
   return new Date(dateString).toLocaleDateString("pt-BR")
+}
+
+function formatCurrency(value: string | number | null): string {
+  if (value === null || value === undefined || value === "") return "-"
+  const num = typeof value === "string" ? parseFloat(value) : value
+  if (isNaN(num)) return "-"
+  return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+}
+
+// Convert ISO date (YYYY-MM-DD or full ISO) to DD/MM/YYYY for display in inputs
+function isoToBrDate(dateString: string | null): string {
+  if (!dateString) return ""
+  const d = new Date(dateString)
+  if (isNaN(d.getTime())) return ""
+  const day = String(d.getUTCDate()).padStart(2, "0")
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0")
+  const year = d.getUTCFullYear()
+  return `${day}/${month}/${year}`
+}
+
+// Convert DD/MM/YYYY to YYYY-MM-DD for API
+function brDateToIso(brDate: string): string {
+  if (!brDate) return ""
+  const parts = brDate.split("/")
+  if (parts.length !== 3) return ""
+  const [day, month, year] = parts
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
 }
 
 function formatDateTime(dateString: string): string {
@@ -182,7 +222,7 @@ export default function PatientsPage() {
   const [isLoadingMoreAppointments, setIsLoadingMoreAppointments] = useState(false)
   const APPOINTMENTS_PER_PAGE = 10
 
-  const isAdmin = session?.user?.role === "ADMIN"
+  const { canWrite } = usePermission("patients")
 
   useEffect(() => {
     setIsMounted(true)
@@ -201,6 +241,7 @@ export default function PatientsPage() {
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors },
   } = useForm<PatientFormData>({
     resolver: zodResolver(patientSchema),
@@ -307,8 +348,14 @@ export default function PatientsPage() {
       name: "",
       phone: "",
       email: "",
+      birthDate: "",
       fatherName: "",
       motherName: "",
+      schoolName: "",
+      firstAppointmentDate: "",
+      sessionFee: "",
+      lastFeeAdjustmentDate: "",
+      therapeuticProject: "",
       notes: "",
       referenceProfessionalId: "",
       consentWhatsApp: false,
@@ -325,8 +372,14 @@ export default function PatientsPage() {
       name: patient.name,
       phone: patient.phone,
       email: patient.email ?? "",
+      birthDate: isoToBrDate(patient.birthDate),
       fatherName: patient.fatherName ?? "",
       motherName: patient.motherName ?? "",
+      schoolName: patient.schoolName ?? "",
+      firstAppointmentDate: isoToBrDate(patient.firstAppointmentDate),
+      sessionFee: patient.sessionFee != null ? String(patient.sessionFee) : "",
+      lastFeeAdjustmentDate: isoToBrDate(patient.lastFeeAdjustmentDate),
+      therapeuticProject: patient.therapeuticProject ?? "",
       notes: patient.notes ?? "",
       referenceProfessionalId: patient.referenceProfessionalId ?? "",
       consentWhatsApp: patient.consentWhatsApp,
@@ -364,8 +417,14 @@ export default function PatientsPage() {
         name: data.name,
         phone: data.phone.replace(/\D/g, ""),
         email: data.email || null,
+        birthDate: brDateToIso(data.birthDate || "") || null,
         fatherName: data.fatherName || null,
         motherName: data.motherName || null,
+        schoolName: data.schoolName || null,
+        firstAppointmentDate: brDateToIso(data.firstAppointmentDate || "") || null,
+        sessionFee: data.sessionFee ? parseFloat(data.sessionFee) : null,
+        lastFeeAdjustmentDate: brDateToIso(data.lastFeeAdjustmentDate || "") || null,
+        therapeuticProject: data.therapeuticProject || null,
         notes: data.notes || null,
         referenceProfessionalId: data.referenceProfessionalId || null,
         consentWhatsApp: data.consentWhatsApp,
@@ -476,7 +535,7 @@ export default function PatientsPage() {
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h1 className="text-2xl font-semibold text-foreground">Pacientes</h1>
-          {isAdmin && (
+          {canWrite && (
             <button
               onClick={openCreateSheet}
               className="h-10 px-4 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-opacity"
@@ -533,7 +592,7 @@ export default function PatientsPage() {
           <EmptyState
             title={search || filterActive !== "all" || filterProfessional ? "Nenhum paciente encontrado" : "Nenhum paciente cadastrado"}
             message={search || filterActive !== "all" || filterProfessional ? "Tente ajustar os filtros de busca" : "Adicione seu primeiro paciente para comecar"}
-            action={isAdmin && !search && filterActive === "all" && !filterProfessional ? { label: "Adicionar paciente", onClick: openCreateSheet } : undefined}
+            action={canWrite && !search && filterActive === "all" && !filterProfessional ? { label: "Adicionar paciente", onClick: openCreateSheet } : undefined}
             icon={<UsersIcon className="w-8 h-8 text-muted-foreground" />}
           />
         ) : (
@@ -612,7 +671,7 @@ export default function PatientsPage() {
                             >
                               <EyeIcon className="w-4 h-4" />
                             </button>
-                            {isAdmin && (
+                            {canWrite && (
                               <>
                                 <button
                                   onClick={() => openEditSheet(patient)}
@@ -740,7 +799,7 @@ export default function PatientsPage() {
                     <h2 className="text-xl font-semibold text-foreground">
                       {viewingPatient.name}
                     </h2>
-                    {isAdmin && (
+                    {canWrite && (
                       <button
                         onClick={() => openEditSheet(viewingPatient)}
                         className="h-9 px-3 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
@@ -795,17 +854,53 @@ export default function PatientsPage() {
                         </div>
                       )}
 
+                      {/* Birth Date & First Appointment */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm text-muted-foreground">Data de Nascimento</label>
+                          <p className="text-foreground">{formatDate(viewingPatient.birthDate)}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-muted-foreground">Data Primeiro Atendimento</label>
+                          <p className="text-foreground">{formatDate(viewingPatient.firstAppointmentDate)}</p>
+                        </div>
+                      </div>
+
                       {/* Parents Info */}
-                      {(viewingPatient.fatherName || viewingPatient.motherName) && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-sm text-muted-foreground">Nome do Pai</label>
-                            <p className="text-foreground">{viewingPatient.fatherName || "-"}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm text-muted-foreground">Nome da Mae</label>
-                            <p className="text-foreground">{viewingPatient.motherName || "-"}</p>
-                          </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm text-muted-foreground">Nome do Pai</label>
+                          <p className="text-foreground">{viewingPatient.fatherName || "-"}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-muted-foreground">Nome da Mae</label>
+                          <p className="text-foreground">{viewingPatient.motherName || "-"}</p>
+                        </div>
+                      </div>
+
+                      {/* School */}
+                      <div>
+                        <label className="text-sm text-muted-foreground">Escola</label>
+                        <p className="text-foreground">{viewingPatient.schoolName || "-"}</p>
+                      </div>
+
+                      {/* Session Fee & Adjustment */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm text-muted-foreground">Valor da Sessao</label>
+                          <p className="text-foreground">{formatCurrency(viewingPatient.sessionFee)}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-muted-foreground">Ultimo Reajuste</label>
+                          <p className="text-foreground">{formatDate(viewingPatient.lastFeeAdjustmentDate)}</p>
+                        </div>
+                      </div>
+
+                      {/* Therapeutic Project */}
+                      {viewingPatient.therapeuticProject && (
+                        <div>
+                          <label className="text-sm text-muted-foreground">Projeto Terapeutico</label>
+                          <p className="text-foreground whitespace-pre-wrap">{viewingPatient.therapeuticProject}</p>
                         </div>
                       )}
 
@@ -958,7 +1053,7 @@ export default function PatientsPage() {
               )}
 
               {/* Create/Edit Mode */}
-              {(editingPatient || (!viewingPatient && !isLoadingDetails)) && isAdmin && (
+              {(editingPatient || (!viewingPatient && !isLoadingDetails)) && canWrite && (
                 <>
                   <h2 className="text-xl font-semibold text-foreground mb-6">
                     {editingPatient ? "Editar Paciente" : "Novo Paciente"}
@@ -1080,19 +1175,38 @@ export default function PatientsPage() {
                       )}
                     </div>
 
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
-                        Email
-                      </label>
-                      <input
-                        id="email"
-                        type="email"
-                        {...register("email")}
-                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                      />
-                      {errors.email && (
-                        <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
-                      )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
+                          Email
+                        </label>
+                        <input
+                          id="email"
+                          type="email"
+                          {...register("email")}
+                          className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                        />
+                        {errors.email && (
+                          <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label htmlFor="birthDate" className="block text-sm font-medium text-foreground mb-2">
+                          Data de Nascimento
+                        </label>
+                        <Controller
+                          name="birthDate"
+                          control={control}
+                          render={({ field }) => (
+                            <DatePickerInput
+                              id="birthDate"
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                            />
+                          )}
+                        />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1128,8 +1242,86 @@ export default function PatientsPage() {
                     </div>
 
                     <div>
+                      <label htmlFor="schoolName" className="block text-sm font-medium text-foreground mb-2">
+                        Nome da Escola
+                      </label>
+                      <input
+                        id="schoolName"
+                        type="text"
+                        {...register("schoolName")}
+                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="firstAppointmentDate" className="block text-sm font-medium text-foreground mb-2">
+                          Data Primeiro Atendimento
+                        </label>
+                        <Controller
+                          name="firstAppointmentDate"
+                          control={control}
+                          render={({ field }) => (
+                            <DatePickerInput
+                              id="firstAppointmentDate"
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                            />
+                          )}
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="sessionFee" className="block text-sm font-medium text-foreground mb-2">
+                          Valor da Sessao (R$)
+                        </label>
+                        <input
+                          id="sessionFee"
+                          type="text"
+                          inputMode="decimal"
+                          {...register("sessionFee")}
+                          placeholder="150.00"
+                          className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="lastFeeAdjustmentDate" className="block text-sm font-medium text-foreground mb-2">
+                        Data Ultimo Reajuste
+                      </label>
+                      <Controller
+                        name="lastFeeAdjustmentDate"
+                        control={control}
+                        render={({ field }) => (
+                          <DatePickerInput
+                            id="lastFeeAdjustmentDate"
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                          />
+                        )}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Atualizado automaticamente ao alterar o valor da sessao
+                      </p>
+                    </div>
+
+                    <div>
+                      <label htmlFor="therapeuticProject" className="block text-sm font-medium text-foreground mb-2">
+                        Projeto Terapeutico
+                      </label>
+                      <textarea
+                        id="therapeuticProject"
+                        rows={4}
+                        {...register("therapeuticProject")}
+                        placeholder="Descreva o projeto terapeutico do paciente..."
+                        className="w-full px-4 py-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors resize-none"
+                      />
+                    </div>
+
+                    <div>
                       <label htmlFor="notes" className="block text-sm font-medium text-foreground mb-2">
-                        Observacoes administrativas
+                        Observacoes
                       </label>
                       <textarea
                         id="notes"
@@ -1238,7 +1430,7 @@ export default function PatientsPage() {
       )}
 
       {/* FAB for adding patients */}
-      {isAdmin && (
+      {canWrite && (
         <FAB onClick={openCreateSheet} label="Novo paciente" />
       )}
     </main>

@@ -17,6 +17,7 @@ import {
 } from "@/shared/components/ui"
 import { TimeInput } from "@/app/agenda/components"
 import { CalendarIcon } from "@/shared/components/ui/icons"
+import { usePermission } from "@/shared/hooks/usePermission"
 
 const DAY_OF_WEEK_LABELS = [
   "Domingo",
@@ -161,7 +162,7 @@ export default function GroupsPage() {
   // Additional professionals state
   const [additionalProfessionalIds, setAdditionalProfessionalIds] = useState<string[]>([])
 
-  const isAdmin = session?.user?.role === "ADMIN"
+  const { canWrite } = usePermission("groups")
 
   const {
     register,
@@ -608,7 +609,7 @@ export default function GroupsPage() {
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h1 className="text-2xl font-semibold text-foreground">Grupos de Terapia</h1>
-          {isAdmin && (
+          {canWrite && (
             <button
               onClick={openCreateSheet}
               className="h-10 px-4 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-opacity"
@@ -624,7 +625,7 @@ export default function GroupsPage() {
             <EmptyState
               title="Nenhum grupo cadastrado"
               message="Crie seu primeiro grupo de terapia para começar"
-              action={isAdmin ? { label: "Criar grupo", onClick: openCreateSheet } : undefined}
+              action={canWrite ? { label: "Criar grupo", onClick: openCreateSheet } : undefined}
               icon={<UsersIcon className="w-8 h-8 text-muted-foreground" />}
             />
           ) : (
@@ -676,7 +677,7 @@ export default function GroupsPage() {
                       </span>
                     </div>
                   </div>
-                  {isAdmin && (
+                  {canWrite && (
                     <div className="flex gap-2">
                       <button
                         onClick={() => openEditSheet(group)}
@@ -751,7 +752,7 @@ export default function GroupsPage() {
                           )}
                         </p>
                       </div>
-                      {isAdmin && (
+                      {canWrite && (
                         <button
                           onClick={() => openEditSheet(viewingGroup)}
                           className="h-9 px-3 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted"
@@ -789,7 +790,7 @@ export default function GroupsPage() {
                         </div>
 
                         {/* Session Generation */}
-                        {isAdmin && viewingGroup.isActive && (
+                        {canWrite && viewingGroup.isActive && (
                           <div className="border border-purple-200 dark:border-purple-800 rounded-lg p-4 bg-purple-50/50 dark:bg-purple-950/30">
                             {isGeneratingOpen ? (
                               <div className="space-y-4">
@@ -941,7 +942,7 @@ export default function GroupsPage() {
                         {viewTab === "members" && (
                           <div>
                             <div className="flex items-center justify-end mb-4">
-                              {isAdmin && viewingGroup.isActive && !isAddingMember && (
+                              {canWrite && viewingGroup.isActive && !isAddingMember && (
                                 <button
                                   onClick={() => {
                                     setIsAddingMember(true)
@@ -1059,7 +1060,7 @@ export default function GroupsPage() {
                                               Desde {new Date(membership.joinDate).toLocaleDateString("pt-BR")}
                                             </p>
                                           </div>
-                                          {isAdmin && isActive && (
+                                          {canWrite && isActive && (
                                             <button
                                               onClick={() => handleRemoveMember(membership.id, membership.patient.name)}
                                               className="h-7 px-2 text-xs rounded border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
@@ -1075,7 +1076,7 @@ export default function GroupsPage() {
                               </div>
                             ) : (
                               <p className="text-muted-foreground text-sm">
-                                Nenhum membro cadastrado. {isAdmin && viewingGroup.isActive && "Clique em \"+ Adicionar Membro\" para começar."}
+                                Nenhum membro cadastrado. {canWrite && viewingGroup.isActive && "Clique em \"+ Adicionar Membro\" para começar."}
                               </p>
                             )}
                           </div>
@@ -1235,7 +1236,7 @@ export default function GroupsPage() {
                             ) : (
                               <EmptyState
                                 title={sessionFilter === "upcoming" ? "Nenhuma sessão próxima" : "Nenhuma sessão passada"}
-                                message={isAdmin && viewingGroup.isActive && sessionFilter === "upcoming" ? "Use \"Gerar / Atualizar Sessões\" para criar sessões" : sessionFilter === "past" ? "Nenhuma sessão passada encontrada" : "Ainda não há sessões para este grupo"}
+                                message={canWrite && viewingGroup.isActive && sessionFilter === "upcoming" ? "Use \"Gerar / Atualizar Sessões\" para criar sessões" : sessionFilter === "past" ? "Nenhuma sessão passada encontrada" : "Ainda não há sessões para este grupo"}
                                 icon={<CalendarIcon className="w-8 h-8 text-muted-foreground" />}
                               />
                             )}
@@ -1290,7 +1291,7 @@ export default function GroupsPage() {
                 )}
 
                 {/* Create/Edit Mode */}
-                {(editingGroup || (!viewingGroup && !isLoadingDetails)) && isAdmin && (
+                {(editingGroup || (!viewingGroup && !isLoadingDetails)) && canWrite && (
                   <>
                     <h2 className="text-xl font-semibold text-foreground mb-6">
                       {editingGroup ? "Editar Grupo" : "Novo Grupo"}
@@ -1632,7 +1633,7 @@ export default function GroupsPage() {
       )}
 
       {/* FAB */}
-      {isAdmin && (
+      {canWrite && (
         <FAB onClick={openCreateSheet} label="Novo grupo" />
       )}
     </main>

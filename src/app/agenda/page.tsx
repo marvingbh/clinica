@@ -54,13 +54,15 @@ import {
 
 import { fetchAppointmentById } from "./services"
 import { createProfessionalColorMap } from "./lib/professional-colors"
+import { usePermission } from "@/shared/hooks/usePermission"
 
 export default function AgendaPage() {
   const router = useRouter()
   const { data: session, status } = useSession()
   const [isLoading, setIsLoading] = useState(true)
 
-  const isAdmin = session?.user?.role === "ADMIN"
+  const { canRead: canReadOthersAgenda } = usePermission("agenda_others")
+  const isAdmin = canReadOthersAgenda
   const currentProfessionalProfileId = session?.user?.professionalProfileId
 
   // Date navigation

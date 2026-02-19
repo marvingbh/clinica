@@ -22,6 +22,7 @@ import { Card, CardContent } from "@/shared/components/ui/card"
 import { Skeleton, SkeletonAvatar, SkeletonText } from "@/shared/components/ui/skeleton"
 import { FAB } from "@/shared/components/ui/fab"
 import { useDashboard } from "@/app/hooks/useDashboard"
+import { usePermission } from "@/shared/hooks/usePermission"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts"
 
 // --- Helpers ---
@@ -322,6 +323,9 @@ export default function Home() {
   const router = useRouter()
   const { data: session, status } = useSession()
   const { data: dashboard, isLoading: dashboardLoading } = useDashboard()
+  const { canRead: canReadUsers } = usePermission("users")
+  const { canRead: canReadProfessionals } = usePermission("professionals")
+  const { canRead: canReadClinicSettings } = usePermission("clinic_settings")
 
   async function handleLogout() {
     await signOut({ redirect: false })
@@ -370,7 +374,6 @@ export default function Home() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite"
   const firstName = session?.user?.name?.split(" ")[0] || "Usuario"
-  const isAdmin = session?.user?.role === "ADMIN"
 
   // Show skeleton while dashboard loads
   if (dashboardLoading || !dashboard) {
@@ -431,8 +434,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* E. Revenue Cards (ADMIN only) */}
-      {isAdmin && dashboard.todayRevenue !== null && dashboard.monthlyRevenue !== null && (
+      {/* E. Revenue Cards (clinic settings permission) */}
+      {canReadClinicSettings && dashboard.todayRevenue !== null && dashboard.monthlyRevenue !== null && (
         <div className="max-w-4xl mx-auto px-4 mb-6">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
             Faturamento
@@ -469,7 +472,7 @@ export default function Home() {
             description="Cadastro e historico"
           />
 
-          {isAdmin && (
+          {canReadUsers && (
             <ActionCard
               href="/users"
               icon={ShieldIcon}
@@ -480,7 +483,7 @@ export default function Home() {
             />
           )}
 
-          {isAdmin && (
+          {canReadProfessionals && (
             <ActionCard
               href="/professionals"
               icon={StethoscopeIcon}

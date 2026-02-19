@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { SkeletonPage } from "@/shared/components/ui"
+import { usePermission } from "@/shared/hooks/usePermission"
 
 // Date utilities for Brazilian format
 function toDisplayDateFromDate(date: Date): string {
@@ -128,7 +129,8 @@ function AvailabilitySettingsContent() {
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null)
   const professionalIdParam = searchParams.get("professionalId")
 
-  const isAdmin = session?.user?.role === "ADMIN"
+  const { canRead: canReadOthersAvail } = usePermission("availability_others")
+  const isAdmin = canReadOthersAvail
 
   // Effect 0: Set mounted state for portal rendering
   useEffect(() => {

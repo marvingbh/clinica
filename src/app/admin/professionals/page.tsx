@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
+import { usePermission } from "@/shared/hooks/usePermission"
 
 const professionalSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100),
@@ -43,6 +44,7 @@ interface Professional {
 export default function AdminProfessionalsPage() {
   const router = useRouter()
   const { data: session, status } = useSession()
+  const { canRead } = usePermission("professionals")
   const [isLoading, setIsLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
   const [professionals, setProfessionals] = useState<Professional[]>([])
@@ -99,15 +101,14 @@ export default function AdminProfessionalsPage() {
     }
 
     if (status === "authenticated") {
-      // Check if user is ADMIN
-      if (session?.user?.role !== "ADMIN") {
-        toast.error("Acesso restrito a administradores")
+      if (!canRead) {
+        toast.error("Sem permissao para acessar esta pagina")
         router.push("/")
         return
       }
       fetchProfessionals()
     }
-  }, [status, session, router, fetchProfessionals])
+  }, [status, canRead, router, fetchProfessionals])
 
   function openCreateSheet() {
     setEditingProfessional(null)

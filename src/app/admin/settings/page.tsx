@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
+import { usePermission } from "@/shared/hooks/usePermission"
 
 const TIMEZONES = [
   { value: "America/Sao_Paulo", label: "Brasília (GMT-3)" },
@@ -45,6 +46,7 @@ interface ClinicSettings {
 export default function AdminSettingsPage() {
   const router = useRouter()
   const { data: session, status } = useSession()
+  const { canRead } = usePermission("clinic_settings")
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [settings, setSettings] = useState<ClinicSettings | null>(null)
@@ -92,14 +94,14 @@ export default function AdminSettingsPage() {
     }
 
     if (status === "authenticated") {
-      if (session?.user?.role !== "ADMIN") {
-        toast.error("Acesso restrito a administradores")
+      if (!canRead) {
+        toast.error("Sem permissao para acessar esta pagina")
         router.push("/")
         return
       }
       fetchSettings()
     }
-  }, [status, session, router, fetchSettings])
+  }, [status, canRead, router, fetchSettings])
 
   async function onSubmit(data: SettingsFormData) {
     setIsSaving(true)

@@ -16,6 +16,7 @@ import {
   SearchIcon,
 } from "@/shared/components/ui"
 import { UserCard, UserGridSkeleton } from "./components"
+import { usePermission } from "@/shared/hooks/usePermission"
 
 const userSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100),
@@ -50,7 +51,7 @@ export default function UsersPage() {
   const [viewingUser, setViewingUser] = useState<UserData | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
-  const isAdmin = session?.user?.role === "ADMIN"
+  const { canRead, canWrite } = usePermission("users")
 
   const {
     register,
@@ -100,14 +101,14 @@ export default function UsersPage() {
     }
 
     if (status === "authenticated") {
-      if (session?.user?.role !== "ADMIN") {
-        toast.error("Acesso restrito a administradores")
+      if (!canRead) {
+        toast.error("Sem permissao para acessar esta pagina")
         router.push("/")
         return
       }
       fetchUsers()
     }
-  }, [status, session, router, fetchUsers])
+  }, [status, canRead, router, fetchUsers])
 
   function openCreateSheet() {
     setEditingUser(null)
@@ -319,7 +320,7 @@ export default function UsersPage() {
           <EmptyState
             title={search || filterRole !== "all" || filterActive !== "all" ? "Nenhum usuário encontrado" : "Nenhum usuário cadastrado"}
             message={search || filterRole !== "all" || filterActive !== "all" ? "Tente ajustar os filtros de busca" : "Adicione seu primeiro usuário para começar"}
-            action={isAdmin && !search && filterRole === "all" && filterActive === "all" ? { label: "Adicionar usuário", onClick: openCreateSheet } : undefined}
+            action={canWrite && !search && filterRole === "all" && filterActive === "all" ? { label: "Adicionar usuário", onClick: openCreateSheet } : undefined}
             icon={<UsersIcon className="w-8 h-8 text-muted-foreground" />}
           />
         ) : (
@@ -332,7 +333,7 @@ export default function UsersPage() {
                 onEdit={() => openEditSheet(u)}
                 onDeactivate={() => handleDeactivate(u)}
                 onReactivate={() => handleReactivate(u)}
-                isAdmin={isAdmin}
+                isAdmin={canWrite}
               />
             ))}
           </div>
@@ -372,7 +373,7 @@ export default function UsersPage() {
                       <h2 className="text-xl font-semibold text-foreground">
                         {viewingUser.name}
                       </h2>
-                      {isAdmin && (
+                      {canWrite && (
                         <button
                           onClick={() => openEditSheet(viewingUser)}
                           className="h-9 px-3 rounded-lg border border-input bg-background text-foreground text-sm font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
@@ -436,7 +437,7 @@ export default function UsersPage() {
                 )}
 
                 {/* Create/Edit Mode */}
-                {(editingUser || !viewingUser) && isAdmin && (
+                {(editingUser || !viewingUser) && canWrite && (
                   <>
                     <h2 className="text-xl font-semibold text-foreground mb-6">
                       {editingUser ? "Editar Usuário" : "Novo Usuário"}
@@ -513,7 +514,7 @@ export default function UsersPage() {
       )}
 
       {/* FAB for adding users */}
-      {isAdmin && (
+      {canWrite && (
         <FAB onClick={openCreateSheet} label="Novo usuário" />
       )}
     </main>

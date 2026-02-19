@@ -16,6 +16,7 @@ import {
   SearchIcon,
 } from "@/shared/components/ui"
 import { ProfessionalCard, ProfessionalGridSkeleton } from "./components"
+import { usePermission } from "@/shared/hooks/usePermission"
 
 const professionalSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100),
@@ -73,7 +74,7 @@ export default function ProfessionalsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingDetails, setIsLoadingDetails] = useState(false)
 
-  const isAdmin = session?.user?.role === "ADMIN"
+  const { canRead, canWrite } = usePermission("professionals")
 
   const {
     register,
@@ -139,15 +140,14 @@ export default function ProfessionalsPage() {
     }
 
     if (status === "authenticated") {
-      // Only ADMIN can access
-      if (session?.user?.role !== "ADMIN") {
-        toast.error("Acesso restrito a administradores")
+      if (!canRead) {
+        toast.error("Sem permissao para acessar esta pagina")
         router.push("/")
         return
       }
       fetchProfessionals()
     }
-  }, [status, session, router, fetchProfessionals])
+  }, [status, canRead, router, fetchProfessionals])
 
   function openCreateSheet() {
     setEditingProfessional(null)
@@ -363,7 +363,7 @@ export default function ProfessionalsPage() {
           <EmptyState
             title={search || filterActive !== "all" ? "Nenhum profissional encontrado" : "Nenhum profissional cadastrado"}
             message={search || filterActive !== "all" ? "Tente ajustar os filtros de busca" : "Adicione seu primeiro profissional para começar"}
-            action={isAdmin && !search && filterActive === "all" ? { label: "Adicionar profissional", onClick: openCreateSheet } : undefined}
+            action={canWrite && !search && filterActive === "all" ? { label: "Adicionar profissional", onClick: openCreateSheet } : undefined}
             icon={<UsersIcon className="w-8 h-8 text-muted-foreground" />}
           />
         ) : (
@@ -376,7 +376,7 @@ export default function ProfessionalsPage() {
                 onEdit={() => openEditSheet(professional)}
                 onDeactivate={() => handleDeactivate(professional)}
                 onReactivate={() => handleReactivate(professional)}
-                isAdmin={isAdmin}
+                isAdmin={canWrite}
               />
             ))}
           </div>
@@ -417,7 +417,7 @@ export default function ProfessionalsPage() {
                     <h2 className="text-xl font-semibold text-foreground">
                       {viewingProfessional.name}
                     </h2>
-                    {isAdmin && (
+                    {canWrite && (
                       <button
                         onClick={() => openEditSheet(viewingProfessional)}
                         className="h-9 px-3 rounded-lg border border-input bg-background text-foreground text-sm font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
@@ -534,7 +534,7 @@ export default function ProfessionalsPage() {
               )}
 
               {/* Create/Edit Mode */}
-              {(editingProfessional || (!viewingProfessional && !isLoadingDetails)) && isAdmin && (
+              {(editingProfessional || (!viewingProfessional && !isLoadingDetails)) && canWrite && (
                 <>
                   <h2 className="text-xl font-semibold text-foreground mb-6">
                     {editingProfessional ? "Editar Profissional" : "Novo Profissional"}
@@ -652,7 +652,7 @@ export default function ProfessionalsPage() {
       )}
 
       {/* FAB for adding professionals */}
-      {isAdmin && (
+      {canWrite && (
         <FAB onClick={openCreateSheet} label="Novo profissional" />
       )}
     </main>

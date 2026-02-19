@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { BottomSheet } from "@/shared/components/ui"
+import { usePermission } from "@/shared/hooks/usePermission"
 
 interface TemplateVariable {
   key: string
@@ -39,6 +40,7 @@ const CHANNEL_LABELS: Record<string, string> = {
 export default function NotificationTemplatesPage() {
   const router = useRouter()
   const { data: session, status } = useSession()
+  const { canRead } = usePermission("notifications")
   const [isLoading, setIsLoading] = useState(true)
   const [templates, setTemplates] = useState<Template[]>([])
   const [variables, setVariables] = useState<TemplateVariable[]>([])
@@ -85,14 +87,14 @@ export default function NotificationTemplatesPage() {
     }
 
     if (status === "authenticated") {
-      if (session?.user?.role !== "ADMIN") {
-        toast.error("Acesso restrito a administradores")
+      if (!canRead) {
+        toast.error("Sem permissao para acessar esta pagina")
         router.push("/")
         return
       }
       fetchTemplates()
     }
-  }, [status, session, router, fetchTemplates])
+  }, [status, canRead, router, fetchTemplates])
 
   function openEditSheet(template: Template) {
     setSelectedTemplate(template)
