@@ -323,7 +323,7 @@ export default function Home() {
   const router = useRouter()
   const { data: session, status } = useSession()
   const { data: dashboard, isLoading: dashboardLoading } = useDashboard()
-  const { canRead: canReadUsers } = usePermission("users")
+  const { canRead: canReadUsers, canWrite: canWriteUsers } = usePermission("users")
   const { canRead: canReadProfessionals } = usePermission("professionals")
   const { canRead: canReadClinicSettings } = usePermission("clinic_settings")
 
@@ -480,6 +480,17 @@ export default function Home() {
               iconColor="text-purple-500"
               title="Usuários"
               description="Gerenciar contas de acesso"
+            />
+          )}
+
+          {canWriteUsers && (
+            <ActionCard
+              href="/admin/permissions"
+              icon={ShieldIcon}
+              iconBgColor="bg-indigo-500/10"
+              iconColor="text-indigo-500"
+              title="Permissões"
+              description="Gerenciar permissoes de acesso"
             />
           )}
 

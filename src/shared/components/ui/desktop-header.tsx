@@ -16,7 +16,9 @@ import {
   ChevronDownIcon,
   SunIcon,
   MoonIcon,
+  ShieldIcon,
 } from "./icons"
+import { usePermission } from "@/shared/hooks/usePermission"
 import type { Feature } from "@/lib/rbac/types"
 
 interface NavItem {
@@ -66,6 +68,7 @@ const navItems: NavItem[] = [
 function UserDropdown() {
   const router = useRouter()
   const { data: session } = useSession()
+  const { canWrite: canManagePermissions } = usePermission("users")
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -139,6 +142,16 @@ function UserDropdown() {
               <SettingsIcon className="w-4 h-4 text-muted-foreground" />
               Configurações
             </Link>
+            {canManagePermissions && (
+              <Link
+                href="/admin/permissions"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors duration-normal"
+              >
+                <ShieldIcon className="w-4 h-4 text-muted-foreground" />
+                Permissões
+              </Link>
+            )}
           </div>
 
           <div className="border-t border-border py-1">
