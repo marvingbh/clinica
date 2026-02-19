@@ -22,6 +22,7 @@ import {
   DatePickerInput,
 } from "@/shared/components/ui"
 import { usePermission } from "@/shared/hooks/usePermission"
+import { HistoryTimeline } from "@/shared/components/HistoryTimeline"
 
 // WhatsApp format validation
 const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
@@ -223,6 +224,12 @@ export default function PatientsPage() {
   const APPOINTMENTS_PER_PAGE = 10
 
   const { canWrite } = usePermission("patients")
+  const { canRead: canReadAudit } = usePermission("audit_logs")
+  const [patientTab, setPatientTab] = useState<"dados" | "historico">("dados")
+
+  useEffect(() => {
+    setPatientTab("dados")
+  }, [viewingPatient?.id])
 
   useEffect(() => {
     setIsMounted(true)
@@ -809,6 +816,31 @@ export default function PatientsPage() {
                     )}
                   </div>
 
+                  {canReadAudit && (
+                    <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-4">
+                      <button
+                        onClick={() => setPatientTab("dados")}
+                        className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                          patientTab === "dados"
+                            ? "border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400"
+                            : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                        }`}
+                      >
+                        Dados
+                      </button>
+                      <button
+                        onClick={() => setPatientTab("historico")}
+                        className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                          patientTab === "historico"
+                            ? "border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400"
+                            : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                        }`}
+                      >
+                        Historico
+                      </button>
+                    </div>
+                  )}
+
                   {isLoadingDetails ? (
                     <div className="animate-pulse space-y-4">
                       <div className="h-6 w-32 bg-muted rounded" />
@@ -816,6 +848,8 @@ export default function PatientsPage() {
                       <div className="h-4 w-40 bg-muted rounded" />
                     </div>
                   ) : (
+                    <>
+                    {patientTab === "dados" && (
                     <div className="space-y-6">
                       {/* Reference Professional */}
                       {viewingPatient.referenceProfessional && (
@@ -1048,6 +1082,12 @@ export default function PatientsPage() {
                         </button>
                       </div>
                     </div>
+                    )}
+
+                    {patientTab === "historico" && viewingPatient && (
+                      <HistoryTimeline entityType="Patient" entityId={viewingPatient.id} />
+                    )}
+                    </>
                   )}
                 </>
               )}
