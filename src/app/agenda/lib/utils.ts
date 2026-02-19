@@ -1,6 +1,20 @@
 import { Appointment } from "./types"
 
 /**
+ * Checks if a patient's birthday is today (compares month and day only).
+ * Parses the ISO string directly to avoid UTC-to-local timezone shifts.
+ */
+export function isBirthdayToday(birthDate: string | null | undefined): boolean {
+  if (!birthDate) return false
+  const match = birthDate.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!match) return false
+  const bdMonth = parseInt(match[2], 10)
+  const bdDay = parseInt(match[3], 10)
+  const today = new Date()
+  return bdDay === today.getDate() && bdMonth === today.getMonth() + 1
+}
+
+/**
  * Formats a time string to HH:mm format
  */
 export function formatTime(time: string): string {

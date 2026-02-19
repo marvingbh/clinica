@@ -3,6 +3,7 @@
 import { SwipeContainer, EmptyState, ClockIcon, BanIcon, PlusIcon } from "@/shared/components/ui"
 import { ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { formatTime, isSlotInPast } from "../lib/utils"
+import type { BirthdayPatient } from "../services/appointmentService"
 import { ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
 import { AppointmentCard } from "./AppointmentCard"
 import { GroupSessionCard } from "./GroupSessionCard"
@@ -16,6 +17,7 @@ export interface AgendaTimelineProps {
   appointments?: Appointment[]
   timeSlots: TimeSlot[]
   groupSessions: GroupSession[]
+  birthdayPatients?: BirthdayPatient[]
   fullDayBlock: FullDayBlock | null
   selectedDate: string
   selectedProfessionalId: string
@@ -64,6 +66,7 @@ export function AgendaTimeline({
   appointments = [],
   timeSlots,
   groupSessions,
+  birthdayPatients = [],
   fullDayBlock,
   selectedDate,
   selectedProfessionalId,
@@ -83,6 +86,15 @@ export function AgendaTimeline({
     return <AgendaTimelineSkeleton />
   }
 
+  const birthdayBanner = birthdayPatients.length > 0 ? (
+    <div className="mb-4 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+        <span className="mr-1.5">🎂</span>
+        Aniversario hoje: {birthdayPatients.map(p => p.name).join(", ")}
+      </p>
+    </div>
+  ) : null
+
   // Admin "Todos" mode: time-proportional grid with all professionals
   if (isAdmin && !selectedProfessionalId) {
     return (
@@ -93,6 +105,8 @@ export function AgendaTimeline({
           Deslize para mudar o dia
           <span className="w-8 h-0.5 bg-muted-foreground/30 rounded-full" />
         </p>
+
+        {birthdayBanner}
 
         <DailyOverviewGrid
           appointments={appointments}
@@ -153,6 +167,8 @@ export function AgendaTimeline({
         Deslize para mudar o dia
         <span className="w-8 h-0.5 bg-muted-foreground/30 rounded-full" />
       </p>
+
+      {birthdayBanner}
 
       {/* Full day block message */}
       {fullDayBlock && (

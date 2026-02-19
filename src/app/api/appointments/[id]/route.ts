@@ -26,6 +26,7 @@ export const GET = withFeatureAuth(
             name: true,
             email: true,
             phone: true,
+            birthDate: true,
             consentWhatsApp: true,
             consentEmail: true,
           },

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation"
 import { toDateString } from "../lib/utils"
 import { DEFAULT_APPOINTMENT_DURATION } from "../lib/constants"
 import type { Appointment, AvailabilityRule, AvailabilityException, Professional, GroupSession, BiweeklyHint } from "../lib/types"
+import type { BirthdayPatient } from "../services/appointmentService"
 import {
   fetchAppointments as fetchAppointmentsApi,
   fetchAvailabilityRules,
@@ -24,6 +25,7 @@ export interface UseAgendaDataParams {
 export interface UseAgendaDataReturn {
   appointments: Appointment[]
   biweeklyHints: BiweeklyHint[]
+  birthdayPatients: BirthdayPatient[]
   groupSessions: GroupSession[]
   availabilityRules: AvailabilityRule[]
   availabilityExceptions: AvailabilityException[]
@@ -47,6 +49,7 @@ export function useAgendaData({
 
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [biweeklyHints, setBiweeklyHints] = useState<BiweeklyHint[]>([])
+  const [birthdayPatients, setBirthdayPatients] = useState<BirthdayPatient[]>([])
   const [groupSessions, setGroupSessions] = useState<GroupSession[]>([])
   const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([])
   const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([])
@@ -93,6 +96,7 @@ export function useAgendaData({
       ])
       setAppointments(appointmentsData.appointments)
       setBiweeklyHints(appointmentsData.biweeklyHints || [])
+      setBirthdayPatients(appointmentsData.birthdayPatients || [])
       setGroupSessions(groupSessionsData.groupSessions)
     } catch (error) {
       if (error instanceof Error && error.message === "ACCESS_DENIED") {
@@ -135,6 +139,7 @@ export function useAgendaData({
 
         setAppointments(appointmentsData.appointments)
         setBiweeklyHints(appointmentsData.biweeklyHints || [])
+        setBirthdayPatients(appointmentsData.birthdayPatients || [])
         setGroupSessions(groupSessionsData.groupSessions)
         setAvailabilityRules(availabilityData.rules || [])
         setAvailabilityExceptions(exceptionsData.exceptions || [])
@@ -182,6 +187,7 @@ export function useAgendaData({
   return {
     appointments,
     biweeklyHints,
+    birthdayPatients,
     groupSessions,
     availabilityRules,
     availabilityExceptions,

@@ -80,6 +80,7 @@ export default function AgendaPage() {
   const {
     appointments,
     biweeklyHints,
+    birthdayPatients,
     groupSessions,
     availabilityRules,
     availabilityExceptions,
@@ -338,6 +339,7 @@ export default function AgendaPage() {
         appointments={appointments}
         timeSlots={timeSlots}
         groupSessions={groupSessions}
+        birthdayPatients={birthdayPatients}
         fullDayBlock={fullDayBlock}
         selectedDate={toDateString(selectedDate)}
         selectedProfessionalId={selectedProfessionalId}

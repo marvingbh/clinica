@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { RefreshCwIcon, VideoIcon, BuildingIcon, PhoneIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { STATUS_LABELS, STATUS_COLORS, ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
-import { formatPhone } from "../lib/utils"
+import { formatPhone, isBirthdayToday } from "../lib/utils"
 import type { Appointment, AppointmentStatus, CalendarEntryType } from "../lib/types"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../lib/professional-colors"
 
@@ -76,6 +76,9 @@ export function AppointmentCard({
               <div className="min-w-0 flex-1">
                 <h4 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
                   {appointment.patient.name}
+                  {isBirthdayToday(appointment.patient.birthDate) && (
+                    <span className="ml-1.5 text-sm" title="Aniversario hoje!">🎂</span>
+                  )}
                 </h4>
                 <div className="flex items-center gap-1.5 mt-1">
                   <PhoneIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />

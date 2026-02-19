@@ -7,9 +7,15 @@ export interface FetchAppointmentsParams {
   signal?: AbortSignal
 }
 
+export interface BirthdayPatient {
+  id: string
+  name: string
+}
+
 export interface FetchAppointmentsResponse {
   appointments: Appointment[]
   biweeklyHints?: BiweeklyHint[]
+  birthdayPatients?: BirthdayPatient[]
 }
 
 export interface CreateAppointmentData {

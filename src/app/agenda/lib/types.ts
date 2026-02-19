@@ -127,6 +127,7 @@ export interface Appointment {
     name: string
     email: string | null
     phone: string
+    birthDate?: string | null
     consentWhatsApp?: boolean
     consentEmail?: boolean
   } | null

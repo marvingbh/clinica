@@ -4,7 +4,7 @@ import { useMemo, useCallback, useState, useEffect } from "react"
 import { UsersIcon, RefreshCwIcon, PhoneIcon, VideoIcon, BuildingIcon } from "@/shared/components/ui/icons"
 import type { Appointment, GroupSession, AppointmentStatus } from "../lib/types"
 import { STATUS_LABELS, STATUS_COLORS, STATUS_BORDER_COLORS } from "../lib/constants"
-import { formatPhone } from "../lib/utils"
+import { formatPhone, isBirthdayToday } from "../lib/utils"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../lib/professional-colors"
 
 const PIXELS_PER_MINUTE = 2.4
@@ -322,6 +322,9 @@ export function DailyOverviewGrid({
                     <div className="min-w-0 flex-1">
                       <h4 className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
                         {appointment.patient?.name || appointment.title || "Sem titulo"}
+                        {appointment.patient?.birthDate && isBirthdayToday(appointment.patient.birthDate) && (
+                          <span className="ml-1 text-xs" title="Aniversario hoje!">🎂</span>
+                        )}
                       </h4>
                       {/* Phone */}
                       {!isCompact && appointment.patient?.phone && (
