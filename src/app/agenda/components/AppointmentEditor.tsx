@@ -6,6 +6,8 @@ import { Sheet } from "./Sheet"
 import { InlineAlert } from "./InlineAlert"
 import { SegmentedControl, Segment } from "./SegmentedControl"
 import { RecurrenceTabContent } from "./RecurrenceTabContent"
+import { HistoryTimeline } from "@/shared/components/HistoryTimeline"
+import { usePermission } from "@/shared/hooks/usePermission"
 import { Appointment, EditAppointmentFormData, CalendarEntryType, Professional } from "../lib/types"
 import { TimeInput } from "./TimeInput"
 import { STATUS_LABELS, STATUS_COLORS, RECURRENCE_TYPE_LABELS, ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
@@ -79,7 +81,7 @@ interface AppointmentEditorProps {
   setEditAdditionalProfIds?: (ids: string[]) => void
 }
 
-type EditorTab = "occurrence" | "recurrence"
+type EditorTab = "occurrence" | "recurrence" | "historico"
 
 export function AppointmentEditor({
   isOpen,
@@ -110,6 +112,7 @@ export function AppointmentEditor({
   setEditAdditionalProfIds,
 }: AppointmentEditorProps) {
   const [activeTab, setActiveTab] = useState<EditorTab>("occurrence")
+  const { canRead: canReadAudit } = usePermission("audit_logs")
 
   const handleClose = () => {
     setActiveTab("occurrence")
@@ -138,6 +141,10 @@ export function AppointmentEditor({
 
   if (isRecurring && isActive) {
     segments.push({ key: "recurrence", label: "Recorrencia" })
+  }
+
+  if (canReadAudit) {
+    segments.push({ key: "historico", label: "Historico" })
   }
 
   // Skip toggle button as trailing element
@@ -276,8 +283,8 @@ export function AppointmentEditor({
         )}
       </div>
 
-      {/* Segmented Control (only for recurring) */}
-      {isRecurring && isActive && (
+      {/* Segmented Control (recurring or audit access) */}
+      {(isRecurring && isActive || canReadAudit) && (
         <div className="px-4 pt-4">
           <SegmentedControl
             segments={segments}
@@ -299,7 +306,7 @@ export function AppointmentEditor({
 
       {/* Tab Content */}
       <div className="p-4">
-        {activeTab === "occurrence" ? (
+        {activeTab === "occurrence" && (
           <OccurrenceTabContent
             appointment={appointment}
             form={form}
@@ -326,13 +333,19 @@ export function AppointmentEditor({
             editAdditionalProfIds={editAdditionalProfIds}
             setEditAdditionalProfIds={setEditAdditionalProfIds}
           />
-        ) : (
+        )}
+        {activeTab === "recurrence" && (
           <RecurrenceTabContent
             appointment={appointment}
             onSave={onRecurrenceSave}
             onClose={handleClose}
             professionals={professionals}
           />
+        )}
+        {activeTab === "historico" && (
+          <div className="px-4 py-4">
+            <HistoryTimeline entityType="Appointment" entityId={appointment.id} />
+          </div>
         )}
       </div>
     </Sheet>
