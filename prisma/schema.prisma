@@ -83,6 +83,12 @@ enum AppointmentType {
   REUNIAO
 }
 
+enum FeatureAccess {
+  NONE
+  READ
+  WRITE
+}
+
 // ============================================================================
 // MODELS
 // ============================================================================
@@ -118,6 +124,7 @@ model Clinic {
   groupMemberships        GroupMembership[]
   availabilityExceptions  AvailabilityException[]
   patientPhones           PatientPhone[]
+  userPermissions         UserPermission[]
 
   @@index([slug])
   @@index([isActive])
@@ -140,6 +147,7 @@ model User {
   clinic              Clinic               @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   professionalProfile ProfessionalProfile?
   auditLogs           AuditLog[]
+  permissions         UserPermission[]
 
   @@unique([clinicId, email])
   @@index([clinicId])
@@ -238,6 +246,11 @@ model Patient {
   fatherName  String?   // Father's name
   motherName  String?   // Mother's name
   notes       String?   // Administrative observations
+  schoolName  String?   // School name (for children)
+  firstAppointmentDate DateTime? @db.Date // Date of first appointment (manual)
+  lastFeeAdjustmentDate DateTime? @db.Date // Date of last session fee adjustment
+  sessionFee  Decimal?  @db.Decimal(10, 2) // Session fee in BRL
+  therapeuticProject String? // Therapeutic project (free text)
   isActive    Boolean   @default(true)
   lastVisitAt DateTime?
 
@@ -487,6 +500,22 @@ model NotificationTemplate {
   @@index([type])
   @@index([channel])
   @@index([isActive])
+}
+
+/// Per-user feature permission overrides (if no row exists, role default applies)
+model UserPermission {
+  id        String        @id @default(cuid())
+  userId    String
+  clinicId  String
+  feature   String        // e.g. "agenda_own", "patients", "users"
+  access    FeatureAccess
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, feature])
+  @@index([clinicId])
+  @@index([userId])
 }
 
 // ============================================================================
