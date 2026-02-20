@@ -11,7 +11,7 @@ import { usePermission } from "@/shared/hooks/usePermission"
 import { Appointment, EditAppointmentFormData, CalendarEntryType, Professional } from "../lib/types"
 import { TimeInput } from "./TimeInput"
 import { STATUS_LABELS, STATUS_COLORS, RECURRENCE_TYPE_LABELS, ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
-import { formatPhone, isDateException, calculateEndTime } from "../lib/utils"
+import { formatPhone, isDateException, calculateEndTime, isRecurrenceModified } from "../lib/utils"
 import {
   RefreshCwIcon,
   BanIcon,
@@ -278,6 +278,9 @@ export function AppointmentEditor({
             <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
               {RECURRENCE_TYPE_LABELS[appointment.recurrence!.recurrenceType]}
               {appointment.recurrence!.recurrenceEndType === "INDEFINITE" && " · sem fim"}
+              {isRecurrenceModified(appointment) && (
+                <span className="text-amber-600 dark:text-amber-400"> · alterado</span>
+              )}
             </span>
           </div>
         )}

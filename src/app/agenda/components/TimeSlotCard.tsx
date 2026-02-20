@@ -3,7 +3,7 @@
 import { RefreshCwIcon, BanIcon, PlusIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { TimeSlot, Appointment, AppointmentStatus } from "../lib/types"
 import { STATUS_LABELS, STATUS_COLORS, STATUS_BORDER_COLORS } from "../lib/constants"
-import { formatTime, formatPhone } from "../lib/utils"
+import { formatTime, formatPhone, isRecurrenceModified } from "../lib/utils"
 
 interface TimeSlotCardProps {
   slot: TimeSlot
@@ -73,6 +73,9 @@ export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointm
                     <RefreshCwIcon className="w-3 h-3" />
                     {appointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
                      appointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"}
+                    {isRecurrenceModified(appointment) && (
+                      <span className="text-amber-600 dark:text-amber-400"> · alterado</span>
+                    )}
                   </span>
                 )}
                 {appointment.notes && (

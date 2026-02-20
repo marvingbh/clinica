@@ -123,6 +123,17 @@ export function canResendConfirmation(appointment: Appointment | null): boolean 
 }
 
 /**
+ * Checks if an appointment's time was modified from its recurrence pattern.
+ * Compares the appointment's actual start time against the recurrence's startTime.
+ */
+export function isRecurrenceModified(appointment: Appointment): boolean {
+  if (!appointment.recurrence?.startTime) return false
+  const scheduled = new Date(appointment.scheduledAt)
+  const actualTime = `${String(scheduled.getHours()).padStart(2, "0")}:${String(scheduled.getMinutes()).padStart(2, "0")}`
+  return actualTime !== appointment.recurrence.startTime
+}
+
+/**
  * Checks if a date is an exception in the recurrence
  */
 export function isDateException(appointment: Appointment | null): boolean {

@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { RefreshCwIcon, VideoIcon, BuildingIcon, PhoneIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { STATUS_LABELS, STATUS_COLORS, ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
-import { formatPhone, isBirthdayToday } from "../lib/utils"
+import { formatPhone, isBirthdayToday, isRecurrenceModified } from "../lib/utils"
 import type { Appointment, AppointmentStatus, CalendarEntryType } from "../lib/types"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../lib/professional-colors"
 
@@ -129,6 +129,9 @@ export function AppointmentCard({
                   <RefreshCwIcon className="w-3.5 h-3.5" />
                   {appointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
                    appointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"}
+                  {isRecurrenceModified(appointment) && (
+                    <span className="text-amber-600 dark:text-amber-400"> · alterado</span>
+                  )}
                 </span>
               )}
             </div>
