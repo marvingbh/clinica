@@ -6,119 +6,34 @@ import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
 import { toast } from "sonner"
 import {
   FAB,
   SkeletonPage,
   EmptyState,
   UsersIcon,
-  ClockIcon,
 } from "@/shared/components/ui"
-import { TimeInput } from "@/app/agenda/components"
 import { CalendarIcon } from "@/shared/components/ui/icons"
 import { usePermission } from "@/shared/hooks/usePermission"
-
-const DAY_OF_WEEK_LABELS = [
-  "Domingo",
-  "Segunda-feira",
-  "Terça-feira",
-  "Quarta-feira",
-  "Quinta-feira",
-  "Sexta-feira",
-  "Sábado",
-]
-
-const RECURRENCE_TYPE_LABELS: Record<string, string> = {
-  WEEKLY: "Semanal",
-  BIWEEKLY: "Quinzenal",
-  MONTHLY: "Mensal",
-}
-
-// Date helper for native date picker default value
-function getTodayISO(): string {
-  return new Date().toISOString().split("T")[0]
-}
-
-const groupSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(200),
-  professionalProfileId: z.string().min(1, "Selecione um profissional"),
-  dayOfWeek: z.number().int().min(0).max(6),
-  startTime: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "Horário inválido"),
-  duration: z.number().int().min(15).max(480),
-  recurrenceType: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]),
-})
-
-type GroupFormData = z.infer<typeof groupSchema>
-
-interface Professional {
-  id: string
-  name: string
-  professionalProfile: {
-    id: string
-    specialty: string | null
-  } | null
-}
-
-interface AdditionalProfessionalRef {
-  professionalProfile: {
-    id: string
-    user: { name: string }
-  }
-}
-
-interface TherapyGroup {
-  id: string
-  name: string
-  dayOfWeek: number
-  startTime: string
-  duration: number
-  recurrenceType: string
-  isActive: boolean
-  createdAt: string
-  activeMemberCount?: number
-  professionalProfile: {
-    id: string
-    user: {
-      name: string
-    }
-  }
-  additionalProfessionals?: AdditionalProfessionalRef[]
-}
-
-interface GroupDetails extends TherapyGroup {
-  memberships: Array<{
-    id: string
-    joinDate: string
-    leaveDate: string | null
-    patient: {
-      id: string
-      name: string
-      phone: string
-    }
-  }>
-}
-
-interface GroupSessionItem {
-  groupId: string
-  groupName: string
-  scheduledAt: string
-  endAt: string
-  professionalProfileId: string
-  professionalName: string
-  additionalProfessionals?: Array<{
-    professionalProfileId: string
-    professionalName: string
-  }>
-  participants: Array<{
-    appointmentId: string
-    patientId: string
-    patientName: string
-    status: string
-  }>
-}
-
-type ViewTab = "members" | "sessions"
+import {
+  GroupCard,
+  MembersTab,
+  SessionsTab,
+  SessionGenerationPanel,
+  GroupForm,
+  AddMemberForm,
+  MemberCard,
+} from "./components"
+import {
+  TherapyGroup,
+  GroupDetails,
+  GroupSessionItem,
+  Professional,
+  GroupFormData,
+  ViewTab,
+  groupSchema,
+} from "./components/types"
+import { DAY_OF_WEEK_LABELS, RECURRENCE_TYPE_LABELS, getTodayISO } from "./components/constants"
 
 export default function GroupsPage() {
   const router = useRouter()
@@ -585,6 +500,14 @@ export default function GroupsPage() {
     }
   }
 
+  function handleAdditionalProfessionalToggle(profId: string) {
+    setAdditionalProfessionalIds(prev =>
+      prev.includes(profId)
+        ? prev.filter(id => id !== profId)
+        : [...prev, profId]
+    )
+  }
+
   if (status === "loading" || isLoading) {
     return (
       <main className="min-h-screen bg-background pb-20">
@@ -630,80 +553,15 @@ export default function GroupsPage() {
             />
           ) : (
             groups.map((group) => (
-              <div
+              <GroupCard
                 key={group.id}
-                className={`bg-card border border-border rounded-lg p-4 sm:p-6 ${
-                  !group.isActive ? "opacity-60" : ""
-                }`}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div
-                    className="flex-1 min-w-0 cursor-pointer"
-                    onClick={() => openViewSheet(group)}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <UsersIcon className="w-5 h-5 text-purple-600" />
-                      <h3 className="font-medium text-foreground truncate">
-                        {group.name}
-                      </h3>
-                      {!group.isActive && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                          Inativo
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <ClockIcon className="w-4 h-4" />
-                      <span>
-                        {DAY_OF_WEEK_LABELS[group.dayOfWeek]} às {group.startTime}
-                      </span>
-                      <span className="text-muted-foreground/50">•</span>
-                      <span>{RECURRENCE_TYPE_LABELS[group.recurrenceType]}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {group.professionalProfile.user.name}
-                      {group.additionalProfessionals && group.additionalProfessionals.length > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          {" "}+{group.additionalProfessionals.length}
-                        </span>
-                      )}
-                    </p>
-                    <div className="flex gap-3 mt-2">
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200">
-                        {group.activeMemberCount ?? 0} membro{(group.activeMemberCount ?? 0) !== 1 ? "s" : ""}
-                      </span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                        {group.duration} min
-                      </span>
-                    </div>
-                  </div>
-                  {canWrite && (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => openEditSheet(group)}
-                        className="h-9 px-3 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
-                      >
-                        Editar
-                      </button>
-                      {group.isActive ? (
-                        <button
-                          onClick={() => handleDeactivate(group)}
-                          className="h-9 px-3 rounded-md border border-destructive text-destructive text-sm font-medium hover:bg-destructive hover:text-destructive-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
-                        >
-                          Desativar
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleReactivate(group)}
-                          className="h-9 px-3 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary hover:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
-                        >
-                          Reativar
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
+                group={group}
+                canWrite={canWrite}
+                onView={openViewSheet}
+                onEdit={openEditSheet}
+                onDeactivate={handleDeactivate}
+                onReactivate={handleReactivate}
+              />
             ))
           )}
         </div>
@@ -791,118 +649,22 @@ export default function GroupsPage() {
 
                         {/* Session Generation */}
                         {canWrite && viewingGroup.isActive && (
-                          <div className="border border-purple-200 dark:border-purple-800 rounded-lg p-4 bg-purple-50/50 dark:bg-purple-950/30">
-                            {isGeneratingOpen ? (
-                              <div className="space-y-4">
-                                <h4 className="font-medium text-foreground">Gerar Sessões</h4>
-
-                                {/* Mode selector */}
-                                <div className="flex rounded-lg border border-input overflow-hidden">
-                                  <button
-                                    type="button"
-                                    onClick={() => setGenerateMode("generate")}
-                                    className={`flex-1 h-10 text-sm font-medium transition-colors ${
-                                      generateMode === "generate"
-                                        ? "bg-purple-600 text-white"
-                                        : "bg-background text-foreground hover:bg-muted"
-                                    }`}
-                                  >
-                                    Criar Novas
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setGenerateMode("regenerate")}
-                                    className={`flex-1 h-10 text-sm font-medium transition-colors ${
-                                      generateMode === "regenerate"
-                                        ? "bg-purple-600 text-white"
-                                        : "bg-background text-foreground hover:bg-muted"
-                                    }`}
-                                  >
-                                    Atualizar Membros
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setGenerateMode("reschedule")}
-                                    className={`flex-1 h-10 text-sm font-medium transition-colors ${
-                                      generateMode === "reschedule"
-                                        ? "bg-purple-600 text-white"
-                                        : "bg-background text-foreground hover:bg-muted"
-                                    }`}
-                                  >
-                                    Reagendar
-                                  </button>
-                                </div>
-
-                                <p className="text-xs text-muted-foreground">
-                                  {generateMode === "generate"
-                                    ? "Cria novas sessões no período selecionado."
-                                    : generateMode === "regenerate"
-                                    ? "Adiciona novos membros a todas as sessões futuras já existentes."
-                                    : "Cancela todas as sessões futuras e recria com as configurações atuais do grupo."}
-                                </p>
-
-                                {generateMode === "reschedule" && (
-                                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                                    Todas as sessões futuras serão canceladas e recriadas com as configurações atuais do grupo.
-                                  </p>
-                                )}
-
-                                {(generateMode === "generate" || generateMode === "reschedule") && (
-                                  <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                      <label className="block text-sm text-muted-foreground mb-1">Data Início</label>
-                                      <input
-                                        type="date"
-                                        value={generateStartDate}
-                                        onChange={(e) => setGenerateStartDate(e.target.value)}
-                                        className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="block text-sm text-muted-foreground mb-1">Data Fim</label>
-                                      <input
-                                        type="date"
-                                        value={generateEndDate}
-                                        onChange={(e) => setGenerateEndDate(e.target.value)}
-                                        className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={handleGenerateSessions}
-                                    disabled={isGenerating}
-                                    className="h-10 px-4 rounded-md bg-purple-600 text-white font-medium hover:bg-purple-700 disabled:opacity-50"
-                                  >
-                                    {isGenerating
-                                      ? "Processando..."
-                                      : generateMode === "generate"
-                                      ? "Gerar Sessões"
-                                      : generateMode === "regenerate"
-                                      ? "Atualizar Sessões"
-                                      : "Reagendar Sessões"}
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setIsGeneratingOpen(false)
-                                      setGenerateMode("generate")
-                                    }}
-                                    className="h-10 px-4 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted"
-                                  >
-                                    Cancelar
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setIsGeneratingOpen(true)}
-                                className="w-full h-10 rounded-md bg-purple-600 text-white font-medium hover:bg-purple-700"
-                              >
-                                Gerar / Atualizar Sessões
-                              </button>
-                            )}
-                          </div>
+                          <SessionGenerationPanel
+                            isGeneratingOpen={isGeneratingOpen}
+                            generateMode={generateMode}
+                            generateStartDate={generateStartDate}
+                            generateEndDate={generateEndDate}
+                            isGenerating={isGenerating}
+                            onOpenGenerating={() => setIsGeneratingOpen(true)}
+                            onCloseGenerating={() => {
+                              setIsGeneratingOpen(false)
+                              setGenerateMode("generate")
+                            }}
+                            onModeChange={setGenerateMode}
+                            onStartDateChange={setGenerateStartDate}
+                            onEndDateChange={setGenerateEndDate}
+                            onGenerate={handleGenerateSessions}
+                          />
                         )}
 
                         {/* Tabs */}
@@ -940,340 +702,49 @@ export default function GroupsPage() {
 
                         {/* Members Tab */}
                         {viewTab === "members" && (
-                          <div>
-                            <div className="flex items-center justify-end mb-4">
-                              {canWrite && viewingGroup.isActive && !isAddingMember && (
-                                <button
-                                  onClick={() => {
-                                    setIsAddingMember(true)
-                                    setMemberJoinDate(getTodayISO())
-                                  }}
-                                  className="h-8 px-3 rounded-md bg-purple-600 text-white text-sm font-medium hover:bg-purple-700"
-                                >
-                                  + Adicionar Membro
-                                </button>
-                              )}
-                            </div>
-
-                            {/* Add Member Form */}
-                            {isAddingMember && (
-                              <div className="mb-4 p-4 border border-purple-200 dark:border-purple-800 rounded-lg bg-purple-50/50 dark:bg-purple-950/30">
-                                <h4 className="font-medium text-foreground mb-3">Adicionar Novo Membro</h4>
-
-                                {/* Patient Search */}
-                                <div className="relative mb-3">
-                                  <label className="block text-sm text-muted-foreground mb-1">Paciente *</label>
-                                  {selectedPatient ? (
-                                    <div className="flex items-center justify-between h-10 px-3 rounded-md border border-input bg-background">
-                                      <span className="text-foreground">{selectedPatient.name}</span>
-                                      <button
-                                        type="button"
-                                        onClick={handleClearPatient}
-                                        className="text-muted-foreground hover:text-foreground"
-                                      >
-                                        ✕
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <input
-                                        type="text"
-                                        value={patientSearch}
-                                        onChange={(e) => setPatientSearch(e.target.value)}
-                                        placeholder="Buscar paciente por nome..."
-                                        className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                                      />
-                                      {/* Search Results Dropdown */}
-                                      {(patientSearchResults.length > 0 || isSearchingPatients) && (
-                                        <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                                          {isSearchingPatients ? (
-                                            <div className="p-3 text-sm text-muted-foreground">Buscando...</div>
-                                          ) : (
-                                            patientSearchResults.map((patient) => (
-                                              <button
-                                                key={patient.id}
-                                                type="button"
-                                                onClick={() => handleSelectPatient(patient)}
-                                                className="w-full px-3 py-2 text-left hover:bg-muted transition-colors"
-                                              >
-                                                <p className="font-medium text-foreground">{patient.name}</p>
-                                                <p className="text-xs text-muted-foreground">{patient.phone}</p>
-                                              </button>
-                                            ))
-                                          )}
-                                        </div>
-                                      )}
-                                    </>
-                                  )}
-                                </div>
-
-                                {/* Join Date */}
-                                <div className="mb-3">
-                                  <label className="block text-sm text-muted-foreground mb-1">Data de Entrada *</label>
-                                  <input
-                                    type="date"
-                                    value={memberJoinDate}
-                                    onChange={(e) => setMemberJoinDate(e.target.value)}
-                                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground"
-                                  />
-                                </div>
-
-                                {/* Actions */}
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={handleAddMember}
-                                    disabled={isSavingMember || !selectedPatient || !memberJoinDate}
-                                    className="h-9 px-4 rounded-md bg-purple-600 text-white font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    {isSavingMember ? "Salvando..." : "Adicionar"}
-                                  </button>
-                                  <button
-                                    onClick={resetAddMemberState}
-                                    className="h-9 px-4 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted"
-                                  >
-                                    Cancelar
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-
-                            {viewingGroup.memberships.length > 0 ? (
-                              <div className="space-y-3">
-                                {viewingGroup.memberships.map((membership) => {
-                                  const isActive = !membership.leaveDate
-                                  return (
-                                    <div
-                                      key={membership.id}
-                                      className={`bg-muted/50 rounded-lg p-4 ${!isActive ? "opacity-60" : ""}`}
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <div>
-                                          <p className="font-medium text-foreground">{membership.patient.name}</p>
-                                          <p className="text-sm text-muted-foreground">{membership.patient.phone}</p>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                          <div className="text-right">
-                                            <span className={`text-xs px-2 py-1 rounded-full ${isActive ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200" : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"}`}>
-                                              {isActive ? "Ativo" : "Saiu"}
-                                            </span>
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                              Desde {new Date(membership.joinDate).toLocaleDateString("pt-BR")}
-                                            </p>
-                                          </div>
-                                          {canWrite && isActive && (
-                                            <button
-                                              onClick={() => handleRemoveMember(membership.id, membership.patient.name)}
-                                              className="h-7 px-2 text-xs rounded border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
-                                            >
-                                              Remover
-                                            </button>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            ) : (
-                              <p className="text-muted-foreground text-sm">
-                                Nenhum membro cadastrado. {canWrite && viewingGroup.isActive && "Clique em \"+ Adicionar Membro\" para começar."}
-                              </p>
-                            )}
-                          </div>
+                          <MembersTab
+                            viewingGroup={viewingGroup}
+                            canWrite={canWrite}
+                            isAddingMember={isAddingMember}
+                            selectedPatient={selectedPatient}
+                            patientSearch={patientSearch}
+                            patientSearchResults={patientSearchResults}
+                            isSearchingPatients={isSearchingPatients}
+                            memberJoinDate={memberJoinDate}
+                            isSavingMember={isSavingMember}
+                            onStartAddMember={() => {
+                              setIsAddingMember(true)
+                              setMemberJoinDate(getTodayISO())
+                            }}
+                            onPatientSearch={setPatientSearch}
+                            onSelectPatient={handleSelectPatient}
+                            onClearPatient={handleClearPatient}
+                            onJoinDateChange={setMemberJoinDate}
+                            onAddMember={handleAddMember}
+                            onCancelAddMember={resetAddMemberState}
+                            onRemoveMember={handleRemoveMember}
+                          />
                         )}
 
                         {/* Sessions Tab */}
                         {viewTab === "sessions" && (
-                          <div>
-                            {/* Filter Toggle */}
-                            <div className="flex rounded-lg border border-input overflow-hidden mb-4">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (sessionFilter !== "upcoming") {
-                                    setSessionFilter("upcoming")
-                                    setSessionPage(1)
-                                    if (viewingGroup) {
-                                      fetchGroupSessions(viewingGroup.id, "upcoming", 1, sessionGoToDate || undefined)
-                                    }
-                                  }
-                                }}
-                                className={`flex-1 h-9 text-sm font-medium transition-colors ${
-                                  sessionFilter === "upcoming"
-                                    ? "bg-purple-600 text-white"
-                                    : "bg-background text-foreground hover:bg-muted"
-                                }`}
-                              >
-                                Próximas
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (sessionFilter !== "past") {
-                                    setSessionFilter("past")
-                                    setSessionPage(1)
-                                    if (viewingGroup) {
-                                      fetchGroupSessions(viewingGroup.id, "past", 1, sessionGoToDate || undefined)
-                                    }
-                                  }
-                                }}
-                                className={`flex-1 h-9 text-sm font-medium transition-colors ${
-                                  sessionFilter === "past"
-                                    ? "bg-purple-600 text-white"
-                                    : "bg-background text-foreground hover:bg-muted"
-                                }`}
-                              >
-                                Passadas
-                              </button>
-                            </div>
-
-                            {/* Go to date */}
-                            <div className="flex items-center gap-2 mb-4">
-                              <label className="text-sm text-muted-foreground whitespace-nowrap">Ir para data:</label>
-                              <input
-                                type="date"
-                                value={sessionGoToDate}
-                                onChange={(e) => {
-                                  const val = e.target.value
-                                  setSessionGoToDate(val)
-                                  setSessionPage(1)
-                                  if (viewingGroup) {
-                                    fetchGroupSessions(viewingGroup.id, sessionFilter, 1, val || undefined)
-                                  }
-                                }}
-                                className="h-9 px-3 rounded-md border border-input bg-background text-foreground text-sm"
-                              />
-                              {sessionGoToDate && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSessionGoToDate("")
-                                    setSessionPage(1)
-                                    if (viewingGroup) {
-                                      fetchGroupSessions(viewingGroup.id, sessionFilter, 1)
-                                    }
-                                  }}
-                                  className="text-xs text-muted-foreground hover:text-foreground"
-                                >
-                                  Limpar
-                                </button>
-                              )}
-                            </div>
-
-                            {isLoadingSessions ? (
-                              <div className="animate-pulse space-y-3">
-                                <div className="h-16 bg-muted rounded-lg" />
-                                <div className="h-16 bg-muted rounded-lg" />
-                                <div className="h-16 bg-muted rounded-lg" />
-                              </div>
-                            ) : groupSessions.length > 0 ? (
-                              <div className="space-y-2">
-                                {groupSessions.map((session) => {
-                                  const sessionDate = new Date(session.scheduledAt)
-                                  const endDate = new Date(session.endAt)
-                                  const isPast = sessionDate < new Date()
-                                  const dateStr = sessionDate.toLocaleDateString("pt-BR", {
-                                    weekday: "short",
-                                    day: "2-digit",
-                                    month: "2-digit",
-                                    year: "numeric",
-                                    timeZone: "America/Sao_Paulo",
-                                  })
-                                  const startTime = sessionDate.toLocaleTimeString("pt-BR", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                    timeZone: "America/Sao_Paulo",
-                                  })
-                                  const endTime = endDate.toLocaleTimeString("pt-BR", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                    timeZone: "America/Sao_Paulo",
-                                  })
-
-                                  return (
-                                    <div
-                                      key={`${session.groupId}-${session.scheduledAt}`}
-                                      className={`bg-muted/50 rounded-lg p-4 ${isPast ? "opacity-60" : ""}`}
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <div>
-                                          <p className="font-medium text-foreground capitalize">{dateStr}</p>
-                                          <p className="text-sm text-muted-foreground">
-                                            {startTime} - {endTime}
-                                          </p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <span className={`text-xs px-2 py-1 rounded-full ${
-                                            isPast
-                                              ? "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
-                                              : "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200"
-                                          }`}>
-                                            {session.participants.length} participante{session.participants.length !== 1 ? "s" : ""}
-                                          </span>
-                                          {isPast && (
-                                            <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
-                                              Realizada
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                      {session.participants.length > 0 && (
-                                        <div className="mt-2 flex flex-wrap gap-1">
-                                          {session.participants.map((p) => (
-                                            <span
-                                              key={p.appointmentId}
-                                              className="text-xs px-2 py-0.5 rounded-full bg-background border border-border text-muted-foreground"
-                                            >
-                                              {p.patientName}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            ) : (
-                              <EmptyState
-                                title={sessionFilter === "upcoming" ? "Nenhuma sessão próxima" : "Nenhuma sessão passada"}
-                                message={canWrite && viewingGroup.isActive && sessionFilter === "upcoming" ? "Use \"Gerar / Atualizar Sessões\" para criar sessões" : sessionFilter === "past" ? "Nenhuma sessão passada encontrada" : "Ainda não há sessões para este grupo"}
-                                icon={<CalendarIcon className="w-8 h-8 text-muted-foreground" />}
-                              />
-                            )}
-
-                            {/* Pagination */}
-                            {sessionTotal > SESSION_PAGE_SIZE && (
-                              <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const prev = sessionPage - 1
-                                    setSessionPage(prev)
-                                    if (viewingGroup) fetchGroupSessions(viewingGroup.id, sessionFilter, prev, sessionGoToDate || undefined)
-                                  }}
-                                  disabled={sessionPage <= 1}
-                                  className="h-8 px-3 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                  &larr; Anterior
-                                </button>
-                                <span className="text-sm text-muted-foreground">
-                                  Página {sessionPage} de {Math.ceil(sessionTotal / SESSION_PAGE_SIZE)}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const next = sessionPage + 1
-                                    setSessionPage(next)
-                                    if (viewingGroup) fetchGroupSessions(viewingGroup.id, sessionFilter, next, sessionGoToDate || undefined)
-                                  }}
-                                  disabled={sessionPage >= Math.ceil(sessionTotal / SESSION_PAGE_SIZE)}
-                                  className="h-8 px-3 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                  Próxima &rarr;
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                          <SessionsTab
+                            groupId={viewingGroup.id}
+                            isActive={viewingGroup.isActive}
+                            canWrite={canWrite}
+                            sessionFilter={sessionFilter}
+                            groupSessions={groupSessions}
+                            isLoadingSessions={isLoadingSessions}
+                            sessionPage={sessionPage}
+                            sessionTotal={sessionTotal}
+                            sessionPageSize={SESSION_PAGE_SIZE}
+                            sessionGoToDate={sessionGoToDate}
+                            onFilterChange={setSessionFilter}
+                            onPageChange={setSessionPage}
+                            onGoToDateChange={setSessionGoToDate}
+                            onClearGoToDate={() => setSessionGoToDate("")}
+                            onFetchSessions={fetchGroupSessions}
+                          />
                         )}
 
                         <div className="pt-4">
@@ -1293,179 +764,17 @@ export default function GroupsPage() {
                 {/* Create/Edit Mode */}
                 {(editingGroup || (!viewingGroup && !isLoadingDetails)) && canWrite && (
                   <>
-                    <h2 className="text-xl font-semibold text-foreground mb-6">
-                      {editingGroup ? "Editar Grupo" : "Novo Grupo"}
-                    </h2>
-
-                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                      <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">
-                          Nome do Grupo *
-                        </label>
-                        <input
-                          id="name"
-                          type="text"
-                          {...register("name")}
-                          placeholder="Ex: Grupo de Ansiedade - Quinta"
-                          className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
-                        {errors.name && (
-                          <p className="text-sm text-destructive mt-1">{errors.name.message}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label htmlFor="professionalProfileId" className="block text-sm font-medium text-foreground mb-2">
-                          Profissional *
-                        </label>
-                        <select
-                          id="professionalProfileId"
-                          {...register("professionalProfileId")}
-                          className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                        >
-                          <option value="">Selecione um profissional</option>
-                          {professionals.map((prof) => (
-                            <option key={prof.id} value={prof.professionalProfile?.id || ""}>
-                              {prof.name}
-                              {prof.professionalProfile?.specialty && ` - ${prof.professionalProfile.specialty}`}
-                            </option>
-                          ))}
-                        </select>
-                        {errors.professionalProfileId && (
-                          <p className="text-sm text-destructive mt-1">{errors.professionalProfileId.message}</p>
-                        )}
-                      </div>
-
-                      {/* Additional Professionals */}
-                      {professionals.length > 1 && (
-                        <div>
-                          <label className="block text-sm font-medium text-foreground mb-2">
-                            Profissionais adicionais
-                          </label>
-                          <div className="space-y-2 p-3 rounded-xl border border-input bg-background">
-                            {professionals
-                              .filter(p => {
-                                const formProfId = editingGroup
-                                  ? editingGroup.professionalProfile.id
-                                  : undefined
-                                return p.professionalProfile?.id && p.professionalProfile.id !== formProfId
-                              })
-                              .map(prof => (
-                                <label key={prof.id} className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={additionalProfessionalIds.includes(prof.professionalProfile!.id)}
-                                    onChange={() => {
-                                      const profId = prof.professionalProfile!.id
-                                      setAdditionalProfessionalIds(prev =>
-                                        prev.includes(profId)
-                                          ? prev.filter(id => id !== profId)
-                                          : [...prev, profId]
-                                      )
-                                    }}
-                                    className="w-4 h-4 rounded border-input text-primary focus:ring-ring/40"
-                                  />
-                                  <span className="text-sm">{prof.name}</span>
-                                </label>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label htmlFor="dayOfWeek" className="block text-sm font-medium text-foreground mb-2">
-                            Dia da Semana *
-                          </label>
-                          <select
-                            id="dayOfWeek"
-                            {...register("dayOfWeek", { valueAsNumber: true })}
-                            className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                          >
-                            {DAY_OF_WEEK_LABELS.map((label, index) => (
-                              <option key={index} value={index}>{label}</option>
-                            ))}
-                          </select>
-                          {errors.dayOfWeek && (
-                            <p className="text-sm text-destructive mt-1">{errors.dayOfWeek.message}</p>
-                          )}
-                        </div>
-
-                        <div>
-                          <label htmlFor="startTime" className="block text-sm font-medium text-foreground mb-2">
-                            Horário *
-                          </label>
-                          <TimeInput
-                            id="startTime"
-                            placeholder="Ex: 14:00"
-                            {...register("startTime")}
-                            className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                          />
-                          {errors.startTime && (
-                            <p className="text-sm text-destructive mt-1">{errors.startTime.message}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label htmlFor="duration" className="block text-sm font-medium text-foreground mb-2">
-                            Duração (minutos) *
-                          </label>
-                          <input
-                            id="duration"
-                            type="number"
-                            {...register("duration", { valueAsNumber: true })}
-                            min={15}
-                            max={480}
-                            step={5}
-                            className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                          />
-                          {errors.duration && (
-                            <p className="text-sm text-destructive mt-1">{errors.duration.message}</p>
-                          )}
-                        </div>
-
-                        <div>
-                          <label htmlFor="recurrenceType" className="block text-sm font-medium text-foreground mb-2">
-                            Recorrência *
-                          </label>
-                          <select
-                            id="recurrenceType"
-                            {...register("recurrenceType")}
-                            className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                          >
-                            <option value="WEEKLY">Semanal</option>
-                            <option value="BIWEEKLY">Quinzenal</option>
-                            <option value="MONTHLY">Mensal</option>
-                          </select>
-                          {errors.recurrenceType && (
-                            <p className="text-sm text-destructive mt-1">{errors.recurrenceType.message}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                        <button
-                          type="submit"
-                          disabled={isSaving}
-                          className="flex-1 h-12 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {isSaving
-                            ? "Salvando..."
-                            : editingGroup
-                            ? "Salvar alterações"
-                            : "Criar grupo"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={closeSheet}
-                          className="flex-1 sm:flex-initial sm:w-32 h-12 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    </form>
+                    <GroupForm
+                      register={register}
+                      errors={errors}
+                      professionals={professionals}
+                      additionalProfessionalIds={additionalProfessionalIds}
+                      editingGroup={editingGroup}
+                      isSaving={isSaving}
+                      onSubmit={handleSubmit(onSubmit)}
+                      onCancel={closeSheet}
+                      onAdditionalProfessionalToggle={handleAdditionalProfessionalToggle}
+                    />
 
                     {/* Members Section in Edit Mode (only for existing groups) */}
                     {editingGroup && viewingGroup && (
@@ -1490,86 +799,20 @@ export default function GroupsPage() {
 
                         {/* Add Member Form */}
                         {isAddingMember && (
-                          <div className="mb-4 p-4 border border-purple-200 dark:border-purple-800 rounded-lg bg-purple-50/50 dark:bg-purple-950/30">
-                            <h4 className="font-medium text-foreground mb-3">Adicionar Novo Membro</h4>
-
-                            {/* Patient Search */}
-                            <div className="relative mb-3">
-                              <label className="block text-sm text-muted-foreground mb-1">Paciente *</label>
-                              {selectedPatient ? (
-                                <div className="flex items-center justify-between h-10 px-3 rounded-md border border-input bg-background">
-                                  <span className="text-foreground">{selectedPatient.name}</span>
-                                  <button
-                                    type="button"
-                                    onClick={handleClearPatient}
-                                    className="text-muted-foreground hover:text-foreground"
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              ) : (
-                                <>
-                                  <input
-                                    type="text"
-                                    value={patientSearch}
-                                    onChange={(e) => setPatientSearch(e.target.value)}
-                                    placeholder="Buscar paciente por nome..."
-                                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                                  />
-                                  {/* Search Results Dropdown */}
-                                  {(patientSearchResults.length > 0 || isSearchingPatients) && (
-                                    <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                                      {isSearchingPatients ? (
-                                        <div className="p-3 text-sm text-muted-foreground">Buscando...</div>
-                                      ) : (
-                                        patientSearchResults.map((patient) => (
-                                          <button
-                                            key={patient.id}
-                                            type="button"
-                                            onClick={() => handleSelectPatient(patient)}
-                                            className="w-full px-3 py-2 text-left hover:bg-muted transition-colors"
-                                          >
-                                            <p className="font-medium text-foreground">{patient.name}</p>
-                                            <p className="text-xs text-muted-foreground">{patient.phone}</p>
-                                          </button>
-                                        ))
-                                      )}
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                            </div>
-
-                            {/* Join Date */}
-                            <div className="mb-3">
-                              <label className="block text-sm text-muted-foreground mb-1">Data de Entrada *</label>
-                              <input
-                                type="date"
-                                value={memberJoinDate}
-                                onChange={(e) => setMemberJoinDate(e.target.value)}
-                                className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground"
-                              />
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={handleAddMember}
-                                disabled={isSavingMember || !selectedPatient || !memberJoinDate}
-                                className="h-9 px-4 rounded-md bg-purple-600 text-white font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {isSavingMember ? "Salvando..." : "Adicionar"}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={resetAddMemberState}
-                                className="h-9 px-4 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted"
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                          </div>
+                          <AddMemberForm
+                            selectedPatient={selectedPatient}
+                            patientSearch={patientSearch}
+                            patientSearchResults={patientSearchResults}
+                            isSearchingPatients={isSearchingPatients}
+                            memberJoinDate={memberJoinDate}
+                            isSavingMember={isSavingMember}
+                            onPatientSearch={setPatientSearch}
+                            onSelectPatient={handleSelectPatient}
+                            onClearPatient={handleClearPatient}
+                            onJoinDateChange={setMemberJoinDate}
+                            onAdd={handleAddMember}
+                            onCancel={resetAddMemberState}
+                          />
                         )}
 
                         {/* Members List */}
@@ -1580,41 +823,14 @@ export default function GroupsPage() {
                           </div>
                         ) : viewingGroup.memberships.length > 0 ? (
                           <div className="space-y-3">
-                            {viewingGroup.memberships.map((membership) => {
-                              const isActive = !membership.leaveDate
-                              return (
-                                <div
-                                  key={membership.id}
-                                  className={`bg-muted/50 rounded-lg p-4 ${!isActive ? "opacity-60" : ""}`}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <p className="font-medium text-foreground">{membership.patient.name}</p>
-                                      <p className="text-sm text-muted-foreground">{membership.patient.phone}</p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                      <div className="text-right">
-                                        <span className={`text-xs px-2 py-1 rounded-full ${isActive ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200" : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"}`}>
-                                          {isActive ? "Ativo" : "Saiu"}
-                                        </span>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                          Desde {new Date(membership.joinDate).toLocaleDateString("pt-BR")}
-                                        </p>
-                                      </div>
-                                      {isActive && (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRemoveMember(membership.id, membership.patient.name)}
-                                          className="h-7 px-2 text-xs rounded border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
-                                        >
-                                          Remover
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            })}
+                            {viewingGroup.memberships.map((membership) => (
+                              <MemberCard
+                                key={membership.id}
+                                membership={membership}
+                                canRemove={true}
+                                onRemove={handleRemoveMember}
+                              />
+                            ))}
                           </div>
                         ) : (
                           <p className="text-muted-foreground text-sm">

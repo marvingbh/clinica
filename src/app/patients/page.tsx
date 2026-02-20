@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { useForm, Controller } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
@@ -15,14 +15,15 @@ import {
   UsersIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  EyeIcon,
-  PencilIcon,
-  BanIcon,
-  RotateCcwIcon,
-  DatePickerInput,
 } from "@/shared/components/ui"
 import { usePermission } from "@/shared/hooks/usePermission"
-import { HistoryTimeline } from "@/shared/components/HistoryTimeline"
+import {
+  PatientsSearchFilters,
+  PatientsTable,
+  PatientDetailsView,
+  PatientForm,
+} from "./components"
+import type { Patient, Professional, AdditionalPhone, Pagination, PatientFormData } from "./components"
 
 // WhatsApp format validation
 const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
@@ -48,101 +49,6 @@ const patientSchema = z.object({
   consentEmail: z.boolean(),
 })
 
-type PatientFormData = z.infer<typeof patientSchema>
-
-interface Appointment {
-  id: string
-  scheduledAt: string
-  endAt: string
-  status: string
-  modality: string
-  notes: string | null
-  professionalProfile: {
-    id: string
-    user: {
-      name: string
-    }
-  }
-}
-
-interface ReferenceProfessional {
-  id: string
-  user: {
-    name: string
-  }
-}
-
-interface Professional {
-  id: string
-  name: string
-  professionalProfile: {
-    id: string
-  } | null
-}
-
-interface AdditionalPhone {
-  id?: string
-  phone: string
-  label: string
-}
-
-interface Patient {
-  id: string
-  name: string
-  email: string | null
-  phone: string
-  birthDate: string | null
-  fatherName: string | null
-  motherName: string | null
-  schoolName: string | null
-  firstAppointmentDate: string | null
-  lastFeeAdjustmentDate: string | null
-  sessionFee: string | number | null
-  therapeuticProject: string | null
-  notes: string | null
-  isActive: boolean
-  lastVisitAt: string | null
-  consentWhatsApp: boolean
-  consentWhatsAppAt: string | null
-  consentEmail: boolean
-  consentEmailAt: string | null
-  createdAt: string
-  referenceProfessionalId: string | null
-  referenceProfessional: ReferenceProfessional | null
-  additionalPhones?: AdditionalPhone[]
-  appointments?: Appointment[]
-}
-
-interface Pagination {
-  page: number
-  limit: number
-  total: number
-  totalPages: number
-}
-
-function formatPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, "")
-  if (digits.length === 11) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
-  }
-  if (digits.length === 10) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
-  }
-  return phone
-}
-
-function formatDate(dateString: string | null): string {
-  if (!dateString) return "-"
-  return new Date(dateString).toLocaleDateString("pt-BR")
-}
-
-function formatCurrency(value: string | number | null): string {
-  if (value === null || value === undefined || value === "") return "-"
-  const num = typeof value === "string" ? parseFloat(value) : value
-  if (isNaN(num)) return "-"
-  return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-}
-
 // Convert ISO date (YYYY-MM-DD or full ISO) to DD/MM/YYYY for display in inputs
 function isoToBrDate(dateString: string | null): string {
   if (!dateString) return ""
@@ -161,34 +67,6 @@ function brDateToIso(brDate: string): string {
   if (parts.length !== 3) return ""
   const [day, month, year] = parts
   return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-}
-
-function formatDateTime(dateString: string): string {
-  return new Date(dateString).toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
-
-const statusLabels: Record<string, string> = {
-  AGENDADO: "Agendado",
-  CONFIRMADO: "Confirmado",
-  CANCELADO_PACIENTE: "Cancelado (Paciente)",
-  CANCELADO_PROFISSIONAL: "Cancelado (Profissional)",
-  NAO_COMPARECEU: "Não compareceu",
-  FINALIZADO: "Finalizado",
-}
-
-const statusColors: Record<string, string> = {
-  AGENDADO: "bg-blue-100 text-blue-800",
-  CONFIRMADO: "bg-green-100 text-green-800",
-  CANCELADO_PACIENTE: "bg-red-100 text-red-800",
-  CANCELADO_PROFISSIONAL: "bg-red-100 text-red-800",
-  NAO_COMPARECEU: "bg-yellow-100 text-yellow-800",
-  FINALIZADO: "bg-gray-100 text-gray-800",
 }
 
 const ITEMS_PER_PAGE = 15
@@ -553,46 +431,21 @@ export default function PatientsPage() {
         </div>
 
         {/* Search and Filter */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="flex-1">
-            <input
-              type="text"
-              placeholder="Buscar por nome, email ou telefone..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-            />
-          </div>
-          <select
-            value={filterProfessional}
-            onChange={(e) => {
-              setFilterProfessional(e.target.value)
-              setPagination((prev) => ({ ...prev, page: 1 }))
-            }}
-            className="h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-          >
-            <option value="">Todos profissionais</option>
-            {professionals
-              .filter((prof) => prof.professionalProfile)
-              .map((prof) => (
-                <option key={prof.professionalProfile!.id} value={prof.professionalProfile!.id}>
-                  {prof.name}
-                </option>
-              ))}
-          </select>
-          <select
-            value={filterActive}
-            onChange={(e) => {
-              setFilterActive(e.target.value)
-              setPagination((prev) => ({ ...prev, page: 1 }))
-            }}
-            className="h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-          >
-            <option value="all">Todos</option>
-            <option value="true">Ativos</option>
-            <option value="false">Inativos</option>
-          </select>
-        </div>
+        <PatientsSearchFilters
+          search={search}
+          filterActive={filterActive}
+          filterProfessional={filterProfessional}
+          professionals={professionals}
+          onSearchChange={setSearch}
+          onFilterActiveChange={(value) => {
+            setFilterActive(value)
+            setPagination((prev) => ({ ...prev, page: 1 }))
+          }}
+          onFilterProfessionalChange={(value) => {
+            setFilterProfessional(value)
+            setPagination((prev) => ({ ...prev, page: 1 }))
+          }}
+        />
 
         {/* Patients Table */}
         {patients.length === 0 ? (
@@ -604,116 +457,14 @@ export default function PatientsPage() {
           />
         ) : (
           <>
-            <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/50">
-                      <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Nome</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground hidden sm:table-cell">Telefone</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground hidden md:table-cell">Profissional</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground hidden lg:table-cell">Ultima Visita</th>
-                      <th className="text-center px-4 py-3 text-sm font-medium text-muted-foreground">Status</th>
-                      <th className="text-right px-4 py-3 text-sm font-medium text-muted-foreground">Acoes</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {patients.map((patient) => (
-                      <tr
-                        key={patient.id}
-                        className={`hover:bg-muted/30 transition-colors ${!patient.isActive ? "opacity-60" : ""}`}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => openViewSheet(patient)}
-                              className="font-medium text-foreground hover:text-primary transition-colors text-left"
-                            >
-                              {patient.name}
-                            </button>
-                            <div className="flex gap-1">
-                              {patient.consentWhatsApp && (
-                                <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                  WA
-                                </span>
-                              )}
-                              {patient.consentEmail && (
-                                <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                                  Email
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          {/* Mobile: show phone below name */}
-                          <p className="text-sm text-muted-foreground sm:hidden mt-1">
-                            {formatPhone(patient.phone)}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground hidden sm:table-cell">
-                          {formatPhone(patient.phone)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">
-                          {patient.referenceProfessional?.user.name || "-"}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground hidden lg:table-cell">
-                          {formatDate(patient.lastVisitAt)}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span
-                            className={`inline-flex text-xs px-2 py-1 rounded-full ${
-                              patient.isActive
-                                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                                : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                            }`}
-                          >
-                            {patient.isActive ? "Ativo" : "Inativo"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => openViewSheet(patient)}
-                              title="Ver detalhes"
-                              className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                            >
-                              <EyeIcon className="w-4 h-4" />
-                            </button>
-                            {canWrite && (
-                              <>
-                                <button
-                                  onClick={() => openEditSheet(patient)}
-                                  title="Editar"
-                                  className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                                >
-                                  <PencilIcon className="w-4 h-4" />
-                                </button>
-                                {patient.isActive ? (
-                                  <button
-                                    onClick={() => handleDeactivate(patient)}
-                                    title="Desativar"
-                                    className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                  >
-                                    <BanIcon className="w-4 h-4" />
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => handleReactivate(patient)}
-                                    title="Reativar"
-                                    className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                                  >
-                                    <RotateCcwIcon className="w-4 h-4" />
-                                  </button>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <PatientsTable
+              patients={patients}
+              canWrite={canWrite}
+              onView={openViewSheet}
+              onEdit={openEditSheet}
+              onDeactivate={handleDeactivate}
+              onReactivate={handleReactivate}
+            />
 
             {/* Pagination */}
             {pagination.totalPages > 1 && (
@@ -801,666 +552,66 @@ export default function PatientsPage() {
 
               {/* View Mode */}
               {viewingPatient && !editingPatient && (
-                <>
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-semibold text-foreground">
-                      {viewingPatient.name}
-                    </h2>
-                    {canWrite && (
-                      <button
-                        onClick={() => openEditSheet(viewingPatient)}
-                        className="h-9 px-3 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
-                      >
-                        Editar
-                      </button>
-                    )}
-                  </div>
-
-                  {canReadAudit && (
-                    <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-4">
-                      <button
-                        onClick={() => setPatientTab("dados")}
-                        className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-                          patientTab === "dados"
-                            ? "border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400"
-                            : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                        }`}
-                      >
-                        Dados
-                      </button>
-                      <button
-                        onClick={() => setPatientTab("historico")}
-                        className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-                          patientTab === "historico"
-                            ? "border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400"
-                            : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                        }`}
-                      >
-                        Historico
-                      </button>
-                    </div>
-                  )}
-
-                  {isLoadingDetails ? (
-                    <div className="animate-pulse space-y-4">
-                      <div className="h-6 w-32 bg-muted rounded" />
-                      <div className="h-4 w-48 bg-muted rounded" />
-                      <div className="h-4 w-40 bg-muted rounded" />
-                    </div>
-                  ) : (
-                    <>
-                    {patientTab === "dados" && (
-                    <div className="space-y-6">
-                      {/* Reference Professional */}
-                      {viewingPatient.referenceProfessional && (
-                        <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-                          <label className="text-sm text-muted-foreground">Profissional de Referencia</label>
-                          <p className="text-foreground font-medium">{viewingPatient.referenceProfessional.user.name}</p>
-                        </div>
-                      )}
-
-                      {/* Contact Info */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm text-muted-foreground">Telefone</label>
-                          <p className="text-foreground">{formatPhone(viewingPatient.phone)}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm text-muted-foreground">Email</label>
-                          <p className="text-foreground">{viewingPatient.email || "-"}</p>
-                        </div>
-                      </div>
-
-                      {/* Additional Phones */}
-                      {viewingPatient.additionalPhones && viewingPatient.additionalPhones.length > 0 && (
-                        <div>
-                          <label className="text-sm text-muted-foreground mb-2 block">Telefones adicionais</label>
-                          <div className="space-y-2">
-                            {viewingPatient.additionalPhones.map((phone, index) => (
-                              <div key={index} className="flex items-center gap-2">
-                                <span className="text-foreground">{formatPhone(phone.phone)}</span>
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                                  {phone.label}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Birth Date & First Appointment */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm text-muted-foreground">Data de Nascimento</label>
-                          <p className="text-foreground">{formatDate(viewingPatient.birthDate)}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm text-muted-foreground">Data Primeiro Atendimento</label>
-                          <p className="text-foreground">{formatDate(viewingPatient.firstAppointmentDate)}</p>
-                        </div>
-                      </div>
-
-                      {/* Parents Info */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm text-muted-foreground">Nome do Pai</label>
-                          <p className="text-foreground">{viewingPatient.fatherName || "-"}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm text-muted-foreground">Nome da Mae</label>
-                          <p className="text-foreground">{viewingPatient.motherName || "-"}</p>
-                        </div>
-                      </div>
-
-                      {/* School */}
-                      <div>
-                        <label className="text-sm text-muted-foreground">Escola</label>
-                        <p className="text-foreground">{viewingPatient.schoolName || "-"}</p>
-                      </div>
-
-                      {/* Session Fee & Adjustment */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm text-muted-foreground">Valor da Sessao</label>
-                          <p className="text-foreground">{formatCurrency(viewingPatient.sessionFee)}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm text-muted-foreground">Ultimo Reajuste</label>
-                          <p className="text-foreground">{formatDate(viewingPatient.lastFeeAdjustmentDate)}</p>
-                        </div>
-                      </div>
-
-                      {/* Therapeutic Project */}
-                      {viewingPatient.therapeuticProject && (
-                        <div>
-                          <label className="text-sm text-muted-foreground">Projeto Terapeutico</label>
-                          <p className="text-foreground whitespace-pre-wrap">{viewingPatient.therapeuticProject}</p>
-                        </div>
-                      )}
-
-                      {/* Notes */}
-                      {viewingPatient.notes && (
-                        <div>
-                          <label className="text-sm text-muted-foreground">Observacoes</label>
-                          <p className="text-foreground whitespace-pre-wrap">{viewingPatient.notes}</p>
-                        </div>
-                      )}
-
-                      {/* Consent Info */}
-                      <div>
-                        <label className="text-sm text-muted-foreground mb-2 block">Consentimentos LGPD</label>
-                        <div className="flex gap-4">
-                          <div className="flex items-center gap-2">
-                            <span className={`w-3 h-3 rounded-full ${viewingPatient.consentWhatsApp ? 'bg-green-500' : 'bg-gray-300'}`} />
-                            <span className="text-sm">WhatsApp</span>
-                            {viewingPatient.consentWhatsAppAt && (
-                              <span className="text-xs text-muted-foreground">
-                                ({formatDate(viewingPatient.consentWhatsAppAt)})
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`w-3 h-3 rounded-full ${viewingPatient.consentEmail ? 'bg-green-500' : 'bg-gray-300'}`} />
-                            <span className="text-sm">Email</span>
-                            {viewingPatient.consentEmailAt && (
-                              <span className="text-xs text-muted-foreground">
-                                ({formatDate(viewingPatient.consentEmailAt)})
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Appointment History */}
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-lg font-medium text-foreground">
-                            Historico de Consultas
-                          </h3>
-                          {appointmentsTotal > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                              {viewingPatient.appointments?.length || 0} de {appointmentsTotal}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Status filter chips */}
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          {[
-                            { value: "", label: "Todos" },
-                            { value: "AGENDADO", label: "Agendado" },
-                            { value: "CONFIRMADO", label: "Confirmado" },
-                            { value: "FINALIZADO", label: "Finalizado" },
-                            { value: "CANCELADO_PACIENTE", label: "Canc. Paciente" },
-                            { value: "CANCELADO_PROFISSIONAL", label: "Canc. Profissional" },
-                            { value: "NAO_COMPARECEU", label: "Faltou" },
-                          ].map((filter) => (
-                            <button
-                              key={filter.value}
-                              type="button"
-                              onClick={() => {
-                                setAppointmentsStatusFilter(filter.value)
-                                if (viewingPatient) {
-                                  fetchPatientDetails(viewingPatient.id, filter.value, 0)
-                                }
-                              }}
-                              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                                appointmentsStatusFilter === filter.value
-                                  ? "bg-primary text-primary-foreground border-primary"
-                                  : "bg-background text-muted-foreground border-input hover:bg-muted"
-                              }`}
-                            >
-                              {filter.label}
-                            </button>
-                          ))}
-                        </div>
-
-                        {viewingPatient.appointments && viewingPatient.appointments.length > 0 ? (
-                          <>
-                            <div className="space-y-3">
-                              {viewingPatient.appointments.map((appointment) => (
-                                <div
-                                  key={appointment.id}
-                                  className="bg-muted/50 rounded-lg p-4"
-                                >
-                                  <div className="flex items-center justify-between mb-2">
-                                    <span className="font-medium">
-                                      {formatDateTime(appointment.scheduledAt)}
-                                    </span>
-                                    <span className={`text-xs px-2 py-1 rounded-full ${statusColors[appointment.status] || 'bg-gray-100 text-gray-800'}`}>
-                                      {statusLabels[appointment.status] || appointment.status}
-                                    </span>
-                                  </div>
-                                  <p className="text-sm text-muted-foreground">
-                                    {appointment.professionalProfile.user.name}
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {appointment.modality === "ONLINE" ? "Online" : "Presencial"}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* Load more button */}
-                            {viewingPatient.appointments.length < appointmentsTotal && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (viewingPatient) {
-                                    fetchPatientDetails(
-                                      viewingPatient.id,
-                                      appointmentsStatusFilter,
-                                      viewingPatient.appointments?.length || 0
-                                    )
-                                  }
-                                }}
-                                disabled={isLoadingMoreAppointments}
-                                className="w-full mt-4 h-10 rounded-lg border border-input bg-background text-sm text-muted-foreground font-medium hover:bg-muted hover:text-foreground disabled:opacity-50 transition-colors"
-                              >
-                                {isLoadingMoreAppointments
-                                  ? "Carregando..."
-                                  : `Carregar mais (${appointmentsTotal - viewingPatient.appointments.length} restantes)`}
-                              </button>
-                            )}
-                          </>
-                        ) : (
-                          <p className="text-muted-foreground text-sm">
-                            {appointmentsStatusFilter
-                              ? "Nenhuma consulta com este filtro"
-                              : "Nenhuma consulta registrada"}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="pt-4">
-                        <button
-                          type="button"
-                          onClick={closeSheet}
-                          className="w-full h-12 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
-                        >
-                          Fechar
-                        </button>
-                      </div>
-                    </div>
-                    )}
-
-                    {patientTab === "historico" && viewingPatient && (
-                      <HistoryTimeline entityType="Patient" entityId={viewingPatient.id} />
-                    )}
-                    </>
-                  )}
-                </>
+                <PatientDetailsView
+                  patient={viewingPatient}
+                  canWrite={canWrite}
+                  canReadAudit={canReadAudit}
+                  patientTab={patientTab}
+                  isLoadingDetails={isLoadingDetails}
+                  appointmentsTotal={appointmentsTotal}
+                  appointmentsStatusFilter={appointmentsStatusFilter}
+                  isLoadingMoreAppointments={isLoadingMoreAppointments}
+                  onEdit={() => openEditSheet(viewingPatient)}
+                  onClose={closeSheet}
+                  onTabChange={setPatientTab}
+                  onAppointmentsStatusFilterChange={(value) => {
+                    setAppointmentsStatusFilter(value)
+                    if (viewingPatient) {
+                      fetchPatientDetails(viewingPatient.id, value, 0)
+                    }
+                  }}
+                  onLoadMoreAppointments={() => {
+                    if (viewingPatient) {
+                      fetchPatientDetails(
+                        viewingPatient.id,
+                        appointmentsStatusFilter,
+                        viewingPatient.appointments?.length || 0
+                      )
+                    }
+                  }}
+                />
               )}
 
               {/* Create/Edit Mode */}
               {(editingPatient || (!viewingPatient && !isLoadingDetails)) && canWrite && (
-                <>
-                  <h2 className="text-xl font-semibold text-foreground mb-6">
-                    {editingPatient ? "Editar Paciente" : "Novo Paciente"}
-                  </h2>
-
-                  <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                    <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">
-                        Nome *
-                      </label>
-                      <input
-                        id="name"
-                        type="text"
-                        {...register("name")}
-                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                      />
-                      {errors.name && (
-                        <p className="text-sm text-destructive mt-1">{errors.name.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-2">
-                        Telefone (WhatsApp) *
-                      </label>
-                      <input
-                        id="phone"
-                        type="tel"
-                        {...register("phone")}
-                        placeholder="11999999999"
-                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                      />
-                      {errors.phone && (
-                        <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Formato: DDD + numero (ex: 11999999999)
-                      </p>
-                    </div>
-
-                    {/* Additional Phones Section */}
-                    <div className="border border-border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <label className="text-sm font-medium text-foreground">
-                          Telefones adicionais
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setAdditionalPhones((prev) => [
-                              ...prev,
-                              { phone: "", label: "" },
-                            ])
-                          }
-                          disabled={additionalPhones.length >= 4}
-                          className="text-sm text-primary hover:text-primary/80 disabled:text-muted-foreground disabled:cursor-not-allowed transition-colors"
-                        >
-                          + Adicionar telefone
-                        </button>
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-3">
-                        Contatos adicionais que receberao notificacoes (mae, pai, responsavel, etc.)
-                      </p>
-                      {additionalPhones.length === 0 ? (
-                        <p className="text-sm text-muted-foreground italic">
-                          Nenhum telefone adicional
-                        </p>
-                      ) : (
-                        <div className="space-y-3">
-                          {additionalPhones.map((phone, index) => (
-                            <div key={index} className="flex gap-2 items-start">
-                              <div className="flex-1 min-w-0">
-                                <input
-                                  type="text"
-                                  placeholder="Rotulo (ex: Mae, Trabalho)"
-                                  value={phone.label}
-                                  onChange={(e) => {
-                                    const updated = [...additionalPhones]
-                                    updated[index] = { ...updated[index], label: e.target.value }
-                                    setAdditionalPhones(updated)
-                                  }}
-                                  maxLength={30}
-                                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                                />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <input
-                                  type="tel"
-                                  placeholder="11999999999"
-                                  value={phone.phone}
-                                  onChange={(e) => {
-                                    const updated = [...additionalPhones]
-                                    updated[index] = { ...updated[index], phone: e.target.value }
-                                    setAdditionalPhones(updated)
-                                  }}
-                                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                                />
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setAdditionalPhones((prev) =>
-                                    prev.filter((_, i) => i !== index)
-                                  )
-                                }
-                                className="h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                title="Remover telefone"
-                              >
-                                &times;
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {additionalPhones.length >= 4 && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Maximo de 4 telefones adicionais atingido
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
-                          Email
-                        </label>
-                        <input
-                          id="email"
-                          type="email"
-                          {...register("email")}
-                          className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                        />
-                        {errors.email && (
-                          <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label htmlFor="birthDate" className="block text-sm font-medium text-foreground mb-2">
-                          Data de Nascimento
-                        </label>
-                        <Controller
-                          name="birthDate"
-                          control={control}
-                          render={({ field }) => (
-                            <DatePickerInput
-                              id="birthDate"
-                              value={field.value || ""}
-                              onChange={field.onChange}
-                            />
-                          )}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="fatherName" className="block text-sm font-medium text-foreground mb-2">
-                          Nome do Pai
-                        </label>
-                        <input
-                          id="fatherName"
-                          type="text"
-                          {...register("fatherName")}
-                          className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                        />
-                        {errors.fatherName && (
-                          <p className="text-sm text-destructive mt-1">{errors.fatherName.message}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label htmlFor="motherName" className="block text-sm font-medium text-foreground mb-2">
-                          Nome da Mae
-                        </label>
-                        <input
-                          id="motherName"
-                          type="text"
-                          {...register("motherName")}
-                          className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                        />
-                        {errors.motherName && (
-                          <p className="text-sm text-destructive mt-1">{errors.motherName.message}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label htmlFor="schoolName" className="block text-sm font-medium text-foreground mb-2">
-                        Nome da Escola
-                      </label>
-                      <input
-                        id="schoolName"
-                        type="text"
-                        {...register("schoolName")}
-                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="firstAppointmentDate" className="block text-sm font-medium text-foreground mb-2">
-                          Data Primeiro Atendimento
-                        </label>
-                        <Controller
-                          name="firstAppointmentDate"
-                          control={control}
-                          render={({ field }) => (
-                            <DatePickerInput
-                              id="firstAppointmentDate"
-                              value={field.value || ""}
-                              onChange={field.onChange}
-                            />
-                          )}
-                        />
-                      </div>
-
-                      <div>
-                        <label htmlFor="sessionFee" className="block text-sm font-medium text-foreground mb-2">
-                          Valor da Sessao (R$)
-                        </label>
-                        <input
-                          id="sessionFee"
-                          type="text"
-                          inputMode="decimal"
-                          {...register("sessionFee")}
-                          placeholder="150.00"
-                          className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label htmlFor="lastFeeAdjustmentDate" className="block text-sm font-medium text-foreground mb-2">
-                        Data Ultimo Reajuste
-                      </label>
-                      <Controller
-                        name="lastFeeAdjustmentDate"
-                        control={control}
-                        render={({ field }) => (
-                          <DatePickerInput
-                            id="lastFeeAdjustmentDate"
-                            value={field.value || ""}
-                            onChange={field.onChange}
-                          />
-                        )}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Atualizado automaticamente ao alterar o valor da sessao
-                      </p>
-                    </div>
-
-                    <div>
-                      <label htmlFor="therapeuticProject" className="block text-sm font-medium text-foreground mb-2">
-                        Projeto Terapeutico
-                      </label>
-                      <textarea
-                        id="therapeuticProject"
-                        rows={4}
-                        {...register("therapeuticProject")}
-                        placeholder="Descreva o projeto terapeutico do paciente..."
-                        className="w-full px-4 py-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors resize-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="notes" className="block text-sm font-medium text-foreground mb-2">
-                        Observacoes
-                      </label>
-                      <textarea
-                        id="notes"
-                        rows={3}
-                        {...register("notes")}
-                        placeholder="Observacoes internas sobre o paciente..."
-                        className="w-full px-4 py-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors resize-none"
-                      />
-                      {errors.notes && (
-                        <p className="text-sm text-destructive mt-1">{errors.notes.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="referenceProfessionalId" className="block text-sm font-medium text-foreground mb-2">
-                        Profissional de Referencia
-                      </label>
-                      <select
-                        id="referenceProfessionalId"
-                        {...register("referenceProfessionalId")}
-                        disabled={isLoadingProfessionals}
-                        className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors disabled:opacity-50"
-                      >
-                        <option value="">Nenhum selecionado</option>
-                        {professionals
-                          .filter((prof) => prof.professionalProfile)
-                          .map((prof) => (
-                            <option key={prof.professionalProfile!.id} value={prof.professionalProfile!.id}>
-                              {prof.name}
-                            </option>
-                          ))}
-                      </select>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Profissional responsavel principal pelo paciente
-                      </p>
-                    </div>
-
-                    {/* LGPD Consent Section */}
-                    <div className="border border-border rounded-lg p-4">
-                      <h3 className="text-sm font-medium text-foreground mb-4">
-                        Consentimentos LGPD
-                      </h3>
-                      <div className="space-y-4">
-                        <label className="flex items-start gap-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            {...register("consentWhatsApp")}
-                            className="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
-                          />
-                          <div>
-                            <span className="text-sm text-foreground">
-                              Autorizo receber mensagens via WhatsApp
-                            </span>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Lembretes de consulta, confirmacoes e comunicacoes da clinica
-                            </p>
-                          </div>
-                        </label>
-
-                        <label className="flex items-start gap-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            {...register("consentEmail")}
-                            className="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
-                          />
-                          <div>
-                            <span className="text-sm text-foreground">
-                              Autorizo receber comunicacoes por email
-                            </span>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Lembretes de consulta, confirmacoes e comunicacoes da clinica
-                            </p>
-                          </div>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                      <button
-                        type="submit"
-                        disabled={isSaving}
-                        className="flex-1 h-12 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-                      >
-                        {isSaving
-                          ? "Salvando..."
-                          : editingPatient
-                          ? "Salvar alteracoes"
-                          : "Criar paciente"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={closeSheet}
-                        className="flex-1 sm:flex-initial sm:w-32 h-12 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </form>
-                </>
+                <PatientForm
+                  register={register}
+                  errors={errors}
+                  control={control}
+                  professionals={professionals}
+                  isLoadingProfessionals={isLoadingProfessionals}
+                  additionalPhones={additionalPhones}
+                  isSaving={isSaving}
+                  isEditing={!!editingPatient}
+                  onAddPhone={() =>
+                    setAdditionalPhones((prev) => [
+                      ...prev,
+                      { phone: "", label: "" },
+                    ])
+                  }
+                  onUpdatePhone={(index, field, value) => {
+                    const updated = [...additionalPhones]
+                    updated[index] = { ...updated[index], [field]: value }
+                    setAdditionalPhones(updated)
+                  }}
+                  onRemovePhone={(index) =>
+                    setAdditionalPhones((prev) =>
+                      prev.filter((_, i) => i !== index)
+                    )
+                  }
+                  onClose={closeSheet}
+                  onSubmit={handleSubmit(onSubmit)}
+                />
               )}
               </div>
             </div>

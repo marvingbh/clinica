@@ -1,25 +1,13 @@
 "use client"
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
-import { createPortal } from "react-dom"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
-import Link from "next/link"
 import {
-  FAB,
   SwipeContainer,
-  ListIcon,
-  BuildingIcon,
-  VideoIcon,
-  StethoscopeIcon,
-  ClipboardListIcon,
-  BellIcon,
-  StickyNoteIcon,
-  UsersRoundIcon,
-  XIcon,
 } from "@/shared/components/ui"
 
 import {
@@ -46,7 +34,6 @@ import {
   toDateString,
   toIsoDate,
   toLocalDateTime,
-  calculateEndTime,
   canCancelAppointment,
   canMarkStatus,
   canResendConfirmation,
@@ -55,15 +42,10 @@ import {
 } from "../lib/utils"
 
 import {
-  Sheet,
-  PatientSearch,
-  RecurrenceOptions,
   CancelDialog,
   AppointmentEditor,
-  InlineAlert,
   GroupSessionSheet,
   CalendarEntrySheet,
-  TimeInput,
 } from "../components"
 import type { AppointmentType } from "../components/RecurrenceOptions"
 import type { CalendarEntryType } from "../lib/types"
@@ -72,7 +54,7 @@ import { useCalendarEntryCreate } from "../hooks"
 import { useAgendaContext } from "../context/AgendaContext"
 import { usePermission } from "@/shared/hooks/usePermission"
 
-import { WeekNavigation, WeeklyGrid } from "./components"
+import { WeeklyGrid, WeeklyHeader, FabMenu, CreateAppointmentForm } from "./components"
 
 function WeeklyAgendaPageContent() {
   const router = useRouter()
@@ -360,6 +342,19 @@ function WeeklyAgendaPageContent() {
     setSelectedPatient(patient)
     setValue("patientId", patient.id)
     setPatientSearch(patient.name)
+  }
+
+  function handlePatientSearchChange(v: string) {
+    setPatientSearch(v)
+    if (selectedPatient && v !== selectedPatient.name) {
+      setSelectedPatient(null)
+      setValue("patientId", "")
+    }
+  }
+
+  function handleClearPatient() {
+    setSelectedPatient(null)
+    setValue("patientId", "")
   }
 
   async function onSubmitAppointment(data: AppointmentFormData) {
@@ -804,64 +799,16 @@ function WeeklyAgendaPageContent() {
   return (
     <main className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <header className="sticky top-0 bg-background/95 backdrop-blur border-b border-border z-30">
-        <div className="max-w-6xl mx-auto px-4 py-4 space-y-3">
-          <div className="flex items-center justify-between gap-4">
-            <WeekNavigation
-              weekStart={weekStart}
-              onPreviousWeek={goToPreviousWeek}
-              onNextWeek={goToNextWeek}
-              onToday={goToToday}
-            />
-
-            <Link
-              href="/agenda"
-              className="flex items-center gap-2 h-10 px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-muted"
-            >
-              <ListIcon className="w-4 h-4" />
-              Dia
-            </Link>
-          </div>
-
-          {isAdmin && professionals.length > 0 && (
-            <div className="flex gap-1 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
-              <button
-                type="button"
-                onClick={() => setSelectedProfessionalId("")}
-                className={`
-                  flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors
-                  ${selectedProfessionalId === ""
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }
-                `}
-              >
-                Todos
-              </button>
-              {professionals.map((prof) => {
-                const profId = prof.professionalProfile?.id || ""
-                const isSelected = selectedProfessionalId === profId
-                return (
-                  <button
-                    key={prof.id}
-                    type="button"
-                    onClick={() => setSelectedProfessionalId(profId)}
-                    className={`
-                      flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap
-                      ${isSelected
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                      }
-                    `}
-                  >
-                    {prof.name}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </header>
+      <WeeklyHeader
+        weekStart={weekStart}
+        professionals={professionals}
+        selectedProfessionalId={selectedProfessionalId}
+        isAdmin={isAdmin}
+        onPreviousWeek={goToPreviousWeek}
+        onNextWeek={goToNextWeek}
+        onToday={goToToday}
+        onSelectProfessional={setSelectedProfessionalId}
+      />
 
       {/* Week change swipe zone (outside the grid) */}
       <SwipeContainer onSwipeLeft={goToNextWeek} onSwipeRight={goToPreviousWeek} className="max-w-6xl mx-auto px-4 pt-4">
@@ -886,256 +833,48 @@ function WeeklyAgendaPageContent() {
       </div>
 
       {/* FAB + menu rendered via portal to escape PageTransition's will-change containing block */}
-      {typeof document !== "undefined" && createPortal(
-        <>
-          <FAB onClick={() => setIsFabMenuOpen(true)} label="Novo" />
-
-          {isFabMenuOpen && (
-            <div className="fixed inset-0 z-40">
-              <div className="absolute inset-0 bg-black/30" onClick={() => setIsFabMenuOpen(false)} />
-              <div className="absolute right-4 bottom-24 z-50 flex flex-col-reverse items-end gap-2">
-                {/* Close button */}
-                <button
-                  onClick={() => setIsFabMenuOpen(false)}
-                  className="w-14 h-14 rounded-full bg-muted text-muted-foreground shadow-lg flex items-center justify-center hover:bg-muted/80 transition-colors"
-                  aria-label="Fechar menu"
-                >
-                  <XIcon className="w-6 h-6" />
-                </button>
-
-                {/* Menu items */}
-                <button
-                  onClick={() => handleFabMenuSelect("CONSULTA")}
-                  className="flex items-center gap-3 bg-white dark:bg-card rounded-full shadow-lg pl-4 pr-5 py-3 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                    <StethoscopeIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <span className="text-sm font-medium text-foreground">Consulta</span>
-                </button>
-
-                <button
-                  onClick={() => handleFabMenuSelect("TAREFA")}
-                  className="flex items-center gap-3 bg-white dark:bg-card rounded-full shadow-lg pl-4 pr-5 py-3 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                    <ClipboardListIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <span className="text-sm font-medium text-foreground">Tarefa</span>
-                </button>
-
-                <button
-                  onClick={() => handleFabMenuSelect("LEMBRETE")}
-                  className="flex items-center gap-3 bg-white dark:bg-card rounded-full shadow-lg pl-4 pr-5 py-3 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="w-8 h-8 rounded-full bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
-                    <BellIcon className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                  </div>
-                  <span className="text-sm font-medium text-foreground">Lembrete</span>
-                </button>
-
-                <button
-                  onClick={() => handleFabMenuSelect("NOTA")}
-                  className="flex items-center gap-3 bg-white dark:bg-card rounded-full shadow-lg pl-4 pr-5 py-3 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-900/30 flex items-center justify-center">
-                    <StickyNoteIcon className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-                  </div>
-                  <span className="text-sm font-medium text-foreground">Nota</span>
-                </button>
-
-                <button
-                  onClick={() => handleFabMenuSelect("REUNIAO")}
-                  className="flex items-center gap-3 bg-white dark:bg-card rounded-full shadow-lg pl-4 pr-5 py-3 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-                    <UsersRoundIcon className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-                  </div>
-                  <span className="text-sm font-medium text-foreground">Reuniao</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </>,
-        document.body
-      )}
+      <FabMenu
+        isOpen={isFabMenuOpen}
+        onOpen={() => setIsFabMenuOpen(true)}
+        onClose={() => setIsFabMenuOpen(false)}
+        onSelect={handleFabMenuSelect}
+      />
 
       {/* Create Appointment Sheet */}
-      <Sheet isOpen={isCreateSheetOpen} onClose={closeCreateSheet} title="Novo Agendamento">
-        <form onSubmit={handleSubmit(onSubmitAppointment)} className="p-4 space-y-6">
-          {/* 1. Patient Selection */}
-          <PatientSearch
-            value={patientSearch}
-            onChange={(v) => {
-              setPatientSearch(v)
-              if (selectedPatient && v !== selectedPatient.name) {
-                setSelectedPatient(null)
-                setValue("patientId", "")
-              }
-            }}
-            selectedPatient={selectedPatient}
-            onSelectPatient={handleSelectPatient}
-            onClearPatient={() => {
-              setSelectedPatient(null)
-              setValue("patientId", "")
-            }}
-            error={errors.patientId?.message}
-          />
-          <input type="hidden" {...register("patientId")} />
-
-          {/* Section header */}
-          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
-            Detalhes
-          </p>
-
-          {/* 2. Date */}
-          <div>
-            <label htmlFor="date" className="block text-sm font-medium text-foreground mb-1.5">Data *</label>
-            <input id="date" type="date" {...register("date")} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
-            {errors.date && <p className="text-xs text-destructive mt-1">{errors.date.message}</p>}
-          </div>
-
-          {/* Time + Duration + End Time */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label htmlFor="startTime" className="block text-sm font-medium text-foreground mb-1.5">Inicio *</label>
-              <TimeInput
-                id="startTime"
-                placeholder="HH:MM"
-                {...register("startTime")}
-                className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
-              />
-              {errors.startTime && <p className="text-xs text-destructive mt-1">{errors.startTime.message}</p>}
-            </div>
-            <div>
-              <label htmlFor="duration" className="block text-sm font-medium text-foreground mb-1.5">Duracao</label>
-              <input id="duration" type="number" {...register("duration", { setValueAs: (v: string) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v) })} placeholder={`${appointmentDuration}`} min={15} max={480} step={5} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Fim</label>
-              <div className="h-11 px-3.5 rounded-xl border border-input bg-muted/50 text-foreground text-sm flex items-center">
-                {calculateEndTime(watch("startTime"), watch("duration") || appointmentDuration) || "—"}
-              </div>
-            </div>
-          </div>
-
-          {/* 3. Appointment Type (Weekly/Biweekly/Monthly/One-time) */}
-          <RecurrenceOptions
-            appointmentType={appointmentType}
-            onAppointmentTypeChange={setAppointmentType}
-            recurrenceEndType={recurrenceEndType}
-            onRecurrenceEndTypeChange={setRecurrenceEndType}
-            occurrences={recurrenceOccurrences}
-            onOccurrencesChange={setRecurrenceOccurrences}
-            endDate={recurrenceEndDate}
-            onEndDateChange={setRecurrenceEndDate}
-            minDate={watchedDate}
-            startDate={watchedDate}
-            startTime={watchedStartTime}
-          />
-
-          {/* 4. Professional selector for admin */}
-          {isAdmin && (
-            <div>
-              <label htmlFor="createProfessional" className="block text-sm font-medium text-foreground mb-1.5">Profissional *</label>
-              {selectedProfessionalId ? (
-                <div className="w-full h-11 px-3.5 rounded-xl border border-input bg-muted text-foreground text-sm flex items-center">
-                  {professionals.find(p => p.professionalProfile?.id === selectedProfessionalId)?.name || "Profissional selecionado"}
-                </div>
-              ) : (
-                <select
-                  id="createProfessional"
-                  value={createProfessionalId}
-                  onChange={(e) => setCreateProfessionalId(e.target.value)}
-                  className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
-                >
-                  <option value="">Selecione um profissional</option>
-                  {professionals.map((prof) => (
-                    <option key={prof.id} value={prof.professionalProfile?.id || ""}>
-                      {prof.name}
-                      {prof.professionalProfile?.specialty && ` - ${prof.professionalProfile.specialty}`}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-
-          {/* 5. Additional professionals */}
-          {professionals.length > 1 && (
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Profissionais adicionais</label>
-              <div className="space-y-2 p-3 rounded-xl border border-input bg-background">
-                {professionals
-                  .filter(p => {
-                    const profId = p.professionalProfile?.id
-                    if (!profId) return false
-                    const effectivePrimaryId = selectedProfessionalId || createProfessionalId
-                    return profId !== effectivePrimaryId
-                  })
-                  .map(prof => (
-                    <label key={prof.id} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={createAdditionalProfIds.includes(prof.professionalProfile!.id)}
-                        onChange={(e) => {
-                          const id = prof.professionalProfile!.id
-                          if (e.target.checked) {
-                            setCreateAdditionalProfIds([...createAdditionalProfIds, id])
-                          } else {
-                            setCreateAdditionalProfIds(createAdditionalProfIds.filter(x => x !== id))
-                          }
-                        }}
-                        className="w-4 h-4 rounded border-input text-primary focus:ring-ring/40"
-                      />
-                      <span className="text-sm">{prof.name}</span>
-                    </label>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* Duration hint */}
-          <p className="text-xs text-muted-foreground -mt-2">Duracao padrao: {appointmentDuration} min</p>
-
-          {/* 6. Modality */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Modalidade *</label>
-            <div className="grid grid-cols-2 gap-2.5">
-              <label className="relative cursor-pointer">
-                <input type="radio" value="PRESENCIAL" {...register("modality")} className="sr-only peer" />
-                <div className="h-11 flex items-center justify-center gap-2 rounded-xl border-2 border-input bg-background text-foreground text-sm font-medium peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all">
-                  <BuildingIcon className="w-4 h-4" />
-                  Presencial
-                </div>
-              </label>
-              <label className="relative cursor-pointer">
-                <input type="radio" value="ONLINE" {...register("modality")} className="sr-only peer" />
-                <div className="h-11 flex items-center justify-center gap-2 rounded-xl border-2 border-input bg-background text-foreground text-sm font-medium peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all">
-                  <VideoIcon className="w-4 h-4" />
-                  Online
-                </div>
-              </label>
-            </div>
-          </div>
-
-          {/* 7. Notes */}
-          <div>
-            <label htmlFor="notes" className="block text-sm font-medium text-foreground mb-1.5">Observacoes</label>
-            <textarea id="notes" rows={3} {...register("notes")} placeholder="Observacoes sobre a consulta..." className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors resize-none" />
-          </div>
-
-          {/* API Error Alert */}
-          <InlineAlert message={createApiError} onDismiss={() => setCreateApiError(null)} />
-
-          <div className="flex gap-3 pt-4 pb-8">
-            <button type="button" onClick={closeCreateSheet} className="flex-1 h-12 rounded-xl border border-input bg-background text-foreground font-medium text-sm hover:bg-muted transition-colors">Cancelar</button>
-            <button type="submit" disabled={isSavingAppointment || !selectedPatient || (isAdmin && !selectedProfessionalId && !createProfessionalId)} className="flex-1 h-12 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity">
-              {isSavingAppointment ? "Salvando..." : "Criar Agendamento"}
-            </button>
-          </div>
-        </form>
-      </Sheet>
+      <CreateAppointmentForm
+        isOpen={isCreateSheetOpen}
+        onClose={closeCreateSheet}
+        register={register}
+        watch={watch}
+        errors={errors}
+        onSubmit={handleSubmit(onSubmitAppointment)}
+        patientSearch={patientSearch}
+        onPatientSearchChange={handlePatientSearchChange}
+        selectedPatient={selectedPatient}
+        onSelectPatient={handleSelectPatient}
+        onClearPatient={handleClearPatient}
+        appointmentType={appointmentType}
+        onAppointmentTypeChange={setAppointmentType}
+        recurrenceEndType={recurrenceEndType}
+        onRecurrenceEndTypeChange={setRecurrenceEndType}
+        recurrenceOccurrences={recurrenceOccurrences}
+        onRecurrenceOccurrencesChange={setRecurrenceOccurrences}
+        recurrenceEndDate={recurrenceEndDate}
+        onRecurrenceEndDateChange={setRecurrenceEndDate}
+        watchedDate={watchedDate}
+        watchedStartTime={watchedStartTime}
+        isAdmin={isAdmin}
+        professionals={professionals}
+        selectedProfessionalId={selectedProfessionalId}
+        createProfessionalId={createProfessionalId}
+        onCreateProfessionalIdChange={setCreateProfessionalId}
+        createAdditionalProfIds={createAdditionalProfIds}
+        onCreateAdditionalProfIdsChange={setCreateAdditionalProfIds}
+        appointmentDuration={appointmentDuration}
+        isSaving={isSavingAppointment}
+        apiError={createApiError}
+        onDismissError={() => setCreateApiError(null)}
+      />
 
       {/* Edit Appointment Sheet */}
       <AppointmentEditor
