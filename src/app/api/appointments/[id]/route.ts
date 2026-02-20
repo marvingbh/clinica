@@ -52,6 +52,8 @@ export const GET = withFeatureAuth(
             exceptions: true,
             dayOfWeek: true,
             startTime: true,
+            endTime: true,
+            duration: true,
           },
         },
         additionalProfessionals: {

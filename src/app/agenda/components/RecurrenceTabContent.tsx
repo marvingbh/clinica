@@ -52,10 +52,9 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
       )
       setApplyToFuture(true)
 
-      const scheduledAt = new Date(appointment.scheduledAt)
-      const endAt = new Date(appointment.endAt)
-      setStartTime(`${String(scheduledAt.getHours()).padStart(2, "0")}:${String(scheduledAt.getMinutes()).padStart(2, "0")}`)
-      setDuration(Math.round((endAt.getTime() - scheduledAt.getTime()) / 60000))
+      // Use recurrence's own startTime/duration, NOT the individual appointment's times
+      setStartTime(recurrence.startTime)
+      setDuration(recurrence.duration)
 
       if (recurrence.endDate) {
         const date = new Date(recurrence.endDate)
@@ -65,8 +64,8 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
       }
       setOccurrences(recurrence.occurrences || 10)
 
-      // Initialize day of week from recurrence or derive from scheduledAt
-      const day = recurrence.dayOfWeek !== undefined ? recurrence.dayOfWeek : scheduledAt.getDay()
+      // Initialize day of week from recurrence record
+      const day = recurrence.dayOfWeek
       setDayOfWeek(day)
       setOriginalDayOfWeek(day)
     }
