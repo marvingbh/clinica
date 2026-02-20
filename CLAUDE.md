@@ -16,6 +16,8 @@ npm run prisma:migrate   # Run Prisma migrations (dev)
 npm run prisma:push      # Push schema changes without migrations
 npm run prisma:studio    # Open Prisma Studio GUI
 npm run prisma:seed      # Seed database with test data
+npm run test             # Run all unit tests (vitest)
+npm run test:watch       # Run tests in watch mode
 ```
 
 ### Database Setup
@@ -108,6 +110,34 @@ export const GET = withAuth(
 - **Currency**: BRL (R$)
 - **Locale**: `pt-BR` for all `toLocaleDateString()` and `toLocaleTimeString()` calls
 - **Date inputs**: Use text inputs with mask/pattern for Brazilian format, NOT native `type="date"` (which uses system locale)
+
+## Testing
+
+**Every new feature or bug fix must include unit tests.** Run `npm run test` before committing.
+
+- **Test runner:** Vitest (`vitest.config.ts`)
+- **Test location:** Colocated — `foo.test.ts` next to `foo.ts`
+- **Run all tests:** `npm run test`
+- **Run one file:** `npx vitest run src/lib/path/to/file.test.ts`
+- **Watch mode:** `npm run test:watch`
+
+### What to test
+
+- All pure business logic in `src/lib/` (recurrence, permissions, formatting, rate limiting, etc.)
+- New utility functions, validators, and formatters
+- Any function with non-trivial logic, edge cases, or date/currency handling
+
+### Test conventions
+
+- Import `{ describe, it, expect }` from `"vitest"` (globals enabled)
+- Use `vi.useFakeTimers()` / `vi.useRealTimers()` for time-dependent code
+- For Prisma enums, use plain string literals (e.g., `"ADMIN"`, `"WEEKLY"`) — they're strings at runtime
+- Keep tests focused: one behavior per `it()` block
+- Use unique keys/IDs per test to avoid cross-contamination in stateful modules
+
+### Existing test coverage
+
+Tests exist for: `appointments/recurrence`, `audit/field-labels`, `rbac/permissions`, `rbac/authorize`, `rate-limit`, `notifications/types`
 
 ## Path Aliases
 
