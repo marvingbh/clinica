@@ -103,6 +103,14 @@ export const GET = withAuth(
 - Toast notifications via Sonner
 - Forms with react-hook-form + zod validation
 
+### Component Guidelines
+
+- **Extract repeated UI patterns into reusable components** in `shared/components/` or the feature's `components/` folder. Do not duplicate the same markup/logic across multiple files.
+- When the same label, badge, icon, or indicator appears in 3+ places, create a small component for it (e.g., `RecurrenceBadge`, `StatusBadge`).
+- Keep components small and single-purpose. A component that grows beyond ~150 lines likely needs splitting.
+- Place shared/cross-feature components in `src/shared/components/`. Place feature-specific components in the feature's own `components/` folder (e.g., `src/app/agenda/components/`).
+- Prefer composable props over conditional rendering spaghetti. If a component has many `isCompact && ... isTall && ...` branches, extract the variants into separate sub-components or use a layout prop.
+
 ### Localization (Brazilian Portuguese)
 
 - **Date format**: Always use `DD/MM/YYYY` (Brazilian format)
