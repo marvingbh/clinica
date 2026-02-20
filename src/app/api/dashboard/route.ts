@@ -59,12 +59,12 @@ export const GET = withFeatureAuth(
         },
       }),
 
-      // Pending (AGENDADO, future)
+      // Pending (AGENDADO, this week)
       prisma.appointment.count({
         where: {
           ...baseWhere,
           status: "AGENDADO",
-          scheduledAt: { gte: now },
+          scheduledAt: { gte: now, lt: weekEnd },
         },
       }),
 
