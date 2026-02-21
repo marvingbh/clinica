@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import Link from "next/link"
+import { useState, useEffect } from "react"
 import {
   CalendarIcon,
   UsersIcon,
@@ -17,6 +18,9 @@ import {
   TrendingUpIcon,
   DollarSignIcon,
   ActivityIcon,
+  CalendarDaysIcon,
+  BellIcon,
+  BarChart3Icon,
 } from "@/shared/components/ui/icons"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Skeleton, SkeletonAvatar, SkeletonText } from "@/shared/components/ui/skeleton"
@@ -317,6 +321,229 @@ function LogoutCard({ onLogout }: { onLogout: () => void }) {
   )
 }
 
+// --- Landing Page ---
+
+interface PlanData {
+  id: string
+  name: string
+  slug: string
+  maxProfessionals: number
+  priceInCents: number
+}
+
+function PricingSkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="bg-card border border-border rounded-lg p-6 shadow-sm">
+          <Skeleton className="h-6 w-24 mb-4" />
+          <Skeleton className="h-10 w-32 mb-2" />
+          <Skeleton className="h-4 w-40 mb-6" />
+          <Skeleton className="h-10 w-full rounded-lg" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function LandingPage() {
+  const [plans, setPlans] = useState<PlanData[]>([])
+  const [plansLoading, setPlansLoading] = useState(true)
+
+  useEffect(() => {
+    fetch("/api/public/plans")
+      .then((res) => res.json())
+      .then((data) => {
+        setPlans(data.plans ?? [])
+      })
+      .catch(() => {
+        setPlans([])
+      })
+      .finally(() => {
+        setPlansLoading(false)
+      })
+  }, [])
+
+  function formatPrice(cents: number): string {
+    return (cents / 100).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    })
+  }
+
+  const features = [
+    {
+      icon: CalendarDaysIcon,
+      title: "Agenda inteligente",
+      description: "Gerencie consultas, recorrencias e grupos em uma agenda visual.",
+    },
+    {
+      icon: UsersIcon,
+      title: "Gestao de pacientes",
+      description: "Cadastro completo com historico de consultas e prontuario.",
+    },
+    {
+      icon: BellIcon,
+      title: "Notificacoes automaticas",
+      description: "Lembretes por WhatsApp e email para reduzir faltas.",
+    },
+    {
+      icon: BarChart3Icon,
+      title: "Relatorios e dashboard",
+      description: "Acompanhe metricas de atendimento e receita em tempo real.",
+    },
+  ]
+
+  // Determine middle plan index for highlight
+  const middleIndex = plans.length === 3 ? 1 : -1
+
+  return (
+    <main className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+      {/* Header */}
+      <header className="border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <StethoscopeIcon className="w-6 h-6 text-primary" />
+            <span className="text-xl font-bold text-foreground tracking-tight">Clinica</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/login"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Entrar
+            </Link>
+            <Link
+              href="/signup"
+              className="text-sm font-medium px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+            >
+              Comecar gratuitamente
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <section className="py-20 md:py-28">
+        <div className="max-w-6xl mx-auto px-4 text-center">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground tracking-tight leading-tight">
+            Gerencie sua clinica de forma simples
+          </h1>
+          <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+            Agenda, pacientes, notificacoes e relatorios em uma unica plataforma. Comece gratis por 14 dias.
+          </p>
+          <div className="mt-10">
+            <Link
+              href="/signup"
+              className="inline-flex items-center justify-center text-base font-medium px-8 py-3 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity shadow-md hover:shadow-lg"
+            >
+              Comecar gratuitamente
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="py-16">
+        <div className="max-w-6xl mx-auto px-4">
+          <h2 className="text-2xl md:text-3xl font-bold text-foreground text-center mb-12">
+            Tudo que sua clinica precisa
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {features.map((feature) => {
+              const Icon = feature.icon
+              return (
+                <div
+                  key={feature.title}
+                  className="bg-card border border-border rounded-lg p-6 shadow-sm"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                    <Icon className="w-5 h-5 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">{feature.title}</h3>
+                  <p className="text-sm text-muted-foreground">{feature.description}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section className="py-20">
+        <div className="max-w-6xl mx-auto px-4">
+          <h2 className="text-2xl md:text-3xl font-bold text-foreground text-center mb-4">
+            Planos e precos
+          </h2>
+          <p className="text-muted-foreground text-center mb-12 max-w-xl mx-auto">
+            Escolha o plano ideal para sua clinica. Todos incluem 14 dias de teste gratis.
+          </p>
+          {plansLoading ? (
+            <PricingSkeleton />
+          ) : plans.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {plans.map((plan, index) => {
+                const isHighlighted = index === middleIndex
+                return (
+                  <div
+                    key={plan.id}
+                    className={`bg-card border rounded-lg p-6 shadow-sm flex flex-col ${
+                      isHighlighted
+                        ? "border-primary border-2 relative"
+                        : "border-border"
+                    }`}
+                  >
+                    {isHighlighted && (
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold px-3 py-1 rounded-full bg-primary text-primary-foreground">
+                        Popular
+                      </span>
+                    )}
+                    <h3 className="text-xl font-bold text-foreground mb-2">{plan.name}</h3>
+                    <p className="text-3xl font-bold text-foreground mb-1">
+                      {formatPrice(plan.priceInCents)}
+                      <span className="text-sm font-normal text-muted-foreground">/mes</span>
+                    </p>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      {plan.maxProfessionals === -1
+                        ? "Profissionais ilimitados"
+                        : `Ate ${plan.maxProfessionals} ${plan.maxProfessionals === 1 ? "profissional" : "profissionais"}`}
+                    </p>
+                    <div className="mt-auto">
+                      <Link
+                        href="/signup"
+                        className={`block w-full text-center text-sm font-medium px-4 py-3 rounded-lg transition-opacity ${
+                          isHighlighted
+                            ? "bg-primary text-primary-foreground hover:opacity-90"
+                            : "bg-muted text-foreground hover:opacity-80"
+                        }`}
+                      >
+                        Comecar teste gratis
+                      </Link>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border py-8">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2">
+            <StethoscopeIcon className="w-5 h-5 text-primary" />
+            <span className="text-lg font-bold text-foreground">Clinica</span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            &copy; {new Date().getFullYear()} Clinica. Todos os direitos reservados.
+          </p>
+        </div>
+      </footer>
+    </main>
+  )
+}
+
 // --- Main Page ---
 
 export default function Home() {
@@ -341,33 +568,9 @@ export default function Home() {
     return <HomeSkeleton />
   }
 
-  // Not authenticated - show login prompt
+  // Not authenticated - show landing page
   if (status === "unauthenticated") {
-    return (
-      <main className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-background flex flex-col items-center justify-center px-4">
-        <div className="w-full max-w-sm text-center">
-          <div className="mb-8">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <StethoscopeIcon className="w-8 h-8 text-primary" />
-            </div>
-            <h1 className="text-3xl font-bold text-foreground tracking-tight">Clinica</h1>
-            <p className="mt-2 text-muted-foreground">Sistema de gestao de consultas</p>
-          </div>
-
-          <Card elevation="lg" className="p-6">
-            <p className="text-sm text-muted-foreground mb-6">
-              Faca login para acessar sua agenda e gerenciar pacientes.
-            </p>
-            <Link
-              href="/login"
-              className="block w-full h-12 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 transition-all duration-normal active:scale-[0.98] flex items-center justify-center shadow-md hover:shadow-lg"
-            >
-              Entrar
-            </Link>
-          </Card>
-        </div>
-      </main>
-    )
+    return <LandingPage />
   }
 
   // Get current time greeting
