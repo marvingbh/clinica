@@ -25,7 +25,8 @@ export const authConfig: NextAuthConfig = {
       const isWebhookRoute = nextUrl.pathname.startsWith("/api/webhooks")
       const isConfirmPage = nextUrl.pathname === "/confirm"
       const isCancelPage = nextUrl.pathname === "/cancel"
-      const isSuperAdminRoute = nextUrl.pathname.startsWith("/superadmin")
+      const isSuperAdminRoute = nextUrl.pathname.startsWith("/superadmin") ||
+        nextUrl.pathname.startsWith("/api/superadmin")
       const isPublicRoute =
         isHomePage || isLoginPage || isSignupPage || isApiAuthRoute || isPublicApiRoute ||
         isWebhookRoute || isConfirmPage || isCancelPage || isSuperAdminRoute
