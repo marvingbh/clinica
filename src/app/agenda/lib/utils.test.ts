@@ -183,8 +183,12 @@ describe("canCancelAppointment", () => {
     expect(canCancelAppointment(makeAppointment({ status: "FINALIZADO" }))).toBe(false)
   })
 
-  it("returns false for CANCELADO_PACIENTE", () => {
-    expect(canCancelAppointment(makeAppointment({ status: "CANCELADO_PACIENTE" }))).toBe(false)
+  it("returns false for CANCELADO_ACORDADO", () => {
+    expect(canCancelAppointment(makeAppointment({ status: "CANCELADO_ACORDADO" }))).toBe(false)
+  })
+
+  it("returns false for CANCELADO_FALTA", () => {
+    expect(canCancelAppointment(makeAppointment({ status: "CANCELADO_FALTA" }))).toBe(false)
   })
 })
 
@@ -253,7 +257,7 @@ describe("canResendConfirmation", () => {
   })
 
   it("returns false for cancelled status", () => {
-    expect(canResendConfirmation(makeAppointment({ status: "CANCELADO_PACIENTE" }))).toBe(false)
+    expect(canResendConfirmation(makeAppointment({ status: "CANCELADO_ACORDADO" }))).toBe(false)
   })
 
   it("returns true for AGENDADO with consent + phone", () => {

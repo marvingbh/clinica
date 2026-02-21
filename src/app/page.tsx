@@ -45,18 +45,18 @@ function formatTime(isoString: string): string {
 const STATUS_COLORS: Record<string, string> = {
   AGENDADO: "#3b82f6",
   CONFIRMADO: "#22c55e",
-  CANCELADO_PACIENTE: "#ef4444",
+  CANCELADO_ACORDADO: "#ef4444",
+  CANCELADO_FALTA: "#6b7280",
   CANCELADO_PROFISSIONAL: "#f97316",
-  NAO_COMPARECEU: "#6b7280",
   FINALIZADO: "#14b8a6",
 }
 
 const STATUS_LABELS: Record<string, string> = {
   AGENDADO: "Agendado",
   CONFIRMADO: "Confirmado",
-  CANCELADO_PACIENTE: "Canc. paciente",
+  CANCELADO_ACORDADO: "Canc. acordado",
+  CANCELADO_FALTA: "Faltou",
   CANCELADO_PROFISSIONAL: "Canc. profissional",
-  NAO_COMPARECEU: "Faltou",
   FINALIZADO: "Finalizado",
 }
 

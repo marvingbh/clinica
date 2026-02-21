@@ -4,7 +4,8 @@ import type { Appointment, AvailabilityRule, AvailabilityException, TimeSlot, Bi
 
 // Cancelled statuses - these appointments don't block the slot
 const CANCELLED_STATUSES: AppointmentStatus[] = [
-  "CANCELADO_PACIENTE",
+  "CANCELADO_ACORDADO",
+  "CANCELADO_FALTA",
   "CANCELADO_PROFISSIONAL",
 ]
 

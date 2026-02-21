@@ -29,11 +29,11 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  // Update appointment status to CANCELADO_PACIENTE
+  // Update appointment status to CANCELADO_ACORDADO (patient initiated via link)
   const appointment = await prisma.appointment.update({
     where: { id: validation.appointmentId },
     data: {
-      status: "CANCELADO_PACIENTE",
+      status: "CANCELADO_ACORDADO",
       cancelledAt: new Date(),
       cancellationReason: "Cancelado pelo paciente via link",
     },

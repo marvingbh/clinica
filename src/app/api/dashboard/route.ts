@@ -108,7 +108,7 @@ export const GET = withFeatureAuth(
         where: {
           ...baseWhere,
           scheduledAt: { gte: thirtyDaysAgo, lt: todayEnd },
-          status: { in: ["FINALIZADO", "NAO_COMPARECEU"] },
+          status: { in: ["FINALIZADO", "CANCELADO_FALTA"] },
         },
         _count: { status: true },
       }),
@@ -160,7 +160,7 @@ export const GET = withFeatureAuth(
     const finalizadoCount =
       completionStats.find((s) => s.status === "FINALIZADO")?._count.status ?? 0
     const noShowCount =
-      completionStats.find((s) => s.status === "NAO_COMPARECEU")?._count.status ?? 0
+      completionStats.find((s) => s.status === "CANCELADO_FALTA")?._count.status ?? 0
     const completionTotal = finalizadoCount + noShowCount
     const completionRate =
       completionTotal > 0 ? Math.round((finalizadoCount / completionTotal) * 100) : null

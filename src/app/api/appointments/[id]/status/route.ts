@@ -13,21 +13,21 @@ const VALID_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
   AGENDADO: [
     AppointmentStatus.CONFIRMADO,
     AppointmentStatus.FINALIZADO,
-    AppointmentStatus.NAO_COMPARECEU,
+    AppointmentStatus.CANCELADO_FALTA,
     AppointmentStatus.CANCELADO_PROFISSIONAL,
-    AppointmentStatus.CANCELADO_PACIENTE,
+    AppointmentStatus.CANCELADO_ACORDADO,
   ],
   CONFIRMADO: [
     AppointmentStatus.FINALIZADO,
-    AppointmentStatus.NAO_COMPARECEU,
+    AppointmentStatus.CANCELADO_FALTA,
     AppointmentStatus.CANCELADO_PROFISSIONAL,
-    AppointmentStatus.CANCELADO_PACIENTE,
+    AppointmentStatus.CANCELADO_ACORDADO,
   ],
   // Terminal states - no transitions allowed (use explicit override if needed)
   FINALIZADO: [],
-  NAO_COMPARECEU: [],
+  CANCELADO_ACORDADO: [],
+  CANCELADO_FALTA: [],
   CANCELADO_PROFISSIONAL: [],
-  CANCELADO_PACIENTE: [],
 }
 
 /**
@@ -37,9 +37,9 @@ const STATUS_LABELS: Record<AppointmentStatus, string> = {
   AGENDADO: "Agendado",
   CONFIRMADO: "Confirmado",
   FINALIZADO: "Finalizado",
-  NAO_COMPARECEU: "Não compareceu",
+  CANCELADO_ACORDADO: "Cancelado (Acordado)",
+  CANCELADO_FALTA: "Cancelado (Falta)",
   CANCELADO_PROFISSIONAL: "Cancelado (Profissional)",
-  CANCELADO_PACIENTE: "Cancelado (Paciente)",
 }
 
 /**
@@ -49,9 +49,9 @@ const STATUS_LABELS: Record<AppointmentStatus, string> = {
  * Request body: { status: AppointmentStatus }
  *
  * Allowed transitions:
- * - AGENDADO → CONFIRMADO, FINALIZADO, NAO_COMPARECEU, CANCELADO_*
- * - CONFIRMADO → FINALIZADO, NAO_COMPARECEU, CANCELADO_*
- * - Terminal states (FINALIZADO, NAO_COMPARECEU, CANCELADO_*) → no transitions
+ * - AGENDADO → CONFIRMADO, FINALIZADO, CANCELADO_*
+ * - CONFIRMADO → FINALIZADO, CANCELADO_*
+ * - Terminal states (FINALIZADO, CANCELADO_*) → no transitions
  *
  * Note: For cancellations with reason and notifications, use POST /api/appointments/:id/cancel instead.
  */
@@ -176,7 +176,8 @@ export const PATCH = withFeatureAuth(
       updateData.confirmedAt = now
     } else if (
       targetStatus === AppointmentStatus.CANCELADO_PROFISSIONAL ||
-      targetStatus === AppointmentStatus.CANCELADO_PACIENTE
+      targetStatus === AppointmentStatus.CANCELADO_ACORDADO ||
+      targetStatus === AppointmentStatus.CANCELADO_FALTA
     ) {
       updateData.cancelledAt = now
     }

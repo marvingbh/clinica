@@ -58,9 +58,9 @@ const STATUS_LABELS: Record<string, string> = {
   AGENDADO: "Agendado",
   CONFIRMADO: "Confirmado",
   FINALIZADO: "Finalizado",
-  NAO_COMPARECEU: "Nao compareceu",
+  CANCELADO_ACORDADO: "Cancelado (Acordado)",
+  CANCELADO_FALTA: "Cancelado (Falta)",
   CANCELADO_PROFISSIONAL: "Cancelado (Profissional)",
-  CANCELADO_PACIENTE: "Cancelado (Paciente)",
 }
 
 const MODALITY_LABELS: Record<string, string> = {

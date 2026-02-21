@@ -264,7 +264,7 @@ export function DailyOverviewGrid({
             const isCompact = height < 72
             const isTall = height >= 110
 
-            const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_PACIENTE"].includes(appointment.status)
+            const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"].includes(appointment.status)
 
             const startTimeStr = `${hour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`
             const endTimeStr = `${endAt.getHours().toString().padStart(2, "0")}:${endAt.getMinutes().toString().padStart(2, "0")}`
@@ -483,9 +483,9 @@ function getStatusBorderTop(status: AppointmentStatus): string {
   const colors: Record<AppointmentStatus, string> = {
     AGENDADO: "border-t-blue-500",
     CONFIRMADO: "border-t-green-500",
-    CANCELADO_PACIENTE: "border-t-red-500",
+    CANCELADO_ACORDADO: "border-t-red-500",
+    CANCELADO_FALTA: "border-t-yellow-500",
     CANCELADO_PROFISSIONAL: "border-t-red-500",
-    NAO_COMPARECEU: "border-t-yellow-500",
     FINALIZADO: "border-t-gray-400",
   }
   return colors[status] || "border-t-gray-400"

@@ -210,7 +210,7 @@ export function AgendaTimeline({
             const canShowAvailableButton = slot.isAvailable && !isBlocked && !isPast && (!!selectedProfessionalId || !isAdmin)
 
             // Check if all appointments in the slot are cancelled
-            const cancelledStatuses = ["CANCELADO_PACIENTE", "CANCELADO_PROFISSIONAL"]
+            const cancelledStatuses = ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"]
             const allAppointmentsCancelled = hasAppointments && slot.appointments.every(
               apt => cancelledStatuses.includes(apt.status)
             )

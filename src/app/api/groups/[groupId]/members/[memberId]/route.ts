@@ -73,7 +73,7 @@ export const PATCH = withFeatureAuth(
           groupId,
           patientId: existingMembership.patientId,
           scheduledAt: { gte: leaveDateObj },
-          status: { notIn: ["CANCELADO_PACIENTE", "CANCELADO_PROFISSIONAL", "FINALIZADO"] },
+          status: { notIn: ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL", "FINALIZADO"] },
         },
         data: {
           status: "CANCELADO_PROFISSIONAL",

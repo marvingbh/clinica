@@ -39,9 +39,9 @@ export function AppointmentHistorySection({
           { value: "AGENDADO", label: "Agendado" },
           { value: "CONFIRMADO", label: "Confirmado" },
           { value: "FINALIZADO", label: "Finalizado" },
-          { value: "CANCELADO_PACIENTE", label: "Canc. Paciente" },
+          { value: "CANCELADO_ACORDADO", label: "Canc. Acordado" },
+          { value: "CANCELADO_FALTA", label: "Faltou" },
           { value: "CANCELADO_PROFISSIONAL", label: "Canc. Profissional" },
-          { value: "NAO_COMPARECEU", label: "Faltou" },
         ].map((filter) => (
           <button
             key={filter.value}

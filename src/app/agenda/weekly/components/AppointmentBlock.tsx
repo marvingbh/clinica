@@ -37,7 +37,7 @@ export function AppointmentBlock({
   const top = ((hour - START_HOUR) * 60 + minutes) * PIXELS_PER_MINUTE
   const height = Math.max(durationMinutes * PIXELS_PER_MINUTE, 32) // Min height of 32px for readability
 
-  const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_PACIENTE"].includes(appointment.status)
+  const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"].includes(appointment.status)
 
   const startTimeStr = `${hour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`
   const endHour = endAt.getHours()

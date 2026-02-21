@@ -16,6 +16,7 @@
     "prisma:push": "prisma db push",
     "prisma:seed": "npx tsx prisma/seed.ts",
     "prisma:seed:saas": "npx tsx prisma/seed-saas.ts",
+    "prisma:migrate:statuses": "npx tsx prisma/migrate-statuses.ts",
     "postinstall": "prisma generate",
     "vercel-build": "prisma generate && vitest run && prisma migrate deploy && next build"
   },

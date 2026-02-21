@@ -237,7 +237,7 @@ export const GET = withFeatureAuth(
             isActive: true,
           },
           type: "CONSULTA",
-          status: { notIn: ["CANCELADO_PACIENTE", "CANCELADO_PROFISSIONAL"] },
+          status: { notIn: ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"] },
           OR: [...adjacentDateStrs].map(ds => ({
             scheduledAt: {
               gte: new Date(ds + "T00:00:00"),
@@ -315,7 +315,7 @@ export const GET = withFeatureAuth(
           recurrenceId: { not: null },
           recurrence: { recurrenceType: "BIWEEKLY", isActive: true },
           type: "CONSULTA",
-          status: { notIn: ["CANCELADO_PACIENTE", "CANCELADO_PROFISSIONAL"] },
+          status: { notIn: ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"] },
           patientId: { not: null },
           OR: [
             { scheduledAt: { gte: new Date(prevDateStr + "T00:00:00"), lte: new Date(prevDateStr + "T23:59:59.999") } },

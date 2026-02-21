@@ -20,9 +20,9 @@ function getStatusAccentColor(status: AppointmentStatus): string {
   const colors: Record<AppointmentStatus, string> = {
     AGENDADO: "bg-blue-500",
     CONFIRMADO: "bg-green-500",
-    CANCELADO_PACIENTE: "bg-red-500",
+    CANCELADO_ACORDADO: "bg-red-500",
+    CANCELADO_FALTA: "bg-yellow-500",
     CANCELADO_PROFISSIONAL: "bg-red-500",
-    NAO_COMPARECEU: "bg-yellow-500",
     FINALIZADO: "bg-gray-400",
   }
   return colors[status] || "bg-gray-400"
@@ -36,7 +36,7 @@ export function AppointmentCard({
   compact = false,
   professionalColorMap,
 }: AppointmentCardProps) {
-  const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_PACIENTE"].includes(appointment.status)
+  const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"].includes(appointment.status)
   const isConsulta = appointment.type === "CONSULTA"
 
   // Get professional color from map when showing all professionals

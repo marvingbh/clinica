@@ -16,9 +16,9 @@ describe("formatFieldValue", () => {
   it("formats appointment status enums", () => {
     expect(formatFieldValue("status", "AGENDADO")).toBe("Agendado")
     expect(formatFieldValue("status", "CONFIRMADO")).toBe("Confirmado")
-    expect(formatFieldValue("status", "NAO_COMPARECEU")).toBe("Nao compareceu")
+    expect(formatFieldValue("status", "CANCELADO_ACORDADO")).toBe("Cancelado (Acordado)")
+    expect(formatFieldValue("status", "CANCELADO_FALTA")).toBe("Cancelado (Falta)")
     expect(formatFieldValue("status", "CANCELADO_PROFISSIONAL")).toBe("Cancelado (Profissional)")
-    expect(formatFieldValue("status", "CANCELADO_PACIENTE")).toBe("Cancelado (Paciente)")
   })
 
   it("formats modality enums", () => {

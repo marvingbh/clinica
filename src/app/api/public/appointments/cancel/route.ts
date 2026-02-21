@@ -73,7 +73,8 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    if (tokenRecord?.appointment?.status === "CANCELADO_PACIENTE" ||
+    if (tokenRecord?.appointment?.status === "CANCELADO_ACORDADO" ||
+        tokenRecord?.appointment?.status === "CANCELADO_FALTA" ||
         tokenRecord?.appointment?.status === "CANCELADO_PROFISSIONAL") {
       return NextResponse.json(
         {
@@ -123,11 +124,11 @@ export async function POST(req: NextRequest) {
 
   const cancellationReason = reason?.trim() || "Cancelado pelo paciente via link"
 
-  // Update appointment status to CANCELADO_PACIENTE
+  // Update appointment status to CANCELADO_ACORDADO (patient initiated via link)
   const appointment = await prisma.appointment.update({
     where: { id: validation.appointmentId },
     data: {
-      status: "CANCELADO_PACIENTE",
+      status: "CANCELADO_ACORDADO",
       cancelledAt: new Date(),
       cancellationReason,
     },
@@ -154,7 +155,7 @@ export async function POST(req: NextRequest) {
         status: existingAppointment.status,
       },
       newValues: {
-        status: "CANCELADO_PACIENTE",
+        status: "CANCELADO_ACORDADO",
         cancellationReason,
         cancelledAt: appointment.cancelledAt?.toISOString(),
       },

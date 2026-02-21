@@ -32,7 +32,7 @@ export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointm
               onClick={() => onAppointmentClick(appointment)}
               className={`${slot.appointments.length > 1 ? 'flex-1 min-w-[150px]' : 'flex-1'} bg-card border border-border rounded-lg p-3 text-left hover:shadow-md transition-all border-l-4 ${
                 STATUS_BORDER_COLORS[appointment.status as AppointmentStatus] || "border-l-gray-500"
-              } ${["CANCELADO_PROFISSIONAL", "CANCELADO_PACIENTE"].includes(appointment.status) ? "opacity-50" : ""}`}
+              } ${["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"].includes(appointment.status) ? "opacity-50" : ""}`}
             >
               {/* Professional name - prominent when viewing all */}
               {!selectedProfessionalId && (

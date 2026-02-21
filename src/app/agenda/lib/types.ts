@@ -169,9 +169,9 @@ export type Modality = "ONLINE" | "PRESENCIAL"
 export type AppointmentStatus =
   | "AGENDADO"
   | "CONFIRMADO"
-  | "CANCELADO_PACIENTE"
+  | "CANCELADO_ACORDADO"
+  | "CANCELADO_FALTA"
   | "CANCELADO_PROFISSIONAL"
-  | "NAO_COMPARECEU"
   | "FINALIZADO"
 
 export type CancelType = "single" | "series"

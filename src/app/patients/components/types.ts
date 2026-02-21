@@ -104,17 +104,17 @@ export function formatDateTime(dateString: string): string {
 export const statusLabels: Record<string, string> = {
   AGENDADO: "Agendado",
   CONFIRMADO: "Confirmado",
-  CANCELADO_PACIENTE: "Cancelado (Paciente)",
+  CANCELADO_ACORDADO: "Cancelado (Acordado)",
+  CANCELADO_FALTA: "Cancelado (Falta)",
   CANCELADO_PROFISSIONAL: "Cancelado (Profissional)",
-  NAO_COMPARECEU: "Nao compareceu",
   FINALIZADO: "Finalizado",
 }
 
 export const statusColors: Record<string, string> = {
   AGENDADO: "bg-blue-100 text-blue-800",
   CONFIRMADO: "bg-green-100 text-green-800",
-  CANCELADO_PACIENTE: "bg-red-100 text-red-800",
+  CANCELADO_ACORDADO: "bg-red-100 text-red-800",
+  CANCELADO_FALTA: "bg-yellow-100 text-yellow-800",
   CANCELADO_PROFISSIONAL: "bg-red-100 text-red-800",
-  NAO_COMPARECEU: "bg-yellow-100 text-yellow-800",
   FINALIZADO: "bg-gray-100 text-gray-800",
 }

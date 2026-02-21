@@ -85,7 +85,7 @@ export async function checkConflict(
         AND ap."professionalProfileId" = ANY(${allProfIds}::text[])
       )
     )
-      AND a.status NOT IN ('CANCELADO_PACIENTE', 'CANCELADO_PROFISSIONAL')
+      AND a.status NOT IN ('CANCELADO_ACORDADO', 'CANCELADO_FALTA', 'CANCELADO_PROFISSIONAL')
       AND a."blocksTime" = true
       AND a."scheduledAt" < ${endAt}
       AND a."endAt" > ${scheduledAt}
@@ -192,7 +192,7 @@ export async function checkConflictsBulk(
         AND ap."professionalProfileId" = ANY($1::text[])
       )
     )
-      AND a.status NOT IN ('CANCELADO_PACIENTE', 'CANCELADO_PROFISSIONAL')
+      AND a.status NOT IN ('CANCELADO_ACORDADO', 'CANCELADO_FALTA', 'CANCELADO_PROFISSIONAL')
       AND a."blocksTime" = true
       AND a."scheduledAt" < v.end_at AND a."endAt" > v.start_at
       ${excludeClause}

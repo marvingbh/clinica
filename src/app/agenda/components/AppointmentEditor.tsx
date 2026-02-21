@@ -412,8 +412,8 @@ function OccurrenceTabContent({
   editAdditionalProfIds,
   setEditAdditionalProfIds,
 }: OccurrenceTabContentProps) {
-  const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_PACIENTE"].includes(appointment.status)
-  const isNoShow = appointment.status === "NAO_COMPARECEU"
+  const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"].includes(appointment.status)
+  const isNoShow = appointment.status === "CANCELADO_FALTA"
   const isFinished = appointment.status === "FINALIZADO"
   const isTerminal = isCancelled || isNoShow || isFinished
 
@@ -450,7 +450,7 @@ function OccurrenceTabContent({
               </button>
               <button
                 type="button"
-                onClick={() => onUpdateStatus("NAO_COMPARECEU", "Paciente marcado como nao compareceu")}
+                onClick={() => onUpdateStatus("CANCELADO_FALTA", "Paciente marcado como falta")}
                 disabled={isUpdatingStatus}
                 className="h-11 rounded-xl border-2 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-sm flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
               >
@@ -472,11 +472,11 @@ function OccurrenceTabContent({
               </button>
               <button
                 type="button"
-                onClick={() => onUpdateStatus("NAO_COMPARECEU", "Paciente marcado como nao compareceu")}
+                onClick={() => onUpdateStatus("CANCELADO_FALTA", "Paciente marcado como falta")}
                 disabled={isUpdatingStatus}
                 className="h-11 rounded-xl border-2 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-sm flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
               >
-                {isUpdatingStatus ? "..." : "Nao Compareceu"}
+                {isUpdatingStatus ? "..." : "Faltou"}
               </button>
             </div>
           )}

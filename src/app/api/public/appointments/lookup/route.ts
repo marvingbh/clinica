@@ -136,7 +136,8 @@ export async function GET(req: NextRequest) {
     }
   } else if (action === "cancel") {
     // Check if already cancelled
-    if (appointment.status === "CANCELADO_PACIENTE" ||
+    if (appointment.status === "CANCELADO_ACORDADO" ||
+        appointment.status === "CANCELADO_FALTA" ||
         appointment.status === "CANCELADO_PROFISSIONAL") {
       return NextResponse.json(
         {

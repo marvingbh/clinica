@@ -25,9 +25,9 @@ enum Role {
 enum AppointmentStatus {
   AGENDADO
   CONFIRMADO
-  CANCELADO_PACIENTE
+  CANCELADO_ACORDADO
+  CANCELADO_FALTA
   CANCELADO_PROFISSIONAL
-  NAO_COMPARECEU
   FINALIZADO
 }
 
@@ -89,6 +89,20 @@ enum FeatureAccess {
   WRITE
 }
 
+enum InvoiceStatus {
+  PENDENTE
+  PAGO
+  CANCELADO
+}
+
+enum InvoiceItemType {
+  SESSAO_REGULAR
+  SESSAO_EXTRA
+  SESSAO_GRUPO
+  REUNIAO_ESCOLA
+  CREDITO
+}
+
 // ============================================================================
 // SAAS MODELS
 // ============================================================================
@@ -142,6 +156,7 @@ model Clinic {
   defaultSessionDuration Int    @default(50) // in minutes
   minAdvanceBooking      Int    @default(2)  // minimum hours in advance for booking
   reminderHours          Int[]  @default([24, 2]) // hours before appointment to send reminders
+  invoiceMessageTemplate String? // Default invoice message template with {{variables}}
 
   // SaaS subscription fields
   planId               String?
@@ -164,6 +179,8 @@ model Clinic {
   availabilityExceptions  AvailabilityException[]
   patientPhones           PatientPhone[]
   userPermissions         UserPermission[]
+  invoices               Invoice[]
+  sessionCredits         SessionCredit[]
 
   @@index([slug])
   @@index([isActive])
@@ -221,6 +238,8 @@ model ProfessionalProfile {
   appointmentParticipations  AppointmentProfessional[]  @relation("AppointmentParticipations")
   groupParticipations        TherapyGroupProfessional[] @relation("GroupParticipations")
   recurrenceParticipations   RecurrenceProfessional[]   @relation("RecurrenceParticipations")
+  invoices               Invoice[]
+  sessionCredits         SessionCredit[]
 
   @@index([userId])
 }
@@ -289,6 +308,8 @@ model Patient {
   firstAppointmentDate DateTime? @db.Date // Date of first appointment (manual)
   lastFeeAdjustmentDate DateTime? @db.Date // Date of last session fee adjustment
   sessionFee  Decimal?  @db.Decimal(10, 2) // Session fee in BRL
+  showAppointmentDaysOnInvoice Boolean @default(false)
+  invoiceMessageTemplate       String? // Overrides clinic default for invoice text
   therapeuticProject String? // Therapeutic project (free text)
   isActive    Boolean   @default(true)
   lastVisitAt DateTime?
@@ -313,6 +334,8 @@ model Patient {
   appointmentRecurrences AppointmentRecurrence[]
   groupMemberships       GroupMembership[]
   additionalPhones       PatientPhone[]
+  invoices               Invoice[]
+  sessionCredits         SessionCredit[]
 
   @@unique([clinicId, cpf])
   @@index([clinicId])
@@ -363,6 +386,7 @@ model Appointment {
   cancellationReason    String?
   cancelledAt           DateTime?
   confirmedAt           DateTime?
+  creditGenerated       Boolean             @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -376,6 +400,8 @@ model Appointment {
   tokens                  AppointmentToken[]
   notifications           Notification[]
   additionalProfessionals AppointmentProfessional[]
+  invoiceItems           InvoiceItem[]
+  sessionCredits         SessionCredit[]
 
   @@index([clinicId])
   @@index([professionalProfileId])
@@ -655,4 +681,91 @@ model RecurrenceProfessional {
   @@unique([recurrenceId, professionalProfileId])
   @@index([professionalProfileId])
   @@index([recurrenceId])
+}
+
+// ============================================================================
+// FINANCIAL MODELS
+// ============================================================================
+
+/// Monthly invoice for a patient
+model Invoice {
+  id                    String        @id @default(cuid())
+  clinicId              String
+  professionalProfileId String
+  patientId             String
+  referenceMonth        Int
+  referenceYear         Int
+  status                InvoiceStatus @default(PENDENTE)
+  totalSessions         Int
+  creditsApplied        Int
+  extrasAdded           Int
+  totalAmount           Decimal       @db.Decimal(10, 2)
+  dueDate               DateTime      @db.Date
+  paidAt                DateTime?
+  notes                 String?
+  showAppointmentDays   Boolean       @default(false)
+  messageBody           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  patient             Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  items               InvoiceItem[]
+  consumedCredits     SessionCredit[]
+
+  @@unique([professionalProfileId, patientId, referenceMonth, referenceYear])
+  @@index([clinicId])
+  @@index([professionalProfileId])
+  @@index([patientId])
+  @@index([status])
+  @@index([clinicId, referenceYear, referenceMonth])
+  @@index([professionalProfileId, referenceYear, referenceMonth])
+}
+
+/// Line item on an invoice
+model InvoiceItem {
+  id            String          @id @default(cuid())
+  invoiceId     String
+  appointmentId String?
+  type          InvoiceItemType
+  description   String
+  quantity      Int             @default(1)
+  unitPrice     Decimal         @db.Decimal(10, 2)
+  total         Decimal         @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+
+  invoice     Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([appointmentId])
+}
+
+/// Session credit from a cancelled appointment (CANCELADO_ACORDADO)
+model SessionCredit {
+  id                    String    @id @default(cuid())
+  clinicId              String
+  professionalProfileId String
+  patientId             String
+  originAppointmentId   String
+  reason                String
+  consumedByInvoiceId   String?
+  consumedAt            DateTime?
+
+  createdAt DateTime @default(now())
+
+  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  patient             Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  originAppointment   Appointment         @relation(fields: [originAppointmentId], references: [id], onDelete: Cascade)
+  consumedByInvoice   Invoice?            @relation(fields: [consumedByInvoiceId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId])
+  @@index([professionalProfileId])
+  @@index([patientId])
+  @@index([consumedByInvoiceId])
+  @@index([professionalProfileId, patientId, consumedByInvoiceId])
 }

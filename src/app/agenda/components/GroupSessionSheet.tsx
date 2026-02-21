@@ -113,7 +113,7 @@ export function GroupSessionSheet({
       } else {
         const statusMessages: Record<string, string> = {
           FINALIZADO: `${patientName} marcado como finalizado`,
-          NAO_COMPARECEU: `${patientName} marcado como não compareceu`,
+          CANCELADO_FALTA: `${patientName} marcado como falta`,
           CONFIRMADO: `${patientName} confirmado`,
         }
         toast.success(statusMessages[newStatus] || "Status atualizado")
@@ -262,7 +262,7 @@ export function GroupSessionSheet({
         <div className="space-y-3">
           {session.participants.map((participant) => {
             const isUpdating = updatingId === participant.appointmentId
-            const isCancelled = ["CANCELADO_PACIENTE", "CANCELADO_PROFISSIONAL"].includes(
+            const isCancelled = ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"].includes(
               participant.status
             )
             const canMarkStatus = ["AGENDADO", "CONFIRMADO"].includes(participant.status)
@@ -354,7 +354,7 @@ export function GroupSessionSheet({
                         onClick={() =>
                           handleUpdateStatus(
                             participant.appointmentId,
-                            "NAO_COMPARECEU",
+                            "CANCELADO_FALTA",
                             participant.patientName
                           )
                         }
