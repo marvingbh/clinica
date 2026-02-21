@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 
 function LoginForm() {
   const router = useRouter()
@@ -91,6 +92,13 @@ function LoginForm() {
       >
         {isLoading ? "Entrando..." : "Entrar"}
       </button>
+
+      <p className="text-center text-sm text-muted-foreground mt-4">
+        Nao tem conta?{" "}
+        <Link href="/signup" className="text-primary hover:underline font-medium">
+          Criar conta gratuitamente
+        </Link>
+      </p>
     </form>
   )
 }
