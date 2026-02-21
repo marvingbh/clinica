@@ -76,6 +76,13 @@ export const rolePermissions: RolePermissions = {
     { resource: "therapy-group", action: "update", scope: "clinic" },
     { resource: "therapy-group", action: "delete", scope: "clinic" },
     { resource: "therapy-group", action: "list", scope: "clinic" },
+
+    // Invoice management
+    { resource: "invoice", action: "create", scope: "clinic" },
+    { resource: "invoice", action: "read", scope: "clinic" },
+    { resource: "invoice", action: "update", scope: "clinic" },
+    { resource: "invoice", action: "delete", scope: "clinic" },
+    { resource: "invoice", action: "list", scope: "clinic" },
   ],
 
   PROFESSIONAL: [
@@ -117,6 +124,13 @@ export const rolePermissions: RolePermissions = {
     { resource: "therapy-group", action: "update", scope: "own" },
     { resource: "therapy-group", action: "delete", scope: "own" },
     { resource: "therapy-group", action: "list", scope: "own" },
+
+    // Own invoices
+    { resource: "invoice", action: "create", scope: "own" },
+    { resource: "invoice", action: "read", scope: "own" },
+    { resource: "invoice", action: "update", scope: "own" },
+    { resource: "invoice", action: "delete", scope: "own" },
+    { resource: "invoice", action: "list", scope: "own" },
   ],
 }
 
@@ -147,6 +161,7 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     audit_logs: "READ",
     availability_own: "WRITE",
     availability_others: "WRITE",
+    finances: "WRITE",
   },
   PROFESSIONAL: {
     agenda_own: "WRITE",
@@ -160,6 +175,7 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     audit_logs: "NONE",
     availability_own: "WRITE",
     availability_others: "NONE",
+    finances: "WRITE",
   },
 }
 

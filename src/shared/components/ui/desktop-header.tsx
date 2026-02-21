@@ -17,6 +17,7 @@ import {
   SunIcon,
   MoonIcon,
   ShieldIcon,
+  DollarSignIcon,
 } from "./icons"
 import { usePermission } from "@/shared/hooks/usePermission"
 import type { Feature } from "@/lib/rbac/types"
@@ -62,6 +63,13 @@ const navItems: NavItem[] = [
     icon: <UsersIcon className="w-4 h-4" />,
     matchPaths: ["/groups"],
     feature: "groups",
+  },
+  {
+    href: "/financeiro",
+    label: "Financeiro",
+    icon: <DollarSignIcon className="w-4 h-4" />,
+    matchPaths: ["/financeiro"],
+    feature: "finances",
   },
 ]
 

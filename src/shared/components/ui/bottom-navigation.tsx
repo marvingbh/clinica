@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useTheme } from "@/shared/components/theme-provider"
-import { HomeIcon, CalendarIcon, StethoscopeIcon, UserIcon, UsersIcon, SunIcon, MoonIcon } from "./icons"
+import { HomeIcon, CalendarIcon, StethoscopeIcon, UserIcon, UsersIcon, SunIcon, MoonIcon, DollarSignIcon } from "./icons"
 import type { Feature } from "@/lib/rbac/types"
 
 interface NavItem {
@@ -45,6 +45,14 @@ const navItems: NavItem[] = [
     activeIcon: <UsersIcon className="w-6 h-6" strokeWidth={2} />,
     matchPaths: ["/groups"],
     feature: "groups",
+  },
+  {
+    href: "/financeiro",
+    label: "Financeiro",
+    icon: <DollarSignIcon className="w-6 h-6" strokeWidth={1.5} />,
+    activeIcon: <DollarSignIcon className="w-6 h-6" strokeWidth={2} />,
+    matchPaths: ["/financeiro"],
+    feature: "finances",
   },
   {
     href: "/profile",

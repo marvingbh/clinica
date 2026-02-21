@@ -13,6 +13,7 @@ export const FEATURES = [
   "audit_logs",
   "availability_own",
   "availability_others",
+  "finances",
 ] as const
 
 export type Feature = (typeof FEATURES)[number]
@@ -30,6 +31,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   audit_logs: "Logs de Auditoria",
   availability_own: "Disponibilidade (propria)",
   availability_others: "Disponibilidade (outros)",
+  finances: "Financeiro",
 }
 
 export type ResolvedPermissions = Record<Feature, FeatureAccess>
@@ -55,6 +57,7 @@ export type Resource =
   | "notification"
   | "notification-template"
   | "therapy-group"
+  | "invoice"
 
 export type Action = "create" | "read" | "update" | "delete" | "list"
 
