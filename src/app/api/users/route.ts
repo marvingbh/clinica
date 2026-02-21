@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { hashPassword } from "@/lib/password"
 import { Role } from "@prisma/client"
+import { checkProfessionalLimit } from "@/lib/subscription"
 
 /**
  * GET /api/users
@@ -99,6 +100,29 @@ export const POST = withFeatureAuth(
       )
     }
 
+    // Check professional limit for PROFESSIONAL role
+    const userRole = role === "ADMIN" ? Role.ADMIN : Role.PROFESSIONAL
+    if (userRole === Role.PROFESSIONAL) {
+      const [clinic, profCount] = await Promise.all([
+        prisma.clinic.findUnique({
+          where: { id: user.clinicId },
+          select: { plan: { select: { maxProfessionals: true } } },
+        }),
+        prisma.professionalProfile.count({
+          where: { user: { clinicId: user.clinicId } },
+        }),
+      ])
+
+      const { allowed, message } = checkProfessionalLimit({
+        maxProfessionals: clinic?.plan?.maxProfessionals ?? null,
+        currentCount: profCount,
+      })
+
+      if (!allowed) {
+        return NextResponse.json({ error: message }, { status: 403 })
+      }
+    }
+
     const passwordHash = await hashPassword(password)
 
     const newUser = await prisma.user.create({
@@ -107,7 +131,7 @@ export const POST = withFeatureAuth(
         name,
         email,
         passwordHash,
-        role: role === "ADMIN" ? Role.ADMIN : Role.PROFESSIONAL,
+        role: userRole,
       },
       select: {
         id: true,
