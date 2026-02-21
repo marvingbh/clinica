@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { Plus, X } from "lucide-react"
+import { formatCurrency } from "@/app/superadmin/components/StatusBadge"
 
 interface Plan {
   id: string
@@ -29,10 +30,6 @@ const emptyForm: PlanFormData = {
   stripePriceId: "",
   maxProfessionals: -1,
   priceInCents: 0,
-}
-
-function formatCurrency(cents: number): string {
-  return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 }
 
 export default function SuperAdminPlansPage() {

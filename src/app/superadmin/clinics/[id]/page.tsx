@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Users, Calendar } from "lucide-react"
+import { StatusBadge, formatDate } from "@/app/superadmin/components/StatusBadge"
 
 interface ClinicUser {
   id: string
@@ -31,34 +32,6 @@ interface ClinicDetail {
   _count: { patients: number; appointments: number }
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    trialing: "bg-blue-100 text-blue-700",
-    active: "bg-green-100 text-green-700",
-    past_due: "bg-yellow-100 text-yellow-700",
-    canceled: "bg-red-100 text-red-700",
-    unpaid: "bg-red-100 text-red-700",
-  }
-
-  const labels: Record<string, string> = {
-    trialing: "Em teste",
-    active: "Ativo",
-    past_due: "Inadimplente",
-    canceled: "Cancelado",
-    unpaid: "Nao pago",
-  }
-
-  return (
-    <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-        styles[status] || "bg-gray-100 text-gray-700"
-      }`}
-    >
-      {labels[status] || status}
-    </span>
-  )
-}
-
 function RoleBadge({ role }: { role: string }) {
   const isAdmin = role === "ADMIN"
   return (
@@ -72,13 +45,8 @@ function RoleBadge({ role }: { role: string }) {
   )
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("pt-BR")
-}
-
 export default function SuperAdminClinicDetailPage() {
   const params = useParams()
-  const router = useRouter()
   const clinicId = params.id as string
 
   const [clinic, setClinic] = useState<ClinicDetail | null>(null)
@@ -232,7 +200,7 @@ export default function SuperAdminClinicDetailPage() {
             disabled={actionLoading}
             className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Estender trial
+            Estender trial (+14 dias)
           </button>
           {clinic.isActive ? (
             <button

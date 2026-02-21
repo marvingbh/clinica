@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Building2, Users, CreditCard, AlertTriangle, Clock, DollarSign } from "lucide-react"
+import { formatCurrency } from "@/app/superadmin/components/StatusBadge"
 
 interface DashboardData {
   totalClinics: number
@@ -10,10 +11,6 @@ interface DashboardData {
   canceledCount: number
   pastDueCount: number
   mrrInCents: number
-}
-
-function formatCurrency(cents: number): string {
-  return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 }
 
 const statCards = [
