@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/shared/components/theme-provider";
 import { DesktopHeader } from "@/shared/components/ui/desktop-header";
 import { BottomNavigation } from "@/shared/components/ui/bottom-navigation";
 import { PageTransition } from "@/shared/components/ui/page-transition";
+import { SubscriptionBanner } from "@/shared/components/SubscriptionBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -66,6 +67,7 @@ export default function RootLayout({
         <ThemeProvider>
           <SessionProvider>
             <DesktopHeader />
+            <SubscriptionBanner />
             <div className="md:pt-16">
               <PageTransition>
                 {children}
