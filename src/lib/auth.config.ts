@@ -17,6 +17,7 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user
+      const isHomePage = nextUrl.pathname === "/"
       const isLoginPage = nextUrl.pathname === "/login"
       const isSignupPage = nextUrl.pathname === "/signup"
       const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth")
@@ -26,7 +27,7 @@ export const authConfig: NextAuthConfig = {
       const isCancelPage = nextUrl.pathname === "/cancel"
       const isSuperAdminRoute = nextUrl.pathname.startsWith("/superadmin")
       const isPublicRoute =
-        isLoginPage || isSignupPage || isApiAuthRoute || isPublicApiRoute ||
+        isHomePage || isLoginPage || isSignupPage || isApiAuthRoute || isPublicApiRoute ||
         isWebhookRoute || isConfirmPage || isCancelPage || isSuperAdminRoute
 
       if (isPublicRoute) {
