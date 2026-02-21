@@ -23,10 +23,10 @@ const VALID_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
     AppointmentStatus.CANCELADO_PROFISSIONAL,
     AppointmentStatus.CANCELADO_ACORDADO,
   ],
-  // Terminal states - no transitions allowed (use explicit override if needed)
+  // Terminal states - limited transitions
   FINALIZADO: [],
-  CANCELADO_ACORDADO: [],
-  CANCELADO_FALTA: [],
+  CANCELADO_ACORDADO: [AppointmentStatus.CANCELADO_FALTA],
+  CANCELADO_FALTA: [AppointmentStatus.CANCELADO_ACORDADO],
   CANCELADO_PROFISSIONAL: [],
 }
 
@@ -204,6 +204,61 @@ export const PATCH = withFeatureAuth(
         },
       },
     })
+
+    // Credit management for ACORDADO/FALTA transitions
+    if (targetStatus === AppointmentStatus.CANCELADO_ACORDADO && existing.patientId) {
+      // Only create credit if not already generated
+      if (!existing.creditGenerated) {
+        await prisma.sessionCredit.create({
+          data: {
+            clinicId: user.clinicId,
+            professionalProfileId: existing.professionalProfileId,
+            patientId: existing.patientId,
+            originAppointmentId: existing.id,
+            reason: `Cancelamento acordado - ${new Date(existing.scheduledAt).toLocaleDateString("pt-BR")}`,
+          },
+        })
+        await prisma.appointment.update({
+          where: { id: existing.id },
+          data: { creditGenerated: true },
+        })
+      }
+    }
+
+    // Switching from ACORDADO to FALTA: delete credit if unconsumed
+    if (currentStatus === AppointmentStatus.CANCELADO_ACORDADO && targetStatus === AppointmentStatus.CANCELADO_FALTA) {
+      const credit = await prisma.sessionCredit.findFirst({
+        where: {
+          originAppointmentId: existing.id,
+          consumedByInvoiceId: null,
+        },
+      })
+      if (credit) {
+        await prisma.sessionCredit.delete({ where: { id: credit.id } })
+        await prisma.appointment.update({
+          where: { id: existing.id },
+          data: { creditGenerated: false },
+        })
+      }
+      // If credit was consumed, the transition is still allowed but we don't delete it
+    }
+
+    // Switching from FALTA to ACORDADO: create credit
+    if (currentStatus === AppointmentStatus.CANCELADO_FALTA && targetStatus === AppointmentStatus.CANCELADO_ACORDADO && existing.patientId) {
+      await prisma.sessionCredit.create({
+        data: {
+          clinicId: user.clinicId,
+          professionalProfileId: existing.professionalProfileId,
+          patientId: existing.patientId,
+          originAppointmentId: existing.id,
+          reason: `Cancelamento acordado - ${new Date(existing.scheduledAt).toLocaleDateString("pt-BR")}`,
+        },
+      })
+      await prisma.appointment.update({
+        where: { id: existing.id },
+        data: { creditGenerated: true },
+      })
+    }
 
     // Create AuditLog entry
     const ipAddress = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? undefined
