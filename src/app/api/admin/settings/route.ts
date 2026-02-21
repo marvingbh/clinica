@@ -22,6 +22,7 @@ const updateSettingsSchema = z.object({
     .array(z.number().int().min(0).max(168))
     .max(10, "Máximo de 10 lembretes")
     .optional(),
+  invoiceMessageTemplate: z.string().nullable().optional(),
 })
 
 /**
@@ -40,6 +41,7 @@ export const GET = withFeatureAuth(
         defaultSessionDuration: true,
         minAdvanceBooking: true,
         reminderHours: true,
+        invoiceMessageTemplate: true,
       },
     })
 
@@ -82,7 +84,7 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours } =
+    const { name, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceMessageTemplate } =
       parsed.data
 
     // Build update object with only provided fields
@@ -93,6 +95,7 @@ export const PATCH = withFeatureAuth(
       updateData.defaultSessionDuration = defaultSessionDuration
     if (minAdvanceBooking !== undefined) updateData.minAdvanceBooking = minAdvanceBooking
     if (reminderHours !== undefined) updateData.reminderHours = reminderHours
+    if (invoiceMessageTemplate !== undefined) updateData.invoiceMessageTemplate = invoiceMessageTemplate || null
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
@@ -111,6 +114,7 @@ export const PATCH = withFeatureAuth(
         defaultSessionDuration: true,
         minAdvanceBooking: true,
         reminderHours: true,
+        invoiceMessageTemplate: true,
       },
     })
 
