@@ -167,6 +167,23 @@ export const PATCH = withFeatureAuth(
       )
     }
 
+    // Pre-check: block ACORDADO→FALTA if credit was already consumed by an invoice
+    if (currentStatus === AppointmentStatus.CANCELADO_ACORDADO && targetStatus === AppointmentStatus.CANCELADO_FALTA) {
+      const unconsumedCredit = await prisma.sessionCredit.findFirst({
+        where: {
+          originAppointmentId: existing.id,
+          consumedByInvoiceId: null,
+        },
+      })
+      if (!unconsumedCredit) {
+        // Credit was already consumed — block the transition
+        return NextResponse.json(
+          { error: "Crédito já foi utilizado em uma fatura. Não é possível alterar para Falta." },
+          { status: 400 }
+        )
+      }
+    }
+
     // Prepare update data with appropriate timestamps
     const now = new Date()
     const updateData: Record<string, unknown> = { status: targetStatus }
@@ -225,7 +242,7 @@ export const PATCH = withFeatureAuth(
       }
     }
 
-    // Switching from ACORDADO to FALTA: delete credit if unconsumed
+    // Switching from ACORDADO to FALTA: delete the unconsumed credit (pre-checked above)
     if (currentStatus === AppointmentStatus.CANCELADO_ACORDADO && targetStatus === AppointmentStatus.CANCELADO_FALTA) {
       const credit = await prisma.sessionCredit.findFirst({
         where: {
@@ -240,7 +257,6 @@ export const PATCH = withFeatureAuth(
           data: { creditGenerated: false },
         })
       }
-      // If credit was consumed, the transition is still allowed but we don't delete it
     }
 
     // Switching from FALTA to ACORDADO: create credit
