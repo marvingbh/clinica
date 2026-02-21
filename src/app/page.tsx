@@ -375,93 +375,170 @@ function LandingPage() {
     {
       icon: CalendarDaysIcon,
       title: "Agenda inteligente",
-      description: "Gerencie consultas, recorrencias e grupos em uma agenda visual.",
+      description: "Consultas, recorrencias e grupos em uma agenda visual e intuitiva.",
+      accent: "from-teal-500 to-cyan-500",
+      iconBg: "bg-teal-500/10",
+      iconColor: "text-teal-600",
     },
     {
       icon: UsersIcon,
       title: "Gestao de pacientes",
-      description: "Cadastro completo com historico de consultas e prontuario.",
+      description: "Cadastro completo com historico, prontuario e consentimento LGPD.",
+      accent: "from-blue-500 to-indigo-500",
+      iconBg: "bg-blue-500/10",
+      iconColor: "text-blue-600",
     },
     {
       icon: BellIcon,
       title: "Notificacoes automaticas",
-      description: "Lembretes por WhatsApp e email para reduzir faltas.",
+      description: "Lembretes por WhatsApp e email para reduzir faltas e atrasos.",
+      accent: "from-amber-500 to-orange-500",
+      iconBg: "bg-amber-500/10",
+      iconColor: "text-amber-600",
     },
     {
       icon: BarChart3Icon,
       title: "Relatorios e dashboard",
-      description: "Acompanhe metricas de atendimento e receita em tempo real.",
+      description: "Metricas de atendimento, receita e comparecimento em tempo real.",
+      accent: "from-purple-500 to-pink-500",
+      iconBg: "bg-purple-500/10",
+      iconColor: "text-purple-600",
     },
   ]
 
-  // Determine middle plan index for highlight
+  const stats = [
+    { value: "14", label: "dias gratis", suffix: "" },
+    { value: "100", label: "clinicas confiam", suffix: "+" },
+    { value: "99.9", label: "uptime", suffix: "%" },
+  ]
+
   const middleIndex = plans.length === 3 ? 1 : -1
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+    <main className="min-h-screen bg-background overflow-hidden">
       {/* Header */}
-      <header className="border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <StethoscopeIcon className="w-6 h-6 text-primary" />
+      <header className="border-b border-border/50 bg-background/70 backdrop-blur-xl sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-md shadow-teal-500/20">
+              <StethoscopeIcon className="w-4.5 h-4.5 text-white" />
+            </div>
             <span className="text-xl font-bold text-foreground tracking-tight">Clinica</span>
           </div>
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-2"
             >
               Entrar
             </Link>
             <Link
               href="/signup"
-              className="text-sm font-medium px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+              className="text-sm font-semibold px-5 py-2.5 rounded-xl landing-btn-primary text-white"
             >
-              Comecar gratuitamente
+              Comecar gratis
             </Link>
           </div>
         </div>
       </header>
 
       {/* Hero */}
-      <section className="py-20 md:py-28">
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground tracking-tight leading-tight">
-            Gerencie sua clinica de forma simples
+      <section className="relative pt-20 pb-24 md:pt-28 md:pb-32 landing-hero-bg">
+        {/* Dot pattern background */}
+        <div className="absolute inset-0 landing-dot-pattern opacity-40" />
+
+        {/* Floating accent shapes */}
+        <div
+          className="absolute top-20 left-[10%] w-72 h-72 rounded-full bg-teal-400/8 blur-3xl"
+          style={{ animation: "landing-float 8s ease-in-out infinite" }}
+        />
+        <div
+          className="absolute bottom-10 right-[10%] w-96 h-96 rounded-full bg-blue-400/6 blur-3xl"
+          style={{ animation: "landing-float 10s ease-in-out infinite 2s" }}
+        />
+
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 text-center">
+          {/* Badge */}
+          <div className="landing-animate-up landing-animate-up-1">
+            <span className="inline-flex items-center gap-2 text-sm font-medium px-4 py-1.5 rounded-full bg-teal-500/10 text-teal-700 border border-teal-500/20 mb-8">
+              <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+              14 dias gratis, sem cartao de credito
+            </span>
+          </div>
+
+          <h1 className="landing-animate-up landing-animate-up-2 text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1]">
+            <span className="text-foreground">Gerencie sua clinica</span>
+            <br />
+            <span className="landing-gradient-text">de forma simples</span>
           </h1>
-          <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-            Agenda, pacientes, notificacoes e relatorios em uma unica plataforma. Comece gratis por 14 dias.
+
+          <p className="landing-animate-up landing-animate-up-3 mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            Agenda, pacientes, notificacoes e relatorios em uma unica plataforma.
+            Tudo que voce precisa para focar no que importa: seus pacientes.
           </p>
-          <div className="mt-10">
+
+          {/* CTA buttons */}
+          <div className="landing-animate-up landing-animate-up-4 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/signup"
-              className="inline-flex items-center justify-center text-base font-medium px-8 py-3 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity shadow-md hover:shadow-lg"
+              className="inline-flex items-center justify-center text-base font-semibold px-8 py-3.5 rounded-xl landing-btn-primary text-white min-w-[220px]"
             >
               Comecar gratuitamente
+              <ChevronRightIcon className="w-4 h-4 ml-2" />
             </Link>
+            <Link
+              href="#features"
+              className="inline-flex items-center justify-center text-base font-medium px-8 py-3.5 rounded-xl border border-border text-foreground hover:bg-muted/50 transition-colors min-w-[220px]"
+            >
+              Conhecer recursos
+            </Link>
+          </div>
+
+          {/* Social proof stats */}
+          <div className="landing-animate-up landing-animate-up-5 mt-16 flex items-center justify-center gap-8 sm:gap-12">
+            {stats.map((stat) => (
+              <div key={stat.label} className="text-center">
+                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                  {stat.value}
+                  <span className="text-teal-600">{stat.suffix}</span>
+                </p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">{stat.label}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Features */}
-      <section className="py-16">
-        <div className="max-w-6xl mx-auto px-4">
-          <h2 className="text-2xl md:text-3xl font-bold text-foreground text-center mb-12">
-            Tudo que sua clinica precisa
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {features.map((feature) => {
+      <section id="features" className="py-20 md:py-28 relative">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-16">
+            <span className="text-sm font-semibold text-teal-600 uppercase tracking-wider">Recursos</span>
+            <h2 className="mt-3 text-3xl md:text-4xl font-bold text-foreground tracking-tight">
+              Tudo que sua clinica precisa
+            </h2>
+            <p className="mt-4 text-muted-foreground max-w-xl mx-auto">
+              Ferramentas pensadas para o dia a dia de clinicas e consultorios de saude.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {features.map((feature, i) => {
               const Icon = feature.icon
               return (
                 <div
                   key={feature.title}
-                  className="bg-card border border-border rounded-lg p-6 shadow-sm"
+                  className="group relative bg-card border border-border/60 rounded-2xl p-7 shadow-sm hover:shadow-lg transition-all duration-300 landing-card-glow"
+                  style={{ animationDelay: `${i * 0.1}s` }}
                 >
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                    <Icon className="w-5 h-5 text-primary" />
+                  {/* Top accent line */}
+                  <div className={`absolute top-0 left-6 right-6 h-px bg-gradient-to-r ${feature.accent} opacity-0 group-hover:opacity-60 transition-opacity duration-300`} />
+
+                  <div className={`w-12 h-12 rounded-xl ${feature.iconBg} flex items-center justify-center mb-5 transition-transform duration-300 group-hover:scale-110`}>
+                    <Icon className={`w-6 h-6 ${feature.iconColor}`} />
                   </div>
                   <h3 className="text-lg font-semibold text-foreground mb-2">{feature.title}</h3>
-                  <p className="text-sm text-muted-foreground">{feature.description}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
                 </div>
               )
             })}
@@ -470,56 +547,81 @@ function LandingPage() {
       </section>
 
       {/* Pricing */}
-      <section className="py-20">
-        <div className="max-w-6xl mx-auto px-4">
-          <h2 className="text-2xl md:text-3xl font-bold text-foreground text-center mb-4">
-            Planos e precos
-          </h2>
-          <p className="text-muted-foreground text-center mb-12 max-w-xl mx-auto">
-            Escolha o plano ideal para sua clinica. Todos incluem 14 dias de teste gratis.
-          </p>
+      <section className="py-20 md:py-28 relative">
+        {/* Background accent */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-teal-500/[0.02] to-transparent" />
+
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-16">
+            <span className="text-sm font-semibold text-teal-600 uppercase tracking-wider">Planos</span>
+            <h2 className="mt-3 text-3xl md:text-4xl font-bold text-foreground tracking-tight">
+              Simples e transparente
+            </h2>
+            <p className="mt-4 text-muted-foreground max-w-xl mx-auto">
+              Escolha o plano ideal para sua clinica. Todos incluem 14 dias de teste gratis.
+            </p>
+          </div>
+
           {plansLoading ? (
             <PricingSkeleton />
           ) : plans.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-4xl mx-auto">
               {plans.map((plan, index) => {
-                const isHighlighted = index === middleIndex
+                const isPopular = index === middleIndex
                 return (
                   <div
                     key={plan.id}
-                    className={`bg-card border rounded-lg p-6 shadow-sm flex flex-col ${
-                      isHighlighted
-                        ? "border-primary border-2 relative"
-                        : "border-border"
+                    className={`relative rounded-2xl p-7 flex flex-col transition-all duration-300 ${
+                      isPopular
+                        ? "landing-pricing-popular border-2 shadow-lg shadow-teal-500/10 scale-[1.02]"
+                        : "bg-card border border-border/60 shadow-sm hover:shadow-md"
                     }`}
                   >
-                    {isHighlighted && (
-                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold px-3 py-1 rounded-full bg-primary text-primary-foreground">
+                    {isPopular && (
+                      <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-xs font-bold px-4 py-1 rounded-full bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-md shadow-teal-500/20 uppercase tracking-wide">
                         Popular
                       </span>
                     )}
-                    <h3 className="text-xl font-bold text-foreground mb-2">{plan.name}</h3>
-                    <p className="text-3xl font-bold text-foreground mb-1">
-                      {formatPrice(plan.priceInCents)}
-                      <span className="text-sm font-normal text-muted-foreground">/mes</span>
-                    </p>
-                    <p className="text-sm text-muted-foreground mb-6">
+
+                    <h3 className="text-xl font-bold text-foreground">{plan.name}</h3>
+
+                    <div className="mt-4 mb-1">
+                      <span className="text-4xl font-extrabold text-foreground tracking-tight">
+                        {formatPrice(plan.priceInCents)}
+                      </span>
+                      <span className="text-sm font-medium text-muted-foreground ml-1">/mes</span>
+                    </div>
+
+                    <p className="text-sm text-muted-foreground mb-8">
                       {plan.maxProfessionals === -1
                         ? "Profissionais ilimitados"
                         : `Ate ${plan.maxProfessionals} ${plan.maxProfessionals === 1 ? "profissional" : "profissionais"}`}
                     </p>
-                    <div className="mt-auto">
-                      <Link
-                        href="/signup"
-                        className={`block w-full text-center text-sm font-medium px-4 py-3 rounded-lg transition-opacity ${
-                          isHighlighted
-                            ? "bg-primary text-primary-foreground hover:opacity-90"
-                            : "bg-muted text-foreground hover:opacity-80"
-                        }`}
-                      >
-                        Comecar teste gratis
-                      </Link>
-                    </div>
+
+                    {/* Feature list */}
+                    <ul className="space-y-3 mb-8 flex-1">
+                      {["Agenda completa", "Gestao de pacientes", "Notificacoes automaticas", "Relatorios"].map((item) => (
+                        <li key={item} className="flex items-center gap-2.5 text-sm text-foreground">
+                          <span className="w-5 h-5 rounded-full bg-teal-500/10 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3 h-3 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </span>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+
+                    <Link
+                      href="/signup"
+                      className={`block w-full text-center text-sm font-semibold px-4 py-3 rounded-xl transition-all duration-200 ${
+                        isPopular
+                          ? "landing-btn-primary text-white"
+                          : "bg-muted/80 text-foreground hover:bg-muted border border-border/50"
+                      }`}
+                    >
+                      Comecar teste gratis
+                    </Link>
                   </div>
                 )
               })}
@@ -528,11 +630,40 @@ function LandingPage() {
         </div>
       </section>
 
+      {/* CTA Section */}
+      <section className="py-20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <div className="relative rounded-3xl overflow-hidden p-10 md:p-16 text-center">
+            {/* Gradient background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-teal-600 via-teal-700 to-cyan-800" />
+            <div className="absolute inset-0 landing-dot-pattern opacity-10" />
+
+            <div className="relative">
+              <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
+                Pronto para transformar sua clinica?
+              </h2>
+              <p className="text-teal-100 max-w-lg mx-auto mb-8">
+                Junte-se a centenas de clinicas que ja simplificaram sua gestao. Comece agora, sem compromisso.
+              </p>
+              <Link
+                href="/signup"
+                className="inline-flex items-center justify-center text-base font-semibold px-8 py-3.5 rounded-xl bg-white text-teal-700 hover:bg-teal-50 transition-colors shadow-lg"
+              >
+                Criar conta gratuitamente
+                <ChevronRightIcon className="w-4 h-4 ml-2" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
-      <footer className="border-t border-border py-8">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2">
-            <StethoscopeIcon className="w-5 h-5 text-primary" />
+      <footer className="border-t border-border/50 py-10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center">
+              <StethoscopeIcon className="w-4 h-4 text-white" />
+            </div>
             <span className="text-lg font-bold text-foreground">Clinica</span>
           </div>
           <p className="text-sm text-muted-foreground">
