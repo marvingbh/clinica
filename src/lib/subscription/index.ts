@@ -8,3 +8,9 @@ export {
   type AccessLevel,
   type SubscriptionBanner,
 } from "./status"
+
+export {
+  checkProfessionalLimit,
+  type ProfessionalLimitCheck,
+  type LimitResult,
+} from "./limits"
