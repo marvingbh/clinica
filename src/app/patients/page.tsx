@@ -103,7 +103,7 @@ export default function PatientsPage() {
 
   const { canWrite } = usePermission("patients")
   const { canRead: canReadAudit } = usePermission("audit_logs")
-  const [patientTab, setPatientTab] = useState<"dados" | "historico">("dados")
+  const [patientTab, setPatientTab] = useState<"dados" | "historico" | "financeiro">("dados")
 
   useEffect(() => {
     setPatientTab("dados")

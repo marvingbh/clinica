@@ -55,6 +55,10 @@ export interface Patient {
   consentEmail: boolean
   consentEmailAt: string | null
   createdAt: string
+  updatedAt?: string
+  cpf?: string | null
+  showAppointmentDaysOnInvoice?: boolean
+  invoiceMessageTemplate?: string | null
   referenceProfessionalId: string | null
   referenceProfessional: ReferenceProfessional | null
   additionalPhones?: AdditionalPhone[]

@@ -428,9 +428,9 @@ function OccurrenceTabContent({
       {/* ── Quick Actions (status-first UX) ── */}
       {hasQuickActions && (
         <div className="space-y-2.5">
-          {/* AGENDADO: Confirm + Finalize + No Show — 3-col grid */}
+          {/* AGENDADO: Confirm + Finalize + No Show + Acordado — 4-col grid */}
           {canMarkStatus && isConsulta && appointment.status === "AGENDADO" && (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               <button
                 type="button"
                 onClick={() => onUpdateStatus("CONFIRMADO", "Consulta confirmada com sucesso")}
@@ -456,12 +456,20 @@ function OccurrenceTabContent({
               >
                 {isUpdatingStatus ? "..." : "Faltou"}
               </button>
+              <button
+                type="button"
+                onClick={() => onUpdateStatus("CANCELADO_ACORDADO", "Cancelamento acordado registrado")}
+                disabled={isUpdatingStatus}
+                className="h-11 rounded-xl border-2 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-sm flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {isUpdatingStatus ? "..." : "Acordado"}
+              </button>
             </div>
           )}
 
-          {/* CONFIRMADO: Finalize + No Show — 2-col grid */}
+          {/* CONFIRMADO: Finalize + No Show + Acordado — 3-col grid */}
           {canMarkStatus && isConsulta && appointment.status === "CONFIRMADO" && (
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")}
@@ -477,6 +485,14 @@ function OccurrenceTabContent({
                 className="h-11 rounded-xl border-2 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-sm flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
               >
                 {isUpdatingStatus ? "..." : "Faltou"}
+              </button>
+              <button
+                type="button"
+                onClick={() => onUpdateStatus("CANCELADO_ACORDADO", "Cancelamento acordado registrado")}
+                disabled={isUpdatingStatus}
+                className="h-11 rounded-xl border-2 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-sm flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {isUpdatingStatus ? "..." : "Acordado"}
               </button>
             </div>
           )}
@@ -514,6 +530,8 @@ function OccurrenceTabContent({
             ? "bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400"
             : isNoShow
             ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300"
+            : appointment.status === "CANCELADO_ACORDADO"
+            ? "bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300"
             : "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400"
         }`}>
           <div className="flex-shrink-0 mt-0.5">
@@ -523,18 +541,54 @@ function OccurrenceTabContent({
               <AlertTriangleIcon className="w-4 h-4" />
             )}
           </div>
-          <div>
+          <div className="flex-1">
             {isFinished && "Esta consulta foi finalizada."}
             {isNoShow && "Paciente nao compareceu a esta consulta."}
-            {isCancelled && (
+            {appointment.status === "CANCELADO_ACORDADO" && (
               <>
-                Este agendamento foi cancelado.
+                Cancelamento acordado — credito gerado para o paciente.
                 {appointment.cancellationReason && (
                   <span className="block mt-1 text-xs opacity-75">
                     Motivo: {appointment.cancellationReason}
                   </span>
                 )}
               </>
+            )}
+            {appointment.status === "CANCELADO_PROFISSIONAL" && (
+              <>
+                Este agendamento foi cancelado pelo profissional.
+                {appointment.cancellationReason && (
+                  <span className="block mt-1 text-xs opacity-75">
+                    Motivo: {appointment.cancellationReason}
+                  </span>
+                )}
+              </>
+            )}
+
+            {/* Switch between ACORDADO and FALTA */}
+            {canMarkStatus && isConsulta && (appointment.status === "CANCELADO_ACORDADO" || appointment.status === "CANCELADO_FALTA") && (
+              <div className="mt-2">
+                {appointment.status === "CANCELADO_ACORDADO" && (
+                  <button
+                    type="button"
+                    onClick={() => onUpdateStatus("CANCELADO_FALTA", "Status alterado para falta")}
+                    disabled={isUpdatingStatus}
+                    className="h-8 px-3 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    {isUpdatingStatus ? "..." : "Alterar para Falta"}
+                  </button>
+                )}
+                {appointment.status === "CANCELADO_FALTA" && (
+                  <button
+                    type="button"
+                    onClick={() => onUpdateStatus("CANCELADO_ACORDADO", "Status alterado para acordado")}
+                    disabled={isUpdatingStatus}
+                    className="h-8 px-3 rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 text-xs font-medium hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    {isUpdatingStatus ? "..." : "Alterar para Acordado"}
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>

@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
 import { usePermission } from "@/shared/hooks/usePermission"
+import { DEFAULT_INVOICE_TEMPLATE } from "@/lib/financeiro/invoice-template"
 
 const TIMEZONES = [
   { value: "America/Sao_Paulo", label: "Brasília (GMT-3)" },
@@ -41,6 +42,7 @@ interface ClinicSettings {
   defaultSessionDuration: number
   minAdvanceBooking: number
   reminderHours: number[]
+  invoiceMessageTemplate: string | null
 }
 
 export default function AdminSettingsPage() {
@@ -50,6 +52,8 @@ export default function AdminSettingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [settings, setSettings] = useState<ClinicSettings | null>(null)
+  const [invoiceTemplate, setInvoiceTemplate] = useState<string>("")
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false)
 
   const {
     register,
@@ -73,6 +77,7 @@ export default function AdminSettingsPage() {
       }
       const data = await response.json()
       setSettings(data.settings)
+      setInvoiceTemplate(data.settings.invoiceMessageTemplate || "")
       reset({
         name: data.settings.name,
         timezone: data.settings.timezone,
@@ -149,6 +154,25 @@ export default function AdminSettingsPage() {
       toast.error(error instanceof Error ? error.message : "Erro ao salvar configurações")
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  async function saveInvoiceTemplate() {
+    setIsSavingTemplate(true)
+    try {
+      const response = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoiceMessageTemplate: invoiceTemplate || null,
+        }),
+      })
+      if (!response.ok) throw new Error("Failed to save")
+      toast.success("Modelo de fatura salvo com sucesso")
+    } catch {
+      toast.error("Erro ao salvar modelo de fatura")
+    } finally {
+      setIsSavingTemplate(false)
     }
   }
 
@@ -296,6 +320,40 @@ export default function AdminSettingsPage() {
               <p className="text-xs text-muted-foreground mt-1">
                 Quantas horas antes da consulta enviar lembretes, separados por vírgula (ex: 24, 2)
               </p>
+            </div>
+          </div>
+
+          {/* Invoice Message Template */}
+          <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Modelo de Mensagem da Fatura</h2>
+            <div>
+              <textarea
+                rows={8}
+                value={invoiceTemplate}
+                onChange={(e) => setInvoiceTemplate(e.target.value)}
+                placeholder={DEFAULT_INVOICE_TEMPLATE}
+                className="w-full px-4 py-3 rounded-md border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors resize-none font-mono"
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                {"Variaveis disponiveis: {{paciente}}, {{mae}}, {{pai}}, {{valor}}, {{mes}}, {{ano}}, {{vencimento}}, {{sessoes}}, {{profissional}}"}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setInvoiceTemplate(DEFAULT_INVOICE_TEMPLATE)}
+                className="h-10 px-4 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-colors"
+              >
+                Restaurar padrao
+              </button>
+              <button
+                type="button"
+                onClick={saveInvoiceTemplate}
+                disabled={isSavingTemplate}
+                className="h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+              >
+                {isSavingTemplate ? "Salvando..." : "Salvar modelo"}
+              </button>
             </div>
           </div>
 
