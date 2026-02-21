@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { isReadOnly, type SubscriptionInfo } from "@/lib/subscription"
 import { Role, FeatureAccess } from "@prisma/client"
 import {
   authorize,
@@ -43,6 +45,44 @@ export function unauthorizedResponse(
     },
     { status: 401 }
   )
+}
+
+/**
+ * Check if the clinic's subscription allows mutations.
+ * Returns a 403 response if the subscription is read-only, null otherwise.
+ */
+async function checkSubscriptionAccess(
+  clinicId: string,
+  method: string
+): Promise<NextResponse | null> {
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
+    return null
+  }
+
+  const clinic = await prisma.clinic.findUnique({
+    where: { id: clinicId },
+    select: { subscriptionStatus: true, trialEndsAt: true },
+  })
+
+  if (!clinic) return null
+
+  const info: SubscriptionInfo = {
+    subscriptionStatus: clinic.subscriptionStatus,
+    trialEndsAt: clinic.trialEndsAt,
+  }
+
+  if (isReadOnly(info)) {
+    return NextResponse.json(
+      {
+        error: "Subscription required",
+        message: "Sua assinatura esta inativa. Assine para realizar esta acao.",
+        statusCode: 403,
+      },
+      { status: 403 }
+    )
+  }
+
+  return null
 }
 
 /**
@@ -135,6 +175,9 @@ export function withAuth(
     // Get the scope for filtering/ownership checks
     const scope = getPermissionScope(user, options.resource, options.action)!
 
+    const subscriptionBlock = await checkSubscriptionAccess(user.clinicId, req.method)
+    if (subscriptionBlock) return subscriptionBlock
+
     // If ownership check functions are provided, perform full authorization
     if (options.getResourceOwnerId || options.getResourceClinicId) {
       const resourceOwnerId = options.getResourceOwnerId?.(req, params)
@@ -196,6 +239,9 @@ export function withAuthentication(
     }
 
     const params = routeContext?.params ? await routeContext.params : {}
+
+    const subscriptionBlock = await checkSubscriptionAccess(user.clinicId, req.method)
+    if (subscriptionBlock) return subscriptionBlock
 
     return handler(req, user, params)
   }
@@ -268,6 +314,9 @@ export function withFeatureAuth(
         `Sem permissao para acessar ${options.feature}`
       )
     }
+
+    const subscriptionBlock = await checkSubscriptionAccess(user.clinicId, req.method)
+    if (subscriptionBlock) return subscriptionBlock
 
     return handler(req, { user, access }, params)
   }
