@@ -90,6 +90,37 @@ enum FeatureAccess {
 }
 
 // ============================================================================
+// SAAS MODELS
+// ============================================================================
+
+/// SaaS subscription plan
+model Plan {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  stripePriceId    String   @unique
+  maxProfessionals Int
+  priceInCents     Int
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  // Relations
+  clinics Clinic[]
+
+  @@index([isActive])
+}
+
+/// Platform-level super admin (not tied to any clinic)
+model SuperAdmin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ============================================================================
 // MODELS
 // ============================================================================
 
@@ -111,6 +142,14 @@ model Clinic {
   defaultSessionDuration Int    @default(50) // in minutes
   minAdvanceBooking      Int    @default(2)  // minimum hours in advance for booking
   reminderHours          Int[]  @default([24, 2]) // hours before appointment to send reminders
+
+  // SaaS subscription fields
+  planId               String?
+  plan                 Plan?    @relation(fields: [planId], references: [id])
+  subscriptionStatus   String   @default("trialing")
+  trialEndsAt          DateTime?
+  stripeCustomerId     String?  @unique
+  stripeSubscriptionId String?  @unique
 
   // Relations
   users                  User[]
