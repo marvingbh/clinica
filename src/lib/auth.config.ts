@@ -18,10 +18,16 @@ export const authConfig: NextAuthConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user
       const isLoginPage = nextUrl.pathname === "/login"
+      const isSignupPage = nextUrl.pathname === "/signup"
       const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth")
       const isPublicApiRoute = nextUrl.pathname.startsWith("/api/public")
+      const isWebhookRoute = nextUrl.pathname.startsWith("/api/webhooks")
       const isConfirmPage = nextUrl.pathname === "/confirm"
-      const isPublicRoute = isLoginPage || isApiAuthRoute || isPublicApiRoute || isConfirmPage
+      const isCancelPage = nextUrl.pathname === "/cancel"
+      const isSuperAdminRoute = nextUrl.pathname.startsWith("/superadmin")
+      const isPublicRoute =
+        isLoginPage || isSignupPage || isApiAuthRoute || isPublicApiRoute ||
+        isWebhookRoute || isConfirmPage || isCancelPage || isSuperAdminRoute
 
       if (isPublicRoute) {
         if (isLoggedIn && isLoginPage) {
@@ -31,7 +37,7 @@ export const authConfig: NextAuthConfig = {
       }
 
       if (!isLoggedIn) {
-        return false // Redirect to signIn page
+        return false
       }
 
       return true
@@ -44,6 +50,7 @@ export const authConfig: NextAuthConfig = {
         token.professionalProfileId = user.professionalProfileId
         token.appointmentDuration = user.appointmentDuration
         token.permissions = user.permissions
+        token.subscriptionStatus = user.subscriptionStatus
       }
       return token
     },
@@ -55,6 +62,7 @@ export const authConfig: NextAuthConfig = {
         session.user.professionalProfileId = token.professionalProfileId as string | null
         session.user.appointmentDuration = token.appointmentDuration as number | null
         session.user.permissions = token.permissions
+        session.user.subscriptionStatus = token.subscriptionStatus as string
       }
       return session
     },

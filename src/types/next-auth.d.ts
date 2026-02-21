@@ -10,6 +10,7 @@ declare module "next-auth" {
     professionalProfileId: string | null
     appointmentDuration: number | null
     permissions: ResolvedPermissions
+    subscriptionStatus: string
   }
 
   interface Session {
@@ -22,6 +23,7 @@ declare module "next-auth" {
       professionalProfileId: string | null
       appointmentDuration: number | null
       permissions: ResolvedPermissions
+      subscriptionStatus: string
     }
   }
 }
@@ -34,5 +36,6 @@ declare module "next-auth/jwt" {
     professionalProfileId: string | null
     appointmentDuration: number | null
     permissions: ResolvedPermissions
+    subscriptionStatus: string
   }
 }

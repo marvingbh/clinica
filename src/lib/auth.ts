@@ -36,6 +36,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 appointmentDuration: true,
               },
             },
+            clinic: {
+              select: {
+                subscriptionStatus: true,
+              },
+            },
           },
         })
 
@@ -90,6 +95,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           professionalProfileId: user.professionalProfile?.id ?? null,
           appointmentDuration: user.professionalProfile?.appointmentDuration ?? null,
+          subscriptionStatus: user.clinic.subscriptionStatus,
           permissions,
         }
       },
