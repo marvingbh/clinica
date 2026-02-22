@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
-import { withAuth } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { renderToBuffer } from "@react-pdf/renderer"
 import { createInvoiceDocument } from "@/lib/financeiro/invoice-pdf"
 import { formatCurrencyBRL } from "@/lib/financeiro/format"
 
-export const GET = withAuth(
-  { resource: "invoice", action: "read" },
-  async (req: NextRequest, { user, scope }, params) => {
+export const GET = withFeatureAuth(
+  { feature: "finances", minAccess: "READ" },
+  async (req: NextRequest, { user }, params) => {
+    const scope = user.role === "ADMIN" ? "clinic" : "own"
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: params.id,

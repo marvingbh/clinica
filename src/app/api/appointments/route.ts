@@ -163,6 +163,7 @@ export const GET = withFeatureAuth(
             email: true,
             phone: true,
             birthDate: true,
+            motherName: true,
             consentWhatsApp: true,
             consentEmail: true,
           },
@@ -300,10 +301,11 @@ export const GET = withFeatureAuth(
     })
 
     // Compute biweeklyHints: for biweekly appointments on adjacent weeks (±7 days) that
-    // have NO matching appointment on the current date, emit a hint for the empty slot
-    const biweeklyHints: { time: string; professionalProfileId: string; patientName: string; appointmentId: string }[] = []
+    // have NO matching appointment on the target date, emit a hint for the empty slot
+    const biweeklyHints: { time: string; professionalProfileId: string; patientName: string; appointmentId: string; date?: string }[] = []
 
     if (date) {
+      // Single day biweekly hints
       const msPerDay = 24 * 60 * 60 * 1000
       const currentDayStart = new Date(date + "T00:00:00")
       const prevDateStr = new Date(currentDayStart.getTime() - 7 * msPerDay).toISOString().split("T")[0]
@@ -357,6 +359,80 @@ export const GET = withFeatureAuth(
               patientName: adj.patient.name,
               appointmentId: adj.id,
             })
+          }
+        }
+      }
+    } else if (startDate && endDate) {
+      // Date range biweekly hints (for weekly view)
+      const msPerDay = 24 * 60 * 60 * 1000
+      const rangeStart = new Date(startDate + "T00:00:00")
+      const rangeEnd = new Date(endDate + "T23:59:59.999")
+
+      // Look ±7 days outside the range for adjacent biweekly appointments
+      const expandedStart = new Date(rangeStart.getTime() - 7 * msPerDay)
+      const expandedEnd = new Date(rangeEnd.getTime() + 7 * msPerDay)
+
+      const profFilter = professionalProfileId || (!canSeeOthers ? user.professionalProfileId : null)
+
+      if (profFilter) {
+        const adjacentBiweekly = await prisma.appointment.findMany({
+          where: {
+            clinicId: user.clinicId,
+            recurrenceId: { not: null },
+            recurrence: { recurrenceType: "BIWEEKLY", isActive: true },
+            type: "CONSULTA",
+            status: { notIn: ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"] },
+            patientId: { not: null },
+            professionalProfileId: profFilter,
+            scheduledAt: { gte: expandedStart, lte: expandedEnd },
+          },
+          select: {
+            id: true,
+            scheduledAt: true,
+            professionalProfileId: true,
+            patient: { select: { name: true } },
+          },
+        })
+
+        // Build a set of (date, professionalProfileId, HH:mm) for appointments in the range
+        const rangeSlots = new Set<string>()
+        for (const apt of appointments) {
+          const aptDate = `${apt.scheduledAt.getFullYear()}-${String(apt.scheduledAt.getMonth() + 1).padStart(2, "0")}-${String(apt.scheduledAt.getDate()).padStart(2, "0")}`
+          const h = String(apt.scheduledAt.getHours()).padStart(2, "0")
+          const m = String(apt.scheduledAt.getMinutes()).padStart(2, "0")
+          rangeSlots.add(`${aptDate}|${apt.professionalProfileId}|${h}:${m}`)
+        }
+
+        // For each adjacent biweekly appointment, check if its ±7 day counterpart in the range is empty
+        for (const adj of adjacentBiweekly) {
+          const adjTime = adj.scheduledAt.getTime()
+          const h = String(adj.scheduledAt.getHours()).padStart(2, "0")
+          const m = String(adj.scheduledAt.getMinutes()).padStart(2, "0")
+          const timeStr = `${h}:${m}`
+
+          // Check both +7 and -7 days from this appointment
+          for (const offset of [-7, 7]) {
+            const targetDate = new Date(adjTime + offset * msPerDay)
+            // Only emit hints for dates within the requested range
+            if (targetDate < rangeStart || targetDate > rangeEnd) continue
+
+            const targetDateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, "0")}-${String(targetDate.getDate()).padStart(2, "0")}`
+            const slotKey = `${targetDateStr}|${adj.professionalProfileId}|${timeStr}`
+
+            if (!rangeSlots.has(slotKey) && adj.patient?.name) {
+              const alreadyHinted = biweeklyHints.some(
+                hint => hint.date === targetDateStr && hint.time === timeStr && hint.professionalProfileId === adj.professionalProfileId
+              )
+              if (!alreadyHinted) {
+                biweeklyHints.push({
+                  time: timeStr,
+                  professionalProfileId: adj.professionalProfileId,
+                  patientName: adj.patient.name,
+                  appointmentId: adj.id,
+                  date: targetDateStr,
+                })
+              }
+            }
           }
         }
       }

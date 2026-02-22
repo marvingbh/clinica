@@ -21,6 +21,9 @@ import {
   appointmentSchema,
   editAppointmentSchema,
   GroupSession,
+  AvailabilityRule,
+  AvailabilityException,
+  BiweeklyHint,
 } from "../lib"
 
 import { fetchGroupSessions } from "../services/groupSessionService"
@@ -51,6 +54,7 @@ import type { AppointmentType } from "../components/RecurrenceOptions"
 import type { CalendarEntryType } from "../lib/types"
 
 import { useCalendarEntryCreate } from "../hooks"
+import { useWeeklyAvailability } from "./hooks/useWeeklyAvailability"
 import { useAgendaContext } from "../context/AgendaContext"
 import { usePermission } from "@/shared/hooks/usePermission"
 
@@ -82,6 +86,11 @@ function WeeklyAgendaPageContent() {
   const [appointmentDuration, setAppointmentDuration] = useState(
     session?.user?.appointmentDuration || DEFAULT_APPOINTMENT_DURATION
   )
+
+  // Availability data (for showing available slots when a professional is selected)
+  const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([])
+  const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([])
+  const [biweeklyHints, setBiweeklyHints] = useState<BiweeklyHint[]>([])
 
   // Group session sheet state
   const [isGroupSessionSheetOpen, setIsGroupSessionSheetOpen] = useState(false)
@@ -719,8 +728,8 @@ function WeeklyAgendaPageContent() {
         const params = new URLSearchParams({ startDate: startDateStr, endDate: endDateStr })
         if (profId) params.set("professionalProfileId", profId)
 
-        // Fetch appointments and group sessions in parallel
-        const [appointmentsResponse, groupSessionsData] = await Promise.all([
+        // Build parallel fetch list: appointments + group sessions always, availability when professional selected
+        const fetches: Promise<unknown>[] = [
           fetch(`/api/appointments?${params.toString()}`, {
             signal: abortController.signal,
           }),
@@ -730,9 +739,27 @@ function WeeklyAgendaPageContent() {
             professionalProfileId: profId || undefined,
             signal: abortController.signal,
           }),
-        ])
+        ]
+
+        // Fetch availability rules + exceptions when a specific professional is selected
+        const effectiveProfId = profId || (!isAdmin ? activeProfessionalProfileId : "")
+        if (effectiveProfId) {
+          fetches.push(
+            fetch(`/api/availability?professionalProfileId=${effectiveProfId}`, {
+              signal: abortController.signal,
+            }),
+            fetch(`/api/availability/exceptions?professionalProfileId=${effectiveProfId}`, {
+              signal: abortController.signal,
+            }),
+          )
+        }
+
+        const results = await Promise.all(fetches)
 
         if (abortController.signal.aborted) return
+
+        const appointmentsResponse = results[0] as Response
+        const groupSessionsData = results[1] as { groupSessions: GroupSession[] }
 
         if (!appointmentsResponse.ok) {
           if (appointmentsResponse.status === 403) {
@@ -749,6 +776,31 @@ function WeeklyAgendaPageContent() {
 
         setAppointments(appointmentsData.appointments)
         setGroupSessions(groupSessionsData.groupSessions)
+        setBiweeklyHints(appointmentsData.biweeklyHints || [])
+
+        // Process availability data if fetched
+        if (effectiveProfId && results.length > 2) {
+          const rulesResponse = results[2] as Response
+          const exceptionsResponse = results[3] as Response
+
+          if (rulesResponse.ok) {
+            const rulesData = await rulesResponse.json()
+            setAvailabilityRules(rulesData.rules || [])
+          } else {
+            setAvailabilityRules([])
+          }
+
+          if (exceptionsResponse.ok) {
+            const exceptionsData = await exceptionsResponse.json()
+            setAvailabilityExceptions(exceptionsData.exceptions || [])
+          } else {
+            setAvailabilityExceptions([])
+          }
+        } else {
+          setAvailabilityRules([])
+          setAvailabilityExceptions([])
+          setBiweeklyHints([])
+        }
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return
         toast.error("Erro ao carregar agenda")
@@ -778,6 +830,29 @@ function WeeklyAgendaPageContent() {
       }
     }
   }, [isAdmin, professionals, activeProfessionalProfileId])
+
+  // ============================================================================
+  // Weekly Availability (available slots for each day)
+  // ============================================================================
+
+  const weeklyAvailabilitySlots = useWeeklyAvailability({
+    weekStart,
+    availabilityRules,
+    availabilityExceptions,
+    appointments,
+    groupSessions,
+    biweeklyHints,
+    appointmentDuration,
+    selectedProfessionalId: activeProfessionalProfileId || "",
+  })
+
+  const handleAvailabilitySlotClick = useCallback((date: string, time: string) => {
+    openCreateSheet({ date: new Date(date + "T12:00:00"), startTime: time })
+  }, [])
+
+  const handleBiweeklyHintClick = useCallback((date: string, time: string) => {
+    openCreateSheet({ date: new Date(date + "T12:00:00"), startTime: time, appointmentType: "BIWEEKLY" })
+  }, [])
 
   // ============================================================================
   // Render
@@ -825,9 +900,13 @@ function WeeklyAgendaPageContent() {
           weekStart={weekStart}
           appointments={appointments}
           groupSessions={groupSessions}
+          availabilitySlots={weeklyAvailabilitySlots}
+          appointmentDuration={appointmentDuration}
           onAppointmentClick={openEditSheet}
           onGroupSessionClick={openGroupSessionSheet}
           onAlternateWeekClick={handleAlternateWeekClick}
+          onAvailabilitySlotClick={handleAvailabilitySlotClick}
+          onBiweeklyHintClick={handleBiweeklyHintClick}
           showProfessional={!selectedProfessionalId && isAdmin}
         />
       </div>

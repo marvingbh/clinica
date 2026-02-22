@@ -428,7 +428,7 @@ function OccurrenceTabContent({
       {/* ── Quick Actions (status-first UX) ── */}
       {hasQuickActions && (
         <div className="space-y-2.5">
-          {/* AGENDADO: Confirm + Finalize + No Show + Acordado — 4-col grid */}
+          {/* AGENDADO: Confirm + Finalize + No Show + Desmarcou — 4-col grid */}
           {canMarkStatus && isConsulta && appointment.status === "AGENDADO" && (
             <div className="grid grid-cols-4 gap-2">
               <button
@@ -458,16 +458,16 @@ function OccurrenceTabContent({
               </button>
               <button
                 type="button"
-                onClick={() => onUpdateStatus("CANCELADO_ACORDADO", "Cancelamento acordado registrado")}
+                onClick={() => onUpdateStatus("CANCELADO_ACORDADO", "Paciente desmarcou registrado")}
                 disabled={isUpdatingStatus}
                 className="h-11 rounded-xl border-2 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-sm flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
               >
-                {isUpdatingStatus ? "..." : "Acordado"}
+                {isUpdatingStatus ? "..." : "Desmarcou"}
               </button>
             </div>
           )}
 
-          {/* CONFIRMADO: Finalize + No Show + Acordado — 3-col grid */}
+          {/* CONFIRMADO: Finalize + No Show + Desmarcou — 3-col grid */}
           {canMarkStatus && isConsulta && appointment.status === "CONFIRMADO" && (
             <div className="grid grid-cols-3 gap-2">
               <button
@@ -488,11 +488,11 @@ function OccurrenceTabContent({
               </button>
               <button
                 type="button"
-                onClick={() => onUpdateStatus("CANCELADO_ACORDADO", "Cancelamento acordado registrado")}
+                onClick={() => onUpdateStatus("CANCELADO_ACORDADO", "Paciente desmarcou registrado")}
                 disabled={isUpdatingStatus}
                 className="h-11 rounded-xl border-2 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-sm flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
               >
-                {isUpdatingStatus ? "..." : "Acordado"}
+                {isUpdatingStatus ? "..." : "Desmarcou"}
               </button>
             </div>
           )}
@@ -546,7 +546,7 @@ function OccurrenceTabContent({
             {isNoShow && "Paciente nao compareceu a esta consulta."}
             {appointment.status === "CANCELADO_ACORDADO" && (
               <>
-                Cancelamento acordado — credito gerado para o paciente.
+                Paciente desmarcou — credito gerado.
                 {appointment.cancellationReason && (
                   <span className="block mt-1 text-xs opacity-75">
                     Motivo: {appointment.cancellationReason}
@@ -581,11 +581,11 @@ function OccurrenceTabContent({
                 {appointment.status === "CANCELADO_FALTA" && (
                   <button
                     type="button"
-                    onClick={() => onUpdateStatus("CANCELADO_ACORDADO", "Status alterado para acordado")}
+                    onClick={() => onUpdateStatus("CANCELADO_ACORDADO", "Status alterado para desmarcou")}
                     disabled={isUpdatingStatus}
                     className="h-8 px-3 rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 text-xs font-medium hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
                   >
-                    {isUpdatingStatus ? "..." : "Alterar para Acordado"}
+                    {isUpdatingStatus ? "..." : "Alterar para Desmarcou"}
                   </button>
                 )}
               </div>

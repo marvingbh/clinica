@@ -43,6 +43,7 @@ interface ClinicSettings {
   minAdvanceBooking: number
   reminderHours: number[]
   invoiceMessageTemplate: string | null
+  billingMode: "PER_SESSION" | "MONTHLY_FIXED"
 }
 
 export default function AdminSettingsPage() {
@@ -54,6 +55,8 @@ export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<ClinicSettings | null>(null)
   const [invoiceTemplate, setInvoiceTemplate] = useState<string>("")
   const [isSavingTemplate, setIsSavingTemplate] = useState(false)
+  const [billingMode, setBillingMode] = useState<"PER_SESSION" | "MONTHLY_FIXED">("PER_SESSION")
+  const [isSavingBillingMode, setIsSavingBillingMode] = useState(false)
 
   const {
     register,
@@ -78,6 +81,7 @@ export default function AdminSettingsPage() {
       const data = await response.json()
       setSettings(data.settings)
       setInvoiceTemplate(data.settings.invoiceMessageTemplate || "")
+      setBillingMode(data.settings.billingMode || "PER_SESSION")
       reset({
         name: data.settings.name,
         timezone: data.settings.timezone,
@@ -173,6 +177,27 @@ export default function AdminSettingsPage() {
       toast.error("Erro ao salvar modelo de fatura")
     } finally {
       setIsSavingTemplate(false)
+    }
+  }
+
+  async function saveBillingMode(mode: "PER_SESSION" | "MONTHLY_FIXED") {
+    setBillingMode(mode)
+    setIsSavingBillingMode(true)
+    try {
+      const response = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ billingMode: mode }),
+      })
+      if (!response.ok) throw new Error("Failed to save")
+      const result = await response.json()
+      setSettings(result.settings)
+      toast.success("Modo de cobrança salvo com sucesso")
+    } catch {
+      toast.error("Erro ao salvar modo de cobrança")
+      setBillingMode(billingMode) // revert on error
+    } finally {
+      setIsSavingBillingMode(false)
     }
   }
 
@@ -354,6 +379,50 @@ export default function AdminSettingsPage() {
               >
                 {isSavingTemplate ? "Salvando..." : "Salvar modelo"}
               </button>
+            </div>
+          </div>
+
+          {/* Billing Mode */}
+          <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Modo de Cobrança</h2>
+            <p className="text-sm text-muted-foreground">
+              Define como os valores dos pacientes são cobrados nas faturas.
+            </p>
+            <div className="flex flex-col gap-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="billingMode"
+                  value="PER_SESSION"
+                  checked={billingMode === "PER_SESSION"}
+                  onChange={() => saveBillingMode("PER_SESSION")}
+                  disabled={isSavingBillingMode}
+                  className="mt-1"
+                />
+                <div>
+                  <span className="text-sm font-medium text-foreground">Por sessão</span>
+                  <p className="text-xs text-muted-foreground">
+                    Cada sessão realizada é cobrada individualmente na fatura.
+                  </p>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="billingMode"
+                  value="MONTHLY_FIXED"
+                  checked={billingMode === "MONTHLY_FIXED"}
+                  onChange={() => saveBillingMode("MONTHLY_FIXED")}
+                  disabled={isSavingBillingMode}
+                  className="mt-1"
+                />
+                <div>
+                  <span className="text-sm font-medium text-foreground">Mensalidade fixa</span>
+                  <p className="text-xs text-muted-foreground">
+                    Um valor fixo mensal é cobrado por paciente, independente do número de sessões.
+                  </p>
+                </div>
+              </label>
             </div>
           </div>
 

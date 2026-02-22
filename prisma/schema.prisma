@@ -103,6 +103,11 @@ enum InvoiceItemType {
   CREDITO
 }
 
+enum BillingMode {
+  PER_SESSION
+  MONTHLY_FIXED
+}
+
 // ============================================================================
 // SAAS MODELS
 // ============================================================================
@@ -157,6 +162,7 @@ model Clinic {
   minAdvanceBooking      Int    @default(2)  // minimum hours in advance for booking
   reminderHours          Int[]  @default([24, 2]) // hours before appointment to send reminders
   invoiceMessageTemplate String? // Default invoice message template with {{variables}}
+  billingMode            BillingMode @default(PER_SESSION)
 
   // SaaS subscription fields
   planId               String?

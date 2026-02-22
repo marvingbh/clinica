@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
-import { withAuth } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
-export const GET = withAuth(
-  { resource: "invoice", action: "read" },
-  async (req: NextRequest, { user, scope }, params) => {
+export const GET = withFeatureAuth(
+  { feature: "finances", minAccess: "READ" },
+  async (req: NextRequest, { user }, params) => {
+    const scope = user.role === "ADMIN" ? "clinic" : "own"
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: params.id,
@@ -43,9 +44,10 @@ const updateSchema = z.object({
   paidAt: z.string().datetime().optional().nullable(),
 })
 
-export const PATCH = withAuth(
-  { resource: "invoice", action: "update" },
-  async (req: NextRequest, { user, scope }, params) => {
+export const PATCH = withFeatureAuth(
+  { feature: "finances", minAccess: "WRITE" },
+  async (req: NextRequest, { user }, params) => {
+    const scope = user.role === "ADMIN" ? "clinic" : "own"
     const body = await req.json()
     const parsed = updateSchema.safeParse(body)
     if (!parsed.success) {
@@ -82,9 +84,10 @@ export const PATCH = withAuth(
   }
 )
 
-export const DELETE = withAuth(
-  { resource: "invoice", action: "delete" },
-  async (req: NextRequest, { user, scope }, params) => {
+export const DELETE = withFeatureAuth(
+  { feature: "finances", minAccess: "WRITE" },
+  async (req: NextRequest, { user }, params) => {
+    const scope = user.role === "ADMIN" ? "clinic" : "own"
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: params.id,

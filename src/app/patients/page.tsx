@@ -104,6 +104,7 @@ export default function PatientsPage() {
   const { canWrite } = usePermission("patients")
   const { canRead: canReadAudit } = usePermission("audit_logs")
   const [patientTab, setPatientTab] = useState<"dados" | "historico" | "financeiro">("dados")
+  const [billingMode, setBillingMode] = useState<string>("PER_SESSION")
 
   useEffect(() => {
     setPatientTab("dados")
@@ -222,6 +223,10 @@ export default function PatientsPage() {
     if (status === "authenticated") {
       fetchPatients()
       fetchProfessionals()
+      fetch("/api/admin/settings")
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data?.settings?.billingMode) setBillingMode(data.settings.billingMode) })
+        .catch(() => {})
     }
   }, [status, router, fetchPatients, fetchProfessionals])
 
@@ -579,6 +584,7 @@ export default function PatientsPage() {
                       )
                     }
                   }}
+                  billingMode={billingMode}
                 />
               )}
 
@@ -611,6 +617,7 @@ export default function PatientsPage() {
                   }
                   onClose={closeSheet}
                   onSubmit={handleSubmit(onSubmit)}
+                  billingMode={billingMode}
                 />
               )}
               </div>

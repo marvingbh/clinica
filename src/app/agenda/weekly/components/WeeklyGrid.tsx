@@ -1,11 +1,12 @@
 "use client"
 
 import { useMemo, useRef, useEffect } from "react"
-import { Appointment, GroupSession } from "../../lib/types"
+import { Appointment, GroupSession, TimeSlot } from "../../lib/types"
 import { getWeekDays, toDateString, isSameDay, isWeekend } from "../../lib/utils"
 import { DayHeader } from "./DayHeader"
 import { AppointmentBlock } from "./AppointmentBlock"
 import { GroupSessionBlock } from "./GroupSessionBlock"
+import { AvailabilitySlotBlock } from "./AvailabilitySlotBlock"
 import { createProfessionalColorMap } from "../../lib/professional-colors"
 
 const START_HOUR = 7
@@ -18,9 +19,13 @@ interface WeeklyGridProps {
   weekStart: Date
   appointments: Appointment[]
   groupSessions?: GroupSession[]
+  availabilitySlots?: Map<string, TimeSlot[]>
+  appointmentDuration?: number
   onAppointmentClick: (appointment: Appointment) => void
   onGroupSessionClick?: (session: GroupSession) => void
   onAlternateWeekClick?: (appointment: Appointment) => void
+  onAvailabilitySlotClick?: (date: string, time: string) => void
+  onBiweeklyHintClick?: (date: string, time: string) => void
   showProfessional?: boolean
 }
 
@@ -98,7 +103,7 @@ function calculateAppointmentLayout(appointments: Appointment[]): AppointmentWit
   return result
 }
 
-export function WeeklyGrid({ weekStart, appointments, groupSessions = [], onAppointmentClick, onGroupSessionClick, onAlternateWeekClick, showProfessional = false }: WeeklyGridProps) {
+export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availabilitySlots, appointmentDuration, onAppointmentClick, onGroupSessionClick, onAlternateWeekClick, onAvailabilitySlotClick, onBiweeklyHintClick, showProfessional = false }: WeeklyGridProps) {
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart])
   const today = new Date()
 
@@ -275,6 +280,22 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], onAppo
                       session={session}
                       onClick={onGroupSessionClick}
                       showProfessional={showProfessional}
+                    />
+                  ))}
+
+                  {/* Availability Slots */}
+                  {availabilitySlots?.get(dateStr)?.map((slot) => (
+                    <AvailabilitySlotBlock
+                      key={`avail-${slot.time}`}
+                      slot={slot}
+                      appointmentDuration={appointmentDuration || 50}
+                      onClick={() => {
+                        if (slot.biweeklyHint) {
+                          onBiweeklyHintClick?.(dateStr, slot.time)
+                        } else {
+                          onAvailabilitySlotClick?.(dateStr, slot.time)
+                        }
+                      }}
                     />
                   ))}
                 </div>

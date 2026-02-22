@@ -131,6 +131,7 @@ export interface Appointment {
     email: string | null
     phone: string
     birthDate?: string | null
+    motherName?: string | null
     consentWhatsApp?: boolean
     consentEmail?: boolean
   } | null
@@ -147,6 +148,7 @@ export interface BiweeklyHint {
   professionalProfileId: string
   patientName: string
   appointmentId: string
+  date?: string // YYYY-MM-DD, used when hints span multiple days (weekly view)
 }
 
 export interface TimeSlot {

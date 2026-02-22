@@ -37,7 +37,7 @@ const STATUS_LABELS: Record<AppointmentStatus, string> = {
   AGENDADO: "Agendado",
   CONFIRMADO: "Confirmado",
   FINALIZADO: "Finalizado",
-  CANCELADO_ACORDADO: "Cancelado (Acordado)",
+  CANCELADO_ACORDADO: "Desmarcou",
   CANCELADO_FALTA: "Cancelado (Falta)",
   CANCELADO_PROFISSIONAL: "Cancelado (Profissional)",
 }
@@ -232,7 +232,7 @@ export const PATCH = withFeatureAuth(
             professionalProfileId: existing.professionalProfileId,
             patientId: existing.patientId,
             originAppointmentId: existing.id,
-            reason: `Cancelamento acordado - ${new Date(existing.scheduledAt).toLocaleDateString("pt-BR")}`,
+            reason: `Desmarcou - ${new Date(existing.scheduledAt).toLocaleDateString("pt-BR")}`,
           },
         })
         await prisma.appointment.update({
@@ -267,7 +267,7 @@ export const PATCH = withFeatureAuth(
           professionalProfileId: existing.professionalProfileId,
           patientId: existing.patientId,
           originAppointmentId: existing.id,
-          reason: `Cancelamento acordado - ${new Date(existing.scheduledAt).toLocaleDateString("pt-BR")}`,
+          reason: `Desmarcou - ${new Date(existing.scheduledAt).toLocaleDateString("pt-BR")}`,
         },
       })
       await prisma.appointment.update({

@@ -3,6 +3,7 @@
 import { Controller, UseFormRegister, Control, FieldErrors } from "react-hook-form"
 import { DatePickerInput } from "@/shared/components/ui"
 import { Professional, AdditionalPhone } from "./types"
+import { getFeeLabel } from "@/lib/financeiro/billing-labels"
 
 export interface PatientFormData {
   name: string
@@ -36,6 +37,7 @@ interface PatientFormProps {
   onRemovePhone: (index: number) => void
   onClose: () => void
   onSubmit: () => void
+  billingMode?: string
 }
 
 export function PatientForm({
@@ -52,6 +54,7 @@ export function PatientForm({
   onRemovePhone,
   onClose,
   onSubmit,
+  billingMode = "PER_SESSION",
 }: PatientFormProps) {
   return (
     <>
@@ -256,7 +259,7 @@ export function PatientForm({
 
           <div>
             <label htmlFor="sessionFee" className="block text-sm font-medium text-foreground mb-2">
-              Valor da Sessao (R$)
+              {getFeeLabel(billingMode)} (R$)
             </label>
             <input
               id="sessionFee"

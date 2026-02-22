@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { withAuth } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 
-export const POST = withAuth(
-  { resource: "invoice", action: "update" },
-  async (req: NextRequest, { user, scope }, params) => {
+export const POST = withFeatureAuth(
+  { feature: "finances", minAccess: "WRITE" },
+  async (req: NextRequest, { user }, params) => {
+    const scope = user.role === "ADMIN" ? "clinic" : "own"
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: params.id,

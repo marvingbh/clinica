@@ -335,6 +335,12 @@ export function DailyOverviewGrid({
                           </span>
                         )}
                       </h4>
+                      {/* Mother name */}
+                      {appointment.patient?.motherName && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          Mãe: {appointment.patient.motherName}
+                        </p>
+                      )}
                       {/* Phone */}
                       {!isCompact && appointment.patient?.phone && (
                         <div className="flex items-center gap-1.5 mt-0.5">

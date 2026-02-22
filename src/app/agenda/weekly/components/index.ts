@@ -1,4 +1,5 @@
 export { AppointmentBlock } from "./AppointmentBlock"
+export { AvailabilitySlotBlock } from "./AvailabilitySlotBlock"
 export { DayHeader } from "./DayHeader"
 export { GroupSessionBlock } from "./GroupSessionBlock"
 export { WeekNavigation } from "./WeekNavigation"

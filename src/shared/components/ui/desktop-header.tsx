@@ -8,6 +8,7 @@ import { useTheme } from "@/shared/components/theme-provider"
 import {
   HomeIcon,
   CalendarIcon,
+  CalendarDaysIcon,
   StethoscopeIcon,
   UserIcon,
   UsersIcon,
@@ -147,18 +148,28 @@ function UserDropdown() {
               onClick={() => setIsOpen(false)}
               className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors duration-normal"
             >
-              <SettingsIcon className="w-4 h-4 text-muted-foreground" />
-              Configurações
+              <CalendarDaysIcon className="w-4 h-4 text-muted-foreground" />
+              Disponibilidade
             </Link>
             {canManagePermissions && (
-              <Link
-                href="/admin/permissions"
-                onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors duration-normal"
-              >
-                <ShieldIcon className="w-4 h-4 text-muted-foreground" />
-                Permissões
-              </Link>
+              <>
+                <Link
+                  href="/admin/settings"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors duration-normal"
+                >
+                  <SettingsIcon className="w-4 h-4 text-muted-foreground" />
+                  Configurações
+                </Link>
+                <Link
+                  href="/admin/permissions"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors duration-normal"
+                >
+                  <ShieldIcon className="w-4 h-4 text-muted-foreground" />
+                  Permissões
+                </Link>
+              </>
             )}
           </div>
 

@@ -117,6 +117,39 @@ export function buildInvoiceItems(
   return items
 }
 
+export function buildMonthlyInvoiceItems(
+  monthlyFee: number,
+  _totalSessionCount: number,
+  monthName: string,
+  yearStr: string,
+  credits: CreditForInvoice[] = [],
+  sessionFee: number = 0,
+): InvoiceItemData[] {
+  const items: InvoiceItemData[] = [{
+    appointmentId: null,
+    type: "SESSAO_REGULAR",
+    description: `Mensalidade ${monthName}/${yearStr}`,
+    quantity: 1,
+    unitPrice: monthlyFee,
+    total: monthlyFee,
+  }]
+
+  for (const credit of credits) {
+    const creditValue = sessionFee || monthlyFee
+    items.push({
+      appointmentId: null,
+      type: "CREDITO",
+      description: `Crédito: ${credit.reason}`,
+      quantity: -1,
+      unitPrice: creditValue,
+      total: -creditValue,
+      creditId: credit.id,
+    })
+  }
+
+  return items
+}
+
 export function calculateInvoiceTotals(items: Pick<InvoiceItemData, "type" | "total" | "quantity">[]): InvoiceTotals {
   let totalSessions = 0
   let creditsApplied = 0

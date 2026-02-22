@@ -3,7 +3,7 @@ import { AppointmentStatus, CalendarEntryType } from "./types"
 export const STATUS_LABELS: Record<AppointmentStatus, string> = {
   AGENDADO: "Agendado",
   CONFIRMADO: "Confirmado",
-  CANCELADO_ACORDADO: "Cancelado (Acordado)",
+  CANCELADO_ACORDADO: "Desmarcou",
   CANCELADO_FALTA: "Cancelado (Falta)",
   CANCELADO_PROFISSIONAL: "Cancelado (Profissional)",
   FINALIZADO: "Finalizado",

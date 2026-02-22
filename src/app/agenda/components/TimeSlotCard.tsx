@@ -48,6 +48,11 @@ export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointm
                   <h4 className="font-medium text-foreground truncate">
                     {appointment.patient?.name || appointment.title || "Sem titulo"}
                   </h4>
+                  {appointment.patient?.motherName && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      Mãe: {appointment.patient.motherName}
+                    </p>
+                  )}
                   {appointment.patient && (
                     <p className="text-sm text-muted-foreground">
                       {formatPhone(appointment.patient.phone)}

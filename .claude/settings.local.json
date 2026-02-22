@@ -18,7 +18,13 @@
       "Bash(ls:*)",
       "Bash(git push:*)",
       "Bash(npx prisma db execute:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(source .env)",
+      "Bash(npx tsx:*)",
+      "Bash(git -C /home/marving/personal/clinica diff)",
+      "Bash(npx prisma:*)",
+      "Bash(1 <<'SQL'\nCREATE EXTENSION IF NOT EXISTS unaccent;\nSELECT 1;\nSQL)",
+      "Bash(1 <<'SQL'\nSELECT unaccent\\('João'\\);\nSQL)"
     ]
   }
 }

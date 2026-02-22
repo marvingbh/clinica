@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { HistoryTimeline } from "@/shared/components/HistoryTimeline"
 import { Patient, formatPhone, formatDate, formatCurrency } from "./types"
 import { AppointmentHistorySection } from "./AppointmentHistorySection"
+import { getFeeLabel } from "@/lib/financeiro/billing-labels"
 
 type PatientTabKey = "dados" | "historico" | "financeiro"
 
@@ -21,6 +22,7 @@ interface PatientDetailsViewProps {
   onTabChange: (tab: PatientTabKey) => void
   onAppointmentsStatusFilterChange: (value: string) => void
   onLoadMoreAppointments: () => void
+  billingMode?: string
 }
 
 export function PatientDetailsView({
@@ -37,6 +39,7 @@ export function PatientDetailsView({
   onTabChange,
   onAppointmentsStatusFilterChange,
   onLoadMoreAppointments,
+  billingMode = "PER_SESSION",
 }: PatientDetailsViewProps) {
   return (
     <>
@@ -169,7 +172,7 @@ export function PatientDetailsView({
           {/* Session Fee & Adjustment */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-muted-foreground">Valor da Sessao</label>
+              <label className="text-sm text-muted-foreground">{getFeeLabel(billingMode)}</label>
               <p className="text-foreground">{formatCurrency(patient.sessionFee)}</p>
             </div>
             <div>
@@ -246,7 +249,7 @@ export function PatientDetailsView({
         )}
 
         {patientTab === "financeiro" && (
-          <PatientFinanceTab patient={patient} />
+          <PatientFinanceTab patient={patient} billingMode={billingMode} />
         )}
         </>
       )}
@@ -294,7 +297,7 @@ const MONTH_NAMES = [
   "Jul", "Ago", "Set", "Out", "Nov", "Dez",
 ]
 
-function PatientFinanceTab({ patient }: { patient: Patient }) {
+function PatientFinanceTab({ patient, billingMode = "PER_SESSION" }: { patient: Patient; billingMode?: string }) {
   const [invoices, setInvoices] = useState<InvoiceSummary[]>([])
   const [credits, setCredits] = useState<CreditSummary[]>([])
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(true)
@@ -339,7 +342,7 @@ function PatientFinanceTab({ patient }: { patient: Patient }) {
     <div className="space-y-6">
       {/* Session Fee */}
       <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-        <label className="text-sm text-muted-foreground">Valor da Sessao</label>
+        <label className="text-sm text-muted-foreground">{getFeeLabel(billingMode)}</label>
         <p className="text-foreground font-semibold text-lg">{formatCurrency(patient.sessionFee)}</p>
       </div>
 

@@ -91,5 +91,8 @@ export { Activity as ActivityIcon } from "lucide-react"
 export { CalendarDays as CalendarDaysIcon } from "lucide-react"
 export { BarChart3 as BarChart3Icon } from "lucide-react"
 
+// Finance
+export { Download as DownloadIcon } from "lucide-react"
+
 // Re-export LucideIcon type for custom components
 export type { LucideIcon } from "lucide-react"

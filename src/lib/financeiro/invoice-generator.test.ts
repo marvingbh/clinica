@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest"
 import {
   classifyAppointments,
   buildInvoiceItems,
+  buildMonthlyInvoiceItems,
   calculateInvoiceTotals,
   type AppointmentForInvoice,
   type CreditForInvoice,
@@ -150,5 +151,71 @@ describe("calculateInvoiceTotals", () => {
     const totals = calculateInvoiceTotals(items)
     expect(totals.totalSessions).toBe(2)
     expect(totals.totalAmount).toBe(300)
+  })
+})
+
+describe("buildMonthlyInvoiceItems", () => {
+  const monthlyFee = 800
+  const sessionFee = 200
+
+  it("creates a single line item with monthly fee", () => {
+    const items = buildMonthlyInvoiceItems(monthlyFee, 4, "Fevereiro", "2026")
+    expect(items).toHaveLength(1)
+    expect(items[0].type).toBe("SESSAO_REGULAR")
+    expect(items[0].description).toBe("Mensalidade Fevereiro/2026")
+    expect(items[0].quantity).toBe(1)
+    expect(items[0].unitPrice).toBe(monthlyFee)
+    expect(items[0].total).toBe(monthlyFee)
+    expect(items[0].appointmentId).toBeNull()
+  })
+
+  it("applies credits as negative items using sessionFee", () => {
+    const credits: CreditForInvoice[] = [
+      { id: "c1", reason: "Cancelamento acordado", createdAt: new Date("2026-02-15") },
+    ]
+    const items = buildMonthlyInvoiceItems(monthlyFee, 4, "Fevereiro", "2026", credits, sessionFee)
+    expect(items).toHaveLength(2)
+    const creditItem = items.find(i => i.type === "CREDITO")
+    expect(creditItem).toBeDefined()
+    expect(creditItem!.total).toBe(-sessionFee)
+    expect(creditItem!.unitPrice).toBe(sessionFee)
+    expect(creditItem!.creditId).toBe("c1")
+  })
+
+  it("falls back to monthlyFee for credit when sessionFee is 0", () => {
+    const credits: CreditForInvoice[] = [
+      { id: "c1", reason: "Cancelamento", createdAt: new Date("2026-02-15") },
+    ]
+    const items = buildMonthlyInvoiceItems(monthlyFee, 4, "Fevereiro", "2026", credits, 0)
+    const creditItem = items.find(i => i.type === "CREDITO")
+    expect(creditItem!.total).toBe(-monthlyFee)
+  })
+
+  it("handles multiple credits", () => {
+    const credits: CreditForInvoice[] = [
+      { id: "c1", reason: "Cancelamento 1", createdAt: new Date("2026-02-10") },
+      { id: "c2", reason: "Cancelamento 2", createdAt: new Date("2026-02-20") },
+    ]
+    const items = buildMonthlyInvoiceItems(monthlyFee, 4, "Fevereiro", "2026", credits, sessionFee)
+    expect(items).toHaveLength(3)
+    const creditItems = items.filter(i => i.type === "CREDITO")
+    expect(creditItems).toHaveLength(2)
+  })
+
+  it("works with no credits", () => {
+    const items = buildMonthlyInvoiceItems(monthlyFee, 4, "Março", "2026")
+    expect(items).toHaveLength(1)
+    expect(items[0].description).toBe("Mensalidade Março/2026")
+  })
+
+  it("works with calculateInvoiceTotals", () => {
+    const credits: CreditForInvoice[] = [
+      { id: "c1", reason: "Cancelamento", createdAt: new Date() },
+    ]
+    const items = buildMonthlyInvoiceItems(monthlyFee, 4, "Fevereiro", "2026", credits, sessionFee)
+    const totals = calculateInvoiceTotals(items)
+    expect(totals.totalSessions).toBe(1)
+    expect(totals.creditsApplied).toBe(1)
+    expect(totals.totalAmount).toBe(monthlyFee - sessionFee)
   })
 })

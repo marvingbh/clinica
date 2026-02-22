@@ -54,7 +54,7 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   AGENDADO: "Agendado",
   CONFIRMADO: "Confirmado",
-  CANCELADO_ACORDADO: "Canc. acordado",
+  CANCELADO_ACORDADO: "Desmarcou",
   CANCELADO_FALTA: "Faltou",
   CANCELADO_PROFISSIONAL: "Canc. profissional",
   FINALIZADO: "Finalizado",

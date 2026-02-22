@@ -8,6 +8,7 @@ const tabs = [
   { href: "/financeiro", label: "Dashboard", exact: true },
   { href: "/financeiro/faturas", label: "Faturas" },
   { href: "/financeiro/creditos", label: "Créditos" },
+  { href: "/financeiro/precos", label: "Preços" },
 ]
 
 export default function FinanceiroLayout({ children }: { children: React.ReactNode }) {

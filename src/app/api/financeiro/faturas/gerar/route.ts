@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { withAuth } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
-import { classifyAppointments, buildInvoiceItems, calculateInvoiceTotals } from "@/lib/financeiro/invoice-generator"
+import { classifyAppointments, buildInvoiceItems, buildMonthlyInvoiceItems, calculateInvoiceTotals } from "@/lib/financeiro/invoice-generator"
 import { renderInvoiceTemplate, DEFAULT_INVOICE_TEMPLATE } from "@/lib/financeiro/invoice-template"
 import { getMonthName, formatCurrencyBRL } from "@/lib/financeiro/format"
 
@@ -12,9 +12,10 @@ const schema = z.object({
   professionalProfileId: z.string().optional(),
 })
 
-export const POST = withAuth(
-  { resource: "invoice", action: "create" },
-  async (req: NextRequest, { user, scope }) => {
+export const POST = withFeatureAuth(
+  { feature: "finances", minAccess: "WRITE" },
+  async (req: NextRequest, { user }) => {
+    const scope = user.role === "ADMIN" ? "clinic" : "own"
     const body = await req.json()
     const parsed = schema.safeParse(body)
     if (!parsed.success) {
@@ -22,24 +23,37 @@ export const POST = withAuth(
     }
 
     const { month, year } = parsed.data
-    let professionalProfileId = parsed.data.professionalProfileId
+    let professionalProfileId: string | undefined = parsed.data.professionalProfileId
 
-    if (scope === "own" || !professionalProfileId) {
-      professionalProfileId = user.professionalProfileId!
+    // Non-admins always scoped to own profile
+    if (scope === "own") {
+      professionalProfileId = user.professionalProfileId ?? undefined
+    }
+    // Admins without explicit selection and without own profile: generate for all (undefined = no filter)
+
+    if (scope === "own" && !professionalProfileId) {
+      return NextResponse.json(
+        { error: "Seu usuario nao possui perfil profissional. Contate o administrador." },
+        { status: 400 }
+      )
     }
 
     const startDate = new Date(year, month - 1, 1)
     const endDate = new Date(year, month, 1)
     const dueDate = new Date(year, month - 1, 15)
 
+    const whereClause: Record<string, unknown> = {
+      clinicId: user.clinicId,
+      patientId: { not: null },
+      scheduledAt: { gte: startDate, lt: endDate },
+      type: { in: ["CONSULTA", "REUNIAO"] },
+    }
+    if (professionalProfileId) {
+      whereClause.professionalProfileId = professionalProfileId
+    }
+
     const appointments = await prisma.appointment.findMany({
-      where: {
-        clinicId: user.clinicId,
-        professionalProfileId,
-        patientId: { not: null },
-        scheduledAt: { gte: startDate, lt: endDate },
-        type: { in: ["CONSULTA", "REUNIAO"] },
-      },
+      where: whereClause,
       select: {
         id: true,
         scheduledAt: true,
@@ -49,25 +63,36 @@ export const POST = withAuth(
         groupId: true,
         price: true,
         patientId: true,
+        professionalProfileId: true,
       },
     })
 
-    const byPatient = new Map<string, typeof appointments>()
+    // Group by professionalProfileId + patientId
+    const byProfAndPatient = new Map<string, typeof appointments>()
     for (const apt of appointments) {
       if (!apt.patientId) continue
-      const list = byPatient.get(apt.patientId) || []
+      const key = `${apt.professionalProfileId}::${apt.patientId}`
+      const list = byProfAndPatient.get(key) || []
       list.push(apt)
-      byPatient.set(apt.patientId, list)
+      byProfAndPatient.set(key, list)
     }
 
-    if (byPatient.size === 0) {
-      return NextResponse.json({ error: "Nenhum paciente com agendamentos neste m\u00eas" }, { status: 404 })
+    if (byProfAndPatient.size === 0) {
+      return NextResponse.json({ error: "Nenhum paciente com agendamentos neste mês" }, { status: 404 })
     }
 
-    const patientIds = Array.from(byPatient.keys())
-    const [patients, clinic, professional] = await Promise.all([
+    // Collect unique patient and professional IDs
+    const patientIds = new Set<string>()
+    const profIds = new Set<string>()
+    for (const [key] of byProfAndPatient) {
+      const [profId, patId] = key.split("::")
+      profIds.add(profId)
+      patientIds.add(patId)
+    }
+
+    const [patients, clinic, professionals] = await Promise.all([
       prisma.patient.findMany({
-        where: { id: { in: patientIds } },
+        where: { id: { in: Array.from(patientIds) } },
         select: {
           id: true,
           name: true,
@@ -80,50 +105,59 @@ export const POST = withAuth(
       }),
       prisma.clinic.findUnique({
         where: { id: user.clinicId },
-        select: { invoiceMessageTemplate: true },
+        select: { invoiceMessageTemplate: true, billingMode: true },
       }),
-      prisma.professionalProfile.findUnique({
-        where: { id: professionalProfileId },
-        select: { user: { select: { name: true } } },
+      prisma.professionalProfile.findMany({
+        where: { id: { in: Array.from(profIds) } },
+        select: { id: true, user: { select: { name: true } } },
       }),
     ])
 
     const patientMap = new Map(patients.map(p => [p.id, p]))
-    const profName = professional?.user?.name || ""
+    const profMap = new Map(professionals.map(p => [p.id, p]))
+
+    // Build the invoice filter for existing invoices to delete
+    const invoiceWhereClause: Record<string, unknown> = {
+      clinicId: user.clinicId,
+      referenceMonth: month,
+      referenceYear: year,
+    }
+    if (professionalProfileId) {
+      invoiceWhereClause.professionalProfileId = professionalProfileId
+    }
 
     const results = await prisma.$transaction(async (tx) => {
+      // Bulk cleanup: delete existing invoices + items + release credits for this month
+      // before regenerating
+      const existingInvoices = await tx.invoice.findMany({
+        where: invoiceWhereClause,
+        select: { id: true },
+      })
+      const existingIds = existingInvoices.map(i => i.id)
+
+      if (existingIds.length > 0) {
+        await tx.invoiceItem.deleteMany({
+          where: { invoiceId: { in: existingIds } },
+        })
+        await tx.sessionCredit.updateMany({
+          where: { consumedByInvoiceId: { in: existingIds } },
+          data: { consumedByInvoiceId: null, consumedAt: null },
+        })
+        await tx.invoice.deleteMany({
+          where: { id: { in: existingIds } },
+        })
+      }
+
       const invoices = []
 
-      for (const [patientId, patientApts] of byPatient) {
+      for (const [key, patientApts] of byProfAndPatient) {
+        const [profId, patientId] = key.split("::")
         const patient = patientMap.get(patientId)
         if (!patient || !patient.sessionFee) continue
 
         const sessionFee = Number(patient.sessionFee)
         const showDays = patient.showAppointmentDaysOnInvoice
-
-        await tx.invoice.deleteMany({
-          where: {
-            professionalProfileId,
-            patientId,
-            referenceMonth: month,
-            referenceYear: year,
-          },
-        })
-
-        await tx.sessionCredit.updateMany({
-          where: {
-            professionalProfileId,
-            patientId,
-            consumedByInvoice: {
-              referenceMonth: month,
-              referenceYear: year,
-            },
-          },
-          data: {
-            consumedByInvoiceId: null,
-            consumedAt: null,
-          },
-        })
+        const profName = profMap.get(profId)?.user?.name || ""
 
         const classified = classifyAppointments(
           patientApts.map(a => ({
@@ -134,14 +168,23 @@ export const POST = withAuth(
 
         const availableCredits = await tx.sessionCredit.findMany({
           where: {
-            professionalProfileId,
+            professionalProfileId: profId,
             patientId,
             consumedByInvoiceId: null,
           },
           orderBy: { createdAt: "asc" },
         })
 
-        const items = buildInvoiceItems(classified, sessionFee, availableCredits, showDays)
+        let items
+        if (clinic?.billingMode === "MONTHLY_FIXED") {
+          const totalSessionCount = classified.regular.length + classified.extra.length
+            + classified.group.length + classified.schoolMeeting.length
+          items = buildMonthlyInvoiceItems(
+            sessionFee, totalSessionCount, getMonthName(month), String(year), availableCredits, sessionFee
+          )
+        } else {
+          items = buildInvoiceItems(classified, sessionFee, availableCredits, showDays)
+        }
         const totals = calculateInvoiceTotals(items)
 
         const template = patient.invoiceMessageTemplate
@@ -162,7 +205,7 @@ export const POST = withAuth(
         const invoice = await tx.invoice.create({
           data: {
             clinicId: user.clinicId,
-            professionalProfileId,
+            professionalProfileId: profId,
             patientId,
             referenceMonth: month,
             referenceYear: year,
@@ -198,7 +241,7 @@ export const POST = withAuth(
       }
 
       return invoices
-    })
+    }, { timeout: 30000 })
 
     return NextResponse.json({
       generated: results.length,

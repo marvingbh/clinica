@@ -80,6 +80,11 @@ export function AppointmentCard({
                     <span className="ml-1.5 text-sm" title="Aniversario hoje!">🎂</span>
                   )}
                 </h4>
+                {appointment.patient.motherName && (
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                    Mãe: {appointment.patient.motherName}
+                  </p>
+                )}
                 <div className="flex items-center gap-1.5 mt-1">
                   <PhoneIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                   <p className="text-sm text-muted-foreground truncate">

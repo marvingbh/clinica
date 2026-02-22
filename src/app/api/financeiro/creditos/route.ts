@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { withAuth } from "@/lib/api"
+import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 
-export const GET = withAuth(
-  { resource: "invoice", action: "read" },
-  async (req: NextRequest, { user, scope }) => {
+export const GET = withFeatureAuth(
+  { feature: "finances", minAccess: "READ" },
+  async (req: NextRequest, { user }) => {
+    const scope = user.role === "ADMIN" ? "clinic" : "own"
     const url = new URL(req.url)
     const patientId = url.searchParams.get("patientId")
     const status = url.searchParams.get("status") // "available" | "consumed" | null (all)

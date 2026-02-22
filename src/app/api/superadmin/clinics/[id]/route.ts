@@ -50,11 +50,15 @@ export const PATCH = withSuperAdmin(async (req: NextRequest, _admin, params) => 
       })
       return NextResponse.json({ ok: true, trialEndsAt: newEnd })
     }
-    case "change_plan": {
-      const { planId } = body
+    case "update_subscription": {
+      const { planId, subscriptionStatus, trialEndsAt } = body
+      const data: Record<string, unknown> = {}
+      if (planId !== undefined) data.planId = planId || null
+      if (subscriptionStatus !== undefined) data.subscriptionStatus = subscriptionStatus
+      if (trialEndsAt !== undefined) data.trialEndsAt = trialEndsAt ? new Date(trialEndsAt) : null
       await prisma.clinic.update({
         where: { id: params.id },
-        data: { planId },
+        data,
       })
       return NextResponse.json({ ok: true })
     }
