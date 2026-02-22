@@ -684,6 +684,7 @@ export default function Home() {
   const { canRead: canReadUsers, canWrite: canWriteUsers } = usePermission("users")
   const { canRead: canReadProfessionals } = usePermission("professionals")
   const { canRead: canReadClinicSettings } = usePermission("clinic_settings")
+  const { canRead: canReadFinances } = usePermission("finances")
 
   async function handleLogout() {
     await signOut({ redirect: false })
@@ -836,6 +837,17 @@ export default function Home() {
               iconColor="text-warning"
               title="Profissionais"
               description="Gerenciar equipe"
+            />
+          )}
+
+          {canReadFinances && (
+            <ActionCard
+              href="/financeiro"
+              icon={DollarSignIcon}
+              iconBgColor="bg-success/10"
+              iconColor="text-success"
+              title="Financeiro"
+              description="Faturas e controle financeiro"
             />
           )}
 

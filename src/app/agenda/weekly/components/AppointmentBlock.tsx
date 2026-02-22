@@ -2,6 +2,7 @@
 
 import { RefreshCwIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { Appointment } from "../../lib/types"
+import { isBirthdayToday } from "../../lib/utils"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../../lib/professional-colors"
 
 const PIXELS_PER_MINUTE = 1.6 // 48px per 30 minutes = 96px per hour
@@ -99,6 +100,9 @@ export function AppointmentBlock({
         )}
         <p className={`text-[11px] font-medium text-foreground truncate leading-tight ${appointment.recurrence && !showProfessional ? "pr-3" : ""}`}>
           {appointment.patient?.name || appointment.title || "Sem titulo"}
+          {appointment.patient?.birthDate && isBirthdayToday(appointment.patient.birthDate) && (
+            <span className="ml-0.5 text-[10px]" title="Aniversario hoje!">🎂</span>
+          )}
         </p>
         {height >= 48 && (
           <p className="text-[10px] text-muted-foreground truncate leading-tight">
