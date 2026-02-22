@@ -6,12 +6,20 @@ import { Appointment } from "./types"
  */
 export function isBirthdayToday(birthDate: string | null | undefined): boolean {
   if (!birthDate) return false
+  return isBirthdayOnDate(birthDate, new Date())
+}
+
+/**
+ * Checks if a patient's birthday falls on a specific date (compares month and day only).
+ * Works with both ISO datetime strings and YYYY-MM-DD strings.
+ */
+export function isBirthdayOnDate(birthDate: string | null | undefined, date: Date): boolean {
+  if (!birthDate) return false
   const match = birthDate.match(/^(\d{4})-(\d{2})-(\d{2})/)
   if (!match) return false
   const bdMonth = parseInt(match[2], 10)
   const bdDay = parseInt(match[3], 10)
-  const today = new Date()
-  return bdDay === today.getDate() && bdMonth === today.getMonth() + 1
+  return bdDay === date.getDate() && bdMonth === date.getMonth() + 1
 }
 
 /**
