@@ -1332,22 +1332,11 @@ async function handleCreateAppointment(
       appointments: result.appointments,
       recurrenceId: result.recurrenceId,
       totalOccurrences: result.appointments.length,
-      tokens: {
-        // Return tokens for first appointment
-        confirm: result.tokens[0].confirmToken,
-        cancel: result.tokens[0].cancelToken,
-        expiresAt: result.tokens[0].expiresAt,
-      },
     }, { status: 201 })
   }
 
-  // Single appointment response (backwards compatible)
+  // Single appointment response
   return NextResponse.json({
     appointment: result.appointments[0],
-    tokens: {
-      confirm: result.tokens[0].confirmToken,
-      cancel: result.tokens[0].cancelToken,
-      expiresAt: result.tokens[0].expiresAt,
-    },
   }, { status: 201 })
 }
