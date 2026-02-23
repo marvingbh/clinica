@@ -38,12 +38,17 @@ export function DayHeader({ date, birthdayNames = [] }: DayHeaderProps) {
         {dayNumber}
       </span>
       {birthdayNames.length > 0 && (
-        <span
-          className="text-[10px] leading-tight text-amber-700 dark:text-amber-300 truncate max-w-[110px] mt-0.5"
-          title={`Aniversario: ${birthdayNames.join(", ")}`}
-        >
-          🎂 {birthdayNames.join(", ")}
-        </span>
+        <div className="flex flex-col items-center mt-0.5 max-w-[110px]">
+          {birthdayNames.map((name, i) => (
+            <span
+              key={i}
+              className="text-[10px] leading-tight text-amber-700 dark:text-amber-300 truncate w-full text-center"
+              title={name}
+            >
+              🎂 {name}
+            </span>
+          ))}
+        </div>
       )}
     </button>
   )
