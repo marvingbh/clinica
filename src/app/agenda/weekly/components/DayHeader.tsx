@@ -5,9 +5,10 @@ import { formatDayHeader, isSameDay, isWeekend, toDateString } from "../../lib/u
 
 interface DayHeaderProps {
   date: Date
+  birthdayNames?: string[]
 }
 
-export function DayHeader({ date }: DayHeaderProps) {
+export function DayHeader({ date, birthdayNames = [] }: DayHeaderProps) {
   const router = useRouter()
   const { dayName, dayNumber } = formatDayHeader(date)
   const isToday = isSameDay(date, new Date())
@@ -36,6 +37,14 @@ export function DayHeader({ date }: DayHeaderProps) {
       >
         {dayNumber}
       </span>
+      {birthdayNames.length > 0 && (
+        <span
+          className="text-[10px] leading-tight text-amber-700 dark:text-amber-300 truncate max-w-[110px] mt-0.5"
+          title={`Aniversario: ${birthdayNames.join(", ")}`}
+        >
+          🎂 {birthdayNames.join(", ")}
+        </span>
+      )}
     </button>
   )
 }

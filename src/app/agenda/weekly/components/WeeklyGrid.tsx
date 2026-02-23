@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useEffect } from "react"
 import { Appointment, GroupSession, TimeSlot } from "../../lib/types"
-import { getWeekDays, toDateString, isSameDay, isWeekend } from "../../lib/utils"
+import { getWeekDays, toDateString, isSameDay, isWeekend, isBirthdayOnDate } from "../../lib/utils"
 import { DayHeader } from "./DayHeader"
 import { AppointmentBlock } from "./AppointmentBlock"
 import { GroupSessionBlock } from "./GroupSessionBlock"
@@ -145,6 +145,27 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
     return grouped
   }, [weekDays, individualAppointments])
 
+  // Compute birthday patient names per day
+  const birthdaysByDay = useMemo(() => {
+    const result: Record<string, string[]> = {}
+    for (const day of weekDays) {
+      const dateStr = toDateString(day)
+      const seen = new Set<string>()
+      const names: string[] = []
+      for (const apt of individualAppointments) {
+        if (!apt.patient?.birthDate || !apt.patient?.name) continue
+        if (seen.has(apt.patient.name)) continue
+        const aptDate = toDateString(new Date(apt.scheduledAt))
+        if (aptDate === dateStr && isBirthdayOnDate(apt.patient.birthDate, day)) {
+          seen.add(apt.patient.name)
+          names.push(apt.patient.name)
+        }
+      }
+      result[dateStr] = names
+    }
+    return result
+  }, [weekDays, individualAppointments])
+
   // Group sessions by day
   const groupSessionsByDay = useMemo(() => {
     const grouped: Record<string, GroupSession[]> = {}
@@ -205,7 +226,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                   ${isWeekend(day) ? "bg-muted/30" : ""}
                 `}
               >
-                <DayHeader date={day} />
+                <DayHeader date={day} birthdayNames={birthdaysByDay[toDateString(day)] || []} />
               </div>
             ))}
           </div>
