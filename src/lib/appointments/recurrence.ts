@@ -364,3 +364,24 @@ export function calculateDayShiftedDates(
 
   return { scheduledAt: newScheduledAt, endAt: newEndAt }
 }
+
+/**
+ * Determines if a given date falls on an "off week" relative to a biweekly
+ * recurrence's startDate. Uses UTC arithmetic to avoid timezone issues
+ * (recurrence startDate is stored as @db.Date = midnight UTC).
+ *
+ * Week 0, 2, 4... from startDate are "on" weeks (appointments exist).
+ * Week 1, 3, 5... are "off" weeks (empty slots / hints).
+ */
+export function isOffWeek(recurrenceStartDate: Date, dateStr: string): boolean {
+  const [year, month, day] = dateStr.split("-").map(Number)
+  const reqMs = Date.UTC(year, month - 1, day)
+  const startMs = Date.UTC(
+    recurrenceStartDate.getUTCFullYear(),
+    recurrenceStartDate.getUTCMonth(),
+    recurrenceStartDate.getUTCDate()
+  )
+  const daysDiff = Math.round((reqMs - startMs) / 86400000)
+  const weeksDiff = Math.floor(daysDiff / 7)
+  return weeksDiff % 2 !== 0
+}

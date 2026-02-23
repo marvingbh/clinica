@@ -30,6 +30,7 @@ export {
   calculateNextWindowDates,
   formatRecurrenceSummary,
   formatDate,
+  isOffWeek,
   type RecurrenceOptions,
   type RecurrenceDate,
 } from "./recurrence"

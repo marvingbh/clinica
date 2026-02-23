@@ -147,7 +147,7 @@ export interface BiweeklyHint {
   time: string
   professionalProfileId: string
   patientName: string
-  appointmentId: string
+  recurrenceId: string
   date?: string // YYYY-MM-DD, used when hints span multiple days (weekly view)
 }
 

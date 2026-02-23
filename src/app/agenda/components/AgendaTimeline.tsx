@@ -209,7 +209,10 @@ export function AgendaTimeline({
             const hasContent = hasAppointments || hasGroupSessions
             const isBlocked = slot.isBlocked
             const isPast = isSlotInPast(selectedDate, slot.time)
-            const canShowAvailableButton = slot.isAvailable && !isBlocked && !isPast && (!!selectedProfessionalId || !isAdmin)
+            const canShowAvailableSlot = slot.isAvailable && !isBlocked && (!!selectedProfessionalId || !isAdmin)
+            const canShowAvailableButton = canShowAvailableSlot && !isPast
+            // Biweekly hints show even in past slots (informational, matches weekly view behavior)
+            const canShowBiweeklyHint = canShowAvailableSlot && !!slot.biweeklyHint
 
             // Check if all appointments in the slot are cancelled
             const cancelledStatuses = ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"]
@@ -245,7 +248,7 @@ export function AgendaTimeline({
               (hasBlockingAppointments && allBlockingCancelled) ||
               (!hasBlockingAppointments)
             )
-            const showAvailableWithCancelledRecalc = noActiveBlockingContent && canShowAvailableButton
+            const showAvailableWithCancelledRecalc = noActiveBlockingContent && (canShowAvailableButton || canShowBiweeklyHint)
             // Non-blocking entries alone don't make the slot "active"
             const hasActiveContentRecalc = (hasBlockingAppointments && !allBlockingCancelled) || hasGroupSessions || isOccupiedByOngoingSession
 
@@ -318,6 +321,16 @@ export function AgendaTimeline({
                           <span className="text-sm">{slot.blockReason || "Bloqueado"}</span>
                         </div>
                       </div>
+                    ) : canShowBiweeklyHint && !canShowAvailableButton ? (
+                      <button
+                        onClick={() => onBiweeklyHintClick?.(slot.time)}
+                        className="w-full h-full min-h-[3rem] border border-dashed border-purple-300 dark:border-purple-700 rounded-xl p-3 flex items-center text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-400 dark:hover:border-purple-600 transition-all duration-normal group"
+                      >
+                        <ArrowLeftRightIcon className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <span className="text-sm font-medium">
+                          Disponivel p/ quinzenal <span className="mx-1 font-normal">·</span> Alterna com: {slot.biweeklyHint!.patientName}
+                        </span>
+                      </button>
                     ) : canShowAvailableButton ? (
                       slot.biweeklyHint ? (
                         <button

@@ -180,7 +180,7 @@ describe("computeSlotsForDay", () => {
         time: "08:00",
         professionalProfileId: "prof-1",
         patientName: "Maria",
-        appointmentId: "adj-1",
+        recurrenceId: "rec-1",
       },
     ]
 
@@ -204,7 +204,7 @@ describe("computeSlotsForDay", () => {
         time: "08:00",
         professionalProfileId: "prof-1",
         patientName: "Maria",
-        appointmentId: "adj-1",
+        recurrenceId: "rec-1",
       },
     ]
 

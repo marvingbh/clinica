@@ -12,6 +12,7 @@ import {
   calculateRecurrenceDatesWithExceptions,
   countActiveOccurrences,
   calculateDayShiftedDates,
+  isOffWeek,
 } from "./recurrence"
 
 // Prisma enums are plain strings at runtime
@@ -389,5 +390,52 @@ describe("formatRecurrenceSummary", () => {
       RecurrenceEndType.INDEFINITE
     )
     expect(summary).toBe("Mensal - sem data de fim")
+  })
+})
+
+describe("isOffWeek", () => {
+  // Recurrence starts 2026-03-02 (Monday), so "on" weeks are 0, 2, 4... from that date
+  const startDate = new Date("2026-03-02") // stored as @db.Date → midnight UTC
+
+  it("returns false for the start date itself (week 0 = on week)", () => {
+    expect(isOffWeek(startDate, "2026-03-02")).toBe(false)
+  })
+
+  it("returns true for +1 week (off week)", () => {
+    expect(isOffWeek(startDate, "2026-03-09")).toBe(true)
+  })
+
+  it("returns false for +2 weeks (on week)", () => {
+    expect(isOffWeek(startDate, "2026-03-16")).toBe(false)
+  })
+
+  it("returns true for +3 weeks (off week)", () => {
+    expect(isOffWeek(startDate, "2026-03-23")).toBe(true)
+  })
+
+  it("returns false for +4 weeks (on week)", () => {
+    expect(isOffWeek(startDate, "2026-03-30")).toBe(false)
+  })
+
+  it("returns true for -1 week (off week, before start)", () => {
+    expect(isOffWeek(startDate, "2026-02-23")).toBe(true)
+  })
+
+  it("returns false for -2 weeks (on week, before start)", () => {
+    expect(isOffWeek(startDate, "2026-02-16")).toBe(false)
+  })
+
+  it("works for dates far in the future", () => {
+    // +52 weeks (even) = on week
+    expect(isOffWeek(startDate, "2027-03-01")).toBe(false)
+    // +53 weeks (odd) = off week
+    expect(isOffWeek(startDate, "2027-03-08")).toBe(true)
+  })
+
+  it("handles different day within the same week as start", () => {
+    // 2026-03-04 is Wednesday same week as start (Wed of week 0) → on week
+    expect(isOffWeek(startDate, "2026-03-04")).toBe(false)
+    // 2026-03-11 is Wednesday of week 1 → off week
+    expect(isOffWeek(startDate, "2026-03-11")).toBe(true)
   })
 })
