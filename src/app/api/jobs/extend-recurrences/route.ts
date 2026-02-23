@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { RecurrenceEndType, AppointmentStatus } from "@prisma/client"
 import { calculateNextWindowDates } from "@/lib/appointments"
-import { createBulkAppointmentTokens } from "@/lib/appointments"
 
 /**
  * GET /api/jobs/extend-recurrences
@@ -172,11 +171,6 @@ export async function GET(req: Request) {
             select: { id: true, scheduledAt: true },
             orderBy: { scheduledAt: "asc" },
           })
-
-          // Bulk create tokens for all new appointments
-          if (recurrence.patientId) {
-            await createBulkAppointmentTokens(createdAppointments, tx)
-          }
 
           results.appointmentsCreated += nonConflictingDates.length
 

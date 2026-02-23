@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
-import { regenerateAppointmentTokens, buildConfirmLink, buildCancelLink } from "@/lib/appointments"
+import { buildConfirmUrl, buildCancelUrl } from "@/lib/appointments/appointment-links"
 import { createAndSendNotification } from "@/lib/notifications"
 import { NotificationChannel, NotificationType } from "@prisma/client"
 import { audit, AuditAction } from "@/lib/rbac"
@@ -125,19 +125,10 @@ export const POST = withFeatureAuth(
       )
     }
 
-    // Regenerate tokens (invalidates old ones) within a transaction
-    const tokens = await prisma.$transaction(async (tx) => {
-      return regenerateAppointmentTokens(
-        appointment.id,
-        new Date(appointment.scheduledAt),
-        tx
-      )
-    })
-
-    // Build notification content
+    // Build notification content with HMAC-signed URLs
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    const confirmLink = buildConfirmLink(baseUrl, tokens.confirmToken)
-    const cancelLink = buildCancelLink(baseUrl, tokens.cancelToken)
+    const confirmLink = buildConfirmUrl(baseUrl, appointment.id, new Date(appointment.scheduledAt))
+    const cancelLink = buildCancelUrl(baseUrl, appointment.id, new Date(appointment.scheduledAt))
 
     const professionalName = appointment.professionalProfile.user.name
     const scheduledDate = new Date(appointment.scheduledAt)
@@ -206,7 +197,6 @@ export const POST = withFeatureAuth(
         patientId: patient.id,
         patientName: patient.name,
         notificationsSent,
-        tokensRegenerated: true,
       },
       request: req,
     })
@@ -215,9 +205,6 @@ export const POST = withFeatureAuth(
       success: true,
       message: "Links de confirmacao reenviados com sucesso",
       notificationsSent,
-      tokens: {
-        expiresAt: tokens.expiresAt,
-      },
     })
   }
 )

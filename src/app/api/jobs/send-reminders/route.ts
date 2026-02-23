@@ -7,7 +7,7 @@ import {
 } from "@prisma/client"
 import { createNotification, processPendingNotifications, getPatientPhoneNumbers } from "@/lib/notifications"
 import { getTemplate, renderTemplate } from "@/lib/notifications/templates"
-import { createAppointmentTokens, buildConfirmLink, buildCancelLink } from "@/lib/appointments"
+import { buildConfirmUrl, buildCancelUrl } from "@/lib/appointments/appointment-links"
 
 /**
  * POST /api/jobs/send-reminders
@@ -255,15 +255,8 @@ async function findAndCreateReminders(
     // Build notification content using templates
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 
-    // Get or create tokens for the appointment
-    const tokens = await createAppointmentTokens(
-      appointment.id,
-      new Date(appointment.scheduledAt),
-      prisma
-    )
-
-    const confirmLink = buildConfirmLink(baseUrl, tokens.confirmToken)
-    const cancelLink = buildCancelLink(baseUrl, tokens.cancelToken)
+    const confirmLink = buildConfirmUrl(baseUrl, appointment.id, new Date(appointment.scheduledAt))
+    const cancelLink = buildCancelUrl(baseUrl, appointment.id, new Date(appointment.scheduledAt))
 
     const scheduledDate = new Date(appointment.scheduledAt)
     const templateVariables = {

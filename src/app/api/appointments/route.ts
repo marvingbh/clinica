@@ -2,7 +2,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
-import { checkConflictsBulk, formatConflictError, createBulkAppointmentTokens, buildConfirmLink, buildCancelLink, validateRecurrenceOptions, calculateRecurrenceDates, isOffWeek } from "@/lib/appointments"
+import { checkConflictsBulk, formatConflictError, validateRecurrenceOptions, calculateRecurrenceDates, isOffWeek } from "@/lib/appointments"
+import { buildConfirmUrl, buildCancelUrl } from "@/lib/appointments/appointment-links"
 import { createNotification, getPatientPhoneNumbers } from "@/lib/notifications"
 import { NotificationChannel, NotificationType, RecurrenceType, RecurrenceEndType, AppointmentType } from "@prisma/client"
 import { audit, AuditAction, type AuthUser } from "@/lib/rbac"
@@ -1199,23 +1200,6 @@ async function handleCreateAppointment(
       })
     }
 
-    // Bulk create tokens for all appointments
-    await createBulkAppointmentTokens(
-      createdAppointments.map(a => ({ id: a.id, scheduledAt: a.scheduledAt })),
-      tx
-    )
-
-    // Fetch the first appointment's tokens for the notification
-    const firstAppointmentTokens = await tx.appointmentToken.findMany({
-      where: {
-        appointmentId: createdAppointments[0].id,
-      },
-    })
-
-    const confirmToken = firstAppointmentTokens.find(t => t.action === "confirm")?.token || ""
-    const cancelToken = firstAppointmentTokens.find(t => t.action === "cancel")?.token || ""
-    const expiresAt = firstAppointmentTokens[0]?.expiresAt || new Date()
-
     // Update patient's lastVisitAt
     await tx.patient.update({
       where: { id: patientId },
@@ -1224,7 +1208,6 @@ async function handleCreateAppointment(
 
     return {
       appointments: createdAppointments,
-      tokens: [{ confirmToken, cancelToken, expiresAt }],
       recurrenceId,
     }
   }, { timeout: 30000 })
@@ -1271,11 +1254,10 @@ async function handleCreateAppointment(
   // Subsequent appointments will get reminders via scheduled jobs
   try {
     const firstAppointment = result.appointments[0]
-    const firstTokens = result.tokens[0]
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    const confirmLink = buildConfirmLink(baseUrl, firstTokens.confirmToken)
-    const cancelLink = buildCancelLink(baseUrl, firstTokens.cancelToken)
+    const confirmLink = buildConfirmUrl(baseUrl, firstAppointment.id, firstAppointment.scheduledAt)
+    const cancelLink = buildCancelUrl(baseUrl, firstAppointment.id, firstAppointment.scheduledAt)
 
     const professionalName = firstAppointment.professionalProfile.user.name
     const formattedDate = firstAppointment.scheduledAt.toLocaleDateString("pt-BR", {
