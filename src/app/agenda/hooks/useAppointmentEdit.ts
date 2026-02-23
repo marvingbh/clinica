@@ -101,7 +101,7 @@ export function useAppointmentEdit({
           endAt: endAt.toISOString(),
           modality: data.modality,
           notes: data.notes || null,
-          price: data.price !== undefined && data.price !== "" ? Number(data.price) : null,
+          price: data.price != null && data.price !== "" ? Number(data.price) : null,
           additionalProfessionalIds: editAdditionalProfIds,
         })
 

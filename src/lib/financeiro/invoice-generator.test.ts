@@ -108,6 +108,13 @@ describe("buildInvoiceItems", () => {
     expect(creditItem!.quantity).toBe(-1)
   })
 
+  it("uses sessionFee when appointment price is null (no override)", () => {
+    const classified = { regular: [makeAppointment({ price: null })], extra: [], group: [], schoolMeeting: [] }
+    const items = buildInvoiceItems(classified, sessionFee, [], false)
+    expect(items[0].unitPrice).toBe(150)
+    expect(items[0].total).toBe(150)
+  })
+
   it("creates correct types for extras, groups, and school meetings", () => {
     const classified = {
       regular: [],
