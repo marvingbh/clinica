@@ -52,8 +52,6 @@ export default function AgendaPage() {
   const {
     selectedDate,
     setSelectedDate,
-    showDatePicker,
-    setShowDatePicker,
     goToPreviousDay,
     goToNextDay,
     goToToday,
@@ -296,12 +294,7 @@ export default function AgendaPage() {
     <main className="min-h-screen bg-background pb-20">
       <AgendaHeader
         selectedDate={selectedDate}
-        onDateChange={(date) => {
-          setSelectedDate(date)
-          setShowDatePicker(false)
-        }}
-        showDatePicker={showDatePicker}
-        onToggleDatePicker={() => setShowDatePicker(!showDatePicker)}
+        onDateChange={setSelectedDate}
         selectedProfessionalId={selectedProfessionalId}
         onProfessionalChange={setSelectedProfessionalId}
         professionals={professionals}

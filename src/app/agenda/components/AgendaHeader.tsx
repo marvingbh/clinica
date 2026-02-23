@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useMemo, useRef } from "react"
 import Link from "next/link"
 import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from "@/shared/components/ui/icons"
 import { Card, CardContent } from "@/shared/components/ui/card"
@@ -10,8 +10,6 @@ import type { Professional } from "../lib/types"
 export interface AgendaHeaderProps {
   selectedDate: Date
   onDateChange: (date: Date) => void
-  showDatePicker: boolean
-  onToggleDatePicker: () => void
   selectedProfessionalId: string
   onProfessionalChange: (id: string) => void
   professionals: Professional[]
@@ -50,8 +48,6 @@ function isToday(date: Date): boolean {
 export function AgendaHeader({
   selectedDate,
   onDateChange,
-  showDatePicker,
-  onToggleDatePicker,
   selectedProfessionalId,
   onProfessionalChange,
   professionals,
@@ -60,12 +56,11 @@ export function AgendaHeader({
   onGoToNext,
   onGoToToday,
 }: AgendaHeaderProps) {
-  const [dateInputValue, setDateInputValue] = useState(toDateString(selectedDate))
-
+  const dateInputRef = useRef<HTMLInputElement>(null)
   const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate])
+  const selectedIso = toDateString(selectedDate)
 
   function handleDateInputChange(value: string) {
-    setDateInputValue(value)
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
       const date = new Date(value + "T12:00:00")
       if (!isNaN(date.getTime())) {
@@ -74,10 +69,8 @@ export function AgendaHeader({
     }
   }
 
-  // Update input when selectedDate changes from external navigation
-  const selectedIso = toDateString(selectedDate)
-  if (dateInputValue !== selectedIso) {
-    setDateInputValue(selectedIso)
+  function openDatePicker() {
+    dateInputRef.current?.showPicker()
   }
 
   return (
@@ -165,39 +158,25 @@ export function AgendaHeader({
                 Hoje
               </button>
               <button
-                onClick={onToggleDatePicker}
+                onClick={openDatePicker}
                 className="h-8 px-3 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80 text-xs font-medium transition-colors flex items-center gap-1.5"
               >
                 <CalendarIcon className="w-3.5 h-3.5" />
                 {toDisplayDateFromDate(selectedDate)}
               </button>
+              <input
+                ref={dateInputRef}
+                type="date"
+                value={selectedIso}
+                onChange={(e) => handleDateInputChange(e.target.value)}
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden
+              />
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Date Input Picker (expanded) */}
-      {showDatePicker && (
-        <div className="max-w-4xl mx-auto px-4 pb-4">
-          <Card elevation="sm">
-            <CardContent className="py-4">
-              <label className="text-sm text-muted-foreground mb-2 block">Ir para data</label>
-              <input
-                type="date"
-                value={dateInputValue}
-                onChange={(e) => handleDateInputChange(e.target.value)}
-                className="w-full h-12 px-4 rounded-xl border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-normal"
-              />
-              <button
-                onClick={onToggleDatePicker}
-                className="w-full mt-3 h-10 rounded-xl bg-muted text-muted-foreground text-sm font-medium hover:bg-muted/80 transition-colors"
-              >
-                Fechar
-              </button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {/* Professional Tabs */}
       {isAdmin && professionals.length > 0 && (
