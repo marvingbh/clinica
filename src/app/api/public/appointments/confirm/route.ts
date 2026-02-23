@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { validateToken, invalidateToken } from "@/lib/appointments"
+import { verifyLink } from "@/lib/appointments/appointment-links"
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "@/lib/rate-limit"
 
 /**
  * POST /api/public/appointments/confirm
- * Confirms an appointment using a secure token
+ * Confirms an appointment using HMAC-signed parameters
  *
- * Request body: { token: string }
+ * Request body: { id: string, expires: number, sig: string }
  *
- * This endpoint is public (no auth required) - patients use the token link
+ * This endpoint is public (no auth required) - patients use signed links
  * Rate limited to prevent abuse
  */
 export async function POST(req: NextRequest) {
-  // Rate limiting by IP
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
              req.headers.get("x-real-ip") ||
              "unknown"
@@ -32,7 +31,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  let body: { token?: string }
+  let body: { id?: string; expires?: number; sig?: string }
   try {
     body = await req.json()
   } catch {
@@ -42,48 +41,42 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { token } = body
+  const { id, expires, sig } = body
 
-  if (!token || typeof token !== "string") {
+  if (!id || expires == null || !sig) {
     return NextResponse.json(
-      { error: "Token nao fornecido" },
+      { error: "Parametros incompletos" },
       { status: 400 }
     )
   }
 
-  // Validate the token
-  const validation = await validateToken(token, "confirm", prisma)
+  // Verify HMAC signature
+  const verification = verifyLink(id, "confirm", expires, sig)
 
-  if (!validation.valid) {
-    // Check if it's because already confirmed
-    const tokenRecord = await prisma.appointmentToken.findUnique({
-      where: { token },
+  if (!verification.valid) {
+    // Even if link is invalid/expired, check if appointment is already confirmed (preserve UX)
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
       include: {
-        appointment: {
+        professionalProfile: {
           include: {
-            professionalProfile: {
-              include: {
-                user: {
-                  select: { name: true },
-                },
-              },
-            },
+            user: { select: { name: true } },
           },
         },
       },
     })
 
-    if (tokenRecord?.appointment?.status === "CONFIRMADO") {
+    if (appointment?.status === "CONFIRMADO") {
       return NextResponse.json(
         {
           error: "Este agendamento ja foi confirmado",
           alreadyConfirmed: true,
           appointment: {
-            id: tokenRecord.appointment.id,
-            professionalName: tokenRecord.appointment.professionalProfile.user.name,
-            scheduledAt: tokenRecord.appointment.scheduledAt.toISOString(),
-            endAt: tokenRecord.appointment.endAt.toISOString(),
-            modality: tokenRecord.appointment.modality,
+            id: appointment.id,
+            professionalName: appointment.professionalProfile.user.name,
+            scheduledAt: appointment.scheduledAt.toISOString(),
+            endAt: appointment.endAt.toISOString(),
+            modality: appointment.modality,
           },
         },
         { status: 400 }
@@ -91,14 +84,14 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: validation.error },
+      { error: verification.error },
       { status: 400 }
     )
   }
 
   // Update appointment status to CONFIRMADO
   const appointment = await prisma.appointment.update({
-    where: { id: validation.appointmentId },
+    where: { id },
     data: {
       status: "CONFIRMADO",
       confirmedAt: new Date(),
@@ -106,16 +99,11 @@ export async function POST(req: NextRequest) {
     include: {
       professionalProfile: {
         include: {
-          user: {
-            select: { name: true },
-          },
+          user: { select: { name: true } },
         },
       },
     },
   })
-
-  // Invalidate the token (one-time use)
-  await invalidateToken(token, prisma)
 
   return NextResponse.json({
     success: true,

@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { validateToken, invalidateToken } from "@/lib/appointments"
+import { verifyLink } from "@/lib/appointments/appointment-links"
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "@/lib/rate-limit"
 
 /**
  * POST /api/public/appointments/cancel
- * Cancels an appointment using a secure token
+ * Cancels an appointment using HMAC-signed parameters
  *
- * Request body: { token: string, reason?: string }
+ * Request body: { id: string, expires: number, sig: string, reason?: string }
  *
- * This endpoint is public (no auth required) - patients use the token link
+ * This endpoint is public (no auth required) - patients use signed links
  * Rate limited to prevent abuse
  */
 export async function POST(req: NextRequest) {
-  // Rate limiting by IP
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
              req.headers.get("x-real-ip") ||
              "unknown"
@@ -32,7 +31,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  let body: { token?: string; reason?: string }
+  let body: { id?: string; expires?: number; sig?: string; reason?: string }
   try {
     body = await req.json()
   } catch {
@@ -42,50 +41,44 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { token, reason } = body
+  const { id, expires, sig, reason } = body
 
-  if (!token || typeof token !== "string") {
+  if (!id || expires == null || !sig) {
     return NextResponse.json(
-      { error: "Token nao fornecido" },
+      { error: "Parametros incompletos" },
       { status: 400 }
     )
   }
 
-  // Validate the token
-  const validation = await validateToken(token, "cancel", prisma)
+  // Verify HMAC signature
+  const verification = verifyLink(id, "cancel", expires, sig)
 
-  if (!validation.valid) {
-    // Check if it's because already cancelled
-    const tokenRecord = await prisma.appointmentToken.findUnique({
-      where: { token },
+  if (!verification.valid) {
+    // Even if link is invalid/expired, check if already cancelled (preserve UX)
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
       include: {
-        appointment: {
+        professionalProfile: {
           include: {
-            professionalProfile: {
-              include: {
-                user: {
-                  select: { name: true },
-                },
-              },
-            },
+            user: { select: { name: true } },
           },
         },
       },
     })
 
-    if (tokenRecord?.appointment?.status === "CANCELADO_ACORDADO" ||
-        tokenRecord?.appointment?.status === "CANCELADO_FALTA" ||
-        tokenRecord?.appointment?.status === "CANCELADO_PROFISSIONAL") {
+    if (appointment?.status === "CANCELADO_ACORDADO" ||
+        appointment?.status === "CANCELADO_FALTA" ||
+        appointment?.status === "CANCELADO_PROFISSIONAL") {
       return NextResponse.json(
         {
           error: "Este agendamento ja foi cancelado",
           alreadyCancelled: true,
           appointment: {
-            id: tokenRecord.appointment.id,
-            professionalName: tokenRecord.appointment.professionalProfile.user.name,
-            scheduledAt: tokenRecord.appointment.scheduledAt.toISOString(),
-            endAt: tokenRecord.appointment.endAt.toISOString(),
-            modality: tokenRecord.appointment.modality,
+            id: appointment.id,
+            professionalName: appointment.professionalProfile.user.name,
+            scheduledAt: appointment.scheduledAt.toISOString(),
+            endAt: appointment.endAt.toISOString(),
+            modality: appointment.modality,
           },
         },
         { status: 400 }
@@ -93,20 +86,18 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: validation.error },
+      { error: verification.error },
       { status: 400 }
     )
   }
 
   // Get full appointment details before update for audit log
   const existingAppointment = await prisma.appointment.findUnique({
-    where: { id: validation.appointmentId },
+    where: { id },
     include: {
       professionalProfile: {
         include: {
-          user: {
-            select: { name: true },
-          },
+          user: { select: { name: true } },
         },
       },
       patient: {
@@ -126,7 +117,7 @@ export async function POST(req: NextRequest) {
 
   // Update appointment status to CANCELADO_ACORDADO (patient initiated via link)
   const appointment = await prisma.appointment.update({
-    where: { id: validation.appointmentId },
+    where: { id },
     data: {
       status: "CANCELADO_ACORDADO",
       cancelledAt: new Date(),
@@ -135,9 +126,7 @@ export async function POST(req: NextRequest) {
     include: {
       professionalProfile: {
         include: {
-          user: {
-            select: { name: true },
-          },
+          user: { select: { name: true } },
         },
       },
     },
@@ -147,7 +136,7 @@ export async function POST(req: NextRequest) {
   await prisma.auditLog.create({
     data: {
       clinicId: existingAppointment.clinicId,
-      userId: null, // Patient-initiated, no user session
+      userId: null,
       action: "PATIENT_CANCELLATION",
       entityType: "Appointment",
       entityId: appointment.id,
@@ -163,9 +152,6 @@ export async function POST(req: NextRequest) {
       userAgent: req.headers.get("user-agent") ?? null,
     },
   })
-
-  // Invalidate the token (one-time use)
-  await invalidateToken(token, prisma)
 
   return NextResponse.json({
     success: true,

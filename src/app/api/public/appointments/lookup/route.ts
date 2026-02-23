@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { verifyLink, type LinkAction } from "@/lib/appointments/appointment-links"
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "@/lib/rate-limit"
 
 /**
- * GET /api/public/appointments/lookup?token=xxx&action=confirm|cancel
+ * GET /api/public/appointments/lookup?id=...&action=confirm|cancel&expires=...&sig=...
  * Looks up appointment details for the confirmation/cancellation page
  * Does NOT modify the appointment - just returns details for display
  *
- * This endpoint is public (no auth required) - patients use the token link
+ * This endpoint is public (no auth required) - patients use signed links
  * Rate limited to prevent enumeration attacks
  */
 export async function GET(req: NextRequest) {
-  // Rate limiting by IP
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
              req.headers.get("x-real-ip") ||
              "unknown"
@@ -31,12 +31,14 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url)
-  const token = searchParams.get("token")
-  const action = searchParams.get("action") || "confirm" // Default to confirm for backwards compatibility
+  const id = searchParams.get("id")
+  const action = searchParams.get("action") as LinkAction | null
+  const expiresStr = searchParams.get("expires")
+  const sig = searchParams.get("sig")
 
-  if (!token) {
+  if (!id || !action || !expiresStr || !sig) {
     return NextResponse.json(
-      { error: "Token nao fornecido" },
+      { error: "Parametros incompletos" },
       { status: 400 }
     )
   }
@@ -48,55 +50,44 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  // Find the token and associated appointment
-  const tokenRecord = await prisma.appointmentToken.findUnique({
-    where: { token },
+  const expires = Number(expiresStr)
+  if (isNaN(expires)) {
+    return NextResponse.json(
+      { error: "Parametros invalidos" },
+      { status: 400 }
+    )
+  }
+
+  // Verify HMAC signature
+  const verification = verifyLink(id, action, expires, sig)
+  if (!verification.valid) {
+    return NextResponse.json(
+      { error: verification.error },
+      { status: 400 }
+    )
+  }
+
+  // Fetch appointment by ID
+  const appointment = await prisma.appointment.findUnique({
+    where: { id },
     include: {
-      appointment: {
+      professionalProfile: {
         include: {
-          professionalProfile: {
-            include: {
-              user: {
-                select: {
-                  name: true,
-                },
-              },
-            },
+          user: {
+            select: { name: true },
           },
         },
       },
     },
   })
 
-  if (!tokenRecord) {
-    return NextResponse.json(
-      { error: "Link invalido ou expirado" },
-      { status: 400 }
-    )
-  }
-
-  if (tokenRecord.action !== action) {
-    return NextResponse.json(
-      { error: "Link invalido para esta acao" },
-      { status: 400 }
-    )
-  }
-
-  if (new Date() > tokenRecord.expiresAt) {
-    return NextResponse.json(
-      { error: "Este link expirou. Entre em contato com a clinica para um novo link." },
-      { status: 400 }
-    )
-  }
-
-  if (!tokenRecord.appointment) {
+  if (!appointment) {
     return NextResponse.json(
       { error: "Agendamento nao encontrado" },
       { status: 400 }
     )
   }
 
-  const appointment = tokenRecord.appointment
   const appointmentDetails = {
     id: appointment.id,
     professionalName: appointment.professionalProfile.user.name,
@@ -105,17 +96,8 @@ export async function GET(req: NextRequest) {
     modality: appointment.modality,
   }
 
-  // Check if token was already used
-  if (tokenRecord.usedAt) {
-    return NextResponse.json(
-      { error: "Este link ja foi utilizado" },
-      { status: 400 }
-    )
-  }
-
   // Action-specific status checks
   if (action === "confirm") {
-    // Check if already confirmed
     if (appointment.status === "CONFIRMADO") {
       return NextResponse.json(
         {
@@ -127,7 +109,6 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Check if appointment is in a valid state for confirmation
     if (appointment.status !== "AGENDADO") {
       return NextResponse.json(
         { error: "Este agendamento nao pode mais ser confirmado" },
@@ -135,7 +116,6 @@ export async function GET(req: NextRequest) {
       )
     }
   } else if (action === "cancel") {
-    // Check if already cancelled
     if (appointment.status === "CANCELADO_ACORDADO" ||
         appointment.status === "CANCELADO_FALTA" ||
         appointment.status === "CANCELADO_PROFISSIONAL") {
@@ -149,8 +129,6 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Check if appointment is in a valid state for cancellation
-    // Can cancel if AGENDADO or CONFIRMADO
     if (appointment.status !== "AGENDADO" && appointment.status !== "CONFIRMADO") {
       return NextResponse.json(
         { error: "Este agendamento nao pode mais ser cancelado" },
