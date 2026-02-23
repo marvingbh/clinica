@@ -105,8 +105,10 @@ export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointm
                   <span>Alterna com:</span>
                   {appointment.alternateWeekInfo.pairedPatientName ? (
                     <span className="font-medium underline">{appointment.alternateWeekInfo.pairedPatientName}</span>
-                  ) : (
+                  ) : appointment.alternateWeekInfo.isAvailable ? (
                     <span className="text-green-600 dark:text-green-400 font-medium underline">Disponivel - Agendar</span>
+                  ) : (
+                    <span className="text-amber-600 dark:text-amber-400 font-medium">Bloqueado</span>
                   )}
                 </div>
               )}

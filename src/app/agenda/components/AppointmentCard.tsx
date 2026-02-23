@@ -156,8 +156,10 @@ export function AppointmentCard({
                   <span className="font-medium">Semana alternada:</span>
                   {appointment.alternateWeekInfo.pairedPatientName ? (
                     <span className="underline">{appointment.alternateWeekInfo.pairedPatientName}</span>
-                  ) : (
+                  ) : appointment.alternateWeekInfo.isAvailable ? (
                     <span className="text-green-600 dark:text-green-400 underline">Disponivel - Agendar</span>
+                  ) : (
+                    <span className="text-amber-600 dark:text-amber-400">Bloqueado</span>
                   )}
                 </p>
               </button>
@@ -200,7 +202,8 @@ export function AppointmentCard({
               <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border">
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400">
                   <RefreshCwIcon className="w-3.5 h-3.5" />
-                  Semanal
+                  {appointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
+                   appointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"}
                 </span>
               </div>
             )}

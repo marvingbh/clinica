@@ -45,7 +45,7 @@ export interface CreateCalendarEntryData {
   professionalProfileId?: string
   additionalProfessionalIds?: string[]
   recurrence?: {
-    recurrenceType: "WEEKLY"
+    recurrenceType: "WEEKLY" | "BIWEEKLY"
     recurrenceEndType: "BY_DATE" | "BY_OCCURRENCES" | "INDEFINITE"
     endDate?: string
     occurrences?: number

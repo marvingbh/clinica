@@ -9,6 +9,7 @@ import { DEFAULT_ENTRY_DURATIONS } from "../lib/constants"
 
 // Only non-CONSULTA types
 type EntryType = Exclude<CalendarEntryType, "CONSULTA">
+type CalendarEntryRecurrenceType = "WEEKLY" | "BIWEEKLY"
 
 export interface UseCalendarEntryCreateParams {
   selectedDate: Date
@@ -29,6 +30,8 @@ export interface UseCalendarEntryCreateReturn {
   isProfessionalLocked: boolean
   isRecurring: boolean
   setIsRecurring: (value: boolean) => void
+  recurrenceType: CalendarEntryRecurrenceType
+  setRecurrenceType: (type: CalendarEntryRecurrenceType) => void
   recurrenceEndType: RecurrenceEndType
   setRecurrenceEndType: (type: RecurrenceEndType) => void
   recurrenceEndDate: string
@@ -61,6 +64,7 @@ export function useCalendarEntryCreate({
 
   // Recurrence state - SINGLE by default for calendar entries
   const [isRecurring, setIsRecurring] = useState(false)
+  const [recurrenceType, setRecurrenceType] = useState<CalendarEntryRecurrenceType>("WEEKLY")
   const [recurrenceEndType, setRecurrenceEndType] = useState<RecurrenceEndType>("INDEFINITE")
   const [recurrenceEndDate, setRecurrenceEndDate] = useState("")
   const [recurrenceOccurrences, setRecurrenceOccurrences] = useState(10)
@@ -76,6 +80,7 @@ export function useCalendarEntryCreate({
       setApiError(null)
       setCreateProfessionalId(selectedProfessionalId || "")
       setIsRecurring(false)
+      setRecurrenceType("WEEKLY")
       setRecurrenceEndType("INDEFINITE")
       setRecurrenceEndDate("")
       setRecurrenceOccurrences(10)
@@ -130,7 +135,7 @@ export function useCalendarEntryCreate({
 
         if (isRecurring) {
           body.recurrence = {
-            recurrenceType: "WEEKLY",
+            recurrenceType,
             recurrenceEndType,
             ...(recurrenceEndType === "BY_DATE" && { endDate: recurrenceEndDate }),
             ...(recurrenceEndType === "BY_OCCURRENCES" && { occurrences: recurrenceOccurrences }),
@@ -168,6 +173,7 @@ export function useCalendarEntryCreate({
       createProfessionalId,
       entryType,
       isRecurring,
+      recurrenceType,
       recurrenceEndType,
       recurrenceEndDate,
       recurrenceOccurrences,
@@ -188,6 +194,8 @@ export function useCalendarEntryCreate({
     isProfessionalLocked,
     isRecurring,
     setIsRecurring,
+    recurrenceType,
+    setRecurrenceType,
     recurrenceEndType,
     setRecurrenceEndType,
     recurrenceEndDate,

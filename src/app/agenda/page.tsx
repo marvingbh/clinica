@@ -218,6 +218,8 @@ export default function AgendaPage() {
     isProfessionalLocked: isEntryProfessionalLocked,
     isRecurring: isEntryRecurring,
     setIsRecurring: setIsEntryRecurring,
+    recurrenceType: entryRecurrenceType,
+    setRecurrenceType: setEntryRecurrenceType,
     recurrenceEndType: entryRecurrenceEndType,
     setRecurrenceEndType: setEntryRecurrenceEndType,
     recurrenceEndDate: entryRecurrenceEndDate,
@@ -426,6 +428,8 @@ export default function AgendaPage() {
         selectedProfessionalId={selectedProfessionalId}
         isRecurring={isEntryRecurring}
         setIsRecurring={setIsEntryRecurring}
+        recurrenceType={entryRecurrenceType}
+        setRecurrenceType={setEntryRecurrenceType}
         recurrenceEndType={entryRecurrenceEndType}
         setRecurrenceEndType={setEntryRecurrenceEndType}
         recurrenceEndDate={entryRecurrenceEndDate}

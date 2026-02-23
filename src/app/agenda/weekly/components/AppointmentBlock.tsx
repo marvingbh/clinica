@@ -120,7 +120,7 @@ export function AppointmentBlock({
             className="text-[9px] text-purple-600 dark:text-purple-400 truncate leading-tight flex items-center gap-0.5 hover:text-purple-800 dark:hover:text-purple-200 cursor-pointer underline"
           >
             <ArrowLeftRightIcon className="w-2.5 h-2.5 flex-shrink-0" />
-            {appointment.alternateWeekInfo.pairedPatientName || "Disponivel - Agendar"}
+            {appointment.alternateWeekInfo.pairedPatientName || (appointment.alternateWeekInfo.isAvailable ? "Disponivel - Agendar" : "Bloqueado")}
           </p>
         )}
       </div>

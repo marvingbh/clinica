@@ -25,6 +25,8 @@ interface CalendarEntrySheetProps {
   // Recurrence
   isRecurring: boolean
   setIsRecurring: (value: boolean) => void
+  recurrenceType: "WEEKLY" | "BIWEEKLY"
+  setRecurrenceType: (type: "WEEKLY" | "BIWEEKLY") => void
   recurrenceEndType: RecurrenceEndType
   setRecurrenceEndType: (type: RecurrenceEndType) => void
   recurrenceEndDate: string
@@ -54,6 +56,8 @@ export function CalendarEntrySheet({
   selectedProfessionalId,
   isRecurring,
   setIsRecurring,
+  recurrenceType,
+  setRecurrenceType,
   recurrenceEndType,
   setRecurrenceEndType,
   recurrenceEndDate,
@@ -163,11 +167,36 @@ export function CalendarEntrySheet({
                 className="w-5 h-5 rounded-md border-input text-primary focus:ring-ring/40 transition-colors"
               />
             </div>
-            <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">Repetir semanalmente</span>
+            <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">Repetir</span>
           </label>
 
           {isRecurring && (
             <div className="mt-3 pl-8 space-y-3">
+              {/* Frequency selector */}
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setRecurrenceType("WEEKLY")}
+                  className={`h-9 px-2 rounded-lg text-xs font-medium border transition-all ${
+                    recurrenceType === "WEEKLY"
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-input bg-background text-foreground hover:bg-muted"
+                  }`}
+                >
+                  Semanal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecurrenceType("BIWEEKLY")}
+                  className={`h-9 px-2 rounded-lg text-xs font-medium border transition-all ${
+                    recurrenceType === "BIWEEKLY"
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-input bg-background text-foreground hover:bg-muted"
+                  }`}
+                >
+                  Quinzenal
+                </button>
+              </div>
               <div className="flex flex-col gap-2">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input

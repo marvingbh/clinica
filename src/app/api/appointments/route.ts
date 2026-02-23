@@ -30,7 +30,7 @@ const recurrenceSchema = z.object({
 
 // Calendar entry recurrence - only WEEKLY for non-patient types
 const calendarEntryRecurrenceSchema = z.object({
-  recurrenceType: z.enum(["WEEKLY"]),
+  recurrenceType: z.enum(["WEEKLY", "BIWEEKLY"]),
   recurrenceEndType: z.enum(["BY_DATE", "BY_OCCURRENCES", "INDEFINITE"]),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional(),
   occurrences: z.number().int().min(1).max(52).optional(),
@@ -375,6 +375,42 @@ export const GET = withFeatureAuth(
       }
     }
 
+    // Check for blocking entries on alternate weeks for biweekly appointments
+    const blockedAlternateSlots = new Set<string>()
+    if (biweeklyAppointments.length > 0) {
+      // Build time windows for alternate weeks (+7 days from each biweekly appointment)
+      const msPerDay = 24 * 60 * 60 * 1000
+      let minAltTime = Infinity, maxAltTime = -Infinity
+      for (const apt of biweeklyAppointments) {
+        const altTime = apt.scheduledAt.getTime() + 7 * msPerDay
+        if (altTime < minAltTime) minAltTime = altTime
+        if (altTime > maxAltTime) maxAltTime = altTime
+      }
+
+      const blockingEntries = await prisma.appointment.findMany({
+        where: {
+          clinicId: user.clinicId,
+          blocksTime: true,
+          type: { not: "CONSULTA" },
+          status: { notIn: ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"] },
+          scheduledAt: {
+            gte: new Date(minAltTime - msPerDay),
+            lte: new Date(maxAltTime + msPerDay),
+          },
+        },
+        select: {
+          scheduledAt: true,
+          professionalProfileId: true,
+        },
+      })
+
+      for (const entry of blockingEntries) {
+        const d = entry.scheduledAt
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}|${entry.professionalProfileId}|${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+        blockedAlternateSlots.add(key)
+      }
+    }
+
     // Map appointments with alternate week info
     const appointmentsWithAlternateInfo = appointments.map(apt => {
       if (apt.recurrence?.recurrenceType !== "BIWEEKLY" || !apt.recurrence.isActive || !apt.patient) {
@@ -383,12 +419,16 @@ export const GET = withFeatureAuth(
 
       const paired = pairedInfoMap.get(apt.id)
 
+      // Check if a blocking entry exists on the alternate week at the same time
+      const altDate = new Date(apt.scheduledAt.getTime() + 7 * 24 * 60 * 60 * 1000)
+      const altKey = `${altDate.getFullYear()}-${String(altDate.getMonth() + 1).padStart(2, "0")}-${String(altDate.getDate()).padStart(2, "0")}|${apt.professionalProfileId}|${String(apt.scheduledAt.getHours()).padStart(2, "0")}:${String(apt.scheduledAt.getMinutes()).padStart(2, "0")}`
+
       return {
         ...apt,
         alternateWeekInfo: {
           pairedAppointmentId: paired?.id || null,
           pairedPatientName: paired?.name || null,
-          isAvailable: !paired?.name,
+          isAvailable: !paired?.name && !blockedAlternateSlots.has(altKey),
         },
       }
     })
