@@ -137,7 +137,7 @@ export const POST = withFeatureAuth(
       })
 
       // Permanently delete future appointments after the end date
-      // (tokens cascade-delete, notifications get appointmentId set to null)
+      // (notifications get appointmentId set to null)
       if (recurrence.appointments.length > 0) {
         await tx.appointment.deleteMany({
           where: {

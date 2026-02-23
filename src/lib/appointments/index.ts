@@ -10,19 +10,12 @@ export {
 } from "./conflict-check"
 
 export {
-  generateToken,
-  calculateTokenExpiry,
-  createAppointmentTokens,
-  createBulkAppointmentTokens,
-  validateToken,
-  invalidateToken,
-  regenerateAppointmentTokens,
-  buildConfirmLink,
-  buildCancelLink,
-  type TokenAction,
-  type GeneratedTokens,
-  type TokenValidationResult,
-} from "./token-service"
+  signLink,
+  verifyLink,
+  buildConfirmUrl,
+  buildCancelUrl,
+  type LinkAction,
+} from "./appointment-links"
 
 export {
   validateRecurrenceOptions,
