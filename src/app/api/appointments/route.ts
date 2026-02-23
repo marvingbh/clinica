@@ -2,8 +2,16 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
-import { checkConflictsBulk, formatConflictError, validateRecurrenceOptions, calculateRecurrenceDates, isOffWeek } from "@/lib/appointments"
+import { checkConflictsBulk, formatConflictError, validateRecurrenceOptions, calculateRecurrenceDates } from "@/lib/appointments"
 import { buildConfirmUrl, buildCancelUrl } from "@/lib/appointments/appointment-links"
+import {
+  buildSlotKey,
+  findPairedRecurrence,
+  computeBiweeklyHints,
+  computePairedRecurrenceMap,
+  buildBlockedAlternateKeys,
+  annotateAlternateWeekInfo,
+} from "@/lib/appointments/biweekly"
 import { createNotification, getPatientPhoneNumbers } from "@/lib/notifications"
 import { NotificationChannel, NotificationType, RecurrenceType, RecurrenceEndType, AppointmentType } from "@prisma/client"
 import { audit, AuditAction, type AuthUser } from "@/lib/rbac"
@@ -211,18 +219,12 @@ export const GET = withFeatureAuth(
     })
 
     // --- Biweekly logic using AppointmentRecurrence table ---
-    // Instead of querying actual appointments ±7 days, we query the recurrence
-    // patterns and use date arithmetic to compute which week is "on" vs "off".
     const biweeklyAppointments = appointments.filter(
       apt => apt.recurrence?.recurrenceType === "BIWEEKLY" && apt.recurrence.isActive && apt.type === "CONSULTA" && apt.patientId
     )
 
-    const pairedInfoMap = new Map<string, { id: string | null; name: string | null }>()
-    const biweeklyHints: { time: string; professionalProfileId: string; patientName: string; recurrenceId: string; date?: string }[] = []
-
     const profFilterForQuery = professionalProfileId || (!canSeeOthers ? user.professionalProfileId : null)
 
-    // Query all active biweekly CONSULTA recurrences for the clinic
     const biweeklyRecurrences = await prisma.appointmentRecurrence.findMany({
       where: {
         clinicId: user.clinicId,
@@ -243,143 +245,67 @@ export const GET = withFeatureAuth(
       },
     })
 
-    // --- Biweekly hints (empty slots on off-weeks where a biweekly patient exists) ---
-    // Unified logic: both daily and weekly views use the same day-iteration approach.
-    // Daily view is treated as a range of 1 day.
+    // 1. Compute biweekly hints (off-week empty slots)
     const hintRangeStart = date || startDate
     const hintRangeEnd = date || endDate
+    const occupiedSlots = new Set(appointments.map(apt => buildSlotKey(apt.scheduledAt, apt.professionalProfileId)))
 
-    if (hintRangeStart && hintRangeEnd) {
-      // Build occupied slot set: date|professionalId|time
-      const occupiedSlots = new Set<string>()
-      for (const apt of appointments) {
-        const aptDate = `${apt.scheduledAt.getFullYear()}-${String(apt.scheduledAt.getMonth() + 1).padStart(2, "0")}-${String(apt.scheduledAt.getDate()).padStart(2, "0")}`
-        const h = String(apt.scheduledAt.getHours()).padStart(2, "0")
-        const m = String(apt.scheduledAt.getMinutes()).padStart(2, "0")
-        occupiedSlots.add(`${aptDate}|${apt.professionalProfileId}|${h}:${m}`)
-      }
+    const biweeklyHints = (hintRangeStart && hintRangeEnd)
+      ? computeBiweeklyHints({ dateRangeStart: hintRangeStart, dateRangeEnd: hintRangeEnd, recurrences: biweeklyRecurrences, occupiedSlots })
+      : []
 
-      // Iterate each day in the range
-      const current = new Date(hintRangeStart + "T12:00:00")
-      const end = new Date(hintRangeEnd + "T12:00:00")
-      while (current <= end) {
-        const dayOfWeek = current.getDay()
-        const dateStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`
+    // 2. Compute paired recurrence map (uses findPairedRecurrence — single source of truth)
+    const pairedRecMap = computePairedRecurrenceMap(biweeklyAppointments, biweeklyRecurrences)
 
-        for (const rec of biweeklyRecurrences) {
-          if (rec.dayOfWeek !== dayOfWeek) continue
-          if (!isOffWeek(rec.startDate, dateStr)) continue
-          if (!rec.patient?.name) continue
-          const slotKey = `${dateStr}|${rec.professionalProfileId}|${rec.startTime}`
-          if (occupiedSlots.has(slotKey)) continue
-
-          biweeklyHints.push({
-            time: rec.startTime,
-            professionalProfileId: rec.professionalProfileId,
-            patientName: rec.patient.name,
-            recurrenceId: rec.id,
-            date: dateStr,
-          })
-        }
-
-        current.setDate(current.getDate() + 1)
-      }
+    // 3. Resolve paired appointment IDs (Prisma query stays in route)
+    const pairedRecurrenceIds = new Set<string>()
+    for (const info of pairedRecMap.values()) {
+      if (info.recurrenceId) pairedRecurrenceIds.add(info.recurrenceId)
     }
 
-    // --- Paired info (alternate week partner for each biweekly appointment) ---
-    if (biweeklyAppointments.length > 0) {
+    const pairedAppointmentIds = new Map<string, string>()
+    if (pairedRecurrenceIds.size > 0 && biweeklyAppointments.length > 0) {
+      const msPerDay = 24 * 60 * 60 * 1000
+      let minTime = Infinity, maxTime = -Infinity
       for (const apt of biweeklyAppointments) {
-        const aptTimeStr = `${String(apt.scheduledAt.getHours()).padStart(2, "0")}:${String(apt.scheduledAt.getMinutes()).padStart(2, "0")}`
-
-        const pairedRec = biweeklyRecurrences.find(rec =>
-          rec.professionalProfileId === apt.professionalProfileId &&
-          rec.startTime === aptTimeStr &&
-          rec.patientId !== apt.patientId
-        )
-
-        if (pairedRec) {
-          // Find the actual appointment for the paired recurrence ±7 days
-          // to get the pairedAppointmentId for click-to-edit
-          pairedInfoMap.set(apt.id, {
-            id: null, // will be resolved below if needed
-            name: pairedRec.patient?.name || null,
-          })
-        } else {
-          pairedInfoMap.set(apt.id, { id: null, name: null })
-        }
+        const t = apt.scheduledAt.getTime()
+        if (t < minTime) minTime = t
+        if (t > maxTime) maxTime = t
       }
 
-      // Batch query for paired appointment IDs (actual appointments from paired recurrences ±7 days)
-      const pairedRecurrenceIds = new Set<string>()
+      const pairedAppointments = await prisma.appointment.findMany({
+        where: {
+          clinicId: user.clinicId,
+          recurrenceId: { in: Array.from(pairedRecurrenceIds) },
+          type: "CONSULTA",
+          status: { notIn: ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"] },
+          scheduledAt: {
+            gte: new Date(minTime - 8 * msPerDay),
+            lte: new Date(maxTime + 8 * msPerDay),
+          },
+        },
+        select: { id: true, scheduledAt: true, recurrenceId: true },
+      })
+
       for (const apt of biweeklyAppointments) {
-        const aptTimeStr = `${String(apt.scheduledAt.getHours()).padStart(2, "0")}:${String(apt.scheduledAt.getMinutes()).padStart(2, "0")}`
-        const pairedRec = biweeklyRecurrences.find(rec =>
-          rec.professionalProfileId === apt.professionalProfileId &&
-          rec.startTime === aptTimeStr &&
-          rec.patientId !== apt.patientId
-        )
-        if (pairedRec) pairedRecurrenceIds.add(pairedRec.id)
-      }
+        const pairedRec = findPairedRecurrence(apt, biweeklyRecurrences)
+        if (!pairedRec) continue
 
-      if (pairedRecurrenceIds.size > 0) {
-        const msPerDay = 24 * 60 * 60 * 1000
-        let minTime = Infinity, maxTime = -Infinity
-        for (const apt of biweeklyAppointments) {
-          const t = apt.scheduledAt.getTime()
-          if (t < minTime) minTime = t
-          if (t > maxTime) maxTime = t
-        }
-
-        const pairedAppointments = await prisma.appointment.findMany({
-          where: {
-            clinicId: user.clinicId,
-            recurrenceId: { in: Array.from(pairedRecurrenceIds) },
-            type: "CONSULTA",
-            status: { notIn: ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"] },
-            scheduledAt: {
-              gte: new Date(minTime - 8 * msPerDay),
-              lte: new Date(maxTime + 8 * msPerDay),
-            },
-          },
-          select: {
-            id: true,
-            scheduledAt: true,
-            professionalProfileId: true,
-            patientId: true,
-            recurrenceId: true,
-          },
+        const pairedApt = pairedAppointments.find(pa => {
+          if (pa.recurrenceId !== pairedRec.id) return false
+          const daysDiff = Math.abs(pa.scheduledAt.getTime() - apt.scheduledAt.getTime()) / msPerDay
+          return daysDiff > 6 && daysDiff < 8
         })
 
-        // Match paired appointments to biweekly appointments
-        for (const apt of biweeklyAppointments) {
-          const aptTimeStr = `${String(apt.scheduledAt.getHours()).padStart(2, "0")}:${String(apt.scheduledAt.getMinutes()).padStart(2, "0")}`
-          const pairedRec = biweeklyRecurrences.find(rec =>
-            rec.professionalProfileId === apt.professionalProfileId &&
-            rec.startTime === aptTimeStr &&
-            rec.patientId !== apt.patientId
-          )
-          if (!pairedRec) continue
-
-          const pairedApt = pairedAppointments.find(pa => {
-            if (pa.recurrenceId !== pairedRec.id) return false
-            const daysDiff = Math.abs(pa.scheduledAt.getTime() - apt.scheduledAt.getTime()) / msPerDay
-            return daysDiff > 6 && daysDiff < 8
-          })
-
-          if (pairedApt) {
-            pairedInfoMap.set(apt.id, {
-              id: pairedApt.id,
-              name: pairedRec.patient?.name || null,
-            })
-          }
+        if (pairedApt) {
+          pairedAppointmentIds.set(apt.id, pairedApt.id)
         }
       }
     }
 
-    // Check for blocking entries on alternate weeks for biweekly appointments
-    const blockedAlternateSlots = new Set<string>()
+    // 4. Query blocking entries on alternate weeks
+    let blockedAlternateSlots = new Set<string>()
     if (biweeklyAppointments.length > 0) {
-      // Build time windows for alternate weeks (+7 days from each biweekly appointment)
       const msPerDay = 24 * 60 * 60 * 1000
       let minAltTime = Infinity, maxAltTime = -Infinity
       for (const apt of biweeklyAppointments) {
@@ -399,40 +325,14 @@ export const GET = withFeatureAuth(
             lte: new Date(maxAltTime + msPerDay),
           },
         },
-        select: {
-          scheduledAt: true,
-          professionalProfileId: true,
-        },
+        select: { scheduledAt: true, professionalProfileId: true },
       })
 
-      for (const entry of blockingEntries) {
-        const d = entry.scheduledAt
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}|${entry.professionalProfileId}|${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
-        blockedAlternateSlots.add(key)
-      }
+      blockedAlternateSlots = buildBlockedAlternateKeys(blockingEntries)
     }
 
-    // Map appointments with alternate week info
-    const appointmentsWithAlternateInfo = appointments.map(apt => {
-      if (apt.recurrence?.recurrenceType !== "BIWEEKLY" || !apt.recurrence.isActive || !apt.patient) {
-        return apt
-      }
-
-      const paired = pairedInfoMap.get(apt.id)
-
-      // Check if a blocking entry exists on the alternate week at the same time
-      const altDate = new Date(apt.scheduledAt.getTime() + 7 * 24 * 60 * 60 * 1000)
-      const altKey = `${altDate.getFullYear()}-${String(altDate.getMonth() + 1).padStart(2, "0")}-${String(altDate.getDate()).padStart(2, "0")}|${apt.professionalProfileId}|${String(apt.scheduledAt.getHours()).padStart(2, "0")}:${String(apt.scheduledAt.getMinutes()).padStart(2, "0")}`
-
-      return {
-        ...apt,
-        alternateWeekInfo: {
-          pairedAppointmentId: paired?.id || null,
-          pairedPatientName: paired?.name || null,
-          isAvailable: !paired?.name && !blockedAlternateSlots.has(altKey),
-        },
-      }
-    })
+    // 5. Annotate appointments with alternateWeekInfo
+    const appointmentsWithAlternateInfo = annotateAlternateWeekInfo(appointments, pairedRecMap, blockedAlternateSlots, pairedAppointmentIds)
 
     // Query patients with birthdays matching the requested date(s) (month+day)
     // When a professional is selected, only show birthdays for their patients

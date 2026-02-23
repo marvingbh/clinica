@@ -167,11 +167,13 @@ export function buildBlockedAlternateKeys(
 
 /**
  * Annotate appointments with alternateWeekInfo (paired partner name, availability).
+ * pairedAppointmentIds is optional — maps appointmentId to the actual paired appointment ID.
  */
 export function annotateAlternateWeekInfo<T extends BiweeklyAppointment>(
   appointments: T[],
   pairedMap: Map<string, PairedInfo>,
-  blockedSlots: Set<string>
+  blockedSlots: Set<string>,
+  pairedAppointmentIds?: Map<string, string>
 ): Array<T & { alternateWeekInfo?: AlternateWeekInfo }> {
   return appointments.map(apt => {
     if (apt.recurrence?.recurrenceType !== "BIWEEKLY" || !apt.recurrence.isActive || !apt.patient) {
@@ -187,7 +189,7 @@ export function annotateAlternateWeekInfo<T extends BiweeklyAppointment>(
     return {
       ...apt,
       alternateWeekInfo: {
-        pairedAppointmentId: null, // resolved by the route with actual appointment data
+        pairedAppointmentId: pairedAppointmentIds?.get(apt.id) || null,
         pairedPatientName: paired?.patientName || null,
         isAvailable: !paired?.patientName && !blockedSlots.has(altKey),
       },
