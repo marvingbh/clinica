@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useEffect } from "react"
 import { Appointment, GroupSession, TimeSlot } from "../../lib/types"
-import { getWeekDays, toDateString, isSameDay, isWeekend, isBirthdayOnDate } from "../../lib/utils"
+import { getWeekDays, toDateString, isSameDay, isWeekend } from "../../lib/utils"
 import { DayHeader } from "./DayHeader"
 import { AppointmentBlock } from "./AppointmentBlock"
 import { GroupSessionBlock } from "./GroupSessionBlock"
@@ -15,12 +15,19 @@ const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR
 const PIXELS_PER_MINUTE = 1.6 // 48px per 30 minutes = 96px per hour
 const HOUR_HEIGHT = 60 * PIXELS_PER_MINUTE // 96px per hour
 
+interface BirthdayPatient {
+  id: string
+  name: string
+  date?: string
+}
+
 interface WeeklyGridProps {
   weekStart: Date
   appointments: Appointment[]
   groupSessions?: GroupSession[]
   availabilitySlots?: Map<string, TimeSlot[]>
   appointmentDuration?: number
+  birthdayPatients?: BirthdayPatient[]
   onAppointmentClick: (appointment: Appointment) => void
   onGroupSessionClick?: (session: GroupSession) => void
   onAlternateWeekClick?: (appointment: Appointment) => void
@@ -103,7 +110,7 @@ function calculateAppointmentLayout(appointments: Appointment[]): AppointmentWit
   return result
 }
 
-export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availabilitySlots, appointmentDuration, onAppointmentClick, onGroupSessionClick, onAlternateWeekClick, onAvailabilitySlotClick, onBiweeklyHintClick, showProfessional = false }: WeeklyGridProps) {
+export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availabilitySlots, appointmentDuration, birthdayPatients = [], onAppointmentClick, onGroupSessionClick, onAlternateWeekClick, onAvailabilitySlotClick, onBiweeklyHintClick, showProfessional = false }: WeeklyGridProps) {
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart])
   const today = new Date()
 
@@ -145,26 +152,16 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
     return grouped
   }, [weekDays, individualAppointments])
 
-  // Compute birthday patient names per day
+  // Group birthday patients by day from API data
   const birthdaysByDay = useMemo(() => {
     const result: Record<string, string[]> = {}
-    for (const day of weekDays) {
-      const dateStr = toDateString(day)
-      const seen = new Set<string>()
-      const names: string[] = []
-      for (const apt of individualAppointments) {
-        if (!apt.patient?.birthDate || !apt.patient?.name) continue
-        if (seen.has(apt.patient.name)) continue
-        const aptDate = toDateString(new Date(apt.scheduledAt))
-        if (aptDate === dateStr && isBirthdayOnDate(apt.patient.birthDate, day)) {
-          seen.add(apt.patient.name)
-          names.push(apt.patient.name)
-        }
-      }
-      result[dateStr] = names
+    for (const bp of birthdayPatients) {
+      if (!bp.date) continue
+      if (!result[bp.date]) result[bp.date] = []
+      result[bp.date].push(bp.name)
     }
     return result
-  }, [weekDays, individualAppointments])
+  }, [birthdayPatients])
 
   // Group sessions by day
   const groupSessionsByDay = useMemo(() => {

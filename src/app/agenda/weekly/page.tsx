@@ -92,6 +92,7 @@ function WeeklyAgendaPageContent() {
   const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([])
   const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([])
   const [biweeklyHints, setBiweeklyHints] = useState<BiweeklyHint[]>([])
+  const [birthdayPatients, setBirthdayPatients] = useState<{ id: string; name: string; date?: string }[]>([])
 
   // Group session sheet state
   const [isGroupSessionSheetOpen, setIsGroupSessionSheetOpen] = useState(false)
@@ -779,6 +780,7 @@ function WeeklyAgendaPageContent() {
         setAppointments(appointmentsData.appointments)
         setGroupSessions(groupSessionsData.groupSessions)
         setBiweeklyHints(appointmentsData.biweeklyHints || [])
+        setBirthdayPatients(appointmentsData.birthdayPatients || [])
 
         // Process availability data if fetched
         if (effectiveProfId && results.length > 2) {
@@ -914,6 +916,7 @@ function WeeklyAgendaPageContent() {
           groupSessions={groupSessions}
           availabilitySlots={weeklyAvailabilitySlots}
           appointmentDuration={appointmentDuration}
+          birthdayPatients={birthdayPatients}
           onAppointmentClick={openEditSheet}
           onGroupSessionClick={openGroupSessionSheet}
           onAlternateWeekClick={handleAlternateWeekClick}

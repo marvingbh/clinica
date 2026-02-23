@@ -394,46 +394,47 @@ export const GET = withFeatureAuth(
       }
     })
 
-    // Query patients with birthdays matching the requested date (month+day)
-    // When a professional is selected, only show birthdays for their patients (from today's appointments)
-    let birthdayPatients: { id: string; name: string }[] = []
+    // Query patients with birthdays matching the requested date(s) (month+day)
+    // When a professional is selected, only show birthdays for their patients
+    let birthdayPatients: { id: string; name: string; date?: string }[] = []
+
+    const birthdayDates: { dateStr: string; month: number; day: number }[] = []
     if (date) {
       const [, monthStr, dayStr] = date.split("-")
-      const month = parseInt(monthStr, 10)
-      const day = parseInt(dayStr, 10)
+      birthdayDates.push({ dateStr: date, month: parseInt(monthStr, 10), day: parseInt(dayStr, 10) })
+    } else if (startDate && endDate) {
+      // Build list of all days in the week range
+      const current = new Date(startDate + "T12:00:00")
+      const end = new Date(endDate + "T12:00:00")
+      while (current <= end) {
+        const m = current.getMonth() + 1
+        const d = current.getDate()
+        const ds = `${current.getFullYear()}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`
+        birthdayDates.push({ dateStr: ds, month: m, day: d })
+        current.setDate(current.getDate() + 1)
+      }
+    }
 
+    if (birthdayDates.length > 0) {
       // Determine which professional to filter by (explicit param or own profile for non-admin)
       const filterProfId = professionalProfileId || (!canSeeOthers ? user.professionalProfileId : null)
 
-      if (filterProfId) {
-        // Show birthdays for patients whose referenceProfessional is this professional
-        birthdayPatients = await prisma.patient.findMany({
-          where: {
-            clinicId: user.clinicId,
-            isActive: true,
-            referenceProfessionalId: filterProfId,
-            birthDate: { not: null },
-          },
-          select: { id: true, name: true, birthDate: true },
-        }).then(patients =>
-          patients
-            .filter(p => p.birthDate && p.birthDate.getUTCMonth() + 1 === month && p.birthDate.getUTCDate() === day)
-            .map(p => ({ id: p.id, name: p.name }))
-        )
-      } else {
-        // Admin "Todos" — show all clinic patients with birthday today
-        birthdayPatients = await prisma.patient.findMany({
-          where: {
-            clinicId: user.clinicId,
-            isActive: true,
-            birthDate: { not: null },
-          },
-          select: { id: true, name: true, birthDate: true },
-        }).then(patients =>
-          patients
-            .filter(p => p.birthDate && p.birthDate.getUTCMonth() + 1 === month && p.birthDate.getUTCDate() === day)
-            .map(p => ({ id: p.id, name: p.name }))
-        )
+      const patientsWithBirthdays = await prisma.patient.findMany({
+        where: {
+          clinicId: user.clinicId,
+          isActive: true,
+          birthDate: { not: null },
+          ...(filterProfId ? { referenceProfessionalId: filterProfId } : {}),
+        },
+        select: { id: true, name: true, birthDate: true },
+      })
+
+      for (const { dateStr, month, day } of birthdayDates) {
+        for (const p of patientsWithBirthdays) {
+          if (p.birthDate && p.birthDate.getUTCMonth() + 1 === month && p.birthDate.getUTCDate() === day) {
+            birthdayPatients.push({ id: p.id, name: p.name, date: dateStr })
+          }
+        }
       }
     }
 
