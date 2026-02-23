@@ -88,10 +88,12 @@ export function AgendaTimeline({
 
   const birthdayBanner = birthdayPatients.length > 0 ? (
     <div className="mb-4 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-        <span className="mr-1.5">🎂</span>
-        Aniversario hoje: {birthdayPatients.map(p => p.name).join(", ")}
-      </p>
+      {birthdayPatients.map(p => (
+        <p key={p.id} className="text-sm font-medium text-amber-800 dark:text-amber-200">
+          <span className="mr-1.5">🎂</span>
+          {p.name}
+        </p>
+      ))}
     </div>
   ) : null
 

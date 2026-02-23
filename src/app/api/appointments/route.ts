@@ -298,6 +298,7 @@ export const GET = withFeatureAuth(
       // --- Biweekly hints (empty slots where adjacent-week biweekly patients exist) ---
       if (date) {
         // Single day hints
+        const requestedDayOfWeek = new Date(date + "T12:00:00").getDay()
         const currentSlots = new Set<string>()
         for (const apt of appointments) {
           const h = String(apt.scheduledAt.getHours()).padStart(2, "0")
@@ -307,6 +308,8 @@ export const GET = withFeatureAuth(
 
         for (const adj of adjacentBiweekly) {
           if (!adj.patientId || !adj.patient?.name) continue
+          // Only show hints for the same day of week (biweekly alternates same weekday)
+          if (adj.scheduledAt.getDay() !== requestedDayOfWeek) continue
           const h = String(adj.scheduledAt.getHours()).padStart(2, "0")
           const m = String(adj.scheduledAt.getMinutes()).padStart(2, "0")
           const timeStr = `${h}:${m}`
