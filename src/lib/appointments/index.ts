@@ -27,3 +27,19 @@ export {
   type RecurrenceOptions,
   type RecurrenceDate,
 } from "./recurrence"
+
+export {
+  findPairedRecurrence,
+  computeBiweeklyHints,
+  computePairedRecurrenceMap,
+  buildBlockedAlternateKeys,
+  annotateAlternateWeekInfo,
+  buildSlotKey,
+  formatTimeStr,
+  formatDateStr,
+  type BiweeklyRecurrence,
+  type BiweeklyAppointment,
+  type BiweeklyHint,
+  type PairedInfo,
+  type AlternateWeekInfo,
+} from "./biweekly"
