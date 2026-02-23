@@ -55,7 +55,6 @@ async function main() {
 
   // Clean database in correct order (respecting foreign keys)
   await prisma.notification.deleteMany({})
-  await prisma.appointmentToken.deleteMany({})
   await prisma.appointment.deleteMany({})
   await prisma.appointmentRecurrence.deleteMany({})
   await prisma.groupMembership.deleteMany({})

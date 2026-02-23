@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
 import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
-import { checkConflict, formatConflictError, regenerateAppointmentTokens } from "@/lib/appointments"
+import { checkConflict, formatConflictError } from "@/lib/appointments"
 import { createAuditLog, audit, AuditAction } from "@/lib/rbac/audit"
 
 /**
@@ -257,13 +257,7 @@ export const PATCH = withFeatureAuth(
         },
       })
 
-      // Regenerate tokens if CONSULTA appointment is rescheduled (time changed)
-      let newTokens = null
-      if (isTimeUpdate && existing.type === "CONSULTA") {
-        newTokens = await regenerateAppointmentTokens(params.id, newScheduledAt, tx)
-      }
-
-      return { appointment: updatedAppointment, tokens: newTokens }
+      return { appointment: updatedAppointment }
     })
 
     // Check if conflict was detected within the transaction
@@ -289,17 +283,7 @@ export const PATCH = withFeatureAuth(
       userAgent,
     })
 
-    // Include new tokens in response if appointment was rescheduled
-    const response: Record<string, unknown> = { appointment: result.appointment }
-    if (result.tokens) {
-      response.tokens = {
-        confirm: result.tokens.confirmToken,
-        cancel: result.tokens.cancelToken,
-        expiresAt: result.tokens.expiresAt,
-      }
-    }
-
-    return NextResponse.json(response)
+    return NextResponse.json({ appointment: result.appointment })
   }
 )
 

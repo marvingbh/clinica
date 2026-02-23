@@ -16,23 +16,27 @@ type PageState = "loading" | "ready" | "cancelling" | "success" | "error" | "alr
 
 function CancellationContent() {
   const searchParams = useSearchParams()
-  const token = searchParams.get("token")
+  const id = searchParams.get("id")
+  const expires = searchParams.get("expires")
+  const sig = searchParams.get("sig")
+  const hasParams = !!(id && expires && sig)
 
-  const [state, setState] = useState<PageState>(token ? "loading" : "error")
+  const [state, setState] = useState<PageState>(hasParams ? "loading" : "error")
   const [appointment, setAppointment] = useState<AppointmentDetails | null>(null)
   const [errorMessage, setErrorMessage] = useState(
-    token ? "" : "Link de cancelamento invalido. Verifique se o link esta completo."
+    hasParams ? "" : "Link de cancelamento invalido. Verifique se o link esta completo."
   )
   const [reason, setReason] = useState("")
 
   useEffect(() => {
-    if (!token) {
+    if (!hasParams) {
       return
     }
 
     async function lookupAppointment() {
       try {
-        const response = await fetch(`/api/public/appointments/lookup?token=${encodeURIComponent(token!)}&action=cancel`)
+        const params = new URLSearchParams({ id: id!, action: "cancel", expires: expires!, sig: sig! })
+        const response = await fetch(`/api/public/appointments/lookup?${params}`)
         const data = await response.json()
 
         if (!response.ok) {
@@ -55,10 +59,10 @@ function CancellationContent() {
     }
 
     lookupAppointment()
-  }, [token])
+  }, [hasParams, id, expires, sig])
 
   async function handleCancel() {
-    if (!token) return
+    if (!hasParams) return
 
     setState("cancelling")
 
@@ -66,7 +70,7 @@ function CancellationContent() {
       const response = await fetch("/api/public/appointments/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, reason: reason.trim() || undefined }),
+        body: JSON.stringify({ id, expires: Number(expires), sig, reason: reason.trim() || undefined }),
       })
 
       const data = await response.json()

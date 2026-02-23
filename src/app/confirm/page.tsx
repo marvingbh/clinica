@@ -16,22 +16,26 @@ type PageState = "loading" | "ready" | "confirming" | "success" | "error" | "alr
 
 function ConfirmationContent() {
   const searchParams = useSearchParams()
-  const token = searchParams.get("token")
+  const id = searchParams.get("id")
+  const expires = searchParams.get("expires")
+  const sig = searchParams.get("sig")
+  const hasParams = !!(id && expires && sig)
 
-  const [state, setState] = useState<PageState>(token ? "loading" : "error")
+  const [state, setState] = useState<PageState>(hasParams ? "loading" : "error")
   const [appointment, setAppointment] = useState<AppointmentDetails | null>(null)
   const [errorMessage, setErrorMessage] = useState(
-    token ? "" : "Link de confirmacao invalido. Verifique se o link esta completo."
+    hasParams ? "" : "Link de confirmacao invalido. Verifique se o link esta completo."
   )
 
   useEffect(() => {
-    if (!token) {
+    if (!hasParams) {
       return
     }
 
     async function lookupAppointment() {
       try {
-        const response = await fetch(`/api/public/appointments/lookup?token=${encodeURIComponent(token!)}`)
+        const params = new URLSearchParams({ id: id!, action: "confirm", expires: expires!, sig: sig! })
+        const response = await fetch(`/api/public/appointments/lookup?${params}`)
         const data = await response.json()
 
         if (!response.ok) {
@@ -54,10 +58,10 @@ function ConfirmationContent() {
     }
 
     lookupAppointment()
-  }, [token])
+  }, [hasParams, id, expires, sig])
 
   async function handleConfirm() {
-    if (!token) return
+    if (!hasParams) return
 
     setState("confirming")
 
@@ -65,7 +69,7 @@ function ConfirmationContent() {
       const response = await fetch("/api/public/appointments/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ id, expires: Number(expires), sig }),
       })
 
       const data = await response.json()

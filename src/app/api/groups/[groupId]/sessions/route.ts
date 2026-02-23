@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { calculateGroupSessionDates, filterExistingSessionDates } from "@/lib/groups"
-import { createBulkAppointmentTokens, buildConfirmLink, buildCancelLink } from "@/lib/appointments"
+import { buildConfirmUrl, buildCancelUrl } from "@/lib/appointments/appointment-links"
 import { createNotification } from "@/lib/notifications"
 import { NotificationChannel, NotificationType, AppointmentModality } from "@prisma/client"
 import { z } from "zod"
@@ -363,14 +363,6 @@ export const POST = withFeatureAuth(
             })
           : []
 
-        // Bulk create tokens
-        if (created.length > 0) {
-          await createBulkAppointmentTokens(
-            created.map(a => ({ id: a.id, scheduledAt: a.scheduledAt })),
-            tx
-          )
-        }
-
         return { created, cancelled }
       }, { timeout: 30000 })
 
@@ -383,24 +375,11 @@ export const POST = withFeatureAuth(
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
           const professionalName = group.professionalProfile.user.name
 
-          // Fetch tokens for all created appointments
-          const allTokens = await prisma.appointmentToken.findMany({
-            where: { appointmentId: { in: regenerateResult.created.map(a => a.id) } },
-          })
-          const tokensByAppointment = new Map<string, { confirmToken: string; cancelToken: string }>()
-          for (const t of allTokens) {
-            const entry = tokensByAppointment.get(t.appointmentId) || { confirmToken: "", cancelToken: "" }
-            if (t.action === "confirm") entry.confirmToken = t.token
-            if (t.action === "cancel") entry.cancelToken = t.token
-            tokensByAppointment.set(t.appointmentId, entry)
-          }
-
           for (const appointment of regenerateResult.created) {
-            const tkns = tokensByAppointment.get(appointment.id)
-            if (!tkns || !appointment.patient) continue
+            if (!appointment.patient) continue
 
-            const confirmLink = buildConfirmLink(baseUrl, tkns.confirmToken)
-            const cancelLink = buildCancelLink(baseUrl, tkns.cancelToken)
+            const confirmLink = buildConfirmUrl(baseUrl, appointment.id, appointment.scheduledAt)
+            const cancelLink = buildCancelUrl(baseUrl, appointment.id, appointment.scheduledAt)
 
             const formattedDate = appointment.scheduledAt.toLocaleDateString("pt-BR", {
               weekday: "long",
@@ -545,12 +524,6 @@ export const POST = withFeatureAuth(
         })
       }
 
-      // Bulk create tokens
-      await createBulkAppointmentTokens(
-        createdAppointments.map(a => ({ id: a.id, scheduledAt: a.scheduledAt })),
-        tx
-      )
-
       return { createdAppointments }
     }, { timeout: 30000 })
 
@@ -559,24 +532,11 @@ export const POST = withFeatureAuth(
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
       const professionalName = group.professionalProfile.user.name
 
-      // Fetch tokens for notifications
-      const allTokens = await prisma.appointmentToken.findMany({
-        where: { appointmentId: { in: result.createdAppointments.map(a => a.id) } },
-      })
-      const tokensByAppointment = new Map<string, { confirmToken: string; cancelToken: string }>()
-      for (const t of allTokens) {
-        const entry = tokensByAppointment.get(t.appointmentId) || { confirmToken: "", cancelToken: "" }
-        if (t.action === "confirm") entry.confirmToken = t.token
-        if (t.action === "cancel") entry.cancelToken = t.token
-        tokensByAppointment.set(t.appointmentId, entry)
-      }
-
       for (const appointment of result.createdAppointments) {
-        const tkns = tokensByAppointment.get(appointment.id)
-        if (!tkns || !appointment.patient) continue
+        if (!appointment.patient) continue
 
-        const confirmLink = buildConfirmLink(baseUrl, tkns.confirmToken)
-        const cancelLink = buildCancelLink(baseUrl, tkns.cancelToken)
+        const confirmLink = buildConfirmUrl(baseUrl, appointment.id, appointment.scheduledAt)
+        const cancelLink = buildCancelUrl(baseUrl, appointment.id, appointment.scheduledAt)
 
         const formattedDate = appointment.scheduledAt.toLocaleDateString("pt-BR", {
           weekday: "long",
