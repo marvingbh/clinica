@@ -33,7 +33,7 @@ interface PatientFormProps {
   isSaving: boolean
   isEditing: boolean
   onAddPhone: () => void
-  onUpdatePhone: (index: number, field: "phone" | "label", value: string) => void
+  onUpdatePhone: (index: number, field: "phone" | "label" | "notify", value: string | boolean) => void
   onRemovePhone: (index: number) => void
   onClose: () => void
   onSubmit: () => void
@@ -113,7 +113,7 @@ export function PatientForm({
             </button>
           </div>
           <p className="text-xs text-muted-foreground mb-3">
-            Contatos adicionais que receberao notificacoes (mae, pai, responsavel, etc.)
+            Contatos adicionais (mae, pai, responsavel, etc.). Clique no sino para ativar/desativar notificacoes.
           </p>
           {additionalPhones.length === 0 ? (
             <p className="text-sm text-muted-foreground italic">
@@ -142,6 +142,32 @@ export function PatientForm({
                       className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
                     />
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => onUpdatePhone(index, "notify", !phone.notify)}
+                    className={`h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-md transition-colors ${
+                      phone.notify !== false
+                        ? "text-primary hover:bg-primary/10"
+                        : "text-muted-foreground hover:bg-muted"
+                    }`}
+                    title={phone.notify !== false ? "Recebe notificacoes" : "Nao recebe notificacoes"}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      {phone.notify !== false ? (
+                        <>
+                          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                        </>
+                      ) : (
+                        <>
+                          <path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5" />
+                          <path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7" />
+                          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                          <line x1="1" y1="1" x2="23" y2="23" />
+                        </>
+                      )}
+                    </svg>
+                  </button>
                   <button
                     type="button"
                     onClick={() => onRemovePhone(index)}

@@ -133,6 +133,11 @@ export function PatientDetailsView({
                     <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                       {phone.label}
                     </span>
+                    {phone.notify === false && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">
+                        Sem notificacao
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

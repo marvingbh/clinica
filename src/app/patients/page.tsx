@@ -602,7 +602,7 @@ export default function PatientsPage() {
                   onAddPhone={() =>
                     setAdditionalPhones((prev) => [
                       ...prev,
-                      { phone: "", label: "" },
+                      { phone: "", label: "", notify: true },
                     ])
                   }
                   onUpdatePhone={(index, field, value) => {

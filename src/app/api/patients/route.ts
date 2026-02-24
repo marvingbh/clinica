@@ -11,6 +11,7 @@ const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
 const additionalPhoneSchema = z.object({
   phone: z.string().regex(phoneRegex, "Telefone inválido. Use formato WhatsApp: (11) 99999-9999"),
   label: z.string().min(1, "Rótulo é obrigatório").max(30, "Rótulo deve ter no máximo 30 caracteres"),
+  notify: z.boolean().default(true),
 })
 
 const createPatientSchema = z.object({
@@ -189,6 +190,7 @@ export const GET = withFeatureAuth(
               id: true,
               phone: true,
               label: true,
+              notify: true,
             },
             orderBy: { createdAt: "asc" },
           },
@@ -258,6 +260,7 @@ export const POST = withFeatureAuth(
     const normalizedAdditionalPhones = (additionalPhones || []).map((p) => ({
       phone: p.phone.replace(/\D/g, ""),
       label: p.label,
+      notify: p.notify ?? true,
     }))
 
     // Check for duplicates among additional phones and primary phone
@@ -297,12 +300,13 @@ export const POST = withFeatureAuth(
             clinicId: user.clinicId,
             phone: p.phone,
             label: p.label,
+            notify: p.notify,
           })),
         } : undefined,
       },
       include: {
         additionalPhones: {
-          select: { id: true, phone: true, label: true },
+          select: { id: true, phone: true, label: true, notify: true },
           orderBy: { createdAt: "asc" },
         },
       },

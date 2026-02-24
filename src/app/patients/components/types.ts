@@ -32,6 +32,7 @@ export interface AdditionalPhone {
   id?: string
   phone: string
   label: string
+  notify: boolean
 }
 
 export interface Patient {

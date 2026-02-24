@@ -11,6 +11,7 @@ const additionalPhoneSchema = z.object({
   id: z.string().optional(),
   phone: z.string().regex(phoneRegex, "Telefone inválido. Use formato WhatsApp: (11) 99999-9999"),
   label: z.string().min(1, "Rótulo é obrigatório").max(30, "Rótulo deve ter no máximo 30 caracteres"),
+  notify: z.boolean().default(true),
 })
 
 const updatePatientSchema = z.object({
@@ -107,6 +108,7 @@ export const GET = withFeatureAuth(
               id: true,
               phone: true,
               label: true,
+              notify: true,
             },
             orderBy: { createdAt: "asc" },
           },
@@ -286,6 +288,7 @@ export const PATCH = withFeatureAuth(
         id: p.id,
         phone: p.phone.replace(/\D/g, ""),
         label: p.label,
+        notify: p.notify ?? true,
       }))
 
       // Get the primary phone (updated or existing)
@@ -313,6 +316,7 @@ export const PATCH = withFeatureAuth(
             clinicId: user.clinicId,
             phone: p.phone,
             label: p.label,
+            notify: p.notify,
           })),
         })
       }
@@ -358,7 +362,7 @@ export const PATCH = withFeatureAuth(
           },
         },
         additionalPhones: {
-          select: { id: true, phone: true, label: true },
+          select: { id: true, phone: true, label: true, notify: true },
           orderBy: { createdAt: "asc" },
         },
       },

@@ -359,6 +359,7 @@ model PatientPhone {
   clinicId  String
   phone     String   // Normalized digits only, same format as Patient.phone
   label     String   // e.g., "Mãe", "Trabalho", "Esposo"
+  notify    Boolean  @default(true) // Whether this phone receives WhatsApp notifications
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
