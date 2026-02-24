@@ -112,8 +112,9 @@ export function GroupSessionSheet({
         toast.error(result.error)
       } else {
         const statusMessages: Record<string, string> = {
-          FINALIZADO: `${patientName} marcado como finalizado`,
+          FINALIZADO: `${patientName} marcado como compareceu`,
           CANCELADO_FALTA: `${patientName} marcado como falta`,
+          CANCELADO_ACORDADO: `${patientName} marcado como desmarcou`,
           CONFIRMADO: `${patientName} confirmado`,
         }
         toast.success(statusMessages[newStatus] || "Status atualizado")
@@ -254,124 +255,91 @@ export function GroupSessionSheet({
       )}
 
       {/* Participants List */}
-      <div className="p-4">
-        <h3 className="text-sm font-semibold text-muted-foreground mb-3">
+      <div className="px-4 pt-3 pb-2">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
           Participantes ({session.participants.length})
         </h3>
 
-        <div className="space-y-3">
+        <div className="divide-y divide-border">
           {session.participants.map((participant) => {
             const isUpdating = updatingId === participant.appointmentId
             const isCancelled = ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"].includes(
               participant.status
             )
             const canMarkStatus = ["AGENDADO", "CONFIRMADO"].includes(participant.status)
-
             const canConfirm = participant.status === "AGENDADO"
             const canFinalize = participant.status === "AGENDADO" || participant.status === "CONFIRMADO"
+            const isFinalized = participant.status === "FINALIZADO"
 
             return (
               <div
                 key={participant.appointmentId}
-                className={`p-3 rounded-lg border ${
-                  isCancelled
-                    ? "bg-muted/50 border-border opacity-60"
-                    : "bg-background border-border"
-                }`}
+                className={`flex items-center gap-2 py-2.5 ${isCancelled ? "opacity-50" : ""}`}
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground truncate">
-                      {participant.patientName}
-                    </p>
-                  </div>
-                  <span
-                    className={`flex-shrink-0 text-xs px-2 py-1 rounded-full font-medium ${
-                      STATUS_COLORS[participant.status as AppointmentStatus] ||
-                      "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {STATUS_LABELS[participant.status as AppointmentStatus] ||
-                      participant.status}
-                  </span>
+                {/* Name + status */}
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm text-foreground truncate ${isFinalized || isCancelled ? "" : "font-medium"}`}>
+                    {participant.patientName}
+                  </p>
                 </div>
 
-                {/* Status action buttons */}
-                {canMarkStatus && (
-                  <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border">
-                    {/* Confirm button - only for AGENDADO status */}
-                    {canConfirm && (
+                {/* Action buttons or status badge */}
+                {canMarkStatus ? (
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {/* Primary action: Confirmar (AGENDADO) or Compareceu (CONFIRMADO) */}
+                    {canConfirm ? (
                       <button
                         type="button"
-                        onClick={() =>
-                          handleUpdateStatus(
-                            participant.appointmentId,
-                            "CONFIRMADO",
-                            participant.patientName
-                          )
-                        }
+                        onClick={() => handleUpdateStatus(participant.appointmentId, "CONFIRMADO", participant.patientName)}
                         disabled={isUpdating}
-                        className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                        title="Confirmar"
+                        className="h-7 px-3 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
                       >
-                        {isUpdating ? (
-                          "..."
-                        ) : (
-                          <>
-                            <CheckIcon className="w-4 h-4" />
-                            Confirmar
-                          </>
-                        )}
+                        {isUpdating ? "..." : <>
+                          <CheckIcon className="w-3.5 h-3.5 inline mr-1" />Confirmar
+                        </>}
                       </button>
-                    )}
-                    {/* Finalize button */}
-                    {canFinalize && (
+                    ) : (
                       <button
                         type="button"
-                        onClick={() =>
-                          handleUpdateStatus(
-                            participant.appointmentId,
-                            "FINALIZADO",
-                            participant.patientName
-                          )
-                        }
+                        onClick={() => handleUpdateStatus(participant.appointmentId, "FINALIZADO", participant.patientName)}
                         disabled={isUpdating}
-                        className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-md bg-green-600 text-white text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                        title="Compareceu"
+                        className="h-7 px-3 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
                       >
-                        {isUpdating ? (
-                          "..."
-                        ) : (
-                          <>
-                            <CheckCircleIcon className="w-4 h-4" />
-                            Finalizar
-                          </>
-                        )}
+                        {isUpdating ? "..." : <>
+                          <CheckCircleIcon className="w-3.5 h-3.5 inline mr-1" />Compareceu
+                        </>}
                       </button>
                     )}
-                    {/* No-show button */}
-                    {canFinalize && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleUpdateStatus(
-                            participant.appointmentId,
-                            "CANCELADO_FALTA",
-                            participant.patientName
-                          )
-                        }
-                        disabled={isUpdating}
-                        className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-md bg-yellow-600 text-white text-sm font-medium hover:bg-yellow-700 disabled:opacity-50"
-                      >
-                        {isUpdating ? (
-                          "..."
-                        ) : (
-                          <>
-                            <XIcon className="w-4 h-4" />
-                            Faltou
-                          </>
-                        )}
-                      </button>
-                    )}
+                    {/* Secondary: outlined cancel actions */}
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateStatus(participant.appointmentId, "CANCELADO_ACORDADO", participant.patientName)}
+                      disabled={isUpdating}
+                      title="Desmarcou (gera credito)"
+                      className="h-7 px-2 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-orange-600 hover:border-orange-300 hover:bg-orange-50 dark:hover:text-orange-400 dark:hover:border-orange-700 dark:hover:bg-orange-950/30 disabled:opacity-50 transition-colors"
+                    >
+                      {isUpdating ? "..." : "Desmarcou"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateStatus(participant.appointmentId, "CANCELADO_FALTA", participant.patientName)}
+                      disabled={isUpdating}
+                      title="Faltou"
+                      className="h-7 px-2 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-red-600 hover:border-red-300 hover:bg-red-50 dark:hover:text-red-400 dark:hover:border-red-700 dark:hover:bg-red-950/30 disabled:opacity-50 transition-colors"
+                    >
+                      {isUpdating ? "..." : "Faltou"}
+                    </button>
                   </div>
+                ) : (
+                  <span
+                    className={`flex-shrink-0 text-[11px] px-2 py-0.5 rounded-full font-medium ${
+                      STATUS_COLORS[participant.status as AppointmentStatus] || "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {STATUS_LABELS[participant.status as AppointmentStatus] || participant.status}
+                  </span>
                 )}
               </div>
             )
@@ -380,11 +348,11 @@ export function GroupSessionSheet({
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border">
+      <div className="px-4 py-3 border-t border-border">
         <button
           type="button"
           onClick={onClose}
-          className="w-full h-12 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted"
+          className="w-full h-10 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted"
         >
           Fechar
         </button>

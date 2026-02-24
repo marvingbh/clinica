@@ -4,6 +4,8 @@ import { RefreshCwIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { Appointment } from "../../lib/types"
 import { isBirthdayOnDate } from "../../lib/utils"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../../lib/professional-colors"
+import { STATUS_LABELS } from "../../lib/constants"
+import type { AppointmentStatus } from "../../lib/types"
 
 const PIXELS_PER_MINUTE = 1.6 // 48px per 30 minutes = 96px per hour
 const START_HOUR = 7
@@ -104,6 +106,11 @@ export function AppointmentBlock({
             <span className="ml-0.5 text-[10px]" title="Aniversario!">🎂</span>
           )}
         </p>
+        {isCancelled && (
+          <p className="text-[9px] text-red-600 dark:text-red-400 font-medium truncate leading-tight">
+            {STATUS_LABELS[appointment.status as AppointmentStatus]}
+          </p>
+        )}
         {height >= 48 && (
           <p className="text-[10px] text-muted-foreground truncate leading-tight">
             {startTimeStr} - {endTimeStr}

@@ -27,6 +27,7 @@ export function AvailabilitySlotBlock({
     <button
       type="button"
       onClick={onClick}
+      title={isBiweeklyHint ? slot.biweeklyHint!.patientName : undefined}
       style={{
         position: "absolute",
         top: `${top}px`,
@@ -36,26 +37,33 @@ export function AvailabilitySlotBlock({
       }}
       className={`
         rounded px-1 py-0.5 text-left overflow-hidden cursor-pointer
-        border border-dashed transition-all hover:shadow-sm
-        ${isBiweeklyHint
-          ? "border-purple-400 dark:border-purple-600 bg-purple-50/50 dark:bg-purple-950/20 hover:bg-purple-100/50 dark:hover:bg-purple-950/40"
-          : "border-muted-foreground/30 bg-muted/20 hover:bg-muted/40"
-        }
+        rounded-md transition-all hover:shadow-sm
+        border border-teal-300/70 dark:border-teal-600/50 border-l-[3px] border-l-teal-500 dark:border-l-teal-400 bg-teal-50/80 dark:bg-teal-900/30 hover:bg-teal-100 dark:hover:bg-teal-800/40
       `}
     >
-      <div className="h-full flex flex-col items-center justify-center gap-0.5 overflow-hidden">
+      <div className="h-full flex flex-col items-center justify-center gap-1 overflow-hidden">
         {isBiweeklyHint ? (
-          <>
-            <ArrowLeftRightIcon className="w-3 h-3 text-purple-500 dark:text-purple-400 flex-shrink-0" />
-            <span className="text-[9px] text-purple-600 dark:text-purple-400 truncate max-w-full leading-tight">
-              {slot.biweeklyHint!.patientName}
-            </span>
-          </>
+          (() => {
+            const endMin = hour * 60 + min + appointmentDuration
+            const endTime = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`
+            return <>
+              <span className="text-[10px] text-teal-700 dark:text-teal-300 font-bold leading-tight">+ Disponivel</span>
+              <div className="flex items-center gap-0.5">
+                <ArrowLeftRightIcon className="w-3 h-3 flex-shrink-0 text-teal-600/70 dark:text-teal-400/70" />
+                <span className="text-[9px] text-teal-600/70 dark:text-teal-400/70 leading-tight">{slot.biweeklyHint!.patientName.length > 18 ? `${slot.biweeklyHint!.patientName.slice(0, 18)}…` : slot.biweeklyHint!.patientName}</span>
+              </div>
+              <span className="text-[9px] text-teal-600/70 dark:text-teal-400/70 leading-tight">{slot.time} - {endTime}</span>
+            </>
+          })()
         ) : (
-          <>
-            <PlusIcon className="w-3 h-3 text-muted-foreground/60 flex-shrink-0" />
-            <span className="text-[9px] text-muted-foreground/60 leading-tight">Disp.</span>
-          </>
+          (() => {
+            const endMin = hour * 60 + min + appointmentDuration
+            const endTime = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`
+            return <>
+              <span className="text-[10px] text-teal-700 dark:text-teal-300 font-bold leading-tight">+ Disponivel</span>
+              <span className="text-[9px] text-teal-600/70 dark:text-teal-400/70 leading-tight">{slot.time} - {endTime}</span>
+            </>
+          })()
         )}
       </div>
     </button>
