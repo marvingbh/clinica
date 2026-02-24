@@ -83,8 +83,23 @@ export const GET = withFeatureAuth(
       const whereClause = conditions.join(" AND ")
 
       const selectQuery = `
-        SELECT p."id", p."name", p."email", p."phone", p."motherName", p."fatherName"
+        SELECT
+          p."id", p."name", p."email", p."phone",
+          p."motherName", p."fatherName", p."birthDate",
+          p."notes", p."schoolName", p."cpf",
+          p."firstAppointmentDate", p."lastFeeAdjustmentDate",
+          p."sessionFee", p."therapeuticProject",
+          p."isActive", p."lastVisitAt",
+          p."consentWhatsApp", p."consentWhatsAppAt",
+          p."consentEmail", p."consentEmailAt",
+          p."referenceProfessionalId", p."createdAt",
+          json_build_object(
+            'id', rp."id",
+            'user', json_build_object('name', u."name")
+          ) AS "referenceProfessional"
         FROM "Patient" p
+        LEFT JOIN "ProfessionalProfile" rp ON rp."id" = p."referenceProfessionalId"
+        LEFT JOIN "User" u ON u."id" = rp."userId"
         WHERE ${whereClause}
         ORDER BY p."name" ASC
         LIMIT ${limit} OFFSET ${skip}
@@ -95,17 +110,18 @@ export const GET = withFeatureAuth(
         WHERE ${whereClause}
       `
 
-      const [patients, countResult] = await Promise.all([
-        prisma.$queryRawUnsafe<Array<{
-          id: string
-          name: string
-          email: string | null
-          phone: string
-          motherName: string | null
-          fatherName: string | null
-        }>>(selectQuery, ...params),
+      const [rawPatients, countResult] = await Promise.all([
+        prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(selectQuery, ...params),
         prisma.$queryRawUnsafe<Array<{ count: number }>>(countQuery, ...params),
       ])
+
+      // Normalize: when there's no reference professional, set to null instead of {id: null, user: {name: null}}
+      const patients = rawPatients.map((p) => ({
+        ...p,
+        referenceProfessional: p.referenceProfessionalId ? p.referenceProfessional : null,
+        // additionalPhones not loaded in search for performance — empty array
+        additionalPhones: [],
+      }))
 
       const total = countResult[0]?.count ?? 0
       const totalPages = Math.ceil(total / limit)

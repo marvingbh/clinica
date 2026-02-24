@@ -2,7 +2,7 @@ import { useState, useCallback } from "react"
 import { useForm, UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
-import { toDateString, toIsoDate } from "../lib/utils"
+import { toDisplayDateFromDate, toIsoDate } from "../lib/utils"
 import { calendarEntrySchema, CalendarEntryFormData, CalendarEntryType, RecurrenceEndType, Professional } from "../lib/types"
 import { createCalendarEntry, CreateCalendarEntryData } from "../services"
 import { DEFAULT_ENTRY_DURATIONS } from "../lib/constants"
@@ -87,7 +87,7 @@ export function useCalendarEntryCreate({
       setAdditionalProfessionalIds([])
       form.reset({
         title: "",
-        date: toDateString(selectedDate),
+        date: toDisplayDateFromDate(selectedDate),
         startTime: slotTime || "",
         duration: DEFAULT_ENTRY_DURATIONS[type] || 60,
         notes: "",
@@ -137,7 +137,7 @@ export function useCalendarEntryCreate({
           body.recurrence = {
             recurrenceType,
             recurrenceEndType,
-            ...(recurrenceEndType === "BY_DATE" && { endDate: recurrenceEndDate }),
+            ...(recurrenceEndType === "BY_DATE" && { endDate: toIsoDate(recurrenceEndDate) }),
             ...(recurrenceEndType === "BY_OCCURRENCES" && { occurrences: recurrenceOccurrences }),
           }
         }

@@ -2,7 +2,7 @@ import { useState, useCallback } from "react"
 import { useForm, UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
-import { toDateString, toLocalDateTime } from "../lib/utils"
+import { toDisplayDateFromDate, toLocalDateTime } from "../lib/utils"
 import { editAppointmentSchema, EditAppointmentFormData, Appointment } from "../lib/types"
 import { updateAppointment } from "../services"
 
@@ -65,7 +65,7 @@ export function useAppointmentEdit({
       const durationMinutes = Math.round((endDate.getTime() - scheduledDate.getTime()) / 60000)
 
       form.reset({
-        date: toDateString(scheduledDate),
+        date: toDisplayDateFromDate(scheduledDate),
         startTime: `${scheduledDate.getHours().toString().padStart(2, "0")}:${scheduledDate.getMinutes().toString().padStart(2, "0")}`,
         duration: durationMinutes,
         modality: appointment.modality as "ONLINE" | "PRESENCIAL",

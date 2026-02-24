@@ -7,6 +7,7 @@ import { PatientSearch } from "./PatientSearch"
 import { RecurrenceOptions } from "./RecurrenceOptions"
 import { InlineAlert } from "./InlineAlert"
 import { TimeInput } from "./TimeInput"
+import { DateInput } from "./DateInput"
 import { calculateEndTime } from "../lib/utils"
 import type { AppointmentFormData, Professional, Patient, RecurrenceEndType } from "../lib/types"
 import type { AppointmentType } from "./RecurrenceOptions"
@@ -104,7 +105,7 @@ export function CreateAppointmentSheet({
         {/* 2. Date */}
         <div>
           <label htmlFor="date" className="block text-sm font-medium text-foreground mb-1.5">Data *</label>
-          <input id="date" type="date" {...form.register("date")} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
+          <DateInput id="date" {...form.register("date")} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
           {form.formState.errors.date && <p className="text-xs text-destructive mt-1">{form.formState.errors.date.message}</p>}
         </div>
 

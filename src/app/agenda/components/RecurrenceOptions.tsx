@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { CalendarIcon, RefreshCwIcon } from "@/shared/components/ui/icons"
+import { DateInput } from "./DateInput"
 import { RecurrenceType, RecurrenceEndType } from "../lib/types"
 import { MAX_RECURRENCE_OCCURRENCES } from "../lib/constants"
 import { addMonthsToDate } from "../lib/utils"
@@ -268,9 +269,8 @@ export function RecurrenceOptions({
               <label htmlFor="recurrenceEndDate" className="block text-xs font-medium text-muted-foreground mb-1.5">
                 Data final
               </label>
-              <input
+              <DateInput
                 id="recurrenceEndDate"
-                type="date"
                 value={endDate}
                 onChange={(e) => onEndDateChange(e.target.value)}
                 className="w-full h-10 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"

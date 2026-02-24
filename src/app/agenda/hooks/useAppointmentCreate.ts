@@ -2,7 +2,7 @@ import { useState, useCallback } from "react"
 import { useForm, UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
-import { toDateString, toIsoDate } from "../lib/utils"
+import { toDisplayDateFromDate, toIsoDate } from "../lib/utils"
 import { appointmentSchema, AppointmentFormData, Patient, RecurrenceType, RecurrenceEndType, Professional } from "../lib/types"
 import { createAppointment, CreateAppointmentData } from "../services"
 import { AppointmentType } from "../components/RecurrenceOptions"
@@ -108,7 +108,7 @@ export function useAppointmentCreate({
       setAdditionalProfessionalIds([])
       form.reset({
         patientId: "",
-        date: toDateString(effectiveDate),
+        date: toDisplayDateFromDate(effectiveDate),
         startTime: slotTime || "",
         modality: "PRESENCIAL",
         notes: "",
@@ -175,7 +175,7 @@ export function useAppointmentCreate({
           body.recurrence = {
             recurrenceType: appointmentType as RecurrenceType,
             recurrenceEndType,
-            ...(recurrenceEndType === "BY_DATE" && { endDate: recurrenceEndDate }),
+            ...(recurrenceEndType === "BY_DATE" && { endDate: toIsoDate(recurrenceEndDate) }),
             ...(recurrenceEndType === "BY_OCCURRENCES" && { occurrences: recurrenceOccurrences }),
           }
         }

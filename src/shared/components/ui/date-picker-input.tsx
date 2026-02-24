@@ -66,14 +66,28 @@ export function DatePickerInput({
     setOpen(false)
   }
 
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 8)
+    let formatted: string
+    if (digits.length <= 2) {
+      formatted = digits
+    } else if (digits.length <= 4) {
+      formatted = digits.slice(0, 2) + "/" + digits.slice(2)
+    } else {
+      formatted = digits.slice(0, 2) + "/" + digits.slice(2, 4) + "/" + digits.slice(4)
+    }
+    onChange(formatted)
+  }
+
   return (
     <div ref={containerRef} className="relative">
       <div className="flex">
         <input
           id={id}
           type="text"
+          inputMode="numeric"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={handleInputChange}
           placeholder={placeholder}
           maxLength={10}
           disabled={disabled}

@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import { Appointment, RecurrenceType, RecurrenceEndType, Modality, Professional } from "../lib/types"
 import { RECURRENCE_TYPE_LABELS, MAX_RECURRENCE_OCCURRENCES } from "../lib/constants"
 import { TimeInput } from "./TimeInput"
-import { toDateString, calculateEndTime } from "../lib/utils"
+import { DateInput } from "./DateInput"
+import { toDisplayDateFromDate, toIsoDate, calculateEndTime } from "../lib/utils"
 import { toast } from "sonner"
 import { Dialog } from "./Sheet"
 
@@ -58,7 +59,7 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
 
       if (recurrence.endDate) {
         const date = new Date(recurrence.endDate)
-        setEndDate(toDateString(date))
+        setEndDate(toDisplayDateFromDate(date))
       } else {
         setEndDate("")
       }
@@ -87,7 +88,7 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
       }
 
       if (recurrenceEndType === "BY_DATE") {
-        body.endDate = endDate || null
+        body.endDate = endDate ? toIsoDate(endDate) : null
       } else if (recurrenceEndType === "BY_OCCURRENCES") {
         body.occurrences = occurrences
       }
@@ -138,9 +139,9 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
   async function handleFinalize() {
     if (!appointment?.recurrence || !finalizeDate) return
 
-    // Validate date format (YYYY-MM-DD from native date picker)
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(finalizeDate)) {
-      toast.error("Data invalida")
+    // Validate date format (DD/MM/YYYY)
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(finalizeDate)) {
+      toast.error("Data invalida (DD/MM/AAAA)")
       return
     }
 
@@ -153,7 +154,7 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            endDate: finalizeDate,
+            endDate: toIsoDate(finalizeDate),
           }),
         }
       )
@@ -415,9 +416,8 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
             <label htmlFor="recEndDate" className="block text-sm font-medium text-foreground mb-2">
               Data final
             </label>
-            <input
+            <DateInput
               id="recEndDate"
-              type="date"
               value={endDate || ""}
               onChange={(e) => setEndDate(e.target.value)}
               className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
@@ -458,7 +458,7 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
             <button
               type="button"
               onClick={() => {
-                setFinalizeDate(toDateString(new Date()))
+                setFinalizeDate(toDisplayDateFromDate(new Date()))
                 setIsFinalizeDialogOpen(true)
               }}
               className="w-full h-11 rounded-md border border-orange-500 bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 font-medium hover:bg-orange-100 dark:hover:bg-orange-950/50 transition-colors"
@@ -506,9 +506,8 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
           <label htmlFor="finalizeDate" className="block text-sm font-medium text-foreground mb-2">
             Data final
           </label>
-          <input
+          <DateInput
             id="finalizeDate"
-            type="date"
             value={finalizeDate}
             onChange={(e) => setFinalizeDate(e.target.value)}
             className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"

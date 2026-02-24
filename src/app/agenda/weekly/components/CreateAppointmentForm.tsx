@@ -11,6 +11,7 @@ import {
   RecurrenceOptions,
   InlineAlert,
   TimeInput,
+  DateInput,
 } from "../../components"
 
 import { calculateEndTime } from "../../lib/utils"
@@ -81,7 +82,7 @@ export function CreateAppointmentForm({
         {/* 2. Date */}
         <div>
           <label htmlFor="date" className="block text-sm font-medium text-foreground mb-1.5">Data *</label>
-          <input id="date" type="date" {...register("date")} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
+          <DateInput id="date" {...register("date")} className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
           {errors.date && <p className="text-xs text-destructive mt-1">{errors.date.message}</p>}
         </div>
 

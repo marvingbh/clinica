@@ -4,6 +4,7 @@ import { UseFormReturn } from "react-hook-form"
 import { Sheet } from "./Sheet"
 import { InlineAlert } from "./InlineAlert"
 import { TimeInput } from "./TimeInput"
+import { DateInput } from "./DateInput"
 import { ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
 import { calculateEndTime } from "../lib/utils"
 import type { CalendarEntryFormData, CalendarEntryType, RecurrenceEndType, Professional } from "../lib/types"
@@ -109,9 +110,8 @@ export function CalendarEntrySheet({
         {/* 2. Date */}
         <div>
           <label htmlFor="entry-date" className="block text-sm font-medium text-foreground mb-1.5">Data *</label>
-          <input
+          <DateInput
             id="entry-date"
-            type="date"
             {...form.register("date")}
             className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
           />
@@ -239,8 +239,7 @@ export function CalendarEntrySheet({
                   <span className="text-sm text-foreground">Ate uma data</span>
                 </label>
                 {recurrenceEndType === "BY_DATE" && (
-                  <input
-                    type="date"
+                  <DateInput
                     value={recurrenceEndDate}
                     onChange={(e) => setRecurrenceEndDate(e.target.value)}
                     className="ml-6 w-40 h-10 px-3 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"

@@ -10,6 +10,7 @@ import { HistoryTimeline } from "@/shared/components/HistoryTimeline"
 import { usePermission } from "@/shared/hooks/usePermission"
 import { Appointment, EditAppointmentFormData, CalendarEntryType, Professional } from "../lib/types"
 import { TimeInput } from "./TimeInput"
+import { DateInput } from "./DateInput"
 import { STATUS_LABELS, STATUS_COLORS, RECURRENCE_TYPE_LABELS, ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
 import { formatPhone, isDateException, calculateEndTime, isRecurrenceModified } from "../lib/utils"
 import {
@@ -605,9 +606,8 @@ function OccurrenceTabContent({
           <label htmlFor="editDate" className="block text-sm font-medium text-foreground mb-1.5">
             Data
           </label>
-          <input
+          <DateInput
             id="editDate"
-            type="date"
             {...form.register("date")}
             className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
           />
