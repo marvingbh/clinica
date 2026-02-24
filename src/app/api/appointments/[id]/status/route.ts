@@ -4,43 +4,13 @@ import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
 import { createAuditLog } from "@/lib/rbac/audit"
 import { AppointmentStatus } from "@prisma/client"
-
-/**
- * Valid status transitions for appointments.
- * Maps from current status to allowed next statuses.
- */
-const VALID_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
-  AGENDADO: [
-    AppointmentStatus.CONFIRMADO,
-    AppointmentStatus.FINALIZADO,
-    AppointmentStatus.CANCELADO_FALTA,
-    AppointmentStatus.CANCELADO_PROFISSIONAL,
-    AppointmentStatus.CANCELADO_ACORDADO,
-  ],
-  CONFIRMADO: [
-    AppointmentStatus.FINALIZADO,
-    AppointmentStatus.CANCELADO_FALTA,
-    AppointmentStatus.CANCELADO_PROFISSIONAL,
-    AppointmentStatus.CANCELADO_ACORDADO,
-  ],
-  // Terminal states - limited transitions
-  FINALIZADO: [],
-  CANCELADO_ACORDADO: [AppointmentStatus.CANCELADO_FALTA],
-  CANCELADO_FALTA: [AppointmentStatus.CANCELADO_ACORDADO],
-  CANCELADO_PROFISSIONAL: [],
-}
-
-/**
- * Status labels in Portuguese for error messages
- */
-const STATUS_LABELS: Record<AppointmentStatus, string> = {
-  AGENDADO: "Agendado",
-  CONFIRMADO: "Confirmado",
-  FINALIZADO: "Finalizado",
-  CANCELADO_ACORDADO: "Desmarcou",
-  CANCELADO_FALTA: "Cancelado (Falta)",
-  CANCELADO_PROFISSIONAL: "Cancelado (Profissional)",
-}
+import {
+  VALID_TRANSITIONS,
+  STATUS_LABELS,
+  isValidTransition,
+  computeStatusUpdateData,
+  shouldUpdateLastVisitAt,
+} from "@/lib/appointments/status-transitions"
 
 /**
  * PATCH /api/appointments/:id/status
@@ -149,10 +119,10 @@ export const PATCH = withFeatureAuth(
     }
 
     // Validate the status transition
-    const allowedTransitions = VALID_TRANSITIONS[currentStatus]
-    if (!allowedTransitions.includes(targetStatus)) {
-      const currentLabel = STATUS_LABELS[currentStatus]
-      const targetLabel = STATUS_LABELS[targetStatus]
+    if (!isValidTransition(currentStatus, targetStatus)) {
+      const currentLabel = STATUS_LABELS[currentStatus as keyof typeof STATUS_LABELS]
+      const targetLabel = STATUS_LABELS[targetStatus as keyof typeof STATUS_LABELS]
+      const allowedTransitions = VALID_TRANSITIONS[currentStatus as keyof typeof VALID_TRANSITIONS] || []
       return NextResponse.json(
         {
           error: `Não é possível alterar de "${currentLabel}" para "${targetLabel}"`,
@@ -160,7 +130,7 @@ export const PATCH = withFeatureAuth(
           targetStatus,
           allowedTransitions: allowedTransitions.map(s => ({
             value: s,
-            label: STATUS_LABELS[s],
+            label: STATUS_LABELS[s as keyof typeof STATUS_LABELS],
           })),
         },
         { status: 400 }
@@ -186,18 +156,7 @@ export const PATCH = withFeatureAuth(
 
     // Prepare update data with appropriate timestamps
     const now = new Date()
-    const updateData: Record<string, unknown> = { status: targetStatus }
-
-    // Set timestamps based on target status
-    if (targetStatus === AppointmentStatus.CONFIRMADO) {
-      updateData.confirmedAt = now
-    } else if (
-      targetStatus === AppointmentStatus.CANCELADO_PROFISSIONAL ||
-      targetStatus === AppointmentStatus.CANCELADO_ACORDADO ||
-      targetStatus === AppointmentStatus.CANCELADO_FALTA
-    ) {
-      updateData.cancelledAt = now
-    }
+    const updateData = computeStatusUpdateData(targetStatus, now)
 
     // Update the appointment
     const updatedAppointment = await prisma.appointment.update({
@@ -221,6 +180,14 @@ export const PATCH = withFeatureAuth(
         },
       },
     })
+
+    // Update patient's lastVisitAt when appointment is finalized
+    if (shouldUpdateLastVisitAt(targetStatus) && existing.patientId) {
+      await prisma.patient.update({
+        where: { id: existing.patientId },
+        data: { lastVisitAt: existing.scheduledAt },
+      })
+    }
 
     // Credit management for ACORDADO/FALTA transitions
     if (targetStatus === AppointmentStatus.CANCELADO_ACORDADO && existing.patientId) {

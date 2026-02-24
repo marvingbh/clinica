@@ -43,3 +43,13 @@ export {
   type PairedInfo,
   type AlternateWeekInfo,
 } from "./biweekly"
+
+export {
+  isValidTransition,
+  computeStatusUpdateData,
+  shouldUpdateLastVisitAt,
+  VALID_TRANSITIONS,
+  STATUS_LABELS,
+  type AppointmentStatusType,
+  type StatusUpdateFields,
+} from "./status-transitions"
