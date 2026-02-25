@@ -692,6 +692,9 @@ model Invoice {
   notes                 String?
   showAppointmentDays   Boolean       @default(false)
   messageBody           String?
+  notaFiscalEmitida     Boolean       @default(false)
+  notaFiscalEmitidaAt   DateTime?
+  notaFiscalPdf         Bytes?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

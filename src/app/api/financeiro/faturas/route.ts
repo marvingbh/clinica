@@ -42,6 +42,11 @@ export const GET = withFeatureAuth(
       orderBy: [{ patient: { name: "asc" } }, { referenceYear: "desc" }, { referenceMonth: "desc" }],
     })
 
-    return NextResponse.json(invoices)
+    const result = invoices.map(({ notaFiscalPdf, ...inv }) => ({
+      ...inv,
+      hasNotaFiscalPdf: !!notaFiscalPdf,
+    }))
+
+    return NextResponse.json(result)
   }
 )

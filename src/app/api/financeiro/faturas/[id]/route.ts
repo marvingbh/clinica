@@ -31,10 +31,11 @@ export const GET = withFeatureAuth(
     })
 
     if (!invoice) {
-      return NextResponse.json({ error: "Fatura n\u00e3o encontrada" }, { status: 404 })
+      return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 })
     }
 
-    return NextResponse.json(invoice)
+    const { notaFiscalPdf, ...rest } = invoice
+    return NextResponse.json({ ...rest, hasNotaFiscalPdf: !!notaFiscalPdf })
   }
 )
 
@@ -42,6 +43,7 @@ const updateSchema = z.object({
   status: z.enum(["PENDENTE", "PAGO", "CANCELADO"]).optional(),
   notes: z.string().optional(),
   paidAt: z.string().datetime().optional().nullable(),
+  notaFiscalEmitida: z.boolean().optional(),
 })
 
 export const PATCH = withFeatureAuth(
@@ -73,6 +75,14 @@ export const PATCH = withFeatureAuth(
     if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes
     if (parsed.data.status === "PAGO") {
       updateData.paidAt = parsed.data.paidAt ? new Date(parsed.data.paidAt) : new Date()
+    }
+    if (parsed.data.notaFiscalEmitida === true) {
+      updateData.notaFiscalEmitida = true
+      updateData.notaFiscalEmitidaAt = new Date()
+    } else if (parsed.data.notaFiscalEmitida === false) {
+      updateData.notaFiscalEmitida = false
+      updateData.notaFiscalEmitidaAt = null
+      updateData.notaFiscalPdf = null
     }
 
     const updated = await prisma.invoice.update({

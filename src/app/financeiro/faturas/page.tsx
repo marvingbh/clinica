@@ -16,6 +16,7 @@ interface Invoice {
   totalAmount: string
   dueDate: string
   paidAt: string | null
+  notaFiscalEmitida: boolean
   patient: { id: string; name: string }
   professionalProfile: { id: string; user: { name: string } }
   _count: { items: number }
@@ -222,6 +223,7 @@ export default function FaturasPage() {
                 <th className="text-center py-3 px-4 font-medium">Sessões</th>
                 <th className="text-right py-3 px-4 font-medium">Total</th>
                 <th className="text-center py-3 px-4 font-medium">Status</th>
+                <th className="text-center py-3 px-4 font-medium">NF</th>
                 <th className="text-center py-3 px-4 font-medium">Vencimento</th>
                 <th className="text-center py-3 px-4 font-medium">Pagamento</th>
                 <th className="text-right py-3 px-4 font-medium">Ações</th>
@@ -237,6 +239,13 @@ export default function FaturasPage() {
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[inv.status] || ""}`}>
                       {STATUS_LABELS[inv.status] || inv.status}
                     </span>
+                  </td>
+                  <td className="text-center py-3 px-4">
+                    {inv.notaFiscalEmitida ? (
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" title="NF emitida">✓</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="text-center py-3 px-4">{new Date(inv.dueDate).toLocaleDateString("pt-BR")}</td>
                   <td className="text-center py-3 px-4">
@@ -290,7 +299,7 @@ export default function FaturasPage() {
                   {" / "}
                   <span className="text-xs text-yellow-600 dark:text-yellow-400">{invoices.filter(i => i.status === "PENDENTE").length} pendentes</span>
                 </td>
-                <td colSpan={3}></td>
+                <td colSpan={4}></td>
               </tr>
             </tfoot>
           </table>
