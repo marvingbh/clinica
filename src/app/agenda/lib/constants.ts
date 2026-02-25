@@ -56,36 +56,42 @@ export const ENTRY_TYPE_LABELS: Record<CalendarEntryType, string> = {
 export const ENTRY_TYPE_COLORS: Record<CalendarEntryType, {
   bg: string
   border: string
+  borderLeft: string
   text: string
   accent: string
 }> = {
   CONSULTA: {
     bg: "bg-white dark:bg-card",
     border: "border-blue-200 dark:border-blue-800",
+    borderLeft: "border-l-blue-500",
     text: "text-blue-700 dark:text-blue-300",
     accent: "bg-blue-500",
   },
   TAREFA: {
     bg: "bg-amber-50 dark:bg-amber-950/30",
     border: "border-amber-200 dark:border-amber-800",
+    borderLeft: "border-l-amber-500",
     text: "text-amber-700 dark:text-amber-300",
     accent: "bg-amber-500",
   },
   LEMBRETE: {
     bg: "bg-sky-50 dark:bg-sky-950/30",
     border: "border-sky-200 dark:border-sky-800",
+    borderLeft: "border-l-sky-500",
     text: "text-sky-700 dark:text-sky-300",
     accent: "bg-sky-500",
   },
   NOTA: {
     bg: "bg-slate-50 dark:bg-slate-950/30",
     border: "border-slate-200 dark:border-slate-800",
+    borderLeft: "border-l-slate-500",
     text: "text-slate-700 dark:text-slate-300",
     accent: "bg-slate-500",
   },
   REUNIAO: {
     bg: "bg-violet-50 dark:bg-violet-950/30",
     border: "border-violet-200 dark:border-violet-800",
+    borderLeft: "border-l-violet-500",
     text: "text-violet-700 dark:text-violet-300",
     accent: "bg-violet-500",
   },

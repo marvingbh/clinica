@@ -4,8 +4,8 @@ import { RefreshCwIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { Appointment } from "../../lib/types"
 import { isBirthdayOnDate } from "../../lib/utils"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../../lib/professional-colors"
-import { STATUS_LABELS } from "../../lib/constants"
-import type { AppointmentStatus } from "../../lib/types"
+import { STATUS_LABELS, ENTRY_TYPE_COLORS } from "../../lib/constants"
+import type { AppointmentStatus, CalendarEntryType } from "../../lib/types"
 
 const PIXELS_PER_MINUTE = 1.6 // 48px per 30 minutes = 96px per hour
 const START_HOUR = 7
@@ -48,9 +48,12 @@ export function AppointmentBlock({
   const endTimeStr = `${endHour.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`
 
   // Get professional color from map, fallback to first color
-  const colors = professionalColorMap
+  const profColors = professionalColorMap
     ? getProfessionalColor(appointment.professionalProfile.id, professionalColorMap)
     : PROFESSIONAL_COLORS[0]
+
+  // Entry type colors for single-professional view
+  const entryColors = ENTRY_TYPE_COLORS[appointment.type as CalendarEntryType] || ENTRY_TYPE_COLORS.CONSULTA
 
   // Calculate width and left position for overlapping appointments
   const columnWidth = 100 / totalColumns
@@ -72,8 +75,8 @@ export function AppointmentBlock({
         border border-border rounded px-1 py-0.5 text-left
         border-l-[3px] overflow-hidden cursor-pointer
         hover:shadow-md hover:z-10 transition-all
-        ${showProfessional ? colors.bg : "bg-card"}
-        ${showProfessional ? colors.border : "border-l-primary"}
+        ${showProfessional ? profColors.bg : entryColors.bg}
+        ${showProfessional ? profColors.border : entryColors.borderLeft}
         ${isCancelled ? "opacity-50" : ""}
       `}
     >
@@ -93,7 +96,7 @@ export function AppointmentBlock({
           </div>
         )}
         {showProfessional && (
-          <p className={`text-[10px] font-semibold truncate leading-tight ${colors.text} ${appointment.recurrence ? "pr-3" : ""}`}>
+          <p className={`text-[10px] font-semibold truncate leading-tight ${profColors.text} ${appointment.recurrence ? "pr-3" : ""}`}>
             {appointment.professionalProfile.user.name}
             {(appointment.additionalProfessionals?.length ?? 0) > 0 && (
               <span className="font-normal opacity-70"> +{appointment.additionalProfessionals!.length}</span>
