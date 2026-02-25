@@ -53,27 +53,35 @@ All data is scoped by `clinicId`. Users belong to a clinic and can only access d
 - **AvailabilityRule/Exception**: Professional availability management
 - **Notification**: Multi-channel (WhatsApp/Email) notification queue with retry logic
 
-### Code Organization
+### Code Organization (Domain-Driven Design)
+
+Business logic lives in **domain modules** under `src/lib/`, organized by bounded context (not by technical layer). Each domain module owns its types, pure functions, and tests. API routes and UI components are thin adapters that call into domain modules.
 
 ```
 src/
-├── app/                    # Next.js App Router
-│   ├── api/               # API routes (use withAuth wrapper)
+├── app/                    # Next.js App Router (adapters / thin orchestration)
+│   ├── api/               # API routes — Prisma queries + domain function calls
 │   ├── agenda/            # Calendar/scheduling pages
-│   │   ├── components/    # Agenda-specific components
+│   │   ├── components/    # Agenda-specific UI components
 │   │   ├── hooks/         # Custom hooks (useAppointmentCreate, etc.)
 │   │   └── services/      # Data fetching services
 │   └── [other pages]/
-├── lib/                    # Core utilities
+├── lib/                    # Domain modules (business logic lives here)
 │   ├── api/               # API helpers (withAuth, withAuthentication)
-│   ├── appointments/      # Appointment logic (conflicts, recurrence)
-│   ├── notifications/     # Notification service + providers
-│   ├── rbac/              # Role-based access control
+│   ├── appointments/      # Appointment domain (conflicts, recurrence, biweekly pairing)
+│   ├── notifications/     # Notification domain (service + providers)
+│   ├── rbac/              # Authorization domain (roles, permissions)
 │   ├── auth.ts            # NextAuth configuration
 │   └── prisma.ts          # Prisma client singleton
 ├── shared/components/ui/   # Reusable UI components
 └── generated/prisma/       # Generated Prisma client (do not edit)
 ```
+
+**DDD principles to follow:**
+- **Domain logic in `src/lib/`**: Pure functions with clear inputs/outputs, no framework dependencies. Easy to test.
+- **API routes are adapters**: They handle HTTP, call Prisma for data, then pass data to domain functions. No business logic inline in routes.
+- **One module per bounded context**: `appointments/`, `notifications/`, `rbac/`, etc. Each has its own types, functions, index.ts barrel, and colocated tests.
+- **Avoid anemic modules**: If a domain concept has behavior (validation, computation, matching), it belongs in the domain module — not scattered across routes or components.
 
 ### API Route Pattern
 
@@ -110,6 +118,13 @@ export const GET = withAuth(
 - Keep components small and single-purpose. A component that grows beyond ~150 lines likely needs splitting.
 - Place shared/cross-feature components in `src/shared/components/`. Place feature-specific components in the feature's own `components/` folder (e.g., `src/app/agenda/components/`).
 - Prefer composable props over conditional rendering spaghetti. If a component has many `isCompact && ... isTall && ...` branches, extract the variants into separate sub-components or use a layout prop.
+
+### File Size & Complexity
+
+- **Never create files longer than ~200 lines.** If a new file is approaching that, split it into focused modules before it grows further.
+- **When touching an existing file that is too large (>300 lines) or has duplicated logic, proactively suggest extracting it** into a dedicated module in `src/lib/` with pure, testable functions. Do not silently add more code to an already bloated file.
+- API route handlers should be thin orchestration: Prisma queries + calls to extracted business logic. If a route handler has >50 lines of inline logic, extract it.
+- Duplicated logic (same pattern repeated 2+ times) must be extracted into a shared helper. Never copy-paste matching/filtering/formatting logic.
 
 ### Localization (Brazilian Portuguese)
 
