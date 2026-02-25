@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react"
 import { formatCurrencyBRL } from "@/lib/financeiro/format"
 import { toast } from "sonner"
 import { EyeIcon, CheckCircleIcon, DownloadIcon } from "@/shared/components/ui/icons"
+import { useFinanceiroContext } from "../context/FinanceiroContext"
 
 interface Invoice {
   id: string
@@ -43,10 +44,8 @@ interface Professional {
 export default function FaturasPage() {
   const { data: session } = useSession()
   const isAdmin = session?.user?.role === "ADMIN"
+  const { year, month } = useFinanceiroContext()
 
-  const now = new Date()
-  const [month, setMonth] = useState(now.getMonth() + 1)
-  const [year, setYear] = useState(now.getFullYear())
   const [statusFilter, setStatusFilter] = useState("")
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
@@ -60,7 +59,7 @@ export default function FaturasPage() {
   const fetchInvoices = useCallback(() => {
     setLoading(true)
     const params = new URLSearchParams()
-    params.set("month", String(month))
+    if (month !== null) params.set("month", String(month))
     params.set("year", String(year))
     if (statusFilter) params.set("status", statusFilter)
     if (selectedProfessionalId) params.set("professionalId", selectedProfessionalId)
@@ -92,11 +91,12 @@ export default function FaturasPage() {
   async function handleGenerate() {
     setGenerating(true)
     try {
+      const generateMonth = month ?? new Date().getMonth() + 1
       const res = await fetch("/api/financeiro/faturas/gerar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          month,
+          month: generateMonth,
           year,
           ...(selectedProfessionalId ? { professionalProfileId: selectedProfessionalId } : {}),
         }),
@@ -127,11 +127,6 @@ export default function FaturasPage() {
     }
   }
 
-  const MONTH_NAMES = [
-    "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-    "Jul", "Ago", "Set", "Out", "Nov", "Dez",
-  ]
-
   return (
     <div>
       {/* Controls */}
@@ -143,24 +138,6 @@ export default function FaturasPage() {
           onChange={e => handlePatientSearchChange(e.target.value)}
           className="px-3 py-2 rounded-lg border border-border bg-background text-sm w-48 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
-
-        <div className="flex items-center gap-2">
-          <select
-            value={month}
-            onChange={e => setMonth(Number(e.target.value))}
-            className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
-          >
-            {MONTH_NAMES.map((name, i) => (
-              <option key={i} value={i + 1}>{name}</option>
-            ))}
-          </select>
-          <input
-            type="number"
-            value={year}
-            onChange={e => setYear(Number(e.target.value))}
-            className="px-3 py-2 rounded-lg border border-border bg-background text-sm w-20"
-          />
-        </div>
 
         <div className="flex gap-1">
           {[

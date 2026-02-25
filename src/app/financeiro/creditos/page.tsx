@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
+import { useFinanceiroContext } from "../context/FinanceiroContext"
 
 interface Credit {
   id: string
@@ -15,6 +16,7 @@ interface Credit {
 }
 
 export default function CreditosPage() {
+  const { year, month } = useFinanceiroContext()
   const [credits, setCredits] = useState<Credit[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState("")
@@ -22,12 +24,14 @@ export default function CreditosPage() {
   const fetchCredits = useCallback(() => {
     setLoading(true)
     const params = new URLSearchParams()
+    params.set("year", String(year))
+    if (month !== null) params.set("month", String(month))
     if (statusFilter) params.set("status", statusFilter)
     fetch(`/api/financeiro/creditos?${params}`)
       .then(r => r.json())
       .then(setCredits)
       .finally(() => setLoading(false))
-  }, [statusFilter])
+  }, [year, month, statusFilter])
 
   useEffect(() => { fetchCredits() }, [fetchCredits])
 

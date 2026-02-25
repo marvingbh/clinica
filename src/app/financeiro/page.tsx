@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react"
 import { formatCurrencyBRL } from "@/lib/financeiro/format"
+import { useFinanceiroContext } from "./context/FinanceiroContext"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line,
@@ -80,10 +81,8 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 export default function FinanceiroDashboard() {
-  const now = new Date()
+  const { year, month, setMonth } = useFinanceiroContext()
   const [data, setData] = useState<DashboardData | null>(null)
-  const [year, setYear] = useState(now.getFullYear())
-  const [month, setMonth] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
 
   const fetchData = useCallback(() => {
@@ -143,39 +142,6 @@ export default function FinanceiroDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Period selector */}
-      <div className="flex flex-wrap items-center gap-3">
-        <button onClick={() => setYear(y => y - 1)} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">&larr;</button>
-        <span className="text-lg font-semibold">{year}</span>
-        <button onClick={() => setYear(y => y + 1)} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">&rarr;</button>
-
-        <div className="flex gap-1 ml-2">
-          <button
-            onClick={() => setMonth(null)}
-            className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
-              month === null
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Ano todo
-          </button>
-          {SHORT_MONTHS.map((name, i) => (
-            <button
-              key={i}
-              onClick={() => setMonth(i + 1)}
-              className={`px-2.5 py-1.5 text-xs rounded-full transition-colors ${
-                month === i + 1
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Title */}
       <h2 className="text-lg font-semibold">
         {month ? `${MONTH_NAMES[month - 1]} ${year}` : `Consolidado ${year}`}
