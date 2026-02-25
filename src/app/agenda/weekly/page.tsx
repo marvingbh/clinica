@@ -11,14 +11,10 @@ import {
 } from "@/shared/components/ui"
 
 import {
-  Patient,
   Professional,
   Appointment,
-  RecurrenceEndType,
   CancelType,
-  AppointmentFormData,
   EditAppointmentFormData,
-  appointmentSchema,
   editAppointmentSchema,
   GroupSession,
   AvailabilityRule,
@@ -35,7 +31,6 @@ import {
 
 import {
   toDateString,
-  toIsoDate,
   toLocalDateTime,
   canCancelAppointment,
   canMarkStatus,
@@ -49,16 +44,17 @@ import {
   AppointmentEditor,
   GroupSessionSheet,
   CalendarEntrySheet,
+  CreateAppointmentSheet,
+  AgendaFabMenu,
 } from "../components"
-import type { AppointmentType } from "../components/RecurrenceOptions"
 import type { CalendarEntryType } from "../lib/types"
 
-import { useCalendarEntryCreate } from "../hooks"
+import { useCalendarEntryCreate, useAppointmentCreate } from "../hooks"
 import { useWeeklyAvailability } from "./hooks/useWeeklyAvailability"
 import { useAgendaContext } from "../context/AgendaContext"
 import { usePermission } from "@/shared/hooks/usePermission"
 
-import { WeeklyGrid, WeeklyHeader, FabMenu, CreateAppointmentForm } from "./components"
+import { WeeklyGrid, WeeklyHeader } from "./components"
 
 function WeeklyAgendaPageContent() {
   const router = useRouter()
@@ -98,22 +94,6 @@ function WeeklyAgendaPageContent() {
   const [isGroupSessionSheetOpen, setIsGroupSessionSheetOpen] = useState(false)
   const [selectedGroupSession, setSelectedGroupSession] = useState<GroupSession | null>(null)
 
-  // Create appointment state
-  const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false)
-  const [patientSearch, setPatientSearch] = useState("")
-  const [isSavingAppointment, setIsSavingAppointment] = useState(false)
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
-  const [createProfessionalId, setCreateProfessionalId] = useState("")
-  const [createApiError, setCreateApiError] = useState<string | null>(null)
-
-  // Appointment type state (for create) - WEEKLY by default (psychology clinic norm)
-  // INDEFINITE end type by default - appointments continue until explicitly stopped
-  const [appointmentType, setAppointmentType] = useState<AppointmentType>("WEEKLY")
-  const [recurrenceEndType, setRecurrenceEndType] = useState<RecurrenceEndType>("INDEFINITE")
-  const [recurrenceEndDate, setRecurrenceEndDate] = useState("")
-  const [recurrenceOccurrences, setRecurrenceOccurrences] = useState(10)
-  const [createAdditionalProfIds, setCreateAdditionalProfIds] = useState<string[]>([])
-
   // Edit appointment state
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false)
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
@@ -135,21 +115,6 @@ function WeeklyAgendaPageContent() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeletingAppointment, setIsDeletingAppointment] = useState(false)
 
-  // Forms
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<AppointmentFormData>({
-    resolver: zodResolver(appointmentSchema),
-    defaultValues: {
-      modality: "PRESENCIAL",
-    },
-  })
-
   const editForm = useForm<EditAppointmentFormData>({
     resolver: zodResolver(editAppointmentSchema),
   })
@@ -160,10 +125,6 @@ function WeeklyAgendaPageContent() {
   const activeProfessionalProfileId = isAdmin && selectedProfessionalId
     ? selectedProfessionalId
     : currentProfessionalProfileId
-
-  // Watch form values for recurrence preview
-  const watchedDate = watch("date")
-  const watchedStartTime = watch("startTime")
 
   // ============================================================================
   // Week Navigation
@@ -250,6 +211,47 @@ function WeeklyAgendaPageContent() {
   }
 
   // ============================================================================
+  // Create Appointment (shared hook)
+  // ============================================================================
+
+  const {
+    isCreateSheetOpen,
+    openCreateSheet,
+    closeCreateSheet,
+    form: createForm,
+    patientSearch,
+    setPatientSearch,
+    selectedPatient,
+    handleSelectPatient,
+    handleClearPatient,
+    createProfessionalId: createApptProfessionalId,
+    setCreateProfessionalId: setCreateApptProfessionalId,
+    isProfessionalLocked: isApptProfessionalLocked,
+    appointmentType,
+    setAppointmentType,
+    recurrenceEndType,
+    setRecurrenceEndType,
+    recurrenceEndDate,
+    setRecurrenceEndDate,
+    recurrenceOccurrences,
+    setRecurrenceOccurrences,
+    additionalProfessionalIds: createAdditionalProfIds,
+    setAdditionalProfessionalIds: setCreateAdditionalProfIds,
+    appointmentDuration: hookAppointmentDuration,
+    apiError: createApiError,
+    clearApiError: clearCreateApiError,
+    isSaving: isSavingAppointment,
+    onSubmit: onSubmitAppointment,
+  } = useAppointmentCreate({
+    selectedDate: weekStart,
+    isAdmin,
+    selectedProfessionalId,
+    professionals,
+    onSuccess: fetchAppointments,
+    appointmentDuration,
+  })
+
+  // ============================================================================
   // Calendar Entry Create (non-CONSULTA types)
   // ============================================================================
 
@@ -274,6 +276,10 @@ function WeeklyAgendaPageContent() {
     setRecurrenceOccurrences: setEntryRecurrenceOccurrences,
     additionalProfessionalIds: entryAdditionalProfIds,
     setAdditionalProfessionalIds: setEntryAdditionalProfIds,
+    selectedPatient: entrySelectedPatient,
+    setSelectedPatient: setEntrySelectedPatient,
+    patientSearch: entryPatientSearch,
+    setPatientSearch: setEntryPatientSearch,
     apiError: entryApiError,
     clearApiError: clearEntryApiError,
     isSaving: isSavingEntry,
@@ -289,58 +295,22 @@ function WeeklyAgendaPageContent() {
   // FAB menu state
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false)
 
-  // ============================================================================
-  // Create Appointment
-  // ============================================================================
-
-  function openCreateSheet(overrides?: { date?: Date; startTime?: string; appointmentType?: AppointmentType }) {
-    setSelectedPatient(null)
-    setPatientSearch("")
-    setCreateProfessionalId(selectedProfessionalId || "")
-    setCreateApiError(null)
-    // Default to WEEKLY recurring appointment with no end date, unless overridden
-    setAppointmentType(overrides?.appointmentType || "WEEKLY")
-    setRecurrenceEndType("INDEFINITE")
-    setRecurrenceEndDate("")
-    setRecurrenceOccurrences(10)
-    setCreateAdditionalProfIds([])
-    const effectiveDate = overrides?.date || weekStart
-    reset({
-      patientId: "",
-      date: toDateString(effectiveDate),
-      startTime: overrides?.startTime || "",
-      modality: "PRESENCIAL",
-      notes: "",
-    })
-    setIsCreateSheetOpen(true)
-  }
-
-  function closeCreateSheet() {
-    setIsCreateSheetOpen(false)
-    setSelectedPatient(null)
-    setPatientSearch("")
-    setCreateProfessionalId("")
-    setAppointmentType("WEEKLY")
-  }
-
   // Handle alternate week click (biweekly appointments)
   const handleAlternateWeekClick = useCallback(async (appointment: Appointment) => {
     const scheduledAt = new Date(appointment.scheduledAt)
     const startTime = `${scheduledAt.getHours().toString().padStart(2, "0")}:${scheduledAt.getMinutes().toString().padStart(2, "0")}`
 
     if (appointment.alternateWeekInfo?.isAvailable) {
-      // No one scheduled — open create form pre-filled for the alternate date
       const alternateDate = new Date(scheduledAt)
       alternateDate.setDate(alternateDate.getDate() + 7)
-      openCreateSheet({ date: alternateDate, startTime, appointmentType: "BIWEEKLY" })
+      openCreateSheet(startTime, { date: alternateDate, appointmentType: "BIWEEKLY" })
     } else if (appointment.alternateWeekInfo?.pairedAppointmentId) {
-      // Someone is paired — fetch the paired appointment and open edit sheet
       const paired = await fetchAppointmentById(appointment.alternateWeekInfo.pairedAppointmentId)
       if (paired) {
         openEditSheet(paired)
       }
     }
-  }, [])
+  }, [openCreateSheet, openEditSheet])
 
   const handleFabMenuSelect = useCallback((type: CalendarEntryType | "CONSULTA") => {
     setIsFabMenuOpen(false)
@@ -349,101 +319,7 @@ function WeeklyAgendaPageContent() {
     } else {
       openEntrySheet(type as Exclude<CalendarEntryType, "CONSULTA">)
     }
-  }, [openEntrySheet])
-
-  function handleSelectPatient(patient: Patient) {
-    setSelectedPatient(patient)
-    setValue("patientId", patient.id)
-    setPatientSearch(patient.name)
-  }
-
-  function handlePatientSearchChange(v: string) {
-    setPatientSearch(v)
-    if (selectedPatient && v !== selectedPatient.name) {
-      setSelectedPatient(null)
-      setValue("patientId", "")
-    }
-  }
-
-  function handleClearPatient() {
-    setSelectedPatient(null)
-    setValue("patientId", "")
-  }
-
-  async function onSubmitAppointment(data: AppointmentFormData) {
-    // Clear any previous API error
-    setCreateApiError(null)
-
-    // For admin, require a professional to be selected
-    const effectiveProfessionalId = selectedProfessionalId || createProfessionalId
-    if (isAdmin && !effectiveProfessionalId) {
-      setCreateApiError("Selecione um profissional")
-      return
-    }
-
-    setIsSavingAppointment(true)
-    try {
-      const body: Record<string, unknown> = {
-        patientId: data.patientId,
-        date: toIsoDate(data.date),
-        startTime: data.startTime,
-        modality: data.modality,
-        notes: data.notes || null,
-      }
-
-      if (isAdmin && effectiveProfessionalId) {
-        body.professionalProfileId = effectiveProfessionalId
-      }
-      if (data.duration) {
-        body.duration = data.duration
-      }
-
-      if (createAdditionalProfIds.length > 0) {
-        body.additionalProfessionalIds = createAdditionalProfIds
-      }
-
-      // Only add recurrence if not SINGLE
-      const isRecurring = appointmentType !== "SINGLE"
-      if (isRecurring) {
-        body.recurrence = {
-          recurrenceType: appointmentType,
-          recurrenceEndType,
-          ...(recurrenceEndType === "BY_DATE" && { endDate: recurrenceEndDate }),
-          ...(recurrenceEndType === "BY_OCCURRENCES" && { occurrences: recurrenceOccurrences }),
-        }
-      }
-
-      const response = await fetch("/api/appointments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        if (result.occurrenceIndex) {
-          setCreateApiError(`${result.error} (Ocorrencia ${result.occurrenceIndex})`)
-        } else {
-          setCreateApiError(result.error || "Erro ao criar agendamento")
-        }
-        return
-      }
-
-      if (isRecurring && result.totalOccurrences) {
-        toast.success(`${result.totalOccurrences} agendamentos criados com sucesso`)
-      } else {
-        toast.success("Agendamento criado com sucesso")
-      }
-
-      closeCreateSheet()
-      fetchAppointments()
-    } catch {
-      setCreateApiError("Erro ao criar agendamento")
-    } finally {
-      setIsSavingAppointment(false)
-    }
-  }
+  }, [openCreateSheet, openEntrySheet])
 
   // ============================================================================
   // Edit Appointment
@@ -855,12 +731,12 @@ function WeeklyAgendaPageContent() {
   })
 
   const handleAvailabilitySlotClick = useCallback((date: string, time: string) => {
-    openCreateSheet({ date: new Date(date + "T12:00:00"), startTime: time })
-  }, [])
+    openCreateSheet(time, { date: new Date(date + "T12:00:00") })
+  }, [openCreateSheet])
 
   const handleBiweeklyHintClick = useCallback((date: string, time: string) => {
-    openCreateSheet({ date: new Date(date + "T12:00:00"), startTime: time, appointmentType: "BIWEEKLY" })
-  }, [])
+    openCreateSheet(time, { date: new Date(date + "T12:00:00"), appointmentType: "BIWEEKLY" })
+  }, [openCreateSheet])
 
   // ============================================================================
   // Render
@@ -929,7 +805,7 @@ function WeeklyAgendaPageContent() {
       </div>
 
       {/* FAB + menu rendered via portal to escape PageTransition's will-change containing block */}
-      <FabMenu
+      <AgendaFabMenu
         isOpen={isFabMenuOpen}
         onOpen={() => setIsFabMenuOpen(true)}
         onClose={() => setIsFabMenuOpen(false)}
@@ -937,15 +813,12 @@ function WeeklyAgendaPageContent() {
       />
 
       {/* Create Appointment Sheet */}
-      <CreateAppointmentForm
+      <CreateAppointmentSheet
         isOpen={isCreateSheetOpen}
         onClose={closeCreateSheet}
-        register={register}
-        watch={watch}
-        errors={errors}
-        onSubmit={handleSubmit(onSubmitAppointment)}
+        form={createForm}
         patientSearch={patientSearch}
-        onPatientSearchChange={handlePatientSearchChange}
+        onPatientSearchChange={setPatientSearch}
         selectedPatient={selectedPatient}
         onSelectPatient={handleSelectPatient}
         onClearPatient={handleClearPatient}
@@ -953,23 +826,23 @@ function WeeklyAgendaPageContent() {
         onAppointmentTypeChange={setAppointmentType}
         recurrenceEndType={recurrenceEndType}
         onRecurrenceEndTypeChange={setRecurrenceEndType}
-        recurrenceOccurrences={recurrenceOccurrences}
-        onRecurrenceOccurrencesChange={setRecurrenceOccurrences}
         recurrenceEndDate={recurrenceEndDate}
         onRecurrenceEndDateChange={setRecurrenceEndDate}
-        watchedDate={watchedDate}
-        watchedStartTime={watchedStartTime}
+        recurrenceOccurrences={recurrenceOccurrences}
+        onRecurrenceOccurrencesChange={setRecurrenceOccurrences}
         isAdmin={isAdmin}
         professionals={professionals}
+        createProfessionalId={createApptProfessionalId}
+        onCreateProfessionalIdChange={setCreateApptProfessionalId}
+        isProfessionalLocked={isApptProfessionalLocked}
         selectedProfessionalId={selectedProfessionalId}
-        createProfessionalId={createProfessionalId}
-        onCreateProfessionalIdChange={setCreateProfessionalId}
-        createAdditionalProfIds={createAdditionalProfIds}
-        onCreateAdditionalProfIdsChange={setCreateAdditionalProfIds}
-        appointmentDuration={appointmentDuration}
-        isSaving={isSavingAppointment}
+        additionalProfessionalIds={createAdditionalProfIds}
+        onAdditionalProfessionalIdsChange={setCreateAdditionalProfIds}
+        appointmentDuration={hookAppointmentDuration}
         apiError={createApiError}
-        onDismissError={() => setCreateApiError(null)}
+        onDismissError={clearCreateApiError}
+        isSaving={isSavingAppointment}
+        onSubmit={onSubmitAppointment}
       />
 
       {/* Edit Appointment Sheet */}
@@ -1044,6 +917,11 @@ function WeeklyAgendaPageContent() {
         setRecurrenceOccurrences={setEntryRecurrenceOccurrences}
         additionalProfessionalIds={entryAdditionalProfIds}
         setAdditionalProfessionalIds={setEntryAdditionalProfIds}
+        selectedPatient={entrySelectedPatient}
+        onSelectPatient={(p) => { setEntrySelectedPatient(p); setEntryPatientSearch(p.name) }}
+        onClearPatient={() => { setEntrySelectedPatient(null); setEntryPatientSearch("") }}
+        patientSearch={entryPatientSearch}
+        onPatientSearchChange={setEntryPatientSearch}
         apiError={entryApiError}
         onDismissError={clearEntryApiError}
         isSaving={isSavingEntry}

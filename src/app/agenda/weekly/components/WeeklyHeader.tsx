@@ -3,7 +3,18 @@
 import Link from "next/link"
 import { ListIcon } from "@/shared/components/ui"
 import { WeekNavigation } from "./WeekNavigation"
-import type { WeeklyHeaderProps } from "./types"
+import type { Professional } from "../../lib/types"
+
+interface WeeklyHeaderProps {
+  weekStart: Date
+  professionals: Professional[]
+  selectedProfessionalId: string
+  isAdmin: boolean
+  onPreviousWeek: () => void
+  onNextWeek: () => void
+  onToday: () => void
+  onSelectProfessional: (id: string) => void
+}
 
 export function WeeklyHeader({
   weekStart,

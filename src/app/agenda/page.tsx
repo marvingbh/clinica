@@ -161,6 +161,7 @@ export default function AgendaPage() {
     selectedProfessionalId,
     professionals,
     onSuccess: refetchAppointments,
+    appointmentDuration,
   })
 
   // Edit appointment
@@ -226,6 +227,10 @@ export default function AgendaPage() {
     setRecurrenceOccurrences: setEntryRecurrenceOccurrences,
     additionalProfessionalIds: entryAdditionalProfIds,
     setAdditionalProfessionalIds: setEntryAdditionalProfIds,
+    selectedPatient: entrySelectedPatient,
+    setSelectedPatient: setEntrySelectedPatient,
+    patientSearch: entryPatientSearch,
+    setPatientSearch: setEntryPatientSearch,
     apiError: entryApiError,
     clearApiError: clearEntryApiError,
     isSaving: isSavingEntry,
@@ -431,6 +436,11 @@ export default function AgendaPage() {
         setRecurrenceOccurrences={setEntryRecurrenceOccurrences}
         additionalProfessionalIds={entryAdditionalProfIds}
         setAdditionalProfessionalIds={setEntryAdditionalProfIds}
+        selectedPatient={entrySelectedPatient}
+        onSelectPatient={(p) => { setEntrySelectedPatient(p); setEntryPatientSearch(p.name) }}
+        onClearPatient={() => { setEntrySelectedPatient(null); setEntryPatientSearch("") }}
+        patientSearch={entryPatientSearch}
+        onPatientSearchChange={setEntryPatientSearch}
         apiError={entryApiError}
         onDismissError={clearEntryApiError}
         isSaving={isSavingEntry}

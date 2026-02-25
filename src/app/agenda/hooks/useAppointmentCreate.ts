@@ -6,6 +6,7 @@ import { toDisplayDateFromDate, toIsoDate } from "../lib/utils"
 import { appointmentSchema, AppointmentFormData, Patient, RecurrenceType, RecurrenceEndType, Professional } from "../lib/types"
 import { createAppointment, CreateAppointmentData } from "../services"
 import { AppointmentType } from "../components/RecurrenceOptions"
+import { DEFAULT_APPOINTMENT_DURATION } from "../lib/constants"
 
 export interface UseAppointmentCreateParams {
   selectedDate: Date
@@ -13,6 +14,7 @@ export interface UseAppointmentCreateParams {
   selectedProfessionalId: string
   professionals: Professional[]
   onSuccess: () => void
+  appointmentDuration?: number
 }
 
 export interface UseAppointmentCreateReturn {
@@ -50,6 +52,9 @@ export interface UseAppointmentCreateReturn {
   additionalProfessionalIds: string[]
   setAdditionalProfessionalIds: (ids: string[]) => void
 
+  // Duration
+  appointmentDuration: number
+
   // API error (shown inline)
   apiError: string | null
   clearApiError: () => void
@@ -65,6 +70,7 @@ export function useAppointmentCreate({
   selectedProfessionalId,
   professionals,
   onSuccess,
+  appointmentDuration = DEFAULT_APPOINTMENT_DURATION,
 }: UseAppointmentCreateParams): UseAppointmentCreateReturn {
   const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false)
   const [patientSearch, setPatientSearch] = useState("")
@@ -246,6 +252,7 @@ export function useAppointmentCreate({
     setRecurrenceOccurrences,
     additionalProfessionalIds,
     setAdditionalProfessionalIds,
+    appointmentDuration,
     apiError,
     clearApiError,
     isSaving,
