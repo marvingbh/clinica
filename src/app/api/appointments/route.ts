@@ -72,6 +72,7 @@ const createCalendarEntrySchema = z.object({
   title: z.string().min(1, "Titulo e obrigatorio").max(200),
   professionalProfileId: z.string().optional(),
   additionalProfessionalIds: z.array(z.string()).optional(),
+  patientId: z.string().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
   startTime: z.string().regex(timeRegex, "Invalid time format (HH:mm)"),
   duration: z.number().int().min(5).max(480).optional(),
@@ -497,6 +498,19 @@ async function handleCreateCalendarEntry(
     }
   }
 
+  // Validate patient if provided (REUNIAO with patient = billable school meeting)
+  let patientId: string | null = null
+  if (validation.data.patientId) {
+    const patient = await prisma.patient.findFirst({
+      where: { id: validation.data.patientId, clinicId: user.clinicId, isActive: true },
+      select: { id: true },
+    })
+    if (!patient) {
+      return NextResponse.json({ error: "Paciente não encontrado" }, { status: 404 })
+    }
+    patientId = patient.id
+  }
+
   const entryDuration = duration || DEFAULT_DURATIONS[type] || 60
   const blocksTime = getBlocksTime(type as AppointmentType)
 
@@ -595,6 +609,7 @@ async function handleCreateCalendarEntry(
       data: appointmentDates.map(apptDate => ({
         clinicId: user.clinicId,
         professionalProfileId: targetProfessionalProfileId,
+        patientId,
         type: type as AppointmentType,
         title,
         blocksTime,

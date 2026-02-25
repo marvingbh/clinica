@@ -7,7 +7,8 @@ import { TimeInput } from "./TimeInput"
 import { DateInput } from "./DateInput"
 import { ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
 import { calculateEndTime } from "../lib/utils"
-import type { CalendarEntryFormData, CalendarEntryType, RecurrenceEndType, Professional } from "../lib/types"
+import { PatientSearch } from "./PatientSearch"
+import type { CalendarEntryFormData, CalendarEntryType, RecurrenceEndType, Professional, Patient } from "../lib/types"
 
 type EntryType = Exclude<CalendarEntryType, "CONSULTA">
 
@@ -37,6 +38,12 @@ interface CalendarEntrySheetProps {
   // Additional professionals (REUNIAO only)
   additionalProfessionalIds: string[]
   setAdditionalProfessionalIds: (ids: string[]) => void
+  // Patient (optional, REUNIAO only — links to patient for billing)
+  selectedPatient?: Patient | null
+  onSelectPatient?: (patient: Patient) => void
+  onClearPatient?: () => void
+  patientSearch?: string
+  onPatientSearchChange?: (value: string) => void
   // State
   apiError: string | null
   onDismissError: () => void
@@ -67,6 +74,11 @@ export function CalendarEntrySheet({
   setRecurrenceOccurrences,
   additionalProfessionalIds,
   setAdditionalProfessionalIds,
+  selectedPatient,
+  onSelectPatient,
+  onClearPatient,
+  patientSearch,
+  onPatientSearchChange,
   apiError,
   onDismissError,
   isSaving,
@@ -101,6 +113,22 @@ export function CalendarEntrySheet({
             <p className="text-xs text-destructive mt-1">{form.formState.errors.title.message}</p>
           )}
         </div>
+
+        {/* Patient selection (REUNIAO only — optional, for billing) */}
+        {entryType === "REUNIAO" && onPatientSearchChange && (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Paciente <span className="text-muted-foreground font-normal">(opcional — para cobrança)</span>
+            </label>
+            <PatientSearch
+              value={patientSearch || ""}
+              onChange={onPatientSearchChange}
+              selectedPatient={selectedPatient || null}
+              onSelectPatient={onSelectPatient || (() => {})}
+              onClearPatient={onClearPatient || (() => {})}
+            />
+          </div>
+        )}
 
         {/* Section header */}
         <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">

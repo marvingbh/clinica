@@ -44,6 +44,7 @@ export interface CreateCalendarEntryData {
   duration?: number
   professionalProfileId?: string
   additionalProfessionalIds?: string[]
+  patientId?: string
   recurrence?: {
     recurrenceType: "WEEKLY" | "BIWEEKLY"
     recurrenceEndType: "BY_DATE" | "BY_OCCURRENCES" | "INDEFINITE"

@@ -3,7 +3,7 @@ import { useForm, UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 import { toDisplayDateFromDate, toIsoDate } from "../lib/utils"
-import { calendarEntrySchema, CalendarEntryFormData, CalendarEntryType, RecurrenceEndType, Professional } from "../lib/types"
+import { calendarEntrySchema, CalendarEntryFormData, CalendarEntryType, RecurrenceEndType, Professional, Patient } from "../lib/types"
 import { createCalendarEntry, CreateCalendarEntryData } from "../services"
 import { DEFAULT_ENTRY_DURATIONS } from "../lib/constants"
 
@@ -40,6 +40,11 @@ export interface UseCalendarEntryCreateReturn {
   setRecurrenceOccurrences: (occurrences: number) => void
   additionalProfessionalIds: string[]
   setAdditionalProfessionalIds: (ids: string[]) => void
+  // Patient (optional, for REUNIAO)
+  selectedPatient: Patient | null
+  setSelectedPatient: (patient: Patient | null) => void
+  patientSearch: string
+  setPatientSearch: (value: string) => void
   apiError: string | null
   clearApiError: () => void
   isSaving: boolean
@@ -69,6 +74,8 @@ export function useCalendarEntryCreate({
   const [recurrenceEndDate, setRecurrenceEndDate] = useState("")
   const [recurrenceOccurrences, setRecurrenceOccurrences] = useState(10)
   const [additionalProfessionalIds, setAdditionalProfessionalIds] = useState<string[]>([])
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
+  const [patientSearch, setPatientSearch] = useState("")
 
   const form = useForm<CalendarEntryFormData>({
     resolver: zodResolver(calendarEntrySchema),
@@ -85,6 +92,8 @@ export function useCalendarEntryCreate({
       setRecurrenceEndDate("")
       setRecurrenceOccurrences(10)
       setAdditionalProfessionalIds([])
+      setSelectedPatient(null)
+      setPatientSearch("")
       form.reset({
         title: "",
         date: toDisplayDateFromDate(selectedDate),
@@ -129,8 +138,13 @@ export function useCalendarEntryCreate({
           body.professionalProfileId = effectiveProfessionalId
         }
 
-        if (entryType === "REUNIAO" && additionalProfessionalIds.length > 0) {
-          body.additionalProfessionalIds = additionalProfessionalIds
+        if (entryType === "REUNIAO") {
+          if (additionalProfessionalIds.length > 0) {
+            body.additionalProfessionalIds = additionalProfessionalIds
+          }
+          if (selectedPatient) {
+            body.patientId = selectedPatient.id
+          }
         }
 
         if (isRecurring) {
@@ -178,6 +192,7 @@ export function useCalendarEntryCreate({
       recurrenceEndDate,
       recurrenceOccurrences,
       additionalProfessionalIds,
+      selectedPatient,
       closeSheet,
       onSuccess,
     ]
@@ -204,6 +219,10 @@ export function useCalendarEntryCreate({
     setRecurrenceOccurrences,
     additionalProfessionalIds,
     setAdditionalProfessionalIds,
+    selectedPatient,
+    setSelectedPatient,
+    patientSearch,
+    setPatientSearch,
     apiError,
     clearApiError,
     isSaving,
