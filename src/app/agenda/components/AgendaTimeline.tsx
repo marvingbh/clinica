@@ -82,6 +82,13 @@ export function AgendaTimeline({
   onSwipeRight,
   professionalColorMap,
 }: AgendaTimelineProps) {
+  // "Now" indicator — update every minute (must be before any early returns)
+  const [now, setNow] = useState(new Date())
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60_000)
+    return () => clearInterval(interval)
+  }, [])
+
   // Show skeleton while loading data
   if (isLoading) {
     return <AgendaTimelineSkeleton />
@@ -124,12 +131,6 @@ export function AgendaTimeline({
       </SwipeContainer>
     )
   }
-  // "Now" indicator — update every minute
-  const [now, setNow] = useState(new Date())
-  useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 60_000)
-    return () => clearInterval(interval)
-  }, [])
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
   const isToday = selectedDate === todayStr
   const nowTimeStr = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`
