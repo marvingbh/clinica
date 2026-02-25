@@ -1,5 +1,6 @@
 "use client"
 
+import React, { useState, useEffect } from "react"
 import { SwipeContainer, EmptyState, ClockIcon, BanIcon, PlusIcon } from "@/shared/components/ui"
 import { ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { formatTime, isSlotInPast } from "../lib/utils"
@@ -123,6 +124,16 @@ export function AgendaTimeline({
       </SwipeContainer>
     )
   }
+  // "Now" indicator — update every minute
+  const [now, setNow] = useState(new Date())
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60_000)
+    return () => clearInterval(interval)
+  }, [])
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+  const isToday = selectedDate === todayStr
+  const nowTimeStr = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`
+
   // Create a map of group sessions by their start time
   const groupSessionsByTime = new Map<string, GroupSession[]>()
   for (const session of groupSessions) {
@@ -194,9 +205,13 @@ export function AgendaTimeline({
 
       {timeSlots.length > 0 && (
         <div className="space-y-1">
-          {timeSlots.map((slot) => {
+          {timeSlots.flatMap((slot, slotIndex) => {
             // Skip slots hidden by an ongoing group session (they're visually merged into the session start slot)
-            if (hiddenSlotTimes.has(slot.time)) return null
+            if (hiddenSlotTimes.has(slot.time)) return []
+
+            // Show "now" line before the first slot that is at or after the current time
+            const prevSlot = slotIndex > 0 ? timeSlots[slotIndex - 1] : null
+            const showNowLine = isToday && slot.time >= nowTimeStr && (!prevSlot || prevSlot.time < nowTimeStr)
 
             const hasAppointments = slot.appointments.length > 0
             const slotGroupSessions = groupSessionsByTime.get(slot.time) || []
@@ -255,7 +270,23 @@ export function AgendaTimeline({
             // Extra height for group sessions that span multiple slots
             const extraSpan = groupSessionSpanCount.get(slot.time) || 0
 
-            return (
+            const elements: React.ReactNode[] = []
+
+            if (showNowLine) {
+              elements.push(
+                <div key={`now-${slot.time}`} className="flex items-center my-1 px-1">
+                  <div className="w-16 shrink-0 flex justify-end pr-3">
+                    <span className="text-[10px] font-bold text-red-500 tabular-nums">
+                      {nowTimeStr}
+                    </span>
+                  </div>
+                  <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                  <div className="flex-1 h-[2px] bg-red-500/60" />
+                </div>
+              )
+            }
+
+            elements.push(
               <div
                 key={slot.time}
                 className={`flex items-stretch min-h-[4.5rem] ${isBlocked && !hasAnyContent ? "opacity-50" : ""}`}
@@ -381,6 +412,8 @@ export function AgendaTimeline({
                 </div>
               </div>
             )
+
+            return elements
           })}
         </div>
       )}
