@@ -20,7 +20,7 @@ async function getInvoiceWithContext(invoiceId: string, clinicId: string, scope:
         : {}),
     },
     include: {
-      patient: { select: { name: true, motherName: true, fatherName: true, invoiceMessageTemplate: true } },
+      patient: { select: { name: true, motherName: true, fatherName: true, sessionFee: true, invoiceMessageTemplate: true } },
       professionalProfile: { select: { user: { select: { name: true } } } },
     },
   })

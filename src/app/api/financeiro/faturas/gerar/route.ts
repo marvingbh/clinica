@@ -3,7 +3,7 @@ import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { classifyAppointments, buildInvoiceItems, buildMonthlyInvoiceItems, calculateInvoiceTotals } from "@/lib/financeiro/invoice-generator"
-import { renderInvoiceTemplate, DEFAULT_INVOICE_TEMPLATE } from "@/lib/financeiro/invoice-template"
+import { renderInvoiceTemplate, buildDetailBlock, DEFAULT_INVOICE_TEMPLATE } from "@/lib/financeiro/invoice-template"
 import { getMonthName, formatCurrencyBRL } from "@/lib/financeiro/format"
 
 const schema = z.object({
@@ -187,6 +187,19 @@ export const POST = withFeatureAuth(
         }
         const totals = calculateInvoiceTotals(items)
 
+        // For detalhes, always include session dates regardless of showDays setting
+        const detailItems = clinic?.billingMode === "MONTHLY_FIXED"
+          ? items
+          : buildInvoiceItems(classified, sessionFee, availableCredits, true)
+        const detalhes = buildDetailBlock(
+          detailItems.map(i => ({
+            description: i.description,
+            total: formatCurrencyBRL(i.total),
+            type: i.type,
+          })),
+          { grouped: true }
+        )
+
         const template = patient.invoiceMessageTemplate
           || clinic?.invoiceMessageTemplate
           || DEFAULT_INVOICE_TEMPLATE
@@ -200,6 +213,13 @@ export const POST = withFeatureAuth(
           vencimento: dueDate.toLocaleDateString("pt-BR"),
           sessoes: String(totals.totalSessions),
           profissional: profName,
+          sessoes_regulares: String(classified.regular.length),
+          sessoes_extras: String(classified.extra.length),
+          sessoes_grupo: String(classified.group.length),
+          reunioes_escola: String(classified.schoolMeeting.length),
+          creditos: String(totals.creditsApplied),
+          valor_sessao: formatCurrencyBRL(sessionFee),
+          detalhes,
         })
 
         const invoice = await tx.invoice.create({

@@ -360,7 +360,7 @@ export default function AdminSettingsPage() {
                 className="w-full px-4 py-3 rounded-md border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors resize-none font-mono"
               />
               <p className="text-xs text-muted-foreground mt-2">
-                {"Variaveis disponiveis: {{paciente}}, {{mae}}, {{pai}}, {{valor}}, {{mes}}, {{ano}}, {{vencimento}}, {{sessoes}}, {{profissional}}"}
+                {"Variaveis disponiveis: {{paciente}}, {{mae}}, {{pai}}, {{valor}}, {{mes}}, {{ano}}, {{vencimento}}, {{sessoes}}, {{profissional}}, {{sessoes_regulares}}, {{sessoes_extras}}, {{sessoes_grupo}}, {{reunioes_escola}}, {{creditos}}, {{valor_sessao}}, {{detalhes}}"}
               </p>
             </div>
             <div className="flex gap-3">
