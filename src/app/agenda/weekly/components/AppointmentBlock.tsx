@@ -119,6 +119,12 @@ export function AppointmentBlock({
             {startTimeStr} - {endTimeStr}
           </p>
         )}
+        {/* Notes/obs - show truncated if there's enough height */}
+        {height >= 64 && appointment.notes && (
+          <p className="text-[9px] text-muted-foreground leading-tight line-clamp-2">
+            {appointment.notes.length > 50 ? `${appointment.notes.slice(0, 50)}…` : appointment.notes}
+          </p>
+        )}
         {/* Alternate week info for biweekly - show if there's enough height */}
         {height >= 64 && appointment.recurrence?.recurrenceType === "BIWEEKLY" && appointment.alternateWeekInfo && (
           <p
