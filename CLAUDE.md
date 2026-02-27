@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Clinica is a multi-tenant clinic management system built with Next.js 16+, PostgreSQL (via Prisma), and NextAuth.js for authentication. It provides appointment scheduling, patient management, notification systems, and audit logging for healthcare clinics in Brazil.
+Clinica is a multi-tenant SaaS clinic management system built with Next.js 16+, PostgreSQL (via Prisma), and NextAuth.js for authentication. It provides appointment scheduling, patient management, billing/invoicing, notification systems, and audit logging for healthcare clinics in Brazil. There is also a superadmin panel for managing clinics and Stripe subscription plans.
 
 ## Development Commands
 
@@ -20,6 +20,12 @@ npm run test             # Run all unit tests (vitest)
 npm run test:watch       # Run tests in watch mode
 ```
 
+### Single test file
+
+```bash
+npx vitest run src/lib/path/to/file.test.ts
+```
+
 ### Database Setup
 
 ```bash
@@ -27,6 +33,12 @@ docker-compose up -d     # Start PostgreSQL container
 npm run prisma:push      # Apply schema
 npm run prisma:seed      # Create test clinic and admin user (admin@x.com / admin)
 ```
+
+**Note:** When schema has drifted from migration history, use `npx prisma db push` instead of `npx prisma migrate dev`.
+
+### Vercel Build
+
+The `vercel-build` script runs: `prisma generate && vitest run && prisma migrate deploy && next build`. Tests must pass before deploy.
 
 ## Architecture
 
@@ -37,42 +49,61 @@ All data is scoped by `clinicId`. Users belong to a clinic and can only access d
 ### Authentication & Authorization
 
 - **NextAuth.js** with credentials provider (`src/lib/auth.ts`)
-- **RBAC system** in `src/lib/rbac/`:
+- **Separate superadmin auth** (`src/lib/superadmin-auth.ts`) — JWT-based, not tied to any clinic
+- **Feature-based RBAC** in `src/lib/rbac/`:
   - Two roles: `ADMIN` (clinic-wide access) and `PROFESSIONAL` (own resources only)
-  - Permissions have scope: `own` (user's resources), `clinic` (all clinic resources)
-  - `withAuth()` HOF wraps API routes with auth + permission checks
+  - Permissions are feature-level (e.g., `agenda_own`, `patients`, `finances`) with access levels: `NONE`, `READ`, `WRITE`
+  - Per-user permission overrides via `UserPermission` model (if no override exists, role default applies)
+  - `withAuth()` and `withFeatureAuth()` HOFs wrap API routes with auth + permission checks
+- **AuthUser type** (`src/lib/rbac/types.ts`): has `id`, `clinicId`, `role`, `professionalProfileId`, and `permissions`. Does NOT have `name` or `email`.
 
 ### Key Domain Models (prisma/schema.prisma)
 
-- **Clinic**: Tenant with settings (session duration, reminder hours)
-- **User**: Staff account with role (ADMIN/PROFESSIONAL)
-- **ProfessionalProfile**: Extended profile for providers with availability settings
-- **Patient**: LGPD-compliant patient records with consent tracking
-- **Appointment**: Individual appointments with status workflow (AGENDADO → CONFIRMADO → FINALIZADO)
-- **AppointmentRecurrence**: Recurring appointment patterns (weekly/biweekly/monthly)
-- **AvailabilityRule/Exception**: Professional availability management
-- **Notification**: Multi-channel (WhatsApp/Email) notification queue with retry logic
+- **Clinic**: Tenant with settings, Stripe subscription, and billing mode (PER_SESSION/MONTHLY_FIXED)
+- **User/ProfessionalProfile**: Staff accounts with role-based access
+- **Patient**: LGPD-compliant records with consent tracking, session fee, reference professional
+- **Appointment**: Calendar entries with status workflow (AGENDADO → CONFIRMADO → FINALIZADO) and 5 types (CONSULTA, TAREFA, LEMBRETE, NOTA, REUNIAO)
+- **AppointmentRecurrence**: Recurring patterns (weekly/biweekly/monthly) with exceptions
+- **TherapyGroup/GroupMembership**: Group therapy with patient membership tracking
+- **Invoice/InvoiceItem/SessionCredit**: Financial module for billing, invoicing, and credit management
+- **Plan/SuperAdmin**: SaaS subscription plans and platform administration
+
+### Appointment Types
+
+- `CONSULTA`: Requires patient; gets notifications, reminders, confirmation tokens; blocks time
+- `TAREFA`/`REUNIAO`: No patient required; blocks time; no notifications
+- `LEMBRETE`/`NOTA`: No patient required; does NOT block time; renders as small chips in timeline
 
 ### Code Organization (Domain-Driven Design)
 
-Business logic lives in **domain modules** under `src/lib/`, organized by bounded context (not by technical layer). Each domain module owns its types, pure functions, and tests. API routes and UI components are thin adapters that call into domain modules.
+Business logic lives in **domain modules** under `src/lib/`, organized by bounded context. Each module owns its types, pure functions, barrel `index.ts`, and colocated tests. API routes and UI components are thin adapters.
 
 ```
 src/
 ├── app/                    # Next.js App Router (adapters / thin orchestration)
 │   ├── api/               # API routes — Prisma queries + domain function calls
+│   │   ├── public/        # Unauthenticated routes (confirm, cancel, signup, plans)
+│   │   ├── superadmin/    # Platform admin routes (JWT-based auth)
+│   │   ├── jobs/          # Cron job endpoints (send-reminders, extend-recurrences)
+│   │   ├── financeiro/    # Billing/invoice routes
+│   │   └── ...            # Standard authenticated routes
 │   ├── agenda/            # Calendar/scheduling pages
-│   │   ├── components/    # Agenda-specific UI components
-│   │   ├── hooks/         # Custom hooks (useAppointmentCreate, etc.)
-│   │   └── services/      # Data fetching services
+│   ├── financeiro/        # Financial pages (invoices, credits, pricing)
+│   ├── superadmin/        # Platform admin UI
 │   └── [other pages]/
 ├── lib/                    # Domain modules (business logic lives here)
-│   ├── api/               # API helpers (withAuth, withAuthentication)
-│   ├── appointments/      # Appointment domain (conflicts, recurrence, biweekly pairing)
-│   ├── notifications/     # Notification domain (service + providers)
-│   ├── rbac/              # Authorization domain (roles, permissions)
+│   ├── api/               # API helpers (withAuth, withFeatureAuth, withSuperAdmin)
+│   ├── appointments/      # Conflicts, recurrence, biweekly pairing, status transitions, HMAC-signed links
+│   ├── financeiro/        # Invoice generation, formatting, billing labels, templates
+│   ├── notifications/     # Notification service, providers, phone number handling
+│   ├── rbac/              # Feature-based authorization (roles, permissions, types)
+│   ├── subscription/      # SaaS plan limits and subscription status checks
+│   ├── groups/            # Therapy group logic
+│   ├── audit/             # Audit log field labels
 │   ├── auth.ts            # NextAuth configuration
-│   └── prisma.ts          # Prisma client singleton
+│   ├── superadmin-auth.ts # Superadmin JWT auth
+│   ├── prisma.ts          # Prisma client singleton
+│   └── rate-limit.ts      # In-memory rate limiting
 ├── shared/components/ui/   # Reusable UI components
 └── generated/prisma/       # Generated Prisma client (do not edit)
 ```
@@ -80,12 +111,12 @@ src/
 **DDD principles to follow:**
 - **Domain logic in `src/lib/`**: Pure functions with clear inputs/outputs, no framework dependencies. Easy to test.
 - **API routes are adapters**: They handle HTTP, call Prisma for data, then pass data to domain functions. No business logic inline in routes.
-- **One module per bounded context**: `appointments/`, `notifications/`, `rbac/`, etc. Each has its own types, functions, index.ts barrel, and colocated tests.
+- **One module per bounded context**: Each has its own types, functions, index.ts barrel, and colocated tests.
 - **Avoid anemic modules**: If a domain concept has behavior (validation, computation, matching), it belongs in the domain module — not scattered across routes or components.
 
-### API Route Pattern
+### API Route Patterns
 
-Use the `withAuth` wrapper for protected routes:
+Standard authenticated route with legacy resource/action check:
 
 ```typescript
 export const GET = withAuth(
@@ -96,12 +127,27 @@ export const GET = withAuth(
 )
 ```
 
+Feature-based auth (preferred for new routes):
+
+```typescript
+export const GET = withFeatureAuth(
+  { feature: "finances", minAccess: "READ" },
+  async (req, { user }) => { ... }
+)
+```
+
+Public routes (no auth) go in `src/app/api/public/` and use `withAuthentication()` or plain handlers.
+
 ### Notification System
 
 - Providers: `whatsapp-mock` (dev) and `email-resend`
 - Template system with variable substitution (`{{patientName}}`, etc.)
 - Exponential backoff retry with configurable max attempts
-- Cron job at `/api/jobs/send-reminders` for scheduled reminders
+
+### Cron Jobs (vercel.json)
+
+- `/api/jobs/send-reminders` — daily at 10:00 UTC: sends appointment reminders
+- `/api/jobs/extend-recurrences` — weekly on Mondays at 02:00 UTC: generates future appointments for INDEFINITE recurrences
 
 ### Frontend
 
@@ -110,6 +156,7 @@ export const GET = withAuth(
 - Page transitions via `PageTransition` component
 - Toast notifications via Sonner
 - Forms with react-hook-form + zod validation
+- Icons via lucide-react
 
 ### Component Guidelines
 
@@ -134,6 +181,10 @@ export const GET = withAuth(
 - **Locale**: `pt-BR` for all `toLocaleDateString()` and `toLocaleTimeString()` calls
 - **Date inputs**: Use text inputs with mask/pattern for Brazilian format, NOT native `type="date"` (which uses system locale)
 
+### Nullable Patient Gotcha
+
+When `patient` is nullable (non-CONSULTA appointment types), ALL usages of `patient.name`, `patient.phone`, etc. need `?.` optional chaining. Run `npm run build` to catch them all. Commonly affected files: `TimeSlotCard.tsx`, `AppointmentBlock.tsx`, group session routes, cancel/confirm routes, status routes, resend-confirmation.
+
 ## Testing
 
 **Every new feature or bug fix must include unit tests.** Run `npm run test` before committing.
@@ -146,7 +197,7 @@ export const GET = withAuth(
 
 ### What to test
 
-- All pure business logic in `src/lib/` (recurrence, permissions, formatting, rate limiting, etc.)
+- All pure business logic in `src/lib/` (recurrence, permissions, formatting, billing, rate limiting, etc.)
 - New utility functions, validators, and formatters
 - Any function with non-trivial logic, edge cases, or date/currency handling
 
@@ -160,7 +211,7 @@ export const GET = withAuth(
 
 ### Existing test coverage
 
-Tests exist for: `appointments/recurrence`, `audit/field-labels`, `rbac/permissions`, `rbac/authorize`, `rate-limit`, `notifications/types`
+Tests exist for: `appointments/recurrence`, `appointments/biweekly`, `appointments/appointment-links`, `appointments/status-transitions`, `audit/field-labels`, `rbac/permissions`, `rbac/authorize`, `rate-limit`, `notifications/types`, `notifications/phone-numbers`, `financeiro/format`, `financeiro/invoice-generator`, `financeiro/invoice-template`, `subscription/limits`, `subscription/status`, `superadmin-auth`, `api/with-superadmin`
 
 ## Path Aliases
 
