@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { hashPassword } from "@/lib/password"
 import { z } from "zod"
-import { stripe } from "@/lib/stripe"
 
 const signupSchema = z.object({
   clinicName: z.string().min(2, "Nome da clinica deve ter pelo menos 2 caracteres"),
@@ -57,11 +56,16 @@ export async function POST(req: NextRequest) {
     const trialEndsAt = new Date()
     trialEndsAt.setDate(trialEndsAt.getDate() + 14)
 
-    const stripeCustomer = await stripe.customers.create({
-      email,
-      name: clinicName,
-      metadata: { ownerName },
-    })
+    let stripeCustomerId: string | null = null
+    if (process.env.STRIPE_SECRET_KEY) {
+      const { stripe } = await import("@/lib/stripe")
+      const stripeCustomer = await stripe.customers.create({
+        email,
+        name: clinicName,
+        metadata: { ownerName },
+      })
+      stripeCustomerId = stripeCustomer.id
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       const clinic = await tx.clinic.create({
@@ -71,7 +75,7 @@ export async function POST(req: NextRequest) {
           phone,
           subscriptionStatus: "trialing",
           trialEndsAt,
-          stripeCustomerId: stripeCustomer.id,
+          stripeCustomerId,
         },
       })
 
