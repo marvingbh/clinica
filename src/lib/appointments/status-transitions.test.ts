@@ -38,26 +38,36 @@ describe("isValidTransition", () => {
     expect(isValidTransition("FINALIZADO", "CANCELADO_FALTA")).toBe(false)
   })
 
-  it("blocks transitions from CANCELADO_PROFISSIONAL (terminal)", () => {
+  it("allows CANCELADO_PROFISSIONAL → other cancel statuses", () => {
+    expect(isValidTransition("CANCELADO_PROFISSIONAL", "CANCELADO_FALTA")).toBe(true)
+    expect(isValidTransition("CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO")).toBe(true)
+  })
+
+  it("blocks CANCELADO_PROFISSIONAL → non-cancel statuses", () => {
     expect(isValidTransition("CANCELADO_PROFISSIONAL", "AGENDADO")).toBe(false)
+    expect(isValidTransition("CANCELADO_PROFISSIONAL", "CONFIRMADO")).toBe(false)
     expect(isValidTransition("CANCELADO_PROFISSIONAL", "FINALIZADO")).toBe(false)
   })
 
-  it("allows CANCELADO_ACORDADO → CANCELADO_FALTA", () => {
+  it("allows CANCELADO_ACORDADO → other cancel statuses", () => {
     expect(isValidTransition("CANCELADO_ACORDADO", "CANCELADO_FALTA")).toBe(true)
+    expect(isValidTransition("CANCELADO_ACORDADO", "CANCELADO_PROFISSIONAL")).toBe(true)
   })
 
-  it("blocks CANCELADO_ACORDADO → anything else", () => {
+  it("blocks CANCELADO_ACORDADO → non-cancel statuses", () => {
     expect(isValidTransition("CANCELADO_ACORDADO", "AGENDADO")).toBe(false)
+    expect(isValidTransition("CANCELADO_ACORDADO", "CONFIRMADO")).toBe(false)
     expect(isValidTransition("CANCELADO_ACORDADO", "FINALIZADO")).toBe(false)
   })
 
-  it("allows CANCELADO_FALTA → CANCELADO_ACORDADO", () => {
+  it("allows CANCELADO_FALTA → other cancel statuses", () => {
     expect(isValidTransition("CANCELADO_FALTA", "CANCELADO_ACORDADO")).toBe(true)
+    expect(isValidTransition("CANCELADO_FALTA", "CANCELADO_PROFISSIONAL")).toBe(true)
   })
 
-  it("blocks CANCELADO_FALTA → anything else", () => {
+  it("blocks CANCELADO_FALTA → non-cancel statuses", () => {
     expect(isValidTransition("CANCELADO_FALTA", "AGENDADO")).toBe(false)
+    expect(isValidTransition("CANCELADO_FALTA", "CONFIRMADO")).toBe(false)
     expect(isValidTransition("CANCELADO_FALTA", "FINALIZADO")).toBe(false)
   })
 
@@ -125,8 +135,10 @@ describe("VALID_TRANSITIONS", () => {
     expect(VALID_TRANSITIONS.FINALIZADO).toEqual([])
   })
 
-  it("CANCELADO_PROFISSIONAL is a terminal state", () => {
-    expect(VALID_TRANSITIONS.CANCELADO_PROFISSIONAL).toEqual([])
+  it("CANCELADO_PROFISSIONAL allows switching to other cancel types", () => {
+    expect(VALID_TRANSITIONS.CANCELADO_PROFISSIONAL).toHaveLength(2)
+    expect(VALID_TRANSITIONS.CANCELADO_PROFISSIONAL).toContain("CANCELADO_FALTA")
+    expect(VALID_TRANSITIONS.CANCELADO_PROFISSIONAL).toContain("CANCELADO_ACORDADO")
   })
 })
 
@@ -135,5 +147,6 @@ describe("STATUS_LABELS", () => {
     expect(Object.keys(STATUS_LABELS)).toHaveLength(6)
     expect(STATUS_LABELS.AGENDADO).toBe("Agendado")
     expect(STATUS_LABELS.FINALIZADO).toBe("Finalizado")
+    expect(STATUS_LABELS.CANCELADO_PROFISSIONAL).toBe("Cancelado (s/ cobranca)")
   })
 })

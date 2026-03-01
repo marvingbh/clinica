@@ -33,9 +33,9 @@ export const VALID_TRANSITIONS: Record<AppointmentStatusType, AppointmentStatusT
     AppointmentStatus.CANCELADO_ACORDADO,
   ],
   FINALIZADO: [],
-  CANCELADO_ACORDADO: [AppointmentStatus.CANCELADO_FALTA],
-  CANCELADO_FALTA: [AppointmentStatus.CANCELADO_ACORDADO],
-  CANCELADO_PROFISSIONAL: [],
+  CANCELADO_ACORDADO: [AppointmentStatus.CANCELADO_FALTA, AppointmentStatus.CANCELADO_PROFISSIONAL],
+  CANCELADO_FALTA: [AppointmentStatus.CANCELADO_ACORDADO, AppointmentStatus.CANCELADO_PROFISSIONAL],
+  CANCELADO_PROFISSIONAL: [AppointmentStatus.CANCELADO_FALTA, AppointmentStatus.CANCELADO_ACORDADO],
 }
 
 export const STATUS_LABELS: Record<AppointmentStatusType, string> = {
@@ -44,7 +44,7 @@ export const STATUS_LABELS: Record<AppointmentStatusType, string> = {
   FINALIZADO: "Finalizado",
   CANCELADO_ACORDADO: "Desmarcou",
   CANCELADO_FALTA: "Cancelado (Falta)",
-  CANCELADO_PROFISSIONAL: "Cancelado (Profissional)",
+  CANCELADO_PROFISSIONAL: "Cancelado (s/ cobranca)",
 }
 
 export function isValidTransition(from: string, to: string): boolean {
