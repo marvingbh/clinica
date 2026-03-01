@@ -24,7 +24,7 @@ export interface UseAppointmentActionsReturn {
 
   // Status updates
   isUpdatingStatus: boolean
-  handleUpdateStatus: (newStatus: string, successMessage: string) => Promise<void>
+  handleUpdateStatus: (newStatus: string, successMessage: string, reason?: string) => Promise<void>
 
   // Resend confirmation
   isResendingConfirmation: boolean
@@ -86,12 +86,12 @@ export function useAppointmentActions({
   )
 
   const handleUpdateStatus = useCallback(
-    async (newStatus: string, successMessage: string) => {
+    async (newStatus: string, successMessage: string, reason?: string) => {
       if (!selectedAppointment) return
 
       setIsUpdatingStatus(true)
       try {
-        const result = await updateStatus(selectedAppointment.id, newStatus)
+        const result = await updateStatus(selectedAppointment.id, newStatus, reason)
 
         if (result.error) {
           toast.error(result.error)

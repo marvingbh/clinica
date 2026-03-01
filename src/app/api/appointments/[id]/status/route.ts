@@ -30,7 +30,7 @@ export const PATCH = withFeatureAuth(
   async (req, { user }, params) => {
     const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "WRITE")
     // Parse request body
-    let body: { status?: string }
+    let body: { status?: string; cancellationReason?: string }
     try {
       body = await req.json()
     } catch {
@@ -40,7 +40,7 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { status: newStatus } = body
+    const { status: newStatus, cancellationReason } = body
 
     // Validate status is provided
     if (!newStatus || typeof newStatus !== "string") {
@@ -174,10 +174,17 @@ export const PATCH = withFeatureAuth(
     const now = new Date()
     const updateData = computeStatusUpdateData(targetStatus, now)
 
+    const isCancelStatus = [
+      "CANCELADO_FALTA", "CANCELADO_ACORDADO", "CANCELADO_PROFISSIONAL"
+    ].includes(targetStatus)
+
     // Update the appointment
     const updatedAppointment = await prisma.appointment.update({
       where: { id: params.id },
-      data: updateData,
+      data: {
+        ...updateData,
+        ...(isCancelStatus && cancellationReason ? { cancellationReason } : {}),
+      },
       include: {
         patient: {
           select: {

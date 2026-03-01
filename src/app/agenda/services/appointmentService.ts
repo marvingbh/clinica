@@ -217,12 +217,13 @@ export async function cancelAppointment(
 
 export async function updateStatus(
   id: string,
-  status: string
+  status: string,
+  reason?: string
 ): Promise<UpdateStatusResponse> {
   const response = await fetch(`/api/appointments/${id}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, ...(reason ? { cancellationReason: reason } : {}) }),
   })
 
   const result = await response.json()
