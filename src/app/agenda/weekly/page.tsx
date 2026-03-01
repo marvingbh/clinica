@@ -13,7 +13,6 @@ import {
 import {
   Professional,
   Appointment,
-  CancelType,
   EditAppointmentFormData,
   editAppointmentSchema,
   GroupSession,
@@ -32,7 +31,6 @@ import {
 import {
   toDateString,
   toLocalDateTime,
-  canCancelAppointment,
   canMarkStatus,
   canResendConfirmation,
   getWeekStart,
@@ -40,7 +38,6 @@ import {
 } from "../lib/utils"
 
 import {
-  CancelDialog,
   AppointmentEditor,
   GroupSessionSheet,
   CalendarEntrySheet,
@@ -100,9 +97,6 @@ function WeeklyAgendaPageContent() {
   const [isUpdatingAppointment, setIsUpdatingAppointment] = useState(false)
   const [editApiError, setEditApiError] = useState<string | null>(null)
   const [editAdditionalProfIds, setEditAdditionalProfIds] = useState<string[]>([])
-
-  // Cancel dialog state
-  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
 
   // Status update state
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
@@ -394,40 +388,6 @@ function WeeklyAgendaPageContent() {
     } finally {
       setIsUpdatingAppointment(false)
     }
-  }
-
-  // ============================================================================
-  // Cancel Appointment
-  // ============================================================================
-
-  async function handleCancelAppointment(reason: string, notifyPatient: boolean, cancelType: CancelType) {
-    if (!selectedAppointment) return
-
-    const response = await fetch(`/api/appointments/${selectedAppointment.id}/cancel`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason, notifyPatient, cancelType }),
-    })
-
-    const result = await response.json()
-
-    if (!response.ok) {
-      toast.error(result.error || "Erro ao cancelar agendamento")
-      throw new Error(result.error)
-    }
-
-    if (result.cancelType === "series" && result.cancelledCount > 1) {
-      toast.success(`${result.cancelledCount} agendamentos cancelados com sucesso`)
-    } else {
-      toast.success("Agendamento cancelado com sucesso")
-    }
-    if (result.notificationCreated) {
-      toast.success("Notificacao enviada ao paciente")
-    }
-
-    setIsCancelDialogOpen(false)
-    closeEditSheet()
-    fetchAppointments()
   }
 
   // ============================================================================
@@ -861,8 +821,6 @@ function WeeklyAgendaPageContent() {
         canResendConfirmation={canResendConfirmation(selectedAppointment)}
         onResendConfirmation={handleResendConfirmation}
         isResendingConfirmation={isResendingConfirmation}
-        canCancel={canCancelAppointment(selectedAppointment)}
-        onCancelClick={() => setIsCancelDialogOpen(true)}
         isDeleteDialogOpen={isDeleteDialogOpen}
         setIsDeleteDialogOpen={setIsDeleteDialogOpen}
         isDeletingAppointment={isDeletingAppointment}
@@ -873,14 +831,6 @@ function WeeklyAgendaPageContent() {
         professionals={professionals}
         editAdditionalProfIds={editAdditionalProfIds}
         setEditAdditionalProfIds={setEditAdditionalProfIds}
-      />
-
-      {/* Cancel Dialog */}
-      <CancelDialog
-        isOpen={isCancelDialogOpen}
-        onClose={() => setIsCancelDialogOpen(false)}
-        appointment={selectedAppointment}
-        onConfirm={handleCancelAppointment}
       />
 
       {/* Group Session Sheet */}

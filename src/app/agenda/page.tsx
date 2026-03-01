@@ -5,14 +5,12 @@ import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 
 import {
-  canCancelAppointment,
   canMarkStatus,
   canResendConfirmation,
   toDateString,
 } from "./lib/utils"
 
 import {
-  CancelDialog,
   AppointmentEditor,
   AgendaHeader,
   AgendaTimeline,
@@ -185,9 +183,6 @@ export default function AgendaPage() {
 
   // Appointment actions
   const {
-    isCancelDialogOpen,
-    setIsCancelDialogOpen,
-    handleCancelAppointment,
     isUpdatingStatus,
     handleUpdateStatus,
     isResendingConfirmation,
@@ -383,8 +378,6 @@ export default function AgendaPage() {
         canResendConfirmation={canResendConfirmation(selectedAppointment)}
         onResendConfirmation={handleResendConfirmation}
         isResendingConfirmation={isResendingConfirmation}
-        canCancel={canCancelAppointment(selectedAppointment)}
-        onCancelClick={() => setIsCancelDialogOpen(true)}
         isDeleteDialogOpen={isDeleteDialogOpen}
         setIsDeleteDialogOpen={setIsDeleteDialogOpen}
         isDeletingAppointment={isDeletingAppointment}
@@ -395,13 +388,6 @@ export default function AgendaPage() {
         professionals={professionals}
         editAdditionalProfIds={editAdditionalProfIds}
         setEditAdditionalProfIds={setEditAdditionalProfIds}
-      />
-
-      <CancelDialog
-        isOpen={isCancelDialogOpen}
-        onClose={() => setIsCancelDialogOpen(false)}
-        appointment={selectedAppointment}
-        onConfirm={handleCancelAppointment}
       />
 
       <GroupSessionSheet
