@@ -9,6 +9,11 @@ export interface InvoiceItemForSeparation {
   type: string
 }
 
+export interface ConsumedCredit {
+  id: string
+  reason: string | null
+}
+
 /**
  * Determines which professional to assign to the invoice.
  * Uses the patient's reference professional if set, otherwise picks
@@ -46,19 +51,30 @@ export function shouldSkipInvoice(status: string): boolean {
 
 /**
  * Separates invoice items into auto-generated and manual.
- * Auto items: have an appointmentId OR are CREDITO type.
- * Manual items: everything else (user-added items).
+ * Auto items: have an appointmentId OR are CREDITO with a matching consumed SessionCredit.
+ * Manual items: everything else (user-added items, including manual credits).
  */
-export function separateManualItems<T extends InvoiceItemForSeparation>(
+export function separateManualItems<T extends InvoiceItemForSeparation & { description: string }>(
   items: T[],
+  consumedCredits: ConsumedCredit[] = [],
 ): { autoItems: T[]; manualItems: T[] } {
   const autoItems: T[] = []
   const manualItems: T[] = []
 
+  // Build set of auto-credit descriptions (format: "Crédito: {reason}")
+  const autoCreditDescriptions = new Set(
+    consumedCredits.map(c => `Crédito: ${c.reason || ""}`)
+  )
+
   for (const item of items) {
-    if (item.appointmentId !== null || item.type === "CREDITO") {
+    if (item.appointmentId !== null) {
+      // Appointment-linked items are always auto
+      autoItems.push(item)
+    } else if (item.type === "CREDITO" && autoCreditDescriptions.has(item.description)) {
+      // CREDITO items that match a consumed SessionCredit are auto
       autoItems.push(item)
     } else {
+      // Everything else (including manual credits) is manual
       manualItems.push(item)
     }
   }

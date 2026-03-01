@@ -64,26 +64,38 @@ describe("shouldSkipInvoice", () => {
 describe("separateManualItems", () => {
   it("separates auto items (with appointmentId) from manual items", () => {
     const items = [
-      { id: "1", appointmentId: "apt-1", type: "SESSAO_REGULAR" },
-      { id: "2", appointmentId: null, type: "SESSAO_EXTRA" },
-      { id: "3", appointmentId: "apt-2", type: "SESSAO_REGULAR" },
+      { id: "1", appointmentId: "apt-1", type: "SESSAO_REGULAR", description: "Sessão" },
+      { id: "2", appointmentId: null, type: "SESSAO_EXTRA", description: "Manual extra" },
+      { id: "3", appointmentId: "apt-2", type: "SESSAO_REGULAR", description: "Sessão" },
     ]
-    const { autoItems, manualItems } = separateManualItems(items as any)
+    const { autoItems, manualItems } = separateManualItems(items)
     expect(autoItems).toHaveLength(2)
     expect(manualItems).toHaveLength(1)
     expect(manualItems[0].id).toBe("2")
   })
 
-  it("treats CREDITO items (no appointmentId) as auto items", () => {
+  it("treats CREDITO items as auto only when matching consumed credits", () => {
     const items = [
-      { id: "1", appointmentId: null, type: "CREDITO" },
-      { id: "2", appointmentId: null, type: "SESSAO_EXTRA" },
+      { id: "1", appointmentId: null, type: "CREDITO", description: "Crédito: Cancelamento acordado" },
+      { id: "2", appointmentId: null, type: "SESSAO_EXTRA", description: "Manual extra" },
     ]
-    const { autoItems, manualItems } = separateManualItems(items as any)
+    const consumedCredits = [{ id: "credit-1", reason: "Cancelamento acordado" }]
+    const { autoItems, manualItems } = separateManualItems(items, consumedCredits)
     expect(autoItems).toHaveLength(1)
     expect(autoItems[0].id).toBe("1")
     expect(manualItems).toHaveLength(1)
     expect(manualItems[0].id).toBe("2")
+  })
+
+  it("treats CREDITO items as manual when no matching consumed credits", () => {
+    const items = [
+      { id: "1", appointmentId: null, type: "CREDITO", description: "Manual credit adjustment" },
+      { id: "2", appointmentId: null, type: "SESSAO_EXTRA", description: "Manual extra" },
+    ]
+    // No consumed credits provided
+    const { autoItems, manualItems } = separateManualItems(items, [])
+    expect(autoItems).toHaveLength(0)
+    expect(manualItems).toHaveLength(2)
   })
 
   it("returns empty arrays for empty input", () => {
@@ -92,15 +104,19 @@ describe("separateManualItems", () => {
     expect(manualItems).toHaveLength(0)
   })
 
-  it("correctly classifies mixed items", () => {
+  it("correctly classifies mixed items with consumed credits", () => {
     const items = [
-      { id: "1", appointmentId: "apt-1", type: "SESSAO_REGULAR" },
-      { id: "2", appointmentId: null, type: "CREDITO" },
-      { id: "3", appointmentId: null, type: "REUNIAO_ESCOLA" },
-      { id: "4", appointmentId: "apt-2", type: "SESSAO_GRUPO" },
+      { id: "1", appointmentId: "apt-1", type: "SESSAO_REGULAR", description: "Sessão" },
+      { id: "2", appointmentId: null, type: "CREDITO", description: "Crédito: Falta justificada" },
+      { id: "3", appointmentId: null, type: "REUNIAO_ESCOLA", description: "Reunião manual" },
+      { id: "4", appointmentId: "apt-2", type: "SESSAO_GRUPO", description: "Sessão grupo" },
+      { id: "5", appointmentId: null, type: "CREDITO", description: "Desconto especial" },
     ]
-    const { autoItems, manualItems } = separateManualItems(items as any)
+    const consumedCredits = [{ id: "credit-1", reason: "Falta justificada" }]
+    const { autoItems, manualItems } = separateManualItems(items, consumedCredits)
+    // Auto: id 1 (appointmentId), id 2 (matching credit), id 4 (appointmentId)
+    // Manual: id 3 (no appointmentId), id 5 (CREDITO but no match)
     expect(autoItems.map(i => i.id)).toEqual(["1", "2", "4"])
-    expect(manualItems.map(i => i.id)).toEqual(["3"])
+    expect(manualItems.map(i => i.id)).toEqual(["3", "5"])
   })
 })

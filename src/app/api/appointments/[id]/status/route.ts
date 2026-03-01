@@ -170,6 +170,22 @@ export const PATCH = withFeatureAuth(
       }
     }
 
+    // Pre-check: block ACORDADO→AGENDADO if credit was already consumed by an invoice
+    if (currentStatus === AppointmentStatus.CANCELADO_ACORDADO && targetStatus === AppointmentStatus.AGENDADO) {
+      const unconsumedCredit = await prisma.sessionCredit.findFirst({
+        where: {
+          originAppointmentId: existing.id,
+          consumedByInvoiceId: null,
+        },
+      })
+      if (!unconsumedCredit && existing.creditGenerated) {
+        return NextResponse.json(
+          { error: "Crédito já foi utilizado em uma fatura. Não é possível reverter para Agendado." },
+          { status: 400 }
+        )
+      }
+    }
+
     // Prepare update data with appropriate timestamps
     const now = new Date()
     const updateData = computeStatusUpdateData(targetStatus, now)
@@ -297,6 +313,23 @@ export const PATCH = withFeatureAuth(
       await prisma.appointment.update({
         where: { id: existing.id },
         data: { creditGenerated: true },
+      })
+    }
+
+    // Reverting from ACORDADO to AGENDADO: delete unconsumed credit (pre-checked above)
+    if (currentStatus === AppointmentStatus.CANCELADO_ACORDADO && targetStatus === AppointmentStatus.AGENDADO) {
+      const credit = await prisma.sessionCredit.findFirst({
+        where: {
+          originAppointmentId: existing.id,
+          consumedByInvoiceId: null,
+        },
+      })
+      if (credit) {
+        await prisma.sessionCredit.delete({ where: { id: credit.id } })
+      }
+      await prisma.appointment.update({
+        where: { id: existing.id },
+        data: { creditGenerated: false },
       })
     }
 

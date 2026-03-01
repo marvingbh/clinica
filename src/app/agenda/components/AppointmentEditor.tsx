@@ -582,6 +582,12 @@ function OccurrenceTabContent({
                     {isUpdatingStatus ? "..." : "Alterar para sem cobrança"}
                   </button>
                 )}
+                <button type="button"
+                  onClick={() => onUpdateStatus("AGENDADO", "Agendamento restaurado")}
+                  disabled={isUpdatingStatus}
+                  className="h-8 px-3 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                  {isUpdatingStatus ? "..." : "Reagendar"}
+                </button>
               </div>
             )}
           </div>

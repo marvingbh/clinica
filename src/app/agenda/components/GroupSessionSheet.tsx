@@ -115,7 +115,9 @@ export function GroupSessionSheet({
           FINALIZADO: `${patientName} marcado como compareceu`,
           CANCELADO_FALTA: `${patientName} marcado como falta`,
           CANCELADO_ACORDADO: `${patientName} marcado como desmarcou`,
+          CANCELADO_PROFISSIONAL: `${patientName} marcado como sem cobrança`,
           CONFIRMADO: `${patientName} confirmado`,
+          AGENDADO: `${patientName} reagendado`,
         }
         toast.success(statusMessages[newStatus] || "Status atualizado")
         onStatusUpdated()
@@ -268,24 +270,35 @@ export function GroupSessionSheet({
             )
             const canMarkStatus = ["AGENDADO", "CONFIRMADO"].includes(participant.status)
             const canConfirm = participant.status === "AGENDADO"
-            const canFinalize = participant.status === "AGENDADO" || participant.status === "CONFIRMADO"
             const isFinalized = participant.status === "FINALIZADO"
 
             return (
               <div
                 key={participant.appointmentId}
-                className={`flex items-center gap-2 py-2.5 ${isCancelled ? "opacity-50" : ""}`}
+                className={`py-2.5 ${isCancelled ? "opacity-60" : ""}`}
               >
-                {/* Name + status */}
-                <div className="min-w-0 flex-1">
-                  <p className={`text-sm text-foreground truncate ${isFinalized || isCancelled ? "" : "font-medium"}`}>
-                    {participant.patientName}
-                  </p>
+                {/* Name row */}
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-sm text-foreground truncate ${isFinalized || isCancelled ? "" : "font-medium"}`}>
+                      {participant.patientName}
+                    </p>
+                  </div>
+                  {/* Status badge for terminal states */}
+                  {(isFinalized || isCancelled) && (
+                    <span
+                      className={`flex-shrink-0 text-[11px] px-2 py-0.5 rounded-full font-medium ${
+                        STATUS_COLORS[participant.status as AppointmentStatus] || "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {STATUS_LABELS[participant.status as AppointmentStatus] || participant.status}
+                    </span>
+                  )}
                 </div>
 
-                {/* Action buttons or status badge */}
-                {canMarkStatus ? (
-                  <div className="flex items-center gap-1 flex-shrink-0">
+                {/* Action buttons for active appointments */}
+                {canMarkStatus && (
+                  <div className="flex items-center gap-1 mt-2 flex-wrap">
                     {/* Primary action: Confirmar (AGENDADO) or Compareceu (CONFIRMADO) */}
                     {canConfirm ? (
                       <button
@@ -312,34 +325,81 @@ export function GroupSessionSheet({
                         </>}
                       </button>
                     )}
-                    {/* Secondary: outlined cancel actions */}
+                    {/* Cancel actions */}
                     <button
                       type="button"
                       onClick={() => handleUpdateStatus(participant.appointmentId, "CANCELADO_ACORDADO", participant.patientName)}
                       disabled={isUpdating}
-                      title="Desmarcou (gera credito)"
-                      className="h-7 px-2 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-orange-600 hover:border-orange-300 hover:bg-orange-50 dark:hover:text-orange-400 dark:hover:border-orange-700 dark:hover:bg-orange-950/30 disabled:opacity-50 transition-colors"
+                      title="Desmarcou (gera crédito)"
+                      className="h-7 px-2 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-teal-600 hover:border-teal-300 hover:bg-teal-50 dark:hover:text-teal-400 dark:hover:border-teal-700 dark:hover:bg-teal-950/30 disabled:opacity-50 transition-colors"
                     >
-                      {isUpdating ? "..." : "Desmarcou"}
+                      Desmarcou
                     </button>
                     <button
                       type="button"
                       onClick={() => handleUpdateStatus(participant.appointmentId, "CANCELADO_FALTA", participant.patientName)}
                       disabled={isUpdating}
-                      title="Faltou"
+                      title="Faltou (cobra normalmente)"
+                      className="h-7 px-2 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 dark:hover:text-amber-400 dark:hover:border-amber-700 dark:hover:bg-amber-950/30 disabled:opacity-50 transition-colors"
+                    >
+                      Faltou
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateStatus(participant.appointmentId, "CANCELADO_PROFISSIONAL", participant.patientName)}
+                      disabled={isUpdating}
+                      title="Sem cobrança (não cobra)"
                       className="h-7 px-2 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-red-600 hover:border-red-300 hover:bg-red-50 dark:hover:text-red-400 dark:hover:border-red-700 dark:hover:bg-red-950/30 disabled:opacity-50 transition-colors"
                     >
-                      {isUpdating ? "..." : "Faltou"}
+                      Sem cobrança
                     </button>
                   </div>
-                ) : (
-                  <span
-                    className={`flex-shrink-0 text-[11px] px-2 py-0.5 rounded-full font-medium ${
-                      STATUS_COLORS[participant.status as AppointmentStatus] || "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {STATUS_LABELS[participant.status as AppointmentStatus] || participant.status}
-                  </span>
+                )}
+
+                {/* Status change buttons for cancelled appointments */}
+                {isCancelled && (
+                  <div className="flex items-center gap-1 mt-2 flex-wrap">
+                    <span className="text-[10px] text-muted-foreground mr-1">Alterar:</span>
+                    {participant.status !== "CANCELADO_ACORDADO" && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateStatus(participant.appointmentId, "CANCELADO_ACORDADO", participant.patientName)}
+                        disabled={isUpdating}
+                        className="h-6 px-2 rounded border border-teal-200 dark:border-teal-800 text-[10px] font-medium text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/30 disabled:opacity-50 transition-colors"
+                      >
+                        Desmarcou
+                      </button>
+                    )}
+                    {participant.status !== "CANCELADO_FALTA" && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateStatus(participant.appointmentId, "CANCELADO_FALTA", participant.patientName)}
+                        disabled={isUpdating}
+                        className="h-6 px-2 rounded border border-amber-200 dark:border-amber-800 text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 disabled:opacity-50 transition-colors"
+                      >
+                        Faltou
+                      </button>
+                    )}
+                    {participant.status !== "CANCELADO_PROFISSIONAL" && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateStatus(participant.appointmentId, "CANCELADO_PROFISSIONAL", participant.patientName)}
+                        disabled={isUpdating}
+                        className="h-6 px-2 rounded border border-red-200 dark:border-red-800 text-[10px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 transition-colors"
+                      >
+                        Sem cobrança
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateStatus(participant.appointmentId, "AGENDADO", participant.patientName)}
+                      disabled={isUpdating}
+                      title="Reverter para Agendado"
+                      className="h-6 px-2 rounded border border-blue-200 dark:border-blue-800 text-[10px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 disabled:opacity-50 transition-colors"
+                    >
+                      Reagendar
+                    </button>
+                  </div>
                 )}
               </div>
             )

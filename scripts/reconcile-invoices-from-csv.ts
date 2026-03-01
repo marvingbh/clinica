@@ -310,18 +310,22 @@ async function main() {
         continue
       }
 
-      // Check if invoice exists for this patient + clinic + month/year
-      const existingInvoice = await prisma.invoice.findUnique({
+      // Check if invoices exist for this patient + clinic + month/year (may be multiple per professional)
+      const existingInvoices = await prisma.invoice.findMany({
         where: {
-          clinicId_patientId_referenceMonth_referenceYear: {
-            clinicId: CLINIC_ID,
-            patientId: match.id,
-            referenceMonth: MONTH,
-            referenceYear: YEAR,
-          },
+          clinicId: CLINIC_ID,
+          patientId: match.id,
+          referenceMonth: MONTH,
+          referenceYear: YEAR,
         },
         select: { id: true, totalAmount: true, status: true },
       })
+      const existingInvoice = existingInvoices.length > 0 ? {
+        id: existingInvoices[0].id,
+        totalAmount: existingInvoices.reduce((sum, inv) => sum + Number(inv.totalAmount), 0),
+        status: existingInvoices[0].status,
+        allInvoices: existingInvoices,
+      } : null
 
       if (existingInvoice) {
         const currentTotal = Number(existingInvoice.totalAmount)

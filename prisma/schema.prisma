@@ -708,7 +708,7 @@ model Invoice {
   items               InvoiceItem[]
   consumedCredits     SessionCredit[]
 
-  @@unique([clinicId, patientId, referenceMonth, referenceYear])
+  @@unique([clinicId, patientId, professionalProfileId, referenceMonth, referenceYear])
   @@index([clinicId])
   @@index([professionalProfileId])
   @@index([patientId])

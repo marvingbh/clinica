@@ -33,9 +33,9 @@ export const VALID_TRANSITIONS: Record<AppointmentStatusType, AppointmentStatusT
     AppointmentStatus.CANCELADO_ACORDADO,
   ],
   FINALIZADO: [],
-  CANCELADO_ACORDADO: [AppointmentStatus.CANCELADO_FALTA, AppointmentStatus.CANCELADO_PROFISSIONAL],
-  CANCELADO_FALTA: [AppointmentStatus.CANCELADO_ACORDADO, AppointmentStatus.CANCELADO_PROFISSIONAL],
-  CANCELADO_PROFISSIONAL: [AppointmentStatus.CANCELADO_FALTA, AppointmentStatus.CANCELADO_ACORDADO],
+  CANCELADO_ACORDADO: [AppointmentStatus.CANCELADO_FALTA, AppointmentStatus.CANCELADO_PROFISSIONAL, AppointmentStatus.AGENDADO],
+  CANCELADO_FALTA: [AppointmentStatus.CANCELADO_ACORDADO, AppointmentStatus.CANCELADO_PROFISSIONAL, AppointmentStatus.AGENDADO],
+  CANCELADO_PROFISSIONAL: [AppointmentStatus.CANCELADO_FALTA, AppointmentStatus.CANCELADO_ACORDADO, AppointmentStatus.AGENDADO],
 }
 
 export const STATUS_LABELS: Record<AppointmentStatusType, string> = {
@@ -55,8 +55,8 @@ export function isValidTransition(from: string, to: string): boolean {
 
 export interface StatusUpdateFields {
   status: AppointmentStatusType
-  confirmedAt?: Date
-  cancelledAt?: Date
+  confirmedAt?: Date | null
+  cancelledAt?: Date | null
 }
 
 /**
@@ -73,6 +73,10 @@ export function computeStatusUpdateData(targetStatus: string, now: Date): Status
     targetStatus === AppointmentStatus.CANCELADO_FALTA
   ) {
     data.cancelledAt = now
+  } else if (targetStatus === AppointmentStatus.AGENDADO) {
+    // Clear timestamps when reverting to AGENDADO
+    data.confirmedAt = null
+    data.cancelledAt = null
   }
 
   return data

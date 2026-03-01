@@ -6,7 +6,7 @@ import { classifyAppointments, buildInvoiceItems, buildMonthlyInvoiceItems, calc
 import { renderInvoiceTemplate, buildDetailBlock, DEFAULT_INVOICE_TEMPLATE } from "@/lib/financeiro/invoice-template"
 import { getMonthName, formatCurrencyBRL } from "@/lib/financeiro/format"
 import { recalculateInvoice } from "@/lib/financeiro/recalculate-invoice"
-import { determineInvoiceProfessional, shouldSkipInvoice, separateManualItems } from "@/lib/financeiro/invoice-generation"
+import { shouldSkipInvoice, separateManualItems } from "@/lib/financeiro/invoice-generation"
 
 const schema = z.object({
   month: z.number().int().min(1).max(12),
@@ -79,18 +79,19 @@ export const POST = withFeatureAuth(
       },
     })
 
-    // Step 4: Group by patientId only
-    const byPatient = new Map<string, typeof allAppointments>()
+    // Step 4: Group by patientId + professionalProfileId (one invoice per combination)
+    const byPatientAndProfessional = new Map<string, typeof allAppointments>()
     for (const apt of allAppointments) {
       if (!apt.patientId) continue
-      const list = byPatient.get(apt.patientId) || []
+      const key = `${apt.patientId}|${apt.professionalProfileId}`
+      const list = byPatientAndProfessional.get(key) || []
       list.push(apt)
-      byPatient.set(apt.patientId, list)
+      byPatientAndProfessional.set(key, list)
     }
 
     // Collect unique professional IDs for name lookup
     const profIds = new Set<string>()
-    for (const apts of byPatient.values()) {
+    for (const apts of byPatientAndProfessional.values()) {
       for (const a of apts) profIds.add(a.professionalProfileId)
     }
 
@@ -121,15 +122,16 @@ export const POST = withFeatureAuth(
       let updated = 0
       let skipped = 0
 
-      for (const [patientId, patientApts] of byPatient) {
+      for (const [key, patientApts] of byPatientAndProfessional) {
+        const [patientId, profId] = key.split("|")
         const patient = patientMap.get(patientId)
         if (!patient || !patient.sessionFee) continue
 
-        // Step 5: Check existing invoice
+        // Step 5: Check existing invoice (now includes professionalProfileId in unique key)
         const existing = await tx.invoice.findUnique({
           where: {
-            clinicId_patientId_referenceMonth_referenceYear: {
-              clinicId: user.clinicId, patientId, referenceMonth: month, referenceYear: year,
+            clinicId_patientId_professionalProfileId_referenceMonth_referenceYear: {
+              clinicId: user.clinicId, patientId, professionalProfileId: profId, referenceMonth: month, referenceYear: year,
             },
           },
           include: { items: true },
@@ -142,10 +144,7 @@ export const POST = withFeatureAuth(
 
         const sessionFee = Number(patient.sessionFee)
         const showDays = patient.showAppointmentDaysOnInvoice
-        const assignedProfId = determineInvoiceProfessional(
-          patient.referenceProfessionalId, patientApts,
-        )
-        const profName = profMap.get(assignedProfId)?.user?.name || ""
+        const profName = profMap.get(profId)?.user?.name || ""
 
         const classified = classifyAppointments(
           patientApts.map(a => ({ ...a, price: a.price ? Number(a.price) : null }))
@@ -170,12 +169,18 @@ export const POST = withFeatureAuth(
 
         if (existing) {
           // UPDATE in place: preserve manual items, notes, NF info, status
+          // First, get consumed credits to identify auto-generated CREDITO items
+          const consumedCredits = await tx.sessionCredit.findMany({
+            where: { consumedByInvoiceId: existing.id },
+            select: { id: true, reason: true },
+          })
+
           await tx.sessionCredit.updateMany({
             where: { consumedByInvoiceId: existing.id },
             data: { consumedByInvoiceId: null, consumedAt: null },
           })
 
-          const { autoItems } = separateManualItems(existing.items)
+          const { autoItems } = separateManualItems(existing.items, consumedCredits)
           if (autoItems.length > 0) {
             await tx.invoiceItem.deleteMany({
               where: { id: { in: autoItems.map(i => i.id) } },
@@ -206,11 +211,7 @@ export const POST = withFeatureAuth(
             })
           }
 
-          // Update professionalProfileId
-          await tx.invoice.update({
-            where: { id: existing.id },
-            data: { professionalProfileId: assignedProfId },
-          })
+          // professionalProfileId is now part of unique key, no need to update
 
           // Recalculate totals (includes kept manual items)
           await recalculateInvoice(
@@ -259,7 +260,7 @@ export const POST = withFeatureAuth(
           const invoice = await tx.invoice.create({
             data: {
               clinicId: user.clinicId,
-              professionalProfileId: assignedProfId,
+              professionalProfileId: profId,
               patientId,
               referenceMonth: month,
               referenceYear: year,

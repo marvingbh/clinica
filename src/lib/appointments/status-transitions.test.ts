@@ -43,8 +43,11 @@ describe("isValidTransition", () => {
     expect(isValidTransition("CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO")).toBe(true)
   })
 
-  it("blocks CANCELADO_PROFISSIONAL → non-cancel statuses", () => {
-    expect(isValidTransition("CANCELADO_PROFISSIONAL", "AGENDADO")).toBe(false)
+  it("allows CANCELADO_PROFISSIONAL → AGENDADO (undo)", () => {
+    expect(isValidTransition("CANCELADO_PROFISSIONAL", "AGENDADO")).toBe(true)
+  })
+
+  it("blocks CANCELADO_PROFISSIONAL → CONFIRMADO/FINALIZADO", () => {
     expect(isValidTransition("CANCELADO_PROFISSIONAL", "CONFIRMADO")).toBe(false)
     expect(isValidTransition("CANCELADO_PROFISSIONAL", "FINALIZADO")).toBe(false)
   })
@@ -54,8 +57,11 @@ describe("isValidTransition", () => {
     expect(isValidTransition("CANCELADO_ACORDADO", "CANCELADO_PROFISSIONAL")).toBe(true)
   })
 
-  it("blocks CANCELADO_ACORDADO → non-cancel statuses", () => {
-    expect(isValidTransition("CANCELADO_ACORDADO", "AGENDADO")).toBe(false)
+  it("allows CANCELADO_ACORDADO → AGENDADO (undo)", () => {
+    expect(isValidTransition("CANCELADO_ACORDADO", "AGENDADO")).toBe(true)
+  })
+
+  it("blocks CANCELADO_ACORDADO → CONFIRMADO/FINALIZADO", () => {
     expect(isValidTransition("CANCELADO_ACORDADO", "CONFIRMADO")).toBe(false)
     expect(isValidTransition("CANCELADO_ACORDADO", "FINALIZADO")).toBe(false)
   })
@@ -65,8 +71,11 @@ describe("isValidTransition", () => {
     expect(isValidTransition("CANCELADO_FALTA", "CANCELADO_PROFISSIONAL")).toBe(true)
   })
 
-  it("blocks CANCELADO_FALTA → non-cancel statuses", () => {
-    expect(isValidTransition("CANCELADO_FALTA", "AGENDADO")).toBe(false)
+  it("allows CANCELADO_FALTA → AGENDADO (undo)", () => {
+    expect(isValidTransition("CANCELADO_FALTA", "AGENDADO")).toBe(true)
+  })
+
+  it("blocks CANCELADO_FALTA → CONFIRMADO/FINALIZADO", () => {
     expect(isValidTransition("CANCELADO_FALTA", "CONFIRMADO")).toBe(false)
     expect(isValidTransition("CANCELADO_FALTA", "FINALIZADO")).toBe(false)
   })
@@ -104,9 +113,9 @@ describe("computeStatusUpdateData", () => {
     expect(result).toEqual({ status: "FINALIZADO" })
   })
 
-  it("sets only status for AGENDADO", () => {
+  it("clears timestamps when reverting to AGENDADO", () => {
     const result = computeStatusUpdateData("AGENDADO", now)
-    expect(result).toEqual({ status: "AGENDADO" })
+    expect(result).toEqual({ status: "AGENDADO", confirmedAt: null, cancelledAt: null })
   })
 })
 
@@ -135,10 +144,17 @@ describe("VALID_TRANSITIONS", () => {
     expect(VALID_TRANSITIONS.FINALIZADO).toEqual([])
   })
 
-  it("CANCELADO_PROFISSIONAL allows switching to other cancel types", () => {
-    expect(VALID_TRANSITIONS.CANCELADO_PROFISSIONAL).toHaveLength(2)
+  it("CANCELADO_PROFISSIONAL allows switching to other cancel types or AGENDADO", () => {
+    expect(VALID_TRANSITIONS.CANCELADO_PROFISSIONAL).toHaveLength(3)
     expect(VALID_TRANSITIONS.CANCELADO_PROFISSIONAL).toContain("CANCELADO_FALTA")
     expect(VALID_TRANSITIONS.CANCELADO_PROFISSIONAL).toContain("CANCELADO_ACORDADO")
+    expect(VALID_TRANSITIONS.CANCELADO_PROFISSIONAL).toContain("AGENDADO")
+  })
+
+  it("all cancel states allow reverting to AGENDADO", () => {
+    expect(VALID_TRANSITIONS.CANCELADO_ACORDADO).toContain("AGENDADO")
+    expect(VALID_TRANSITIONS.CANCELADO_FALTA).toContain("AGENDADO")
+    expect(VALID_TRANSITIONS.CANCELADO_PROFISSIONAL).toContain("AGENDADO")
   })
 })
 
