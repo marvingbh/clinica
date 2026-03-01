@@ -14,14 +14,9 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:push": "prisma db push",
-    "prisma:seed": "npx tsx prisma/seed.ts",
-    "prisma:seed:saas": "npx tsx prisma/seed-saas.ts",
     "prisma:migrate:statuses": "npx tsx prisma/migrate-statuses.ts",
     "postinstall": "prisma generate",
     "vercel-build": "prisma generate && vitest run && prisma migrate deploy && next build"
-  },
-  "prisma": {
-    "seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",
