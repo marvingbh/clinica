@@ -449,7 +449,7 @@ function OccurrenceTabContent({
                   </button>
                   <button type="button" onClick={() => setCancelVariant("sem_cobranca")} disabled={isUpdatingStatus}
                     className="h-10 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 font-medium text-xs flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                    S/ cobranca
+                    Sem cobrança
                   </button>
                 </div>
               </div>
@@ -476,7 +476,7 @@ function OccurrenceTabContent({
                   </button>
                   <button type="button" onClick={() => setCancelVariant("sem_cobranca")} disabled={isUpdatingStatus}
                     className="h-10 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 font-medium text-xs flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                    S/ cobranca
+                    Sem cobrança
                   </button>
                 </div>
               </div>
@@ -529,10 +529,10 @@ function OccurrenceTabContent({
           </div>
           <div className="flex-1">
             {isFinished && "Esta consulta foi finalizada."}
-            {isNoShow && "Paciente nao compareceu a esta consulta."}
+            {isNoShow && "Paciente não compareceu a esta consulta."}
             {appointment.status === "CANCELADO_ACORDADO" && (
               <>
-                Paciente desmarcou — credito gerado.
+                Paciente desmarcou — crédito gerado.
                 {appointment.cancellationReason && (
                   <span className="block mt-1 text-xs opacity-75">
                     Motivo: {appointment.cancellationReason}
@@ -542,7 +542,7 @@ function OccurrenceTabContent({
             )}
             {appointment.status === "CANCELADO_PROFISSIONAL" && (
               <>
-                Sessao cancelada sem cobranca.
+                Sessão cancelada sem cobrança.
                 {appointment.cancellationReason && (
                   <span className="block mt-1 text-xs opacity-75">
                     Motivo: {appointment.cancellationReason}
@@ -576,10 +576,10 @@ function OccurrenceTabContent({
                 )}
                 {appointment.status !== "CANCELADO_PROFISSIONAL" && (
                   <button type="button"
-                    onClick={() => onUpdateStatus("CANCELADO_PROFISSIONAL", "Status alterado para cancelado sem cobranca")}
+                    onClick={() => onUpdateStatus("CANCELADO_PROFISSIONAL", "Status alterado para cancelado sem cobrança")}
                     disabled={isUpdatingStatus}
                     className="h-8 px-3 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                    {isUpdatingStatus ? "..." : "Alterar p/ s/ cobranca"}
+                    {isUpdatingStatus ? "..." : "Alterar para sem cobrança"}
                   </button>
                 )}
               </div>

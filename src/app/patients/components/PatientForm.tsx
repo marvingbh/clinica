@@ -314,7 +314,7 @@ export function PatientForm({
             )}
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Atualizado automaticamente ao alterar o valor da sessao
+            Atualizado automaticamente ao alterar o valor da sessão
           </p>
         </div>
 

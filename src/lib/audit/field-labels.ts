@@ -19,7 +19,7 @@ export const FIELD_LABELS: Record<string, string> = {
   parentName: "Nome do Responsavel",
   parentName2: "Nome do Responsavel 2",
   schoolName: "Escola",
-  sessionFee: "Valor da Sessao",
+  sessionFee: "Valor da Sessão",
   feeAdjustmentReason: "Motivo do Ajuste",
   therapeuticProject: "Projeto Terapeutico",
   consentWhatsApp: "Consentimento WhatsApp",
@@ -60,7 +60,7 @@ const STATUS_LABELS: Record<string, string> = {
   FINALIZADO: "Finalizado",
   CANCELADO_ACORDADO: "Desmarcou",
   CANCELADO_FALTA: "Cancelado (Falta)",
-  CANCELADO_PROFISSIONAL: "Cancelado (Profissional)",
+  CANCELADO_PROFISSIONAL: "Cancelado (sem cobrança)",
 }
 
 const MODALITY_LABELS: Record<string, string> = {

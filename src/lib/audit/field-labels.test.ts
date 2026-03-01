@@ -18,7 +18,7 @@ describe("formatFieldValue", () => {
     expect(formatFieldValue("status", "CONFIRMADO")).toBe("Confirmado")
     expect(formatFieldValue("status", "CANCELADO_ACORDADO")).toBe("Desmarcou")
     expect(formatFieldValue("status", "CANCELADO_FALTA")).toBe("Cancelado (Falta)")
-    expect(formatFieldValue("status", "CANCELADO_PROFISSIONAL")).toBe("Cancelado (Profissional)")
+    expect(formatFieldValue("status", "CANCELADO_PROFISSIONAL")).toBe("Cancelado (sem cobrança)")
   })
 
   it("formats modality enums", () => {

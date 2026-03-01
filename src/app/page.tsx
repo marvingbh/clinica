@@ -312,7 +312,7 @@ function LogoutCard({ onLogout }: { onLogout: () => void }) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-destructive">Sair</p>
-              <p className="text-sm text-muted-foreground">Encerrar sessao</p>
+              <p className="text-sm text-muted-foreground">Encerrar sessão</p>
             </div>
           </div>
         </CardContent>

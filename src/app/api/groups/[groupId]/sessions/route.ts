@@ -549,7 +549,7 @@ export const POST = withFeatureAuth(
           minute: "2-digit",
         })
 
-        const notificationContent = `Ola ${appointment.patient.name}!\n\nVoce foi agendado(a) para a sessao do grupo "${group.name}".\n\n📅 Data: ${formattedDate}\n🕐 Horario: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n\nPara confirmar sua presenca, acesse:\n${confirmLink}\n\nPara cancelar, acesse:\n${cancelLink}`
+        const notificationContent = `Olá ${appointment.patient.name}!\n\nVocê foi agendado(a) para a sessão do grupo "${group.name}".\n\n📅 Data: ${formattedDate}\n🕐 Horário: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n\nPara confirmar sua presença, acesse:\n${confirmLink}\n\nPara cancelar, acesse:\n${cancelLink}`
 
         if (appointment.patient.phone) {
           createNotification({
@@ -571,7 +571,7 @@ export const POST = withFeatureAuth(
             type: NotificationType.APPOINTMENT_CONFIRMATION,
             channel: NotificationChannel.EMAIL,
             recipient: appointment.patient.email,
-            subject: `Sessao de Grupo Agendada - ${group.name}`,
+            subject: `Sessão de Grupo Agendada - ${group.name}`,
             content: notificationContent,
           }).catch(() => {})
         }

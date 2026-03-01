@@ -147,6 +147,6 @@ describe("STATUS_LABELS", () => {
     expect(Object.keys(STATUS_LABELS)).toHaveLength(6)
     expect(STATUS_LABELS.AGENDADO).toBe("Agendado")
     expect(STATUS_LABELS.FINALIZADO).toBe("Finalizado")
-    expect(STATUS_LABELS.CANCELADO_PROFISSIONAL).toBe("Cancelado (s/ cobranca)")
+    expect(STATUS_LABELS.CANCELADO_PROFISSIONAL).toBe("Cancelado (sem cobrança)")
   })
 })
