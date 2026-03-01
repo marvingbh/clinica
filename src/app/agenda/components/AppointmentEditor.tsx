@@ -26,6 +26,8 @@ import {
   AlertTriangleIcon,
   TrashIcon,
 } from "@/shared/components/ui/icons"
+import { CancelConfirmDialog } from "./CancelConfirmDialog"
+import type { CancelVariant } from "./CancelConfirmDialog"
 
 // ============================================================================
 // Helpers
@@ -58,15 +60,12 @@ interface AppointmentEditorProps {
   onDismissError?: () => void
   // Status actions
   canMarkStatus: boolean
-  onUpdateStatus: (status: string, message: string) => Promise<void>
+  onUpdateStatus: (status: string, message: string, reason?: string) => Promise<void>
   isUpdatingStatus: boolean
   // Confirmation
   canResendConfirmation: boolean
   onResendConfirmation: () => Promise<void>
   isResendingConfirmation: boolean
-  // Cancel
-  canCancel: boolean
-  onCancelClick: () => void
   // Delete
   isDeleteDialogOpen: boolean
   setIsDeleteDialogOpen: (open: boolean) => void
@@ -99,8 +98,6 @@ export function AppointmentEditor({
   canResendConfirmation,
   onResendConfirmation,
   isResendingConfirmation,
-  canCancel,
-  onCancelClick,
   isDeleteDialogOpen,
   setIsDeleteDialogOpen,
   isDeletingAppointment,
@@ -325,8 +322,6 @@ export function AppointmentEditor({
             canResendConfirmation={canResendConfirmation}
             onResendConfirmation={onResendConfirmation}
             isResendingConfirmation={isResendingConfirmation}
-            canCancel={canCancel}
-            onCancelClick={onCancelClick}
             isDeleteDialogOpen={isDeleteDialogOpen}
             setIsDeleteDialogOpen={setIsDeleteDialogOpen}
             isDeletingAppointment={isDeletingAppointment}
@@ -369,13 +364,11 @@ interface OccurrenceTabContentProps {
   onDismissError?: () => void
   onClose: () => void
   canMarkStatus: boolean
-  onUpdateStatus: (status: string, message: string) => Promise<void>
+  onUpdateStatus: (status: string, message: string, reason?: string) => Promise<void>
   isUpdatingStatus: boolean
   canResendConfirmation: boolean
   onResendConfirmation: () => Promise<void>
   isResendingConfirmation: boolean
-  canCancel: boolean
-  onCancelClick: () => void
   isDeleteDialogOpen: boolean
   setIsDeleteDialogOpen: (open: boolean) => void
   isDeletingAppointment: boolean
@@ -401,8 +394,6 @@ function OccurrenceTabContent({
   canResendConfirmation,
   onResendConfirmation,
   isResendingConfirmation,
-  canCancel,
-  onCancelClick,
   isDeleteDialogOpen,
   setIsDeleteDialogOpen,
   isDeletingAppointment,
@@ -413,6 +404,8 @@ function OccurrenceTabContent({
   editAdditionalProfIds,
   setEditAdditionalProfIds,
 }: OccurrenceTabContentProps) {
+  const [cancelVariant, setCancelVariant] = useState<CancelVariant | null>(null)
+
   const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"].includes(appointment.status)
   const isNoShow = appointment.status === "CANCELADO_FALTA"
   const isFinished = appointment.status === "FINALIZADO"
@@ -429,72 +422,58 @@ function OccurrenceTabContent({
       {/* ── Quick Actions (status-first UX) ── */}
       {hasQuickActions && (
         <div className="space-y-2.5">
-          {/* AGENDADO: Confirm + Finalize + No Show + Desmarcou — 4-col grid */}
+          {/* AGENDADO: Confirm + Atendido row, then cancel options row */}
           {canMarkStatus && isConsulta && appointment.status === "AGENDADO" && (
-            <div className="grid grid-cols-4 gap-2">
-              <button
-                type="button"
-                onClick={() => onUpdateStatus("CONFIRMADO", "Consulta confirmada com sucesso")}
-                disabled={isUpdatingStatus}
-                className="h-11 rounded-xl bg-blue-600 text-white font-medium text-sm flex items-center justify-center gap-1.5 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50"
-              >
-                <CheckCircleIcon className="w-4 h-4" />
-                {isUpdatingStatus ? "..." : "Confirmar"}
-              </button>
-              <button
-                type="button"
-                onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")}
-                disabled={isUpdatingStatus}
-                className="h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50"
-              >
-                {isUpdatingStatus ? "..." : "Atendido"}
-              </button>
-              <button
-                type="button"
-                onClick={() => onUpdateStatus("CANCELADO_FALTA", "Paciente marcado como falta")}
-                disabled={isUpdatingStatus}
-                className="h-11 rounded-xl border-2 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-sm flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
-              >
-                {isUpdatingStatus ? "..." : "Faltou"}
-              </button>
-              <button
-                type="button"
-                onClick={() => onUpdateStatus("CANCELADO_ACORDADO", "Paciente desmarcou registrado")}
-                disabled={isUpdatingStatus}
-                className="h-11 rounded-xl border-2 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-sm flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
-              >
-                {isUpdatingStatus ? "..." : "Desmarcou"}
-              </button>
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => onUpdateStatus("CONFIRMADO", "Consulta confirmada com sucesso")} disabled={isUpdatingStatus}
+                  className="h-11 rounded-xl bg-blue-600 text-white font-medium text-sm flex items-center justify-center gap-1.5 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50">
+                  <CheckCircleIcon className="w-4 h-4" />
+                  {isUpdatingStatus ? "..." : "Confirmar"}
+                </button>
+                <button type="button" onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")} disabled={isUpdatingStatus}
+                  className="h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50">
+                  {isUpdatingStatus ? "..." : "Atendido"}
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <button type="button" onClick={() => setCancelVariant("faltou")} disabled={isUpdatingStatus}
+                  className="h-11 rounded-xl border-2 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-sm flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                  Faltou
+                </button>
+                <button type="button" onClick={() => setCancelVariant("desmarcou")} disabled={isUpdatingStatus}
+                  className="h-11 rounded-xl border-2 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-sm flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                  Desmarcou
+                </button>
+                <button type="button" onClick={() => setCancelVariant("sem_cobranca")} disabled={isUpdatingStatus}
+                  className="h-11 rounded-xl border-2 border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 font-medium text-sm flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                  S/ cobranca
+                </button>
+              </div>
             </div>
           )}
 
-          {/* CONFIRMADO: Finalize + No Show + Desmarcou — 3-col grid */}
+          {/* CONFIRMADO: Atendido full width, then cancel options row */}
           {canMarkStatus && isConsulta && appointment.status === "CONFIRMADO" && (
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")}
-                disabled={isUpdatingStatus}
-                className="h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50"
-              >
+            <div className="space-y-2">
+              <button type="button" onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")} disabled={isUpdatingStatus}
+                className="w-full h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50">
                 {isUpdatingStatus ? "..." : "Atendido"}
               </button>
-              <button
-                type="button"
-                onClick={() => onUpdateStatus("CANCELADO_FALTA", "Paciente marcado como falta")}
-                disabled={isUpdatingStatus}
-                className="h-11 rounded-xl border-2 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-sm flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
-              >
-                {isUpdatingStatus ? "..." : "Faltou"}
-              </button>
-              <button
-                type="button"
-                onClick={() => onUpdateStatus("CANCELADO_ACORDADO", "Paciente desmarcou registrado")}
-                disabled={isUpdatingStatus}
-                className="h-11 rounded-xl border-2 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-sm flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
-              >
-                {isUpdatingStatus ? "..." : "Desmarcou"}
-              </button>
+              <div className="grid grid-cols-3 gap-2">
+                <button type="button" onClick={() => setCancelVariant("faltou")} disabled={isUpdatingStatus}
+                  className="h-11 rounded-xl border-2 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-sm flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                  Faltou
+                </button>
+                <button type="button" onClick={() => setCancelVariant("desmarcou")} disabled={isUpdatingStatus}
+                  className="h-11 rounded-xl border-2 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-sm flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                  Desmarcou
+                </button>
+                <button type="button" onClick={() => setCancelVariant("sem_cobranca")} disabled={isUpdatingStatus}
+                  className="h-11 rounded-xl border-2 border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 font-medium text-sm flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                  S/ cobranca
+                </button>
+              </div>
             </div>
           )}
 
@@ -557,7 +536,7 @@ function OccurrenceTabContent({
             )}
             {appointment.status === "CANCELADO_PROFISSIONAL" && (
               <>
-                Este agendamento foi cancelado pelo profissional.
+                Sessao cancelada sem cobranca.
                 {appointment.cancellationReason && (
                   <span className="block mt-1 text-xs opacity-75">
                     Motivo: {appointment.cancellationReason}
@@ -566,27 +545,35 @@ function OccurrenceTabContent({
               </>
             )}
 
-            {/* Switch between ACORDADO and FALTA */}
-            {canMarkStatus && isConsulta && (appointment.status === "CANCELADO_ACORDADO" || appointment.status === "CANCELADO_FALTA") && (
-              <div className="mt-2">
-                {appointment.status === "CANCELADO_ACORDADO" && (
-                  <button
-                    type="button"
+            {/* Switch between cancel statuses */}
+            {canMarkStatus && isConsulta && (
+              appointment.status === "CANCELADO_ACORDADO" ||
+              appointment.status === "CANCELADO_FALTA" ||
+              appointment.status === "CANCELADO_PROFISSIONAL"
+            ) && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {appointment.status !== "CANCELADO_FALTA" && (
+                  <button type="button"
                     onClick={() => onUpdateStatus("CANCELADO_FALTA", "Status alterado para falta")}
                     disabled={isUpdatingStatus}
-                    className="h-8 px-3 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
-                  >
+                    className="h-8 px-3 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
                     {isUpdatingStatus ? "..." : "Alterar para Falta"}
                   </button>
                 )}
-                {appointment.status === "CANCELADO_FALTA" && (
-                  <button
-                    type="button"
+                {appointment.status !== "CANCELADO_ACORDADO" && (
+                  <button type="button"
                     onClick={() => onUpdateStatus("CANCELADO_ACORDADO", "Status alterado para desmarcou")}
                     disabled={isUpdatingStatus}
-                    className="h-8 px-3 rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 text-xs font-medium hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50"
-                  >
+                    className="h-8 px-3 rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 text-xs font-medium hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
                     {isUpdatingStatus ? "..." : "Alterar para Desmarcou"}
+                  </button>
+                )}
+                {appointment.status !== "CANCELADO_PROFISSIONAL" && (
+                  <button type="button"
+                    onClick={() => onUpdateStatus("CANCELADO_PROFISSIONAL", "Status alterado para cancelado sem cobranca")}
+                    disabled={isUpdatingStatus}
+                    className="h-8 px-3 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                    {isUpdatingStatus ? "..." : "Alterar p/ s/ cobranca"}
                   </button>
                 )}
               </div>
@@ -757,16 +744,6 @@ function OccurrenceTabContent({
 
       {/* ── Danger Zone ── */}
       <div className="pt-4 border-t border-border/60 space-y-2.5">
-        {canCancel && (
-          <button
-            type="button"
-            onClick={onCancelClick}
-            className="w-full h-10 rounded-xl border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 font-medium text-sm hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all"
-          >
-            {isConsulta ? "Cancelar Agendamento" : "Cancelar"}
-          </button>
-        )}
-
         <button
           type="button"
           onClick={() => setIsDeleteDialogOpen(true)}
@@ -820,6 +797,18 @@ function OccurrenceTabContent({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Cancel Confirm Dialog */}
+      {cancelVariant && (
+        <CancelConfirmDialog
+          isOpen={!!cancelVariant}
+          onClose={() => setCancelVariant(null)}
+          variant={cancelVariant}
+          onConfirm={async (status, reason) => {
+            await onUpdateStatus(status, "Status alterado com sucesso", reason || undefined)
+          }}
+        />
       )}
 
       {/* API Error */}
