@@ -91,6 +91,7 @@ enum FeatureAccess {
 
 enum InvoiceStatus {
   PENDENTE
+  ENVIADO
   PAGO
   CANCELADO
 }
@@ -163,6 +164,7 @@ model Clinic {
   reminderHours          Int[]  @default([24, 2]) // hours before appointment to send reminders
   invoiceMessageTemplate String? // Default invoice message template with {{variables}}
   billingMode            BillingMode @default(PER_SESSION)
+  taxPercentage          Decimal     @default(0) @db.Decimal(5, 2) // Clinic tax % deducted before repasse
 
   // SaaS subscription fields
   planId               String?
@@ -229,6 +231,7 @@ model ProfessionalProfile {
   bufferBetweenSlots    Int     @default(10) // in minutes
   allowOnlineBooking    Boolean @default(true)
   maxAdvanceBookingDays Int     @default(30)
+  repassePercentage     Decimal @default(0) @db.Decimal(5, 2) // % paid to professional after tax
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -705,7 +708,7 @@ model Invoice {
   items               InvoiceItem[]
   consumedCredits     SessionCredit[]
 
-  @@unique([professionalProfileId, patientId, referenceMonth, referenceYear])
+  @@unique([clinicId, patientId, referenceMonth, referenceYear])
   @@index([clinicId])
   @@index([professionalProfileId])
   @@index([patientId])

@@ -24,6 +24,7 @@ const updateSettingsSchema = z.object({
     .optional(),
   invoiceMessageTemplate: z.string().nullable().optional(),
   billingMode: z.enum(["PER_SESSION", "MONTHLY_FIXED"]).optional(),
+  taxPercentage: z.number().min(0).max(100).optional(),
 })
 
 /**
@@ -44,6 +45,7 @@ export const GET = withFeatureAuth(
         reminderHours: true,
         invoiceMessageTemplate: true,
         billingMode: true,
+        taxPercentage: true,
       },
     })
 
@@ -86,7 +88,7 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceMessageTemplate, billingMode } =
+    const { name, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceMessageTemplate, billingMode, taxPercentage } =
       parsed.data
 
     // Build update object with only provided fields
@@ -99,6 +101,7 @@ export const PATCH = withFeatureAuth(
     if (reminderHours !== undefined) updateData.reminderHours = reminderHours
     if (invoiceMessageTemplate !== undefined) updateData.invoiceMessageTemplate = invoiceMessageTemplate || null
     if (billingMode !== undefined) updateData.billingMode = billingMode
+    if (taxPercentage !== undefined) updateData.taxPercentage = taxPercentage
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
@@ -119,6 +122,7 @@ export const PATCH = withFeatureAuth(
         reminderHours: true,
         invoiceMessageTemplate: true,
         billingMode: true,
+        taxPercentage: true,
       },
     })
 

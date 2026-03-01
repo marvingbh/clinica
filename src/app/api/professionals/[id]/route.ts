@@ -33,6 +33,7 @@ export const GET = withFeatureAuth(
             bufferBetweenSlots: true,
             allowOnlineBooking: true,
             maxAdvanceBookingDays: true,
+            repassePercentage: true,
           },
         },
       },
@@ -83,6 +84,7 @@ export const PATCH = withFeatureAuth(
       bufferBetweenSlots,
       allowOnlineBooking,
       maxAdvanceBookingDays,
+      repassePercentage,
     } = body
 
     // Check for duplicate email if changing
@@ -124,6 +126,7 @@ export const PATCH = withFeatureAuth(
     if (bufferBetweenSlots !== undefined) profileUpdateData.bufferBetweenSlots = bufferBetweenSlots
     if (allowOnlineBooking !== undefined) profileUpdateData.allowOnlineBooking = allowOnlineBooking
     if (maxAdvanceBookingDays !== undefined) profileUpdateData.maxAdvanceBookingDays = maxAdvanceBookingDays
+    if (repassePercentage !== undefined) profileUpdateData.repassePercentage = repassePercentage
 
     // Update in transaction
     const professional = await prisma.$transaction(async (tx) => {

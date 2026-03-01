@@ -44,12 +44,14 @@ const MONTH_NAMES = [
 
 const STATUS_LABELS: Record<string, string> = {
   PENDENTE: "Pendente",
+  ENVIADO: "Enviado",
   PAGO: "Pago",
   CANCELADO: "Cancelado",
 }
 
 const STATUS_COLORS: Record<string, string> = {
   PENDENTE: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+  ENVIADO: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
   PAGO: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
   CANCELADO: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
 }
@@ -103,34 +105,44 @@ export default function InvoiceDetailPage() {
     fetchInvoice().finally(() => setLoading(false))
   }, [fetchInvoice])
 
-  async function handleAction(action: string) {
-    if (!invoice) return
+  async function handleStatusChange(newStatus: string) {
+    if (!invoice || newStatus === invoice.status) return
 
-    if (action === "pagar") {
-      const res = await fetch(`/api/financeiro/faturas/${invoice.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "PAGO" }),
+    const res = await fetch(`/api/financeiro/faturas/${invoice.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    })
+    if (res.ok) {
+      toast.success(`Status alterado para ${STATUS_LABELS[newStatus] || newStatus}`)
+      setInvoice({
+        ...invoice,
+        status: newStatus,
+        ...(newStatus === "PAGO" ? { paidAt: new Date().toISOString() } : {}),
       })
-      if (res.ok) {
-        toast.success("Fatura marcada como paga")
-        setInvoice({ ...invoice, status: "PAGO", paidAt: new Date().toISOString() })
-      }
-    } else if (action === "cancelar") {
-      if (!confirm("Cancelar esta fatura? Os créditos consumidos serão liberados.")) return
-      const res = await fetch(`/api/financeiro/faturas/${invoice.id}`, { method: "DELETE" })
-      if (res.ok) {
-        toast.success("Fatura cancelada")
-        router.push("/financeiro/faturas")
-      }
-    } else if (action === "enviar") {
-      const res = await fetch(`/api/financeiro/faturas/${invoice.id}/enviar`, { method: "POST" })
-      const data = await res.json()
-      if (res.ok) {
-        toast.success("Fatura enviada via WhatsApp")
-      } else {
-        toast.error(data.error || "Erro ao enviar")
-      }
+    } else {
+      toast.error("Erro ao alterar status")
+    }
+  }
+
+  async function handleDelete() {
+    if (!invoice) return
+    if (!confirm("Excluir esta fatura? Os créditos consumidos serão liberados.")) return
+    const res = await fetch(`/api/financeiro/faturas/${invoice.id}`, { method: "DELETE" })
+    if (res.ok) {
+      toast.success("Fatura excluída")
+      router.push("/financeiro/faturas")
+    }
+  }
+
+  async function handleEnviarWhatsApp() {
+    if (!invoice) return
+    const res = await fetch(`/api/financeiro/faturas/${invoice.id}/enviar`, { method: "POST" })
+    const data = await res.json()
+    if (res.ok) {
+      toast.success("Fatura enviada via WhatsApp")
+    } else {
+      toast.error(data.error || "Erro ao enviar")
     }
   }
 
@@ -298,7 +310,7 @@ export default function InvoiceDetailPage() {
   if (loading) return <div className="animate-pulse text-muted-foreground">Carregando...</div>
   if (!invoice) return <div className="text-destructive">Fatura não encontrada</div>
 
-  const isPendente = invoice.status === "PENDENTE"
+  const isEditable = invoice.status === "PENDENTE" || invoice.status === "ENVIADO"
 
   return (
     <div className="space-y-6">
@@ -311,9 +323,16 @@ export default function InvoiceDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${STATUS_COLORS[invoice.status] || ""}`}>
-            {STATUS_LABELS[invoice.status] || invoice.status}
-          </span>
+          <select
+            value={invoice.status}
+            onChange={e => handleStatusChange(e.target.value)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium border-0 cursor-pointer appearance-none pr-7 bg-no-repeat bg-[length:12px] bg-[right_8px_center] ${STATUS_COLORS[invoice.status] || ""}`}
+            style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")" }}
+          >
+            {Object.entries(STATUS_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
           <span className="text-sm text-muted-foreground">
             Venc.: {new Date(invoice.dueDate).toLocaleDateString("pt-BR")}
           </span>
@@ -322,22 +341,15 @@ export default function InvoiceDetailPage() {
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2">
-        {isPendente && (
-          <button onClick={() => handleAction("pagar")} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">
-            Marcar como Pago
-          </button>
-        )}
         <a href={`/api/financeiro/faturas/${invoice.id}/pdf`} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors">
           Baixar PDF
         </a>
-        <button onClick={() => handleAction("enviar")} className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors">
+        <button onClick={handleEnviarWhatsApp} className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors">
           Enviar WhatsApp
         </button>
-        {invoice.status !== "CANCELADO" && (
-          <button onClick={() => handleAction("cancelar")} className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium hover:bg-destructive/90 transition-colors">
-            Cancelar Fatura
-          </button>
-        )}
+        <button onClick={handleDelete} className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium hover:bg-destructive/90 transition-colors">
+          Excluir Fatura
+        </button>
       </div>
 
       {/* Nota Fiscal */}
@@ -428,7 +440,7 @@ export default function InvoiceDetailPage() {
               <th className="text-center py-3 px-4 font-medium">Qtd</th>
               <th className="text-right py-3 px-4 font-medium">Valor Unit.</th>
               <th className="text-right py-3 px-4 font-medium">Total</th>
-              {isPendente && <th className="w-20"></th>}
+              {isEditable && <th className="w-20"></th>}
             </tr>
           </thead>
           <tbody>
@@ -506,7 +518,7 @@ export default function InvoiceDetailPage() {
                   <td className="text-center py-3 px-4">{item.quantity}</td>
                   <td className="text-right py-3 px-4">{formatCurrencyBRL(Number(item.unitPrice))}</td>
                   <td className="text-right py-3 px-4 font-medium">{formatCurrencyBRL(Number(item.total))}</td>
-                  {isPendente && (
+                  {isEditable && (
                     <td className="py-3 px-2">
                       <div className="flex gap-1">
                         <button
@@ -535,14 +547,14 @@ export default function InvoiceDetailPage() {
             <tr className="border-t-2 border-border font-bold">
               <td colSpan={4} className="py-3 px-4 text-right">Total</td>
               <td className="text-right py-3 px-4">{formatCurrencyBRL(Number(invoice.totalAmount))}</td>
-              {isPendente && <td></td>}
+              {isEditable && <td></td>}
             </tr>
           </tfoot>
         </table>
       </div>
 
       {/* Add item */}
-      {isPendente && (
+      {isEditable && (
         <div>
           {!showAddForm ? (
             <button

@@ -25,12 +25,14 @@ interface Invoice {
 
 const STATUS_LABELS: Record<string, string> = {
   PENDENTE: "Pendente",
+  ENVIADO: "Enviado",
   PAGO: "Pago",
   CANCELADO: "Cancelado",
 }
 
 const STATUS_COLORS: Record<string, string> = {
   PENDENTE: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+  ENVIADO: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
   PAGO: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
   CANCELADO: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
 }
@@ -50,10 +52,12 @@ export default function FaturasPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [markingEnviado, setMarkingEnviado] = useState(false)
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [selectedProfessionalId, setSelectedProfessionalId] = useState("")
   const [patientSearch, setPatientSearch] = useState("")
   const [patientSearchInput, setPatientSearchInput] = useState("")
+  const [sortBy, setSortBy] = useState<"name" | "recurrence">("name")
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   const fetchInvoices = useCallback(() => {
@@ -64,11 +68,12 @@ export default function FaturasPage() {
     if (statusFilter) params.set("status", statusFilter)
     if (selectedProfessionalId) params.set("professionalId", selectedProfessionalId)
     if (patientSearch.trim()) params.set("patientSearch", patientSearch.trim())
+    if (sortBy !== "name") params.set("sortBy", sortBy)
     fetch(`/api/financeiro/faturas?${params}`)
       .then(r => r.json())
       .then(setInvoices)
       .finally(() => setLoading(false))
-  }, [month, year, statusFilter, selectedProfessionalId, patientSearch])
+  }, [month, year, statusFilter, selectedProfessionalId, patientSearch, sortBy])
 
   useEffect(() => { fetchInvoices() }, [fetchInvoices])
 
@@ -106,10 +111,38 @@ export default function FaturasPage() {
         toast.error(data.error || "Erro ao gerar faturas")
         return
       }
-      toast.success(`${data.generated} fatura(s) gerada(s)`)
+      const parts = []
+      if (data.generated) parts.push(`${data.generated} gerada(s)`)
+      if (data.updated) parts.push(`${data.updated} atualizada(s)`)
+      if (data.skipped) parts.push(`${data.skipped} mantida(s)`)
+      toast.success(parts.join(", ") || "Nenhuma fatura gerada")
       fetchInvoices()
     } finally {
       setGenerating(false)
+    }
+  }
+
+  async function handleBulkMarkEnviado() {
+    const pendentes = invoices.filter(i => i.status === "PENDENTE")
+    if (pendentes.length === 0) {
+      toast.error("Nenhuma fatura pendente para marcar")
+      return
+    }
+    setMarkingEnviado(true)
+    try {
+      let count = 0
+      for (const inv of pendentes) {
+        const res = await fetch(`/api/financeiro/faturas/${inv.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "ENVIADO" }),
+        })
+        if (res.ok) count++
+      }
+      toast.success(`${count} fatura(s) marcada(s) como enviada(s)`)
+      fetchInvoices()
+    } finally {
+      setMarkingEnviado(false)
     }
   }
 
@@ -143,6 +176,7 @@ export default function FaturasPage() {
           {[
             { label: "Todos", value: "" },
             { label: "Pendente", value: "PENDENTE" },
+            { label: "Enviado", value: "ENVIADO" },
             { label: "Pago", value: "PAGO" },
             { label: "Cancelado", value: "CANCELADO" },
           ].map(opt => (
@@ -151,6 +185,25 @@ export default function FaturasPage() {
               onClick={() => setStatusFilter(opt.value)}
               className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
                 statusFilter === opt.value
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-1">
+          {([
+            { label: "Nome", value: "name" as const },
+            { label: "Dia da semana", value: "recurrence" as const },
+          ]).map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setSortBy(opt.value)}
+              className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
+                sortBy === opt.value
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
@@ -175,13 +228,22 @@ export default function FaturasPage() {
           </select>
         )}
 
-        <button
-          onClick={handleGenerate}
-          disabled={generating || month === null}
-          className="ml-auto px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
-        >
-          {generating ? "Gerando..." : "Gerar Faturas do Mês"}
-        </button>
+        <div className="ml-auto flex gap-2">
+          <button
+            onClick={handleBulkMarkEnviado}
+            disabled={markingEnviado || invoices.filter(i => i.status === "PENDENTE").length === 0}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {markingEnviado ? "Marcando..." : "Marcar como Enviado"}
+          </button>
+          <button
+            onClick={handleGenerate}
+            disabled={generating || month === null}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          >
+            {generating ? "Gerando..." : "Gerar Faturas do Mês"}
+          </button>
+        </div>
       </div>
 
       {/* Table */}
@@ -226,7 +288,7 @@ export default function FaturasPage() {
                   </td>
                   <td className="text-center py-3 px-4">{new Date(inv.dueDate).toLocaleDateString("pt-BR")}</td>
                   <td className="text-center py-3 px-4">
-                    {inv.status === "PENDENTE" ? (
+                    {(inv.status === "PENDENTE" || inv.status === "ENVIADO") ? (
                       <button
                         onClick={() => handleMarkPaid(inv.id)}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition-colors"
@@ -273,6 +335,8 @@ export default function FaturasPage() {
                 <td className="text-right py-3 px-4">{formatCurrencyBRL(invoices.reduce((s, i) => s + Number(i.totalAmount), 0))}</td>
                 <td className="text-center py-3 px-4">
                   <span className="text-xs text-green-600 dark:text-green-400">{invoices.filter(i => i.status === "PAGO").length} pagos</span>
+                  {" / "}
+                  <span className="text-xs text-blue-600 dark:text-blue-400">{invoices.filter(i => i.status === "ENVIADO").length} enviados</span>
                   {" / "}
                   <span className="text-xs text-yellow-600 dark:text-yellow-400">{invoices.filter(i => i.status === "PENDENTE").length} pendentes</span>
                 </td>

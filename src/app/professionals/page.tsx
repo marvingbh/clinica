@@ -36,6 +36,11 @@ const professionalSchema = z.object({
     .min(0, "Intervalo não pode ser negativo")
     .max(60, "Intervalo máximo é 60 minutos")
     .optional(),
+  repassePercentage: z
+    .number()
+    .min(0, "Percentual não pode ser negativo")
+    .max(100, "Percentual máximo é 100%")
+    .optional(),
   isAdminRole: z.boolean().optional(),
 })
 
@@ -57,6 +62,7 @@ interface Professional {
     bufferBetweenSlots: number
     allowOnlineBooking: boolean
     maxAdvanceBookingDays: number
+    repassePercentage: number | string
   } | null
 }
 
@@ -86,6 +92,7 @@ export default function ProfessionalsPage() {
     defaultValues: {
       appointmentDuration: 50,
       bufferBetweenSlots: 0,
+      repassePercentage: 0,
     },
   })
 
@@ -160,6 +167,7 @@ export default function ProfessionalsPage() {
       registrationNumber: "",
       appointmentDuration: 50,
       bufferBetweenSlots: 0,
+      repassePercentage: 0,
       isAdminRole: false,
     })
     setIsSheetOpen(true)
@@ -176,6 +184,7 @@ export default function ProfessionalsPage() {
       registrationNumber: professional.professionalProfile?.registrationNumber ?? "",
       appointmentDuration: professional.professionalProfile?.appointmentDuration ?? 50,
       bufferBetweenSlots: professional.professionalProfile?.bufferBetweenSlots ?? 0,
+      repassePercentage: Number(professional.professionalProfile?.repassePercentage ?? 0),
       isAdminRole: professional.role === "ADMIN",
     })
     setIsSheetOpen(true)
@@ -208,6 +217,7 @@ export default function ProfessionalsPage() {
         registrationNumber: data.registrationNumber || null,
         appointmentDuration: data.appointmentDuration,
         bufferBetweenSlots: data.bufferBetweenSlots,
+        repassePercentage: data.repassePercentage,
       }
 
       // Only include password if creating or if password was provided
@@ -505,6 +515,10 @@ export default function ProfessionalsPage() {
                                 <p className="text-sm font-medium">{viewingProfessional.professionalProfile.bufferBetweenSlots} min</p>
                               </div>
                               <div>
+                                <p className="text-xs text-muted-foreground">Repasse (%)</p>
+                                <p className="text-sm font-medium">{Number(viewingProfessional.professionalProfile.repassePercentage)}%</p>
+                              </div>
+                              <div>
                                 <p className="text-xs text-muted-foreground">Agendamento online</p>
                                 <p className="text-sm font-medium">
                                   {viewingProfessional.professionalProfile.allowOnlineBooking ? "Habilitado" : "Desabilitado"}
@@ -599,6 +613,19 @@ export default function ProfessionalsPage() {
                         {...register("bufferBetweenSlots", { valueAsNumber: true })}
                         error={errors.bufferBetweenSlots?.message}
                         helperText="Tempo de intervalo entre consultas (0-60 minutos). Use 0 para permitir consultas consecutivas."
+                      />
+                    </div>
+
+                    <div>
+                      <Input
+                        label="Repasse (%)"
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.01}
+                        {...register("repassePercentage", { valueAsNumber: true })}
+                        error={errors.repassePercentage?.message}
+                        helperText="Percentual pago ao profissional após imposto (0-100%)"
                       />
                     </div>
 

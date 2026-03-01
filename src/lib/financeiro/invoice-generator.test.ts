@@ -44,9 +44,15 @@ describe("classifyAppointments", () => {
     expect(result.schoolMeeting).toHaveLength(1)
   })
 
-  it("excludes cancelled appointments", () => {
+  it("includes CANCELADO_FALTA (no-show) as billable", () => {
     const result = classifyAppointments([
       makeAppointment({ id: "a1", status: "CANCELADO_FALTA" }),
+    ])
+    expect(result.regular).toHaveLength(1)
+  })
+
+  it("excludes CANCELADO_ACORDADO and CANCELADO_PROFISSIONAL", () => {
+    const result = classifyAppointments([
       makeAppointment({ id: "a2", status: "CANCELADO_ACORDADO" }),
       makeAppointment({ id: "a3", status: "CANCELADO_PROFISSIONAL" }),
     ])

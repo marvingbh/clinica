@@ -40,7 +40,7 @@ export const GET = withFeatureAuth(
 )
 
 const updateSchema = z.object({
-  status: z.enum(["PENDENTE", "PAGO", "CANCELADO"]).optional(),
+  status: z.enum(["PENDENTE", "ENVIADO", "PAGO", "CANCELADO"]).optional(),
   notes: z.string().optional(),
   paidAt: z.string().datetime().optional().nullable(),
   notaFiscalEmitida: z.boolean().optional(),

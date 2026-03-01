@@ -310,11 +310,11 @@ async function main() {
         continue
       }
 
-      // Check if invoice exists for this patient + professional + Feb 2026
+      // Check if invoice exists for this patient + clinic + month/year
       const existingInvoice = await prisma.invoice.findUnique({
         where: {
-          professionalProfileId_patientId_referenceMonth_referenceYear: {
-            professionalProfileId: profId,
+          clinicId_patientId_referenceMonth_referenceYear: {
+            clinicId: CLINIC_ID,
             patientId: match.id,
             referenceMonth: MONTH,
             referenceYear: YEAR,

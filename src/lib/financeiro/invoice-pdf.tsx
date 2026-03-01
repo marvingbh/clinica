@@ -102,7 +102,7 @@ export function InvoicePDF({ data }: { data: InvoicePDFData }) {
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Status:</Text>
           <Text style={styles.infoValue}>
-            {data.status === "PAGO" ? "Pago" : data.status === "PENDENTE" ? "Pendente" : "Cancelado"}
+            {data.status === "PAGO" ? "Pago" : data.status === "ENVIADO" ? "Enviado" : data.status === "PENDENTE" ? "Pendente" : "Cancelado"}
           </Text>
         </View>
 

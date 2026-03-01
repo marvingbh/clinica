@@ -44,6 +44,7 @@ interface ClinicSettings {
   reminderHours: number[]
   invoiceMessageTemplate: string | null
   billingMode: "PER_SESSION" | "MONTHLY_FIXED"
+  taxPercentage: number
 }
 
 export default function AdminSettingsPage() {
@@ -57,6 +58,8 @@ export default function AdminSettingsPage() {
   const [isSavingTemplate, setIsSavingTemplate] = useState(false)
   const [billingMode, setBillingMode] = useState<"PER_SESSION" | "MONTHLY_FIXED">("PER_SESSION")
   const [isSavingBillingMode, setIsSavingBillingMode] = useState(false)
+  const [taxPercentage, setTaxPercentage] = useState<number>(0)
+  const [isSavingTax, setIsSavingTax] = useState(false)
 
   const {
     register,
@@ -82,6 +85,7 @@ export default function AdminSettingsPage() {
       setSettings(data.settings)
       setInvoiceTemplate(data.settings.invoiceMessageTemplate || "")
       setBillingMode(data.settings.billingMode || "PER_SESSION")
+      setTaxPercentage(Number(data.settings.taxPercentage ?? 0))
       reset({
         name: data.settings.name,
         timezone: data.settings.timezone,
@@ -198,6 +202,25 @@ export default function AdminSettingsPage() {
       setBillingMode(billingMode) // revert on error
     } finally {
       setIsSavingBillingMode(false)
+    }
+  }
+
+  async function saveTaxPercentage() {
+    setIsSavingTax(true)
+    try {
+      const response = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taxPercentage }),
+      })
+      if (!response.ok) throw new Error("Failed to save")
+      const result = await response.json()
+      setSettings(result.settings)
+      toast.success("Percentual de imposto salvo com sucesso")
+    } catch {
+      toast.error("Erro ao salvar percentual de imposto")
+    } finally {
+      setIsSavingTax(false)
     }
   }
 
@@ -423,6 +446,39 @@ export default function AdminSettingsPage() {
                   </p>
                 </div>
               </label>
+            </div>
+          </div>
+
+          {/* Tax Percentage for Repasse */}
+          <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Imposto para Repasse</h2>
+            <p className="text-sm text-muted-foreground">
+              Percentual de imposto descontado do valor bruto antes de calcular o repasse dos profissionais.
+            </p>
+            <div className="flex items-end gap-3">
+              <div className="flex-1 max-w-xs">
+                <label htmlFor="taxPercentage" className="block text-sm font-medium text-foreground mb-2">
+                  Percentual (%)
+                </label>
+                <input
+                  id="taxPercentage"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  value={taxPercentage}
+                  onChange={(e) => setTaxPercentage(parseFloat(e.target.value) || 0)}
+                  className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={saveTaxPercentage}
+                disabled={isSavingTax}
+                className="h-12 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+              >
+                {isSavingTax ? "Salvando..." : "Salvar"}
+              </button>
             </div>
           </div>
 

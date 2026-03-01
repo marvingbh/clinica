@@ -13,6 +13,7 @@ interface ProfessionalSummary {
   name: string
   faturado: number
   pendente: number
+  enviado: number
   pago: number
   sessions: number
   invoiceCount: number
@@ -20,9 +21,9 @@ interface ProfessionalSummary {
 }
 
 interface MonthSummary {
-  faturado: number; pendente: number; pago: number
+  faturado: number; pendente: number; enviado: number; pago: number
   sessions: number; credits: number; extras: number
-  invoiceCount: number; pendingCount: number; paidCount: number
+  invoiceCount: number; pendingCount: number; enviadoCount: number; paidCount: number
 }
 
 interface DashboardData {
@@ -30,12 +31,14 @@ interface DashboardData {
   month: number | null
   totalFaturado: number
   totalPendente: number
+  totalEnviado: number
   totalPago: number
   totalSessions: number
   totalCredits: number
   totalExtras: number
   invoiceCount: number
   pendingCount: number
+  enviadoCount: number
   paidCount: number
   availableCredits: number
   byMonth: Record<number, MonthSummary>
@@ -55,13 +58,14 @@ const SHORT_MONTHS = [
 const CHART_COLORS = {
   faturado: "#6366f1",
   pago: "#22c55e",
+  enviado: "#3b82f6",
   pendente: "#eab308",
   sessions: "#3b82f6",
   credits: "#ef4444",
   extras: "#f97316",
 }
 
-const PIE_COLORS = ["#22c55e", "#eab308", "#ef4444"]
+const PIE_COLORS = ["#22c55e", "#3b82f6", "#eab308", "#ef4444"]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload, label }: any) {
@@ -112,6 +116,7 @@ export default function FinanceiroDashboard() {
       name: SHORT_MONTHS[i],
       Faturado: md?.faturado || 0,
       Recebido: md?.pago || 0,
+      Enviado: md?.enviado || 0,
       Pendente: md?.pendente || 0,
     }
   })
@@ -129,14 +134,16 @@ export default function FinanceiroDashboard() {
 
   const statusPieData = [
     { name: "Pago", value: data.paidCount },
+    { name: "Enviado", value: data.enviadoCount },
     { name: "Pendente", value: data.pendingCount },
-    { name: "Cancelado", value: data.invoiceCount - data.paidCount - data.pendingCount },
+    { name: "Cancelado", value: data.invoiceCount - data.paidCount - data.enviadoCount - data.pendingCount },
   ].filter(d => d.value > 0)
 
   const profChartData = data.byProfessional.map(p => ({
     name: p.name.split(" ")[0],
     Faturado: p.faturado,
     Recebido: p.pago,
+    Enviado: p.enviado,
     Pendente: p.pendente,
   }))
 
@@ -148,11 +155,12 @@ export default function FinanceiroDashboard() {
       </h2>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <SummaryCard label="Total Faturado" value={formatCurrencyBRL(data.totalFaturado)} sub={`${data.invoiceCount} faturas`} />
         <SummaryCard label="Pendente" value={formatCurrencyBRL(data.totalPendente)} sub={`${data.pendingCount} faturas`} variant="warning" />
+        <SummaryCard label="Enviado" value={formatCurrencyBRL(data.totalEnviado)} sub={`${data.enviadoCount} faturas`} variant="info" />
         <SummaryCard label="Recebido" value={formatCurrencyBRL(data.totalPago)} sub={`${paidPercent}% do total`} variant="success" />
-        <SummaryCard label="Créditos Disponíveis" value={String(data.availableCredits)} sub="não consumidos" variant="info" />
+        <SummaryCard label="Créditos Disponíveis" value={String(data.availableCredits)} sub="não consumidos" />
       </div>
 
       {/* Secondary stats */}
@@ -185,6 +193,7 @@ export default function FinanceiroDashboard() {
                 <Tooltip content={<CustomTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="Recebido" fill={CHART_COLORS.pago} radius={[3, 3, 0, 0]} />
+                <Bar dataKey="Enviado" fill={CHART_COLORS.enviado} radius={[3, 3, 0, 0]} />
                 <Bar dataKey="Pendente" fill={CHART_COLORS.pendente} radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -252,6 +261,7 @@ export default function FinanceiroDashboard() {
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="Recebido" fill={CHART_COLORS.pago} radius={[0, 3, 3, 0]} />
+              <Bar dataKey="Enviado" fill={CHART_COLORS.enviado} radius={[0, 3, 3, 0]} />
               <Bar dataKey="Pendente" fill={CHART_COLORS.pendente} radius={[0, 3, 3, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -287,6 +297,7 @@ export default function FinanceiroDashboard() {
                   <th className="text-center py-3 px-4 font-medium">Sessões</th>
                   <th className="text-right py-3 px-4 font-medium">Faturado</th>
                   <th className="text-right py-3 px-4 font-medium">Pendente</th>
+                  <th className="text-right py-3 px-4 font-medium">Enviado</th>
                   <th className="text-right py-3 px-4 font-medium">Recebido</th>
                 </tr>
               </thead>
@@ -299,6 +310,9 @@ export default function FinanceiroDashboard() {
                     <td className="text-right py-3 px-4">{formatCurrencyBRL(prof.faturado)}</td>
                     <td className="text-right py-3 px-4 text-yellow-600 dark:text-yellow-400">
                       {formatCurrencyBRL(prof.pendente)}
+                    </td>
+                    <td className="text-right py-3 px-4 text-blue-600 dark:text-blue-400">
+                      {formatCurrencyBRL(prof.enviado)}
                     </td>
                     <td className="text-right py-3 px-4 text-green-600 dark:text-green-400">
                       {formatCurrencyBRL(prof.pago)}
@@ -324,6 +338,7 @@ export default function FinanceiroDashboard() {
                   <th className="text-center py-3 px-4 font-medium">Sessões</th>
                   <th className="text-right py-3 px-4 font-medium">Faturado</th>
                   <th className="text-right py-3 px-4 font-medium">Pendente</th>
+                  <th className="text-right py-3 px-4 font-medium">Enviado</th>
                   <th className="text-right py-3 px-4 font-medium">Recebido</th>
                 </tr>
               </thead>
@@ -351,6 +366,9 @@ export default function FinanceiroDashboard() {
                       <td className="text-right py-3 px-4 text-yellow-600 dark:text-yellow-400">
                         {md.pendente > 0 ? formatCurrencyBRL(md.pendente) : "—"}
                       </td>
+                      <td className="text-right py-3 px-4 text-blue-600 dark:text-blue-400">
+                        {md.enviado > 0 ? formatCurrencyBRL(md.enviado) : "—"}
+                      </td>
                       <td className="text-right py-3 px-4 text-green-600 dark:text-green-400">
                         {md.pago > 0 ? formatCurrencyBRL(md.pago) : "—"}
                       </td>
@@ -366,6 +384,9 @@ export default function FinanceiroDashboard() {
                   <td className="text-right py-3 px-4">{formatCurrencyBRL(data.totalFaturado)}</td>
                   <td className="text-right py-3 px-4 text-yellow-600 dark:text-yellow-400">
                     {formatCurrencyBRL(data.totalPendente)}
+                  </td>
+                  <td className="text-right py-3 px-4 text-blue-600 dark:text-blue-400">
+                    {formatCurrencyBRL(data.totalEnviado)}
                   </td>
                   <td className="text-right py-3 px-4 text-green-600 dark:text-green-400">
                     {formatCurrencyBRL(data.totalPago)}
