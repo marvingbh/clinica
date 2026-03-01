@@ -93,14 +93,6 @@ export function addMonthsToDate(date: Date, months: number): Date {
 }
 
 /**
- * Checks if an appointment can be cancelled
- */
-export function canCancelAppointment(appointment: Appointment | null): boolean {
-  if (!appointment) return false
-  return ["AGENDADO", "CONFIRMADO"].includes(appointment.status)
-}
-
-/**
  * Checks if patient has notification consent
  */
 export function hasNotificationConsent(appointment: Appointment | null): boolean {

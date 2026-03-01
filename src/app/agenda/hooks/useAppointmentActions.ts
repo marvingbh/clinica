@@ -1,8 +1,7 @@
 import { useState, useCallback } from "react"
 import { toast } from "sonner"
-import type { Appointment, CancelType } from "../lib/types"
+import type { Appointment } from "../lib/types"
 import {
-  cancelAppointment,
   updateStatus,
   resendConfirmation,
   toggleRecurrenceException,
@@ -17,11 +16,6 @@ export interface UseAppointmentActionsParams {
 }
 
 export interface UseAppointmentActionsReturn {
-  // Cancel dialog
-  isCancelDialogOpen: boolean
-  setIsCancelDialogOpen: (open: boolean) => void
-  handleCancelAppointment: (reason: string, notifyPatient: boolean, cancelType: CancelType) => Promise<void>
-
   // Status updates
   isUpdatingStatus: boolean
   handleUpdateStatus: (newStatus: string, successMessage: string, reason?: string) => Promise<void>
@@ -47,43 +41,11 @@ export function useAppointmentActions({
   closeEditSheet,
   onSuccess,
 }: UseAppointmentActionsParams): UseAppointmentActionsReturn {
-  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [isResendingConfirmation, setIsResendingConfirmation] = useState(false)
   const [isManagingException, setIsManagingException] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeletingAppointment, setIsDeletingAppointment] = useState(false)
-
-  const handleCancelAppointment = useCallback(
-    async (reason: string, notifyPatient: boolean, cancelType: CancelType) => {
-      if (!selectedAppointment) return
-
-      const result = await cancelAppointment(selectedAppointment.id, {
-        reason,
-        notifyPatient,
-        cancelType,
-      })
-
-      if (result.error) {
-        toast.error(result.error)
-        throw new Error(result.error)
-      }
-
-      if (result.cancelType === "series" && result.cancelledCount && result.cancelledCount > 1) {
-        toast.success(`${result.cancelledCount} agendamentos cancelados com sucesso`)
-      } else {
-        toast.success("Agendamento cancelado com sucesso")
-      }
-      if (result.notificationCreated) {
-        toast.success("Notificacao enviada ao paciente")
-      }
-
-      setIsCancelDialogOpen(false)
-      closeEditSheet()
-      onSuccess()
-    },
-    [selectedAppointment, closeEditSheet, onSuccess]
-  )
 
   const handleUpdateStatus = useCallback(
     async (newStatus: string, successMessage: string, reason?: string) => {
@@ -208,9 +170,6 @@ export function useAppointmentActions({
   }, [selectedAppointment, closeEditSheet, onSuccess])
 
   return {
-    isCancelDialogOpen,
-    setIsCancelDialogOpen,
-    handleCancelAppointment,
     isUpdatingStatus,
     handleUpdateStatus,
     isResendingConfirmation,

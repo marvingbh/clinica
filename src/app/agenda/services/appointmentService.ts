@@ -1,5 +1,5 @@
 import { toDateString } from "../lib/utils"
-import type { Appointment, BiweeklyHint, CancelType } from "../lib/types"
+import type { Appointment, BiweeklyHint } from "../lib/types"
 
 export interface FetchAppointmentsParams {
   date: Date
@@ -67,19 +67,6 @@ export interface UpdateAppointmentData {
   notes?: string | null
   price?: number | null
   additionalProfessionalIds?: string[]
-}
-
-export interface CancelAppointmentData {
-  reason: string
-  notifyPatient: boolean
-  cancelType: CancelType
-}
-
-export interface CancelAppointmentResponse {
-  cancelType?: string
-  cancelledCount?: number
-  notificationCreated?: boolean
-  error?: string
 }
 
 export interface UpdateStatusResponse {
@@ -191,25 +178,6 @@ export async function updateAppointment(
 
   if (!response.ok) {
     return { error: result.error || "Erro ao atualizar agendamento" }
-  }
-
-  return result
-}
-
-export async function cancelAppointment(
-  id: string,
-  data: CancelAppointmentData
-): Promise<CancelAppointmentResponse> {
-  const response = await fetch(`/api/appointments/${id}/cancel`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  })
-
-  const result = await response.json()
-
-  if (!response.ok) {
-    return { error: result.error || "Erro ao cancelar agendamento" }
   }
 
   return result

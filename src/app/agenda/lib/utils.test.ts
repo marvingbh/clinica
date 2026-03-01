@@ -6,7 +6,6 @@ import {
   formatPhone,
   toDateString,
   addMonthsToDate,
-  canCancelAppointment,
   hasNotificationConsent,
   canMarkStatus,
   canResendConfirmation,
@@ -160,35 +159,6 @@ describe("addMonthsToDate", () => {
     const result = addMonthsToDate(new Date(2026, 0, 31), 1)
     expect(result.getMonth()).toBe(1) // February
     expect(result.getDate()).toBe(28)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// canCancelAppointment
-// ---------------------------------------------------------------------------
-describe("canCancelAppointment", () => {
-  it("returns false for null", () => {
-    expect(canCancelAppointment(null)).toBe(false)
-  })
-
-  it("returns true for AGENDADO", () => {
-    expect(canCancelAppointment(makeAppointment({ status: "AGENDADO" }))).toBe(true)
-  })
-
-  it("returns true for CONFIRMADO", () => {
-    expect(canCancelAppointment(makeAppointment({ status: "CONFIRMADO" }))).toBe(true)
-  })
-
-  it("returns false for FINALIZADO", () => {
-    expect(canCancelAppointment(makeAppointment({ status: "FINALIZADO" }))).toBe(false)
-  })
-
-  it("returns false for CANCELADO_ACORDADO", () => {
-    expect(canCancelAppointment(makeAppointment({ status: "CANCELADO_ACORDADO" }))).toBe(false)
-  })
-
-  it("returns false for CANCELADO_FALTA", () => {
-    expect(canCancelAppointment(makeAppointment({ status: "CANCELADO_FALTA" }))).toBe(false)
   })
 })
 

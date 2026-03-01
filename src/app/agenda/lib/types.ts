@@ -176,8 +176,6 @@ export type AppointmentStatus =
   | "CANCELADO_PROFISSIONAL"
   | "FINALIZADO"
 
-export type CancelType = "single" | "series"
-
 // ============================================================================
 // Group Session Types
 // ============================================================================
