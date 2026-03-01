@@ -5,7 +5,7 @@ export const STATUS_LABELS: Record<AppointmentStatus, string> = {
   CONFIRMADO: "Confirmado",
   CANCELADO_ACORDADO: "Desmarcou",
   CANCELADO_FALTA: "Cancelado (Falta)",
-  CANCELADO_PROFISSIONAL: "Cancelado (Profissional)",
+  CANCELADO_PROFISSIONAL: "Cancelado (s/ cobranca)",
   FINALIZADO: "Finalizado",
 }
 
