@@ -424,7 +424,7 @@ function OccurrenceTabContent({
         <div className="space-y-2.5">
           {/* AGENDADO: Confirm + Atendido row, then cancel options row */}
           {canMarkStatus && isConsulta && appointment.status === "AGENDADO" && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => onUpdateStatus("CONFIRMADO", "Consulta confirmada com sucesso")} disabled={isUpdatingStatus}
                   className="h-11 rounded-xl bg-blue-600 text-white font-medium text-sm flex items-center justify-center gap-1.5 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50">
@@ -436,43 +436,49 @@ function OccurrenceTabContent({
                   {isUpdatingStatus ? "..." : "Atendido"}
                 </button>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <button type="button" onClick={() => setCancelVariant("faltou")} disabled={isUpdatingStatus}
-                  className="h-11 rounded-xl border-2 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-sm flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                  Faltou
-                </button>
-                <button type="button" onClick={() => setCancelVariant("desmarcou")} disabled={isUpdatingStatus}
-                  className="h-11 rounded-xl border-2 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-sm flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                  Desmarcou
-                </button>
-                <button type="button" onClick={() => setCancelVariant("sem_cobranca")} disabled={isUpdatingStatus}
-                  className="h-11 rounded-xl border-2 border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 font-medium text-sm flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                  S/ cobranca
-                </button>
+              <div className="rounded-xl border border-border/60 bg-muted/30 dark:bg-muted/10 p-2.5 space-y-2">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-0.5">Cancelamento</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <button type="button" onClick={() => setCancelVariant("faltou")} disabled={isUpdatingStatus}
+                    className="h-10 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-xs flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                    Faltou
+                  </button>
+                  <button type="button" onClick={() => setCancelVariant("desmarcou")} disabled={isUpdatingStatus}
+                    className="h-10 rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-xs flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                    Desmarcou
+                  </button>
+                  <button type="button" onClick={() => setCancelVariant("sem_cobranca")} disabled={isUpdatingStatus}
+                    className="h-10 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 font-medium text-xs flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                    S/ cobranca
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
           {/* CONFIRMADO: Atendido full width, then cancel options row */}
           {canMarkStatus && isConsulta && appointment.status === "CONFIRMADO" && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <button type="button" onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")} disabled={isUpdatingStatus}
                 className="w-full h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50">
                 {isUpdatingStatus ? "..." : "Atendido"}
               </button>
-              <div className="grid grid-cols-3 gap-2">
-                <button type="button" onClick={() => setCancelVariant("faltou")} disabled={isUpdatingStatus}
-                  className="h-11 rounded-xl border-2 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-sm flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                  Faltou
-                </button>
-                <button type="button" onClick={() => setCancelVariant("desmarcou")} disabled={isUpdatingStatus}
-                  className="h-11 rounded-xl border-2 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-sm flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                  Desmarcou
-                </button>
-                <button type="button" onClick={() => setCancelVariant("sem_cobranca")} disabled={isUpdatingStatus}
-                  className="h-11 rounded-xl border-2 border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 font-medium text-sm flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                  S/ cobranca
-                </button>
+              <div className="rounded-xl border border-border/60 bg-muted/30 dark:bg-muted/10 p-2.5 space-y-2">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-0.5">Cancelamento</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <button type="button" onClick={() => setCancelVariant("faltou")} disabled={isUpdatingStatus}
+                    className="h-10 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-xs flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                    Faltou
+                  </button>
+                  <button type="button" onClick={() => setCancelVariant("desmarcou")} disabled={isUpdatingStatus}
+                    className="h-10 rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-xs flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                    Desmarcou
+                  </button>
+                  <button type="button" onClick={() => setCancelVariant("sem_cobranca")} disabled={isUpdatingStatus}
+                    className="h-10 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 font-medium text-xs flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                    S/ cobranca
+                  </button>
+                </div>
               </div>
             </div>
           )}
