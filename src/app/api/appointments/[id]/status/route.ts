@@ -154,6 +154,22 @@ export const PATCH = withFeatureAuth(
       }
     }
 
+    // Pre-check: block ACORDADO→PROFISSIONAL if credit was already consumed by an invoice
+    if (currentStatus === AppointmentStatus.CANCELADO_ACORDADO && targetStatus === AppointmentStatus.CANCELADO_PROFISSIONAL) {
+      const unconsumedCredit = await prisma.sessionCredit.findFirst({
+        where: {
+          originAppointmentId: existing.id,
+          consumedByInvoiceId: null,
+        },
+      })
+      if (!unconsumedCredit) {
+        return NextResponse.json(
+          { error: "Crédito já foi utilizado em uma fatura. Não é possível alterar para cancelado sem cobrança." },
+          { status: 400 }
+        )
+      }
+    }
+
     // Prepare update data with appropriate timestamps
     const now = new Date()
     const updateData = computeStatusUpdateData(targetStatus, now)
@@ -226,8 +242,42 @@ export const PATCH = withFeatureAuth(
       }
     }
 
+    // Switching from ACORDADO to PROFISSIONAL: delete the unconsumed credit (pre-checked above)
+    if (currentStatus === AppointmentStatus.CANCELADO_ACORDADO && targetStatus === AppointmentStatus.CANCELADO_PROFISSIONAL) {
+      const credit = await prisma.sessionCredit.findFirst({
+        where: {
+          originAppointmentId: existing.id,
+          consumedByInvoiceId: null,
+        },
+      })
+      if (credit) {
+        await prisma.sessionCredit.delete({ where: { id: credit.id } })
+        await prisma.appointment.update({
+          where: { id: existing.id },
+          data: { creditGenerated: false },
+        })
+      }
+    }
+
     // Switching from FALTA to ACORDADO: create credit
     if (currentStatus === AppointmentStatus.CANCELADO_FALTA && targetStatus === AppointmentStatus.CANCELADO_ACORDADO && existing.patientId) {
+      await prisma.sessionCredit.create({
+        data: {
+          clinicId: user.clinicId,
+          professionalProfileId: existing.professionalProfileId,
+          patientId: existing.patientId,
+          originAppointmentId: existing.id,
+          reason: `Desmarcou - ${new Date(existing.scheduledAt).toLocaleDateString("pt-BR")}`,
+        },
+      })
+      await prisma.appointment.update({
+        where: { id: existing.id },
+        data: { creditGenerated: true },
+      })
+    }
+
+    // Switching from PROFISSIONAL to ACORDADO: create credit
+    if (currentStatus === AppointmentStatus.CANCELADO_PROFISSIONAL && targetStatus === AppointmentStatus.CANCELADO_ACORDADO && existing.patientId) {
       await prisma.sessionCredit.create({
         data: {
           clinicId: user.clinicId,
