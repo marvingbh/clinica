@@ -1,11 +1,14 @@
 "use client"
 
+import React from "react"
 import { RefreshCwIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { Appointment } from "../../lib/types"
 import { isBirthdayOnDate } from "../../lib/utils"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../../lib/professional-colors"
-import { STATUS_LABELS, ENTRY_TYPE_COLORS } from "../../lib/constants"
+import { STATUS_LABELS, ENTRY_TYPE_COLORS, ENTRY_TYPE_LABELS } from "../../lib/constants"
 import type { AppointmentStatus, CalendarEntryType } from "../../lib/types"
+
+const URL_REGEX = /https?:\/\/[^\s]+/
 
 const PIXELS_PER_MINUTE = 1.6 // 48px per 30 minutes = 96px per hour
 const START_HOUR = 7
@@ -41,6 +44,7 @@ export function AppointmentBlock({
   const height = Math.max(durationMinutes * PIXELS_PER_MINUTE, 32) // Min height of 32px for readability
 
   const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"].includes(appointment.status)
+  const isConsulta = appointment.type === "CONSULTA"
 
   const startTimeStr = `${hour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`
   const endHour = endAt.getHours()
@@ -103,12 +107,28 @@ export function AppointmentBlock({
             )}
           </p>
         )}
-        <p className={`text-[11px] font-medium text-foreground truncate leading-tight ${appointment.recurrence && !showProfessional ? "pr-3" : ""}`}>
-          {appointment.patient?.name || appointment.title || "Sem titulo"}
-          {appointment.patient?.birthDate && isBirthdayOnDate(appointment.patient.birthDate, scheduledAt) && (
-            <span className="ml-0.5 text-[10px]" title="Aniversario!">🎂</span>
-          )}
-        </p>
+        {!isConsulta ? (
+          <>
+            <p className={`text-[9px] font-semibold truncate leading-tight ${entryColors.text}`}>
+              {ENTRY_TYPE_LABELS[appointment.type as CalendarEntryType]}
+            </p>
+            <p className={`text-[11px] font-medium text-foreground truncate leading-tight ${appointment.recurrence && !showProfessional ? "pr-3" : ""}`}>
+              {appointment.title || "Sem titulo"}
+            </p>
+            {appointment.patient && (
+              <p className="text-[9px] text-muted-foreground truncate leading-tight">
+                <span className="text-green-600 dark:text-green-400 font-semibold">$</span> {appointment.patient.name}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className={`text-[11px] font-medium text-foreground truncate leading-tight ${appointment.recurrence && !showProfessional ? "pr-3" : ""}`}>
+            {appointment.patient?.name || appointment.title || "Sem titulo"}
+            {appointment.patient?.birthDate && isBirthdayOnDate(appointment.patient.birthDate, scheduledAt) && (
+              <span className="ml-0.5 text-[10px]" title="Aniversario!">🎂</span>
+            )}
+          </p>
+        )}
         {isCancelled && (
           <p className="text-[9px] text-red-600 dark:text-red-400 font-medium truncate leading-tight">
             {STATUS_LABELS[appointment.status as AppointmentStatus]}
@@ -122,7 +142,22 @@ export function AppointmentBlock({
         {/* Notes/obs - show truncated if there's enough height */}
         {height >= 64 && appointment.notes && (
           <p className="text-[9px] text-muted-foreground leading-tight line-clamp-2">
-            {appointment.notes.length > 50 ? `${appointment.notes.slice(0, 50)}…` : appointment.notes}
+            {(() => {
+              const urls = appointment.notes!.match(new RegExp(URL_REGEX, "g"))
+              if (!urls) return appointment.notes!.length > 50 ? `${appointment.notes!.slice(0, 50)}…` : appointment.notes
+              return appointment.notes!.split(new RegExp(URL_REGEX, "g")).reduce<React.ReactNode[]>((parts, text, i) => {
+                if (i > 0) {
+                  parts.push(
+                    <a key={i} href={urls[i - 1]} target="_blank" rel="noopener noreferrer"
+                      className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-200 break-all"
+                      onClick={(e) => e.stopPropagation()}
+                    >{urls[i - 1]}</a>
+                  )
+                }
+                if (text) parts.push(text.length > 30 ? `${text.slice(0, 30)}…` : text)
+                return parts
+              }, [])
+            })()}
           </p>
         )}
         {/* Alternate week info for biweekly - show if there's enough height */}

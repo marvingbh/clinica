@@ -260,6 +260,21 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
               const isCurrentDay = isSameDay(day, today)
               const weekend = isWeekend(day)
 
+              // Find times where cancelled appointments coexist with available slots
+              const dayAvailSlots = availabilitySlots?.get(dateStr) || []
+              const cancelledStatuses = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"]
+              const splitTimes = new Set<string>()
+              for (const slot of dayAvailSlots) {
+                const hasCancelledAtTime = dayAppointments.some(apt => {
+                  const t = new Date(apt.scheduledAt)
+                  const timeStr = `${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}`
+                  return timeStr === slot.time && cancelledStatuses.includes(apt.status)
+                })
+                if (hasCancelledAtTime) {
+                  splitTimes.add(slot.time)
+                }
+              }
+
               return (
                 <div
                   key={dayIndex}
@@ -298,18 +313,25 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                   )}
 
                   {/* Appointments */}
-                  {dayAppointments.map((appointment) => (
-                    <AppointmentBlock
-                      key={appointment.id}
-                      appointment={appointment}
-                      onClick={onAppointmentClick}
-                      onAlternateWeekClick={onAlternateWeekClick}
-                      showProfessional={showProfessional}
-                      columnIndex={appointment.columnIndex}
-                      totalColumns={appointment.totalColumns}
-                      professionalColorMap={professionalColorMap}
-                    />
-                  ))}
+                  {dayAppointments.map((appointment) => {
+                    const isCancelled = cancelledStatuses.includes(appointment.status)
+                    const t = new Date(appointment.scheduledAt)
+                    const timeStr = `${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}`
+                    const isSplit = isCancelled && splitTimes.has(timeStr)
+
+                    return (
+                      <AppointmentBlock
+                        key={appointment.id}
+                        appointment={appointment}
+                        onClick={onAppointmentClick}
+                        onAlternateWeekClick={onAlternateWeekClick}
+                        showProfessional={showProfessional}
+                        columnIndex={appointment.columnIndex}
+                        totalColumns={isSplit ? appointment.totalColumns + 1 : appointment.totalColumns}
+                        professionalColorMap={professionalColorMap}
+                      />
+                    )
+                  })}
 
                   {/* Group Sessions */}
                   {dayGroupSessions.map((session) => (
@@ -327,6 +349,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                       key={`avail-${slot.time}`}
                       slot={slot}
                       appointmentDuration={appointmentDuration || 50}
+                      halfRight={splitTimes.has(slot.time)}
                       onClick={() => {
                         if (slot.biweeklyHint) {
                           onBiweeklyHintClick?.(dateStr, slot.time)

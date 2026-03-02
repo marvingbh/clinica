@@ -10,12 +10,14 @@ interface AvailabilitySlotBlockProps {
   slot: TimeSlot
   appointmentDuration: number
   onClick: () => void
+  halfRight?: boolean
 }
 
 export function AvailabilitySlotBlock({
   slot,
   appointmentDuration,
   onClick,
+  halfRight = false,
 }: AvailabilitySlotBlockProps) {
   const [hour, min] = slot.time.split(":").map(Number)
   const top = ((hour - START_HOUR) * 60 + min) * PIXELS_PER_MINUTE
@@ -32,7 +34,7 @@ export function AvailabilitySlotBlock({
         position: "absolute",
         top: `${top}px`,
         height: `${height}px`,
-        left: "1px",
+        left: halfRight ? "50%" : "1px",
         right: "1px",
       }}
       className={`

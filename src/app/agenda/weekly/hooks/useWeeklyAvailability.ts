@@ -66,9 +66,9 @@ export function useWeeklyAvailability({
         selectedProfessionalId,
       })
 
-      // Only keep available (empty) slots and biweekly hint slots
+      // Keep available slots (including those with only cancelled appointments) and biweekly hints
       const availableSlots = result.slots.filter(
-        slot => (slot.isAvailable && slot.appointments.length === 0) || slot.biweeklyHint
+        slot => slot.isAvailable || slot.biweeklyHint
       )
 
       if (availableSlots.length > 0) {
