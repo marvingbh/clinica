@@ -13,6 +13,7 @@ import {
   countActiveOccurrences,
   calculateDayShiftedDates,
   isOffWeek,
+  calculateBiweeklySwapDates,
 } from "./recurrence"
 
 // Prisma enums are plain strings at runtime
@@ -437,5 +438,40 @@ describe("isOffWeek", () => {
     expect(isOffWeek(startDate, "2026-03-04")).toBe(false)
     // 2026-03-11 is Wednesday of week 1 → off week
     expect(isOffWeek(startDate, "2026-03-11")).toBe(true)
+  })
+})
+
+describe("calculateBiweeklySwapDates", () => {
+  it("shifts each appointment forward by 7 days", () => {
+    const appointments = [
+      {
+        id: "apt-1",
+        scheduledAt: new Date("2026-03-03T08:45:00"),
+        endAt: new Date("2026-03-03T09:35:00"),
+      },
+      {
+        id: "apt-2",
+        scheduledAt: new Date("2026-03-17T08:45:00"),
+        endAt: new Date("2026-03-17T09:35:00"),
+      },
+    ]
+    const result = calculateBiweeklySwapDates(appointments)
+    expect(result).toHaveLength(2)
+    expect(result[0].newScheduledAt).toEqual(new Date("2026-03-10T08:45:00"))
+    expect(result[0].newEndAt).toEqual(new Date("2026-03-10T09:35:00"))
+    expect(result[1].newScheduledAt).toEqual(new Date("2026-03-24T08:45:00"))
+    expect(result[1].newEndAt).toEqual(new Date("2026-03-24T09:35:00"))
+  })
+
+  it("preserves appointment IDs in results", () => {
+    const appointments = [
+      { id: "apt-abc", scheduledAt: new Date("2026-03-03T10:00:00"), endAt: new Date("2026-03-03T10:50:00") },
+    ]
+    const result = calculateBiweeklySwapDates(appointments)
+    expect(result[0].id).toBe("apt-abc")
+  })
+
+  it("returns empty array for empty input", () => {
+    expect(calculateBiweeklySwapDates([])).toEqual([])
   })
 })

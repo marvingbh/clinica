@@ -365,6 +365,27 @@ export function calculateDayShiftedDates(
   return { scheduledAt: newScheduledAt, endAt: newEndAt }
 }
 
+export interface BiweeklySwapDate {
+  id: string
+  newScheduledAt: Date
+  newEndAt: Date
+}
+
+/**
+ * Calculates new dates for a biweekly week swap.
+ * Shifts each appointment by +7 days, flipping on/off weeks.
+ */
+export function calculateBiweeklySwapDates(
+  appointments: Array<{ id: string; scheduledAt: Date; endAt: Date }>
+): BiweeklySwapDate[] {
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000
+  return appointments.map(apt => ({
+    id: apt.id,
+    newScheduledAt: new Date(apt.scheduledAt.getTime() + msPerWeek),
+    newEndAt: new Date(apt.endAt.getTime() + msPerWeek),
+  }))
+}
+
 /**
  * Determines if a given date falls on an "off week" relative to a biweekly
  * recurrence's startDate. Uses UTC arithmetic to avoid timezone issues

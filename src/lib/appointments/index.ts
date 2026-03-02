@@ -24,8 +24,10 @@ export {
   formatRecurrenceSummary,
   formatDate,
   isOffWeek,
+  calculateBiweeklySwapDates,
   type RecurrenceOptions,
   type RecurrenceDate,
+  type BiweeklySwapDate,
 } from "./recurrence"
 
 export {
