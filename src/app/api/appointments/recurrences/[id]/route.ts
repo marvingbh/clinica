@@ -5,7 +5,7 @@ import { meetsMinAccess } from "@/lib/rbac"
 import { createAuditLog } from "@/lib/rbac/audit"
 import { RecurrenceType, RecurrenceEndType, AppointmentStatus, AppointmentModality } from "@prisma/client"
 import { z } from "zod"
-import { calculateDayShiftedDates } from "@/lib/appointments/recurrence"
+import { calculateDayShiftedDates, calculateBiweeklySwapDates } from "@/lib/appointments/recurrence"
 import { checkConflictsBulk } from "@/lib/appointments/conflict-check"
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
@@ -21,6 +21,8 @@ const updateRecurrenceSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6).optional(), // 0 = Sunday, 6 = Saturday
   applyTo: z.enum(["future"]).optional(), // Only "future" is supported for now
   additionalProfessionalIds: z.array(z.string()).optional(),
+  swapBiweeklyWeek: z.boolean().optional(),
+  swapScope: z.enum(["future", "all"]).optional(),
 })
 
 /**
@@ -274,7 +276,8 @@ export const PATCH = withFeatureAuth(
 
     // If no updates provided, return error
     const hasAdditionalProfChange = body.additionalProfessionalIds !== undefined
-    if (Object.keys(updateData).length === 0 && !hasAdditionalProfChange) {
+    const isSwapBiweeklyWeek = body.swapBiweeklyWeek === true
+    if (Object.keys(updateData).length === 0 && !hasAdditionalProfChange && !isSwapBiweeklyWeek) {
       return NextResponse.json(
         { error: "Nenhuma alteracao fornecida" },
         { status: 400 }
@@ -357,6 +360,79 @@ export const PATCH = withFeatureAuth(
           oldEndAt: apt.endAt,
           newScheduledAt,
           newEndAt,
+        })
+      }
+    }
+
+    // Handle biweekly week swap
+    const swapShiftedAppointments: Array<{
+      id: string
+      newScheduledAt: Date
+      newEndAt: Date
+    }> = []
+
+    if (isSwapBiweeklyWeek) {
+      if (recurrence.recurrenceType !== RecurrenceType.BIWEEKLY) {
+        return NextResponse.json(
+          { error: "Trocar semana so e possivel para recorrencias quinzenais" },
+          { status: 400 }
+        )
+      }
+
+      // Get appointments based on scope
+      const swapScope = body.swapScope || "future"
+      const appointmentsToSwap = swapScope === "all"
+        ? await prisma.appointment.findMany({
+            where: {
+              recurrenceId: recurrenceId,
+              status: { in: [AppointmentStatus.AGENDADO, AppointmentStatus.CONFIRMADO, AppointmentStatus.FINALIZADO] },
+            },
+            select: { id: true, scheduledAt: true, endAt: true },
+          })
+        : recurrence.appointments // already fetched (future only, AGENDADO/CONFIRMADO)
+
+      if (appointmentsToSwap.length === 0) {
+        return NextResponse.json(
+          { error: "Nenhum agendamento encontrado para trocar" },
+          { status: 400 }
+        )
+      }
+
+      // Calculate new dates
+      const swappedDates = calculateBiweeklySwapDates(appointmentsToSwap)
+
+      // Bulk conflict check (exclude the appointments being moved)
+      const effectiveAdditionalProfIds = body.additionalProfessionalIds
+        ?? recurrence.additionalProfessionals.map(ap => ap.professionalProfileId)
+      const bulkResult = await checkConflictsBulk({
+        professionalProfileId: recurrence.professionalProfileId,
+        dates: swappedDates.map(d => ({ scheduledAt: d.newScheduledAt, endAt: d.newEndAt })),
+        excludeAppointmentIds: appointmentsToSwap.map(a => a.id),
+        additionalProfessionalIds: effectiveAdditionalProfIds,
+      })
+
+      if (bulkResult.conflicts.length > 0) {
+        const conflicts = bulkResult.conflicts.map(c => ({
+          date: swappedDates[c.index].newScheduledAt.toLocaleDateString("pt-BR"),
+          conflictsWith: c.conflictingAppointment.patientName || c.conflictingAppointment.title || "outro compromisso",
+        }))
+
+        return NextResponse.json(
+          {
+            error: "Conflitos de horario encontrados ao trocar a semana quinzenal",
+            code: "BIWEEKLY_SWAP_CONFLICTS",
+            conflicts,
+          },
+          { status: 409 }
+        )
+      }
+
+      // No conflicts — populate swap shifted appointments
+      for (const swapped of swappedDates) {
+        swapShiftedAppointments.push({
+          id: swapped.id,
+          newScheduledAt: swapped.newScheduledAt,
+          newEndAt: swapped.newEndAt,
         })
       }
     }
@@ -467,6 +543,31 @@ export const PATCH = withFeatureAuth(
           WHERE "Appointment".id = v.id
         `)
         updatedAppointmentsCount = dayShiftedAppointments.length
+      }
+
+      // If biweekly week swap, bulk update appointments + shift startDate
+      if (isSwapBiweeklyWeek && swapShiftedAppointments.length > 0) {
+        const values = swapShiftedAppointments.map(apt =>
+          `('${apt.id}'::text, '${apt.newScheduledAt.toISOString()}'::timestamptz, '${apt.newEndAt.toISOString()}'::timestamptz)`
+        ).join(", ")
+
+        await tx.$executeRawUnsafe(`
+          UPDATE "Appointment" SET
+            "scheduledAt" = v.new_start,
+            "endAt" = v.new_end
+          FROM (VALUES ${values}) AS v(id, new_start, new_end)
+          WHERE "Appointment".id = v.id
+        `)
+
+        // Shift startDate by +7 days
+        const currentStartDate = recurrence.startDate
+        const newStartDate = new Date(currentStartDate.getTime() + 7 * 24 * 60 * 60 * 1000)
+        await tx.appointmentRecurrence.update({
+          where: { id: recurrenceId },
+          data: { startDate: newStartDate },
+        })
+
+        updatedAppointmentsCount = swapShiftedAppointments.length
       }
 
       // If applyTo is "future", update future appointments (for other fields)
@@ -581,6 +682,8 @@ export const PATCH = withFeatureAuth(
       newValues: {
         ...updateData,
         applyTo: body.applyTo,
+        swapBiweeklyWeek: body.swapBiweeklyWeek,
+        swapScope: body.swapScope,
         updatedAppointmentsCount,
         deletedAppointmentsCount,
       },
@@ -590,7 +693,9 @@ export const PATCH = withFeatureAuth(
 
     // Build response message
     let message = "Recorrencia atualizada com sucesso"
-    if (deletedAppointmentsCount > 0) {
+    if (isSwapBiweeklyWeek) {
+      message = `Semana quinzenal trocada com sucesso. ${updatedAppointmentsCount} agendamento(s) atualizado(s).`
+    } else if (deletedAppointmentsCount > 0) {
       message = `Recorrencia atualizada. ${deletedAppointmentsCount} agendamento(s) removido(s) para ajustar a nova frequencia.`
     }
 
