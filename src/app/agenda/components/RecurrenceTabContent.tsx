@@ -40,6 +40,11 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
   const [finalizeDate, setFinalizeDate] = useState("")
   const [isFinalizing, setIsFinalizing] = useState(false)
 
+  // Swap biweekly week dialog state
+  const [isSwapDialogOpen, setIsSwapDialogOpen] = useState(false)
+  const [swapScope, setSwapScope] = useState<"future" | "all">("future")
+  const [isSwapping, setIsSwapping] = useState(false)
+
   // Initialize form when appointment changes
   useEffect(() => {
     if (appointment?.recurrence) {
@@ -177,6 +182,49 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
     }
   }
 
+  async function handleSwapBiweeklyWeek() {
+    if (!appointment?.recurrence) return
+
+    setIsSwapping(true)
+
+    try {
+      const response = await fetch(
+        `/api/appointments/recurrences/${appointment.recurrence.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            swapBiweeklyWeek: true,
+            swapScope,
+          }),
+        }
+      )
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        if (result.code === "BIWEEKLY_SWAP_CONFLICTS" && result.conflicts) {
+          const conflictDates = result.conflicts.map((c: { date: string; conflictsWith: string }) =>
+            `${c.date} (conflito com ${c.conflictsWith})`
+          ).join(", ")
+          toast.error(`Conflitos encontrados: ${conflictDates}`)
+        } else {
+          toast.error(result.error || "Erro ao trocar semana quinzenal")
+        }
+        return
+      }
+
+      toast.success(result.message || "Semana quinzenal trocada com sucesso")
+      setIsSwapDialogOpen(false)
+      onSave()
+      onClose()
+    } catch {
+      toast.error("Erro ao trocar semana quinzenal")
+    } finally {
+      setIsSwapping(false)
+    }
+  }
+
   if (!appointment?.recurrence) return null
 
   const isIndefinite = appointment.recurrence.recurrenceEndType === "INDEFINITE"
@@ -245,6 +293,22 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
             </div>
           )}
         </div>
+
+        {/* Swap biweekly week — only for BIWEEKLY recurrences */}
+        {recurrenceType === "BIWEEKLY" && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setIsSwapDialogOpen(true)}
+              className="w-full h-10 rounded-md border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors"
+            >
+              Trocar semana quinzenal
+            </button>
+            <p className="text-xs text-muted-foreground mt-1 text-center">
+              Move todos os agendamentos para a semana alternada (+7 dias).
+            </p>
+          </div>
+        )}
 
         {/* Time + Duration + End Time */}
         <div className="grid grid-cols-3 gap-3">
@@ -530,6 +594,65 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
             className="flex-1 h-11 rounded-md bg-orange-600 text-white font-medium hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isFinalizing ? "Finalizando..." : "Finalizar"}
+          </button>
+        </div>
+      </Dialog>
+
+      {/* Swap Biweekly Week Dialog */}
+      <Dialog
+        isOpen={isSwapDialogOpen}
+        onClose={() => setIsSwapDialogOpen(false)}
+        title="Trocar Semana Quinzenal"
+      >
+        <p className="text-sm text-muted-foreground mb-4">
+          Todos os agendamentos serao movidos 7 dias para frente, trocando a semana ativa da recorrencia quinzenal.
+        </p>
+
+        <div className="space-y-2 mb-6">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="radio"
+              name="swapScope"
+              checked={swapScope === "future"}
+              onChange={() => setSwapScope("future")}
+              className="w-4 h-4 text-primary focus:ring-ring/40"
+            />
+            <div>
+              <span className="text-sm font-medium">Somente agendamentos futuros</span>
+              <p className="text-xs text-muted-foreground">Agendamentos passados permanecem inalterados.</p>
+            </div>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="radio"
+              name="swapScope"
+              checked={swapScope === "all"}
+              onChange={() => setSwapScope("all")}
+              className="w-4 h-4 text-primary focus:ring-ring/40"
+            />
+            <div>
+              <span className="text-sm font-medium">Todos os agendamentos</span>
+              <p className="text-xs text-muted-foreground">Inclui agendamentos passados para manter o historico correto.</p>
+            </div>
+          </label>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => setIsSwapDialogOpen(false)}
+            disabled={isSwapping}
+            className="flex-1 h-11 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleSwapBiweeklyWeek}
+            disabled={isSwapping}
+            className="flex-1 h-11 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isSwapping ? "Trocando..." : "Trocar semana"}
           </button>
         </div>
       </Dialog>
