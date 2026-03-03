@@ -59,6 +59,11 @@ export interface UseAppointmentCreateReturn {
   apiError: string | null
   clearApiError: () => void
 
+  // Availability warning (user can override)
+  availabilityWarning: string | null
+  onConfirmAvailabilityOverride: () => void
+  clearAvailabilityWarning: () => void
+
   // Submission
   isSaving: boolean
   onSubmit: (data: AppointmentFormData) => Promise<void>
@@ -77,12 +82,18 @@ export function useAppointmentCreate({
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
+  const [availabilityWarning, setAvailabilityWarning] = useState<string | null>(null)
+  const [pendingFormData, setPendingFormData] = useState<AppointmentFormData | null>(null)
 
   // Professional selection for admin (when no professional is pre-selected)
   const [createProfessionalId, setCreateProfessionalId] = useState("")
   const isProfessionalLocked = !!selectedProfessionalId
 
   const clearApiError = useCallback(() => setApiError(null), [])
+  const clearAvailabilityWarning = useCallback(() => {
+    setAvailabilityWarning(null)
+    setPendingFormData(null)
+  }, [])
 
   // Appointment type state - WEEKLY by default (psychology clinic norm)
   // INDEFINITE end type by default - appointments continue until explicitly stopped
@@ -146,10 +157,12 @@ export function useAppointmentCreate({
     form.setValue("patientId", "")
   }, [form])
 
-  const onSubmit = useCallback(
-    async (data: AppointmentFormData) => {
-      // Clear any previous API error
+  const submitAppointment = useCallback(
+    async (data: AppointmentFormData, skipAvailabilityCheck = false) => {
+      // Clear any previous errors/warnings
       setApiError(null)
+      setAvailabilityWarning(null)
+      setPendingFormData(null)
 
       // For admin, require a professional to be selected
       const effectiveProfessionalId = selectedProfessionalId || createProfessionalId
@@ -190,10 +203,20 @@ export function useAppointmentCreate({
           body.additionalProfessionalIds = additionalProfessionalIds
         }
 
+        if (skipAvailabilityCheck) {
+          body.skipAvailabilityCheck = true
+        }
+
         const result = await createAppointment(body)
 
         if (result.error) {
-          if (result.occurrenceIndex) {
+          if (result.availabilityWarning) {
+            const msg = result.occurrenceIndex
+              ? `${result.error} (Ocorrencia ${result.occurrenceIndex})`
+              : result.error
+            setAvailabilityWarning(msg)
+            setPendingFormData(data)
+          } else if (result.occurrenceIndex) {
             setApiError(`${result.error} (Ocorrencia ${result.occurrenceIndex})`)
           } else {
             setApiError(result.error)
@@ -229,6 +252,17 @@ export function useAppointmentCreate({
     ]
   )
 
+  const onSubmit = useCallback(
+    async (data: AppointmentFormData) => submitAppointment(data, false),
+    [submitAppointment]
+  )
+
+  const onConfirmAvailabilityOverride = useCallback(() => {
+    if (pendingFormData) {
+      submitAppointment(pendingFormData, true)
+    }
+  }, [pendingFormData, submitAppointment])
+
   return {
     isCreateSheetOpen,
     openCreateSheet,
@@ -255,6 +289,9 @@ export function useAppointmentCreate({
     appointmentDuration,
     apiError,
     clearApiError,
+    availabilityWarning,
+    onConfirmAvailabilityOverride,
+    clearAvailabilityWarning,
     isSaving,
     onSubmit,
   }

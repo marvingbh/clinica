@@ -45,6 +45,9 @@ interface CreateAppointmentSheetProps {
   appointmentDuration: number
   apiError: string | null
   onDismissError: () => void
+  availabilityWarning?: string | null
+  onConfirmAvailabilityOverride?: () => void
+  onDismissAvailabilityWarning?: () => void
   isSaving: boolean
   onSubmit: (data: AppointmentFormData) => void
 }
@@ -77,6 +80,9 @@ export function CreateAppointmentSheet({
   appointmentDuration,
   apiError,
   onDismissError,
+  availabilityWarning,
+  onConfirmAvailabilityOverride,
+  onDismissAvailabilityWarning,
   isSaving,
   onSubmit,
 }: CreateAppointmentSheetProps) {
@@ -241,6 +247,22 @@ export function CreateAppointmentSheet({
 
         {/* API Error Alert */}
         <InlineAlert message={apiError} onDismiss={onDismissError} />
+
+        {/* Availability Warning with Override */}
+        {availabilityWarning && (
+          <div className="flex flex-col gap-2 p-3 rounded-xl border bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800 animate-scale-in">
+            <div className="flex items-start gap-3">
+              <span className="text-orange-600 dark:text-orange-400 mt-0.5">&#9888;</span>
+              <p className="flex-1 text-sm text-orange-800 dark:text-orange-200">{availabilityWarning}</p>
+              <button type="button" onClick={onDismissAvailabilityWarning} className="flex-shrink-0 p-1 rounded-md text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors" aria-label="Fechar alerta">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <button type="button" onClick={onConfirmAvailabilityOverride} disabled={isSaving} className="w-full h-10 rounded-lg border border-orange-300 dark:border-orange-700 bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-200 font-medium text-sm hover:bg-orange-200 dark:hover:bg-orange-800/50 disabled:opacity-50 transition-colors">
+              {isSaving ? "Salvando..." : "Criar mesmo assim"}
+            </button>
+          </div>
+        )}
 
         <div className="flex gap-3 pt-4 pb-8">
           <button type="button" onClick={onClose} className="flex-1 h-12 rounded-xl border border-input bg-background text-foreground font-medium text-sm hover:bg-muted transition-colors">Cancelar</button>

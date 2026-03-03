@@ -65,6 +65,7 @@ const createAppointmentSchema = z.object({
   modality: z.enum(["ONLINE", "PRESENCIAL"]),
   notes: z.string().max(2000).optional().nullable(),
   recurrence: recurrenceSchema.optional(),
+  skipAvailabilityCheck: z.boolean().optional(),
 })
 
 const createCalendarEntrySchema = z.object({
@@ -78,6 +79,7 @@ const createCalendarEntrySchema = z.object({
   duration: z.number().int().min(5).max(480).optional(),
   notes: z.string().max(2000).optional().nullable(),
   recurrence: calendarEntryRecurrenceSchema.optional(),
+  skipAvailabilityCheck: z.boolean().optional(),
 })
 
 // Determine if entry type blocks time
@@ -437,7 +439,7 @@ async function handleCreateCalendarEntry(
     )
   }
 
-  const { type, title, date, startTime, duration, notes, recurrence } = validation.data
+  const { type, title, date, startTime, duration, notes, recurrence, skipAvailabilityCheck } = validation.data
 
   // Determine professionalProfileId
   let targetProfessionalProfileId = validation.data.professionalProfileId
@@ -540,6 +542,76 @@ async function handleCreateCalendarEntry(
         scheduledAt: new Date(`${date}T${startTime}:00`),
         endAt: new Date(new Date(`${date}T${startTime}:00`).getTime() + entryDuration * 60 * 1000),
       }]
+
+  // Validate against availability (skip if user confirmed override)
+  if (!skipAvailabilityCheck) {
+    const allAvailabilityRules = await prisma.availabilityRule.findMany({
+      where: { professionalProfileId: targetProfessionalProfileId, isActive: true },
+    })
+
+    const startDateRange = new Date(appointmentDates[0].date)
+    const endDateRange = new Date(appointmentDates[appointmentDates.length - 1].date)
+
+    const allExceptions = await prisma.availabilityException.findMany({
+      where: {
+        professionalProfileId: targetProfessionalProfileId,
+        date: { gte: startDateRange, lte: endDateRange },
+        isAvailable: false,
+      },
+    })
+
+    for (let i = 0; i < appointmentDates.length; i++) {
+      const apptDate = appointmentDates[i]
+      const dayOfWeek = apptDate.scheduledAt.getDay()
+      const apptStartTime = `${String(apptDate.scheduledAt.getHours()).padStart(2, "0")}:${String(apptDate.scheduledAt.getMinutes()).padStart(2, "0")}`
+      const apptEndTime = `${String(apptDate.endAt.getHours()).padStart(2, "0")}:${String(apptDate.endAt.getMinutes()).padStart(2, "0")}`
+
+      const dayRules = allAvailabilityRules.filter(rule => rule.dayOfWeek === dayOfWeek)
+
+      if (dayRules.length === 0) {
+        return NextResponse.json({
+          error: `Profissional nao disponivel em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")} (${["Domingo", "Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado"][dayOfWeek]})`,
+          availabilityWarning: true, conflictDate: apptDate.date, occurrenceIndex: i + 1,
+        }, { status: 400 })
+      }
+
+      const isWithinAvailability = dayRules.some(rule =>
+        apptStartTime >= rule.startTime && apptEndTime <= rule.endTime
+      )
+
+      if (!isWithinAvailability) {
+        return NextResponse.json({
+          error: `Horario fora da disponibilidade em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")}`,
+          availabilityWarning: true, conflictDate: apptDate.date, occurrenceIndex: i + 1,
+        }, { status: 400 })
+      }
+
+      const dateStr = apptDate.date
+      const dayExceptions = allExceptions.filter(ex => {
+        if (ex.isRecurring) return ex.dayOfWeek === dayOfWeek
+        if (ex.date) {
+          const exDate = new Date(ex.date)
+          return `${exDate.getFullYear()}-${String(exDate.getMonth() + 1).padStart(2, "0")}-${String(exDate.getDate()).padStart(2, "0")}` === dateStr
+        }
+        return false
+      })
+
+      for (const exception of dayExceptions) {
+        if (!exception.startTime || !exception.endTime) {
+          return NextResponse.json({
+            error: exception.reason || `Profissional nao disponivel em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")}`,
+            availabilityWarning: true, conflictDate: apptDate.date, occurrenceIndex: i + 1,
+          }, { status: 400 })
+        }
+        if (apptStartTime < exception.endTime && apptEndTime > exception.startTime) {
+          return NextResponse.json({
+            error: exception.reason || `Horario bloqueado em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")}`,
+            availabilityWarning: true, conflictDate: apptDate.date, occurrenceIndex: i + 1,
+          }, { status: 400 })
+        }
+      }
+    }
+  }
 
   // Use transaction (increased timeout for recurring appointments with many occurrences)
   const result = await prisma.$transaction(async (tx) => {
@@ -737,7 +809,7 @@ async function handleCreateAppointment(
     )
   }
 
-  const { patientId, date, startTime, duration, modality, notes, recurrence } = validation.data
+  const { patientId, date, startTime, duration, modality, notes, recurrence, skipAvailabilityCheck } = validation.data
 
   // Determine professionalProfileId
   let targetProfessionalProfileId = validation.data.professionalProfileId
@@ -903,65 +975,22 @@ async function handleCreateAppointment(
     },
   })
 
-  // Validate each appointment date
-  for (let i = 0; i < appointmentDates.length; i++) {
-    const apptDate = appointmentDates[i]
-    const dayOfWeek = apptDate.scheduledAt.getDay()
-    const apptStartTime = `${String(apptDate.scheduledAt.getHours()).padStart(2, "0")}:${String(apptDate.scheduledAt.getMinutes()).padStart(2, "0")}`
-    const apptEndTime = `${String(apptDate.endAt.getHours()).padStart(2, "0")}:${String(apptDate.endAt.getMinutes()).padStart(2, "0")}`
+  // Validate each appointment date against availability (skip if user confirmed override)
+  if (!skipAvailabilityCheck) {
+    for (let i = 0; i < appointmentDates.length; i++) {
+      const apptDate = appointmentDates[i]
+      const dayOfWeek = apptDate.scheduledAt.getDay()
+      const apptStartTime = `${String(apptDate.scheduledAt.getHours()).padStart(2, "0")}:${String(apptDate.scheduledAt.getMinutes()).padStart(2, "0")}`
+      const apptEndTime = `${String(apptDate.endAt.getHours()).padStart(2, "0")}:${String(apptDate.endAt.getMinutes()).padStart(2, "0")}`
 
-    // Check availability rules for this day
-    const dayRules = allAvailabilityRules.filter(rule => rule.dayOfWeek === dayOfWeek)
+      // Check availability rules for this day
+      const dayRules = allAvailabilityRules.filter(rule => rule.dayOfWeek === dayOfWeek)
 
-    if (dayRules.length === 0) {
-      return NextResponse.json(
-        {
-          error: `Profissional nao disponivel em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")} (${["Domingo", "Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado"][dayOfWeek]})`,
-          conflictDate: apptDate.date,
-          occurrenceIndex: i + 1,
-        },
-        { status: 400 }
-      )
-    }
-
-    // Check if time is within availability
-    const isWithinAvailability = dayRules.some(rule =>
-      apptStartTime >= rule.startTime && apptEndTime <= rule.endTime
-    )
-
-    if (!isWithinAvailability) {
-      return NextResponse.json(
-        {
-          error: `Horario fora da disponibilidade em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")}`,
-          conflictDate: apptDate.date,
-          occurrenceIndex: i + 1,
-        },
-        { status: 400 }
-      )
-    }
-
-    // Check exceptions for this date (specific date exceptions and recurring exceptions)
-    const dateStr = apptDate.date
-    const dayExceptions = allExceptions.filter(ex => {
-      // For recurring exceptions, match by day of week
-      if (ex.isRecurring) {
-        return ex.dayOfWeek === dayOfWeek
-      }
-      // For specific date exceptions, match by date
-      if (ex.date) {
-        const exDate = new Date(ex.date)
-        const exDateStr = `${exDate.getFullYear()}-${String(exDate.getMonth() + 1).padStart(2, "0")}-${String(exDate.getDate()).padStart(2, "0")}`
-        return exDateStr === dateStr
-      }
-      return false
-    })
-
-    for (const exception of dayExceptions) {
-      // Full-day block
-      if (!exception.startTime || !exception.endTime) {
+      if (dayRules.length === 0) {
         return NextResponse.json(
           {
-            error: exception.reason || `Profissional nao disponivel em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")}`,
+            error: `Profissional nao disponivel em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")} (${["Domingo", "Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado"][dayOfWeek]})`,
+            availabilityWarning: true,
             conflictDate: apptDate.date,
             occurrenceIndex: i + 1,
           },
@@ -969,16 +998,65 @@ async function handleCreateAppointment(
         )
       }
 
-      // Time-specific block
-      if (apptStartTime < exception.endTime && apptEndTime > exception.startTime) {
+      // Check if time is within availability
+      const isWithinAvailability = dayRules.some(rule =>
+        apptStartTime >= rule.startTime && apptEndTime <= rule.endTime
+      )
+
+      if (!isWithinAvailability) {
         return NextResponse.json(
           {
-            error: exception.reason || `Horario bloqueado em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")}`,
+            error: `Horario fora da disponibilidade em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")}`,
+            availabilityWarning: true,
             conflictDate: apptDate.date,
             occurrenceIndex: i + 1,
           },
           { status: 400 }
         )
+      }
+
+      // Check exceptions for this date (specific date exceptions and recurring exceptions)
+      const dateStr = apptDate.date
+      const dayExceptions = allExceptions.filter(ex => {
+        // For recurring exceptions, match by day of week
+        if (ex.isRecurring) {
+          return ex.dayOfWeek === dayOfWeek
+        }
+        // For specific date exceptions, match by date
+        if (ex.date) {
+          const exDate = new Date(ex.date)
+          const exDateStr = `${exDate.getFullYear()}-${String(exDate.getMonth() + 1).padStart(2, "0")}-${String(exDate.getDate()).padStart(2, "0")}`
+          return exDateStr === dateStr
+        }
+        return false
+      })
+
+      for (const exception of dayExceptions) {
+        // Full-day block
+        if (!exception.startTime || !exception.endTime) {
+          return NextResponse.json(
+            {
+              error: exception.reason || `Profissional nao disponivel em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")}`,
+              availabilityWarning: true,
+              conflictDate: apptDate.date,
+              occurrenceIndex: i + 1,
+            },
+            { status: 400 }
+          )
+        }
+
+        // Time-specific block
+        if (apptStartTime < exception.endTime && apptEndTime > exception.startTime) {
+          return NextResponse.json(
+            {
+              error: exception.reason || `Horario bloqueado em ${apptDate.scheduledAt.toLocaleDateString("pt-BR")}`,
+              availabilityWarning: true,
+              conflictDate: apptDate.date,
+              occurrenceIndex: i + 1,
+            },
+            { status: 400 }
+          )
+        }
       }
     }
   }

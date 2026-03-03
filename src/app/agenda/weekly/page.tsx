@@ -234,6 +234,9 @@ function WeeklyAgendaPageContent() {
     appointmentDuration: hookAppointmentDuration,
     apiError: createApiError,
     clearApiError: clearCreateApiError,
+    availabilityWarning: createAvailabilityWarning,
+    onConfirmAvailabilityOverride: onConfirmCreateAvailabilityOverride,
+    clearAvailabilityWarning: clearCreateAvailabilityWarning,
     isSaving: isSavingAppointment,
     onSubmit: onSubmitAppointment,
   } = useAppointmentCreate({
@@ -276,6 +279,9 @@ function WeeklyAgendaPageContent() {
     setPatientSearch: setEntryPatientSearch,
     apiError: entryApiError,
     clearApiError: clearEntryApiError,
+    availabilityWarning: entryAvailabilityWarning,
+    onConfirmAvailabilityOverride: onConfirmEntryAvailabilityOverride,
+    clearAvailabilityWarning: clearEntryAvailabilityWarning,
     isSaving: isSavingEntry,
     onSubmit: onSubmitEntry,
   } = useCalendarEntryCreate({
@@ -801,6 +807,9 @@ function WeeklyAgendaPageContent() {
         appointmentDuration={hookAppointmentDuration}
         apiError={createApiError}
         onDismissError={clearCreateApiError}
+        availabilityWarning={createAvailabilityWarning}
+        onConfirmAvailabilityOverride={onConfirmCreateAvailabilityOverride}
+        onDismissAvailabilityWarning={clearCreateAvailabilityWarning}
         isSaving={isSavingAppointment}
         onSubmit={onSubmitAppointment}
       />
@@ -874,6 +883,9 @@ function WeeklyAgendaPageContent() {
         onPatientSearchChange={setEntryPatientSearch}
         apiError={entryApiError}
         onDismissError={clearEntryApiError}
+        availabilityWarning={entryAvailabilityWarning}
+        onConfirmAvailabilityOverride={onConfirmEntryAvailabilityOverride}
+        onDismissAvailabilityWarning={clearEntryAvailabilityWarning}
         isSaving={isSavingEntry}
         onSubmit={onSubmitEntry}
       />

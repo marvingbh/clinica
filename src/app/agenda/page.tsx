@@ -151,6 +151,9 @@ export default function AgendaPage() {
     setAdditionalProfessionalIds: setCreateAdditionalProfIds,
     apiError: createApiError,
     clearApiError: clearCreateApiError,
+    availabilityWarning: createAvailabilityWarning,
+    onConfirmAvailabilityOverride: onConfirmCreateAvailabilityOverride,
+    clearAvailabilityWarning: clearCreateAvailabilityWarning,
     isSaving: isSavingAppointment,
     onSubmit: onSubmitAppointment,
   } = useAppointmentCreate({
@@ -228,6 +231,9 @@ export default function AgendaPage() {
     setPatientSearch: setEntryPatientSearch,
     apiError: entryApiError,
     clearApiError: clearEntryApiError,
+    availabilityWarning: entryAvailabilityWarning,
+    onConfirmAvailabilityOverride: onConfirmEntryAvailabilityOverride,
+    clearAvailabilityWarning: clearEntryAvailabilityWarning,
     isSaving: isSavingEntry,
     onSubmit: onSubmitEntry,
   } = useCalendarEntryCreate({
@@ -359,6 +365,9 @@ export default function AgendaPage() {
         appointmentDuration={appointmentDuration}
         apiError={createApiError}
         onDismissError={clearCreateApiError}
+        availabilityWarning={createAvailabilityWarning}
+        onConfirmAvailabilityOverride={onConfirmCreateAvailabilityOverride}
+        onDismissAvailabilityWarning={clearCreateAvailabilityWarning}
         isSaving={isSavingAppointment}
         onSubmit={onSubmitAppointment}
       />
@@ -429,6 +438,9 @@ export default function AgendaPage() {
         onPatientSearchChange={setEntryPatientSearch}
         apiError={entryApiError}
         onDismissError={clearEntryApiError}
+        availabilityWarning={entryAvailabilityWarning}
+        onConfirmAvailabilityOverride={onConfirmEntryAvailabilityOverride}
+        onDismissAvailabilityWarning={clearEntryAvailabilityWarning}
         isSaving={isSavingEntry}
         onSubmit={onSubmitEntry}
       />

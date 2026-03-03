@@ -272,6 +272,65 @@ describe("computeSlotsForDay", () => {
     expect(extraSlot?.appointments).toHaveLength(1)
   })
 
+  it("slot with all cancelled appointments is available with appointments listed", () => {
+    const result = computeSlotsForDay({
+      date: monday,
+      availabilityRules: [makeRule({ startTime: "08:00", endTime: "10:00" })],
+      availabilityExceptions: [],
+      appointments: [
+        makeAppointment({
+          id: "apt-c1",
+          scheduledAt: "2026-02-23T08:00:00",
+          endAt: "2026-02-23T08:50:00",
+          status: "CANCELADO_FALTA",
+        }),
+        makeAppointment({
+          id: "apt-c2",
+          scheduledAt: "2026-02-23T08:00:00",
+          endAt: "2026-02-23T08:50:00",
+          status: "CANCELADO_PROFISSIONAL",
+        }),
+      ],
+      appointmentDuration: 50,
+      selectedProfessionalId: "prof-1",
+    })
+
+    const slot = result.slots[0]
+    // Slot is available because all appointments are cancelled
+    expect(slot.isAvailable).toBe(true)
+    // But cancelled appointments are still listed (needed for split display)
+    expect(slot.appointments).toHaveLength(2)
+    expect(slot.appointments[0].status).toBe("CANCELADO_FALTA")
+    expect(slot.appointments[1].status).toBe("CANCELADO_PROFISSIONAL")
+  })
+
+  it("slot with mix of cancelled and active appointment is not available", () => {
+    const result = computeSlotsForDay({
+      date: monday,
+      availabilityRules: [makeRule({ startTime: "08:00", endTime: "10:00" })],
+      availabilityExceptions: [],
+      appointments: [
+        makeAppointment({
+          id: "apt-active",
+          scheduledAt: "2026-02-23T08:00:00",
+          endAt: "2026-02-23T08:50:00",
+          status: "AGENDADO",
+        }),
+        makeAppointment({
+          id: "apt-cancelled",
+          scheduledAt: "2026-02-23T08:00:00",
+          endAt: "2026-02-23T08:50:00",
+          status: "CANCELADO_ACORDADO",
+        }),
+      ],
+      appointmentDuration: 50,
+      selectedProfessionalId: "prof-1",
+    })
+
+    expect(result.slots[0].isAvailable).toBe(false)
+    expect(result.slots[0].appointments).toHaveLength(2)
+  })
+
   it("handles group sessions occupying slots", () => {
     const result = computeSlotsForDay({
       date: monday,

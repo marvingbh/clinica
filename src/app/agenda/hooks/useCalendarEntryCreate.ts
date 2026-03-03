@@ -47,6 +47,9 @@ export interface UseCalendarEntryCreateReturn {
   setPatientSearch: (value: string) => void
   apiError: string | null
   clearApiError: () => void
+  availabilityWarning: string | null
+  onConfirmAvailabilityOverride: () => void
+  clearAvailabilityWarning: () => void
   isSaving: boolean
   onSubmit: (data: CalendarEntryFormData) => Promise<void>
 }
@@ -62,10 +65,16 @@ export function useCalendarEntryCreate({
   const [entryType, setEntryType] = useState<EntryType>("TAREFA")
   const [isSaving, setIsSaving] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
+  const [availabilityWarning, setAvailabilityWarning] = useState<string | null>(null)
+  const [pendingFormData, setPendingFormData] = useState<CalendarEntryFormData | null>(null)
   const [createProfessionalId, setCreateProfessionalId] = useState("")
   const isProfessionalLocked = !!selectedProfessionalId
 
   const clearApiError = useCallback(() => setApiError(null), [])
+  const clearAvailabilityWarning = useCallback(() => {
+    setAvailabilityWarning(null)
+    setPendingFormData(null)
+  }, [])
 
   // Recurrence state - SINGLE by default for calendar entries
   const [isRecurring, setIsRecurring] = useState(false)
@@ -110,9 +119,11 @@ export function useCalendarEntryCreate({
     setIsSheetOpen(false)
   }, [])
 
-  const onSubmit = useCallback(
-    async (data: CalendarEntryFormData) => {
+  const submitEntry = useCallback(
+    async (data: CalendarEntryFormData, skipAvailabilityCheck = false) => {
       setApiError(null)
+      setAvailabilityWarning(null)
+      setPendingFormData(null)
 
       const effectiveProfessionalId = selectedProfessionalId || createProfessionalId
       if (isAdmin && !effectiveProfessionalId) {
@@ -156,10 +167,20 @@ export function useCalendarEntryCreate({
           }
         }
 
+        if (skipAvailabilityCheck) {
+          body.skipAvailabilityCheck = true
+        }
+
         const result = await createCalendarEntry(body)
 
         if (result.error) {
-          if (result.occurrenceIndex) {
+          if (result.availabilityWarning) {
+            const msg = result.occurrenceIndex
+              ? `${result.error} (Ocorrencia ${result.occurrenceIndex})`
+              : result.error
+            setAvailabilityWarning(msg)
+            setPendingFormData(data)
+          } else if (result.occurrenceIndex) {
             setApiError(`${result.error} (Ocorrencia ${result.occurrenceIndex})`)
           } else {
             setApiError(result.error)
@@ -198,6 +219,17 @@ export function useCalendarEntryCreate({
     ]
   )
 
+  const onSubmit = useCallback(
+    async (data: CalendarEntryFormData) => submitEntry(data, false),
+    [submitEntry]
+  )
+
+  const onConfirmAvailabilityOverride = useCallback(() => {
+    if (pendingFormData) {
+      submitEntry(pendingFormData, true)
+    }
+  }, [pendingFormData, submitEntry])
+
   return {
     isSheetOpen,
     openSheet,
@@ -225,6 +257,9 @@ export function useCalendarEntryCreate({
     setPatientSearch,
     apiError,
     clearApiError,
+    availabilityWarning,
+    onConfirmAvailabilityOverride,
+    clearAvailabilityWarning,
     isSaving,
     onSubmit,
   }

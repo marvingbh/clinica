@@ -27,6 +27,7 @@ export interface CreateAppointmentData {
   duration?: number
   professionalProfileId?: string
   additionalProfessionalIds?: string[]
+  skipAvailabilityCheck?: boolean
   recurrence?: {
     recurrenceType: "WEEKLY" | "BIWEEKLY" | "MONTHLY"
     recurrenceEndType: "BY_DATE" | "BY_OCCURRENCES" | "INDEFINITE"
@@ -45,6 +46,7 @@ export interface CreateCalendarEntryData {
   professionalProfileId?: string
   additionalProfessionalIds?: string[]
   patientId?: string
+  skipAvailabilityCheck?: boolean
   recurrence?: {
     recurrenceType: "WEEKLY" | "BIWEEKLY"
     recurrenceEndType: "BY_DATE" | "BY_OCCURRENCES" | "INDEFINITE"
@@ -58,6 +60,7 @@ export interface CreateAppointmentResponse {
   totalOccurrences?: number
   error?: string
   occurrenceIndex?: number
+  availabilityWarning?: boolean
 }
 
 export interface UpdateAppointmentData {
@@ -137,6 +140,7 @@ export async function createAppointment(
     return {
       error: result.error || "Erro ao criar agendamento",
       occurrenceIndex: result.occurrenceIndex,
+      availabilityWarning: result.availabilityWarning,
     }
   }
 
@@ -158,6 +162,7 @@ export async function createCalendarEntry(
     return {
       error: result.error || "Erro ao criar entrada",
       occurrenceIndex: result.occurrenceIndex,
+      availabilityWarning: result.availabilityWarning,
     }
   }
 
