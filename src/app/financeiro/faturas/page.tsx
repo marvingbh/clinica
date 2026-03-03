@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { formatCurrencyBRL } from "@/lib/financeiro/format"
 import { toast } from "sonner"
-import { EyeIcon, CheckCircleIcon, DownloadIcon } from "@/shared/components/ui/icons"
+import { EyeIcon, CheckCircleIcon, DownloadIcon, RefreshCwIcon } from "@/shared/components/ui/icons"
 import { useFinanceiroContext } from "../context/FinanceiroContext"
 
 interface Invoice {
@@ -58,6 +58,7 @@ export default function FaturasPage() {
   const [patientSearch, setPatientSearch] = useState("")
   const [patientSearchInput, setPatientSearchInput] = useState("")
   const [sortBy, setSortBy] = useState<"name" | "recurrence">("name")
+  const [recalculatingId, setRecalculatingId] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   const fetchInvoices = useCallback(() => {
@@ -157,6 +158,24 @@ export default function FaturasPage() {
       fetchInvoices()
     } else {
       toast.error("Erro ao atualizar fatura")
+    }
+  }
+
+  async function handleRecalcular(invoiceId: string) {
+    setRecalculatingId(invoiceId)
+    try {
+      const res = await fetch(`/api/financeiro/faturas/${invoiceId}/recalcular`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || "Erro ao recalcular fatura")
+        return
+      }
+      toast.success(data.message || "Fatura recalculada")
+      fetchInvoices()
+    } catch {
+      toast.error("Erro ao recalcular fatura")
+    } finally {
+      setRecalculatingId(null)
     }
   }
 
@@ -307,6 +326,16 @@ export default function FaturasPage() {
                   </td>
                   <td className="text-right py-3 px-4">
                     <div className="flex items-center justify-end gap-1">
+                      {(inv.status === "PENDENTE" || inv.status === "ENVIADO") && (
+                        <button
+                          onClick={() => handleRecalcular(inv.id)}
+                          disabled={recalculatingId === inv.id}
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                          title="Recalcular fatura"
+                        >
+                          <RefreshCwIcon className={`w-4 h-4 ${recalculatingId === inv.id ? "animate-spin" : ""}`} />
+                        </button>
+                      )}
                       <Link
                         href={`/financeiro/faturas/${inv.id}`}
                         className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
