@@ -89,6 +89,19 @@ describe("buildInvoiceItems", () => {
     expect(items[0].unitPrice).toBe(200)
   })
 
+  it("falls back to sessionFee when appointment price is 0", () => {
+    const classified = { regular: [makeAppointment({ price: 0 })], extra: [], group: [], schoolMeeting: [] }
+    const items = buildInvoiceItems(classified, sessionFee, [], false)
+    expect(items[0].unitPrice).toBe(sessionFee)
+    expect(items[0].total).toBe(sessionFee)
+  })
+
+  it("falls back to sessionFee when appointment price is null", () => {
+    const classified = { regular: [makeAppointment({ price: null })], extra: [], group: [], schoolMeeting: [] }
+    const items = buildInvoiceItems(classified, sessionFee, [], false)
+    expect(items[0].unitPrice).toBe(sessionFee)
+  })
+
   it("includes appointment date in description when showDays is true", () => {
     const classified = { regular: [makeAppointment({ scheduledAt: new Date("2026-03-05T10:00:00") })], extra: [], group: [], schoolMeeting: [] }
     const items = buildInvoiceItems(classified, sessionFee, [], true)

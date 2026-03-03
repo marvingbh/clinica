@@ -85,7 +85,7 @@ export function buildInvoiceItems(
 
   const addItems = (apts: AppointmentForInvoice[], type: InvoiceItemData["type"]) => {
     for (const apt of apts) {
-      const price = apt.price ?? sessionFee
+      const price = apt.price || sessionFee
       items.push({
         appointmentId: apt.id,
         type,
