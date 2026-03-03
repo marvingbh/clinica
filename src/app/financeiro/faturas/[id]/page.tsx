@@ -31,7 +31,7 @@ interface InvoiceDetail {
   notaFiscalEmitida: boolean
   notaFiscalEmitidaAt: string | null
   hasNotaFiscalPdf: boolean
-  patient: { id: string; name: string; phone: string; motherName: string | null }
+  patient: { id: string; name: string; phone: string; motherName: string | null; sessionFee: string | null }
   professionalProfile: { id: string; user: { name: string } }
   items: InvoiceItem[]
   consumedCredits: Array<{ id: string; reason: string; createdAt: string }>
@@ -259,7 +259,7 @@ export default function InvoiceDetailPage() {
       setNewItemType("SESSAO_EXTRA")
       setNewItemDescription("")
       setNewItemQuantity(1)
-      setNewItemPrice("")
+      setNewItemPrice(invoice.patient.sessionFee ? String(Number(invoice.patient.sessionFee)) : "")
       await fetchInvoice()
     } else {
       const data = await res.json()
@@ -588,7 +588,11 @@ export default function InvoiceDetailPage() {
         <div>
           {!showAddForm ? (
             <button
-              onClick={() => setShowAddForm(true)}
+              onClick={() => {
+                const fee = invoice.patient.sessionFee ? String(Number(invoice.patient.sessionFee)) : ""
+                setNewItemPrice(fee)
+                setShowAddForm(true)
+              }}
               className="px-4 py-2 border border-dashed border-border rounded-lg text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
             >
               + Adicionar item manual
