@@ -118,7 +118,7 @@ export function CalendarEntrySheet({
         {entryType === "REUNIAO" && onPatientSearchChange && (
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Paciente <span className="text-muted-foreground font-normal">(opcional — para cobrança)</span>
+              Paciente <span className="text-muted-foreground font-normal">(preencha para gerar cobrança)</span>
             </label>
             <PatientSearch
               value={patientSearch || ""}
