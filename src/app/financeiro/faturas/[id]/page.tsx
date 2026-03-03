@@ -91,6 +91,7 @@ export default function InvoiceDetailPage() {
   const [editPrice, setEditPrice] = useState("")
   const [savingEdit, setSavingEdit] = useState(false)
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null)
+  const [recalculating, setRecalculating] = useState(false)
 
   const fetchInvoice = useCallback(async () => {
     const res = await fetch(`/api/financeiro/faturas/${params.id}`)
@@ -132,6 +133,26 @@ export default function InvoiceDetailPage() {
     if (res.ok) {
       toast.success("Fatura excluída")
       router.push("/financeiro/faturas")
+    }
+  }
+
+  async function handleRecalcular() {
+    if (!invoice) return
+    if (!confirm("Recalcular esta fatura? Os itens automáticos serão regenerados.")) return
+    setRecalculating(true)
+    try {
+      const res = await fetch(`/api/financeiro/faturas/${invoice.id}/recalcular`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || "Erro ao recalcular fatura")
+        return
+      }
+      toast.success(data.message || "Fatura recalculada com sucesso")
+      fetchInvoice()
+    } catch {
+      toast.error("Erro ao recalcular fatura")
+    } finally {
+      setRecalculating(false)
     }
   }
 
@@ -347,6 +368,15 @@ export default function InvoiceDetailPage() {
         <button onClick={handleEnviarWhatsApp} className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors">
           Enviar WhatsApp
         </button>
+        {isEditable && (
+          <button
+            onClick={handleRecalcular}
+            disabled={recalculating}
+            className="px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 disabled:opacity-50 transition-colors"
+          >
+            {recalculating ? "Recalculando..." : "Recalcular"}
+          </button>
+        )}
         <button onClick={handleDelete} className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium hover:bg-destructive/90 transition-colors">
           Excluir Fatura
         </button>
