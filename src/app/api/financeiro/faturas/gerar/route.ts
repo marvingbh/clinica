@@ -116,7 +116,7 @@ export const POST = withFeatureAuth(
     const patientMap = new Map(patients.map(p => [p.id, p]))
     const profMap = new Map(professionals.map(p => [p.id, p]))
 
-    const dueDate = new Date(year, month - 1, clinic?.invoiceDueDay ?? 15)
+    const dueDate = new Date(year, month, clinic?.invoiceDueDay ?? 15)
 
     const results = await prisma.$transaction(async (tx) => {
       let generated = 0

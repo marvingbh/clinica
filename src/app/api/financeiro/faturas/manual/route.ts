@@ -106,7 +106,7 @@ export const POST = withFeatureAuth(
     const refDate = new Date(firstDate)
     const referenceMonth = refDate.getMonth() + 1
     const referenceYear = refDate.getFullYear()
-    const dueDate = new Date(referenceYear, referenceMonth - 1, clinic?.invoiceDueDay ?? 15)
+    const dueDate = new Date(referenceYear, referenceMonth, clinic?.invoiceDueDay ?? 15)
 
     // Build message body
     const detalhes = buildDetailBlock(

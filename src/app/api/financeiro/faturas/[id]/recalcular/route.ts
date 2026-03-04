@@ -71,7 +71,7 @@ export const POST = withFeatureAuth(
     const [clinic, professional] = await Promise.all([
       prisma.clinic.findUnique({
         where: { id: user.clinicId },
-        select: { invoiceMessageTemplate: true, billingMode: true },
+        select: { invoiceDueDay: true, invoiceMessageTemplate: true, billingMode: true },
       }),
       prisma.professionalProfile.findUnique({
         where: { id: invoice.professionalProfileId },
@@ -160,9 +160,16 @@ export const POST = withFeatureAuth(
         })
       }
 
+      // Update due date from clinic settings
+      const newDueDate = new Date(invoice.referenceYear, invoice.referenceMonth, clinic?.invoiceDueDay ?? 15)
+      await tx.invoice.update({
+        where: { id: invoice.id },
+        data: { dueDate: newDueDate },
+      })
+
       // Recalculate totals and message body
       await recalculateInvoice(
-        tx, invoice.id, invoice, patient,
+        tx, invoice.id, { ...invoice, dueDate: newDueDate }, patient,
         clinic?.invoiceMessageTemplate ?? null, profName,
       )
     }, { timeout: 15000 })
