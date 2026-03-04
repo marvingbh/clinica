@@ -45,7 +45,11 @@ export function buildInvoicePDFData(invoice: InvoiceWithRelations): InvoicePDFDa
     totalSessions: invoice.totalSessions,
     creditsApplied: invoice.creditsApplied,
     paymentInfo: invoice.clinic.paymentInfo,
-    items: invoice.items.map(item => ({
+    items: [...invoice.items].sort((a, b) => {
+      const dateA = a.appointment?.scheduledAt ? new Date(a.appointment.scheduledAt).getTime() : 0
+      const dateB = b.appointment?.scheduledAt ? new Date(b.appointment.scheduledAt).getTime() : 0
+      return dateA - dateB
+    }).map(item => ({
       description: item.description,
       date: item.appointment?.scheduledAt
         ? new Date(item.appointment.scheduledAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
