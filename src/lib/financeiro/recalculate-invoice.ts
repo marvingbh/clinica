@@ -1,7 +1,7 @@
 import { renderInvoiceTemplate, buildDetailBlock, DEFAULT_INVOICE_TEMPLATE } from "./invoice-template"
-import { getMonthName, formatCurrencyBRL } from "./format"
+import { getMonthName, formatCurrencyBRL, formatDateBR as formatDateFull } from "./format"
 
-function formatDateBR(date: Date): string {
+function formatDateShort(date: Date): string {
   const d = new Date(date)
   const day = String(d.getDate()).padStart(2, "0")
   const month = String(d.getMonth() + 1).padStart(2, "0")
@@ -17,7 +17,7 @@ function descriptionWithDate(description: string, appointmentDate: Date | null):
   if (!appointmentDate) return description
   // If description already contains a date pattern like "- DD/MM", keep as-is
   if (/\d{2}\/\d{2}/.test(description)) return description
-  return `${description} - ${formatDateBR(appointmentDate)}`
+  return `${description} - ${formatDateShort(appointmentDate)}`
 }
 
 /**
@@ -95,7 +95,7 @@ export async function recalculateInvoice(
     valor: formatCurrencyBRL(totalAmount),
     mes: getMonthName(invoice.referenceMonth),
     ano: String(invoice.referenceYear),
-    vencimento: invoice.dueDate.toLocaleDateString("pt-BR"),
+    vencimento: formatDateFull(invoice.dueDate instanceof Date ? invoice.dueDate.toISOString() : String(invoice.dueDate)),
     sessoes: String(totalSessions),
     profissional: profName,
     sessoes_regulares: String(regularCount),

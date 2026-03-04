@@ -5,7 +5,7 @@ import { z } from "zod"
 import { validateManualInvoiceInput, buildManualInvoiceItems } from "@/lib/financeiro/manual-invoice"
 import { calculateInvoiceTotals } from "@/lib/financeiro/invoice-generator"
 import { renderInvoiceTemplate, buildDetailBlock, DEFAULT_INVOICE_TEMPLATE } from "@/lib/financeiro/invoice-template"
-import { getMonthName, formatCurrencyBRL } from "@/lib/financeiro/format"
+import { getMonthName, formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
 
 const schema = z.object({
   patientId: z.string(),
@@ -124,7 +124,7 @@ export const POST = withFeatureAuth(
       valor: formatCurrencyBRL(totals.totalAmount),
       mes: getMonthName(referenceMonth),
       ano: String(referenceYear),
-      vencimento: dueDate.toLocaleDateString("pt-BR"),
+      vencimento: formatDateBR(dueDate.toISOString()),
       sessoes: String(totals.totalSessions),
       profissional: profName,
       sessoes_regulares: String(items.filter(i => i.type === "SESSAO_REGULAR").length),

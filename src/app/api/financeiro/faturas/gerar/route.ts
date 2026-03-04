@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { classifyAppointments, buildInvoiceItems, buildMonthlyInvoiceItems, calculateInvoiceTotals } from "@/lib/financeiro/invoice-generator"
 import { renderInvoiceTemplate, buildDetailBlock, DEFAULT_INVOICE_TEMPLATE } from "@/lib/financeiro/invoice-template"
-import { getMonthName, formatCurrencyBRL } from "@/lib/financeiro/format"
+import { getMonthName, formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
 import { recalculateInvoice } from "@/lib/financeiro/recalculate-invoice"
 import { shouldSkipInvoice, separateManualItems } from "@/lib/financeiro/invoice-generation"
 
@@ -229,9 +229,15 @@ export const POST = withFeatureAuth(
 
           // professionalProfileId is now part of unique key, no need to update
 
+          // Update due date from clinic settings
+          await tx.invoice.update({
+            where: { id: existing.id },
+            data: { dueDate },
+          })
+
           // Recalculate totals (includes kept manual items)
           await recalculateInvoice(
-            tx, existing.id, existing, patient,
+            tx, existing.id, { ...existing, dueDate }, patient,
             clinic?.invoiceMessageTemplate ?? null, profName,
           )
 
@@ -261,7 +267,7 @@ export const POST = withFeatureAuth(
             valor: formatCurrencyBRL(totals.totalAmount),
             mes: getMonthName(month),
             ano: String(year),
-            vencimento: dueDate.toLocaleDateString("pt-BR"),
+            vencimento: formatDateBR(dueDate.toISOString()),
             sessoes: String(totals.totalSessions),
             profissional: profName,
             sessoes_regulares: String(classified.regular.length),
