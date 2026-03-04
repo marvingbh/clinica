@@ -28,11 +28,24 @@ npx vitest run src/lib/path/to/file.test.ts
 
 ### Database Setup
 
+Development uses a **local Docker Postgres** by default (`.env` points `DATABASE_URL` to localhost).
+
 ```bash
 docker-compose up -d     # Start PostgreSQL container
 npm run prisma:push      # Apply schema
-npm run prisma:seed      # Create test clinic and admin user (admin@x.com / admin)
 ```
+
+### Syncing Production Data to Local
+
+To populate the local database with production data:
+
+```bash
+bash scripts/sync-prod-to-local.sh
+```
+
+This starts Docker, dumps the Neon production database, and restores it locally. Requires `pg_dump` installed locally (`brew install libpq`).
+
+**Important:** `.env` points to the LOCAL database by default. Never change `DATABASE_URL` to production unless explicitly asked by the user.
 
 **Note:** When schema has drifted from migration history, use `npx prisma db push` instead of `npx prisma migrate dev`.
 

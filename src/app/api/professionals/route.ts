@@ -53,6 +53,7 @@ export const GET = withFeatureAuth(
             registrationNumber: true,
             appointmentDuration: true,
             bufferBetweenSlots: true,
+            repassePercentage: true,
           },
         },
       },
@@ -70,7 +71,7 @@ export const POST = withFeatureAuth(
   { feature: "professionals", minAccess: "WRITE" },
   async (req, { user }) => {
     const body = await req.json()
-    const { name, email, password, specialty, registrationNumber, appointmentDuration, bufferBetweenSlots } = body
+    const { name, email, password, specialty, registrationNumber, appointmentDuration, bufferBetweenSlots, repassePercentage } = body
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -119,6 +120,7 @@ export const POST = withFeatureAuth(
           registrationNumber: registrationNumber || null,
           appointmentDuration: appointmentDuration ?? 50,
           bufferBetweenSlots: bufferBetweenSlots ?? 0,
+          repassePercentage: repassePercentage ?? 0,
         },
       })
 
@@ -141,6 +143,7 @@ export const POST = withFeatureAuth(
               registrationNumber: true,
               appointmentDuration: true,
               bufferBetweenSlots: true,
+              repassePercentage: true,
             },
           },
         },

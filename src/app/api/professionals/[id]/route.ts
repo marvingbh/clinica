@@ -165,6 +165,7 @@ export const PATCH = withFeatureAuth(
               bufferBetweenSlots: true,
               allowOnlineBooking: true,
               maxAdvanceBookingDays: true,
+              repassePercentage: true,
             },
           },
         },
