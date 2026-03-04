@@ -3,7 +3,13 @@ import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { renderToBuffer } from "@react-pdf/renderer"
 import { createInvoiceDocument } from "@/lib/financeiro/invoice-pdf"
-import { formatCurrencyBRL } from "@/lib/financeiro/format"
+import { buildInvoicePDFData } from "@/lib/financeiro/build-invoice-pdf-data"
+import { INVOICE_INCLUDE } from "@/app/api/financeiro/faturas/download-zip/query"
+
+const MONTH_ABBR = [
+  "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+  "Jul", "Ago", "Set", "Out", "Nov", "Dez",
+]
 
 export const GET = withFeatureAuth(
   { feature: "finances", minAccess: "READ" },
@@ -17,49 +23,25 @@ export const GET = withFeatureAuth(
           ? { professionalProfileId: user.professionalProfileId }
           : {}),
       },
-      include: {
-        clinic: { select: { name: true, phone: true } },
-        patient: { select: { name: true } },
-        professionalProfile: { select: { user: { select: { name: true } } } },
-        items: { orderBy: { createdAt: "asc" } },
-      },
+      include: INVOICE_INCLUDE,
     })
 
     if (!invoice) {
       return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 })
     }
 
-    const pdfData = {
-      clinicName: invoice.clinic.name,
-      clinicPhone: invoice.clinic.phone || undefined,
-      patientName: invoice.patient.name,
-      professionalName: invoice.professionalProfile.user.name,
-      referenceMonth: invoice.referenceMonth,
-      referenceYear: invoice.referenceYear,
-      status: invoice.status,
-      dueDate: new Date(invoice.dueDate).toLocaleDateString("pt-BR"),
-      totalAmount: formatCurrencyBRL(Number(invoice.totalAmount)),
-      messageBody: invoice.messageBody,
-      items: invoice.items.map(item => ({
-        description: item.description,
-        quantity: item.quantity,
-        unitPrice: formatCurrencyBRL(Number(item.unitPrice)),
-        total: formatCurrencyBRL(Number(item.total)),
-        type: item.type,
-      })),
-    }
+    const pdfData = buildInvoicePDFData(invoice)
 
     const buffer = await renderToBuffer(
       createInvoiceDocument(pdfData)
     )
 
-    // Convert Node.js Buffer to Uint8Array for NextResponse compatibility
     const uint8 = new Uint8Array(buffer)
 
     return new NextResponse(uint8, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="fatura-${invoice.patient.name.replace(/\s+/g, "-")}-${invoice.referenceMonth}-${invoice.referenceYear}.pdf"`,
+        "Content-Disposition": `attachment; filename="${MONTH_ABBR[invoice.referenceMonth - 1]}-${invoice.professionalProfile.user.name.split(" ")[0]}-${invoice.patient.name.replace(/\s*\(.*?\)\s*/g, "").trim().replace(/\s+/g, "-")}.pdf"`,
       },
     })
   }

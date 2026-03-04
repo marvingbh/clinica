@@ -19,6 +19,9 @@ const TIMEZONES = [
 
 const settingsSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(200),
+  phone: z.string().max(20).optional().or(z.literal("")),
+  email: z.string().email("Email inválido").max(200).optional().or(z.literal("")),
+  address: z.string().max(500).optional().or(z.literal("")),
   timezone: z.string().min(1, "Timezone é obrigatório"),
   defaultSessionDuration: z
     .number()
@@ -31,6 +34,11 @@ const settingsSchema = z.object({
     .min(0, "Valor mínimo é 0 horas")
     .max(168, "Valor máximo é 168 horas (7 dias)"),
   reminderHours: z.string(),
+  invoiceDueDay: z
+    .number()
+    .int()
+    .min(1, "Mínimo dia 1")
+    .max(28, "Máximo dia 28"),
 })
 
 type SettingsFormData = z.infer<typeof settingsSchema>
@@ -38,11 +46,16 @@ type SettingsFormData = z.infer<typeof settingsSchema>
 interface ClinicSettings {
   id: string
   name: string
+  phone: string | null
+  email: string | null
+  address: string | null
   timezone: string
   defaultSessionDuration: number
   minAdvanceBooking: number
   reminderHours: number[]
+  invoiceDueDay: number
   invoiceMessageTemplate: string | null
+  paymentInfo: string | null
   billingMode: "PER_SESSION" | "MONTHLY_FIXED"
   taxPercentage: number
 }
@@ -56,6 +69,8 @@ export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<ClinicSettings | null>(null)
   const [invoiceTemplate, setInvoiceTemplate] = useState<string>("")
   const [isSavingTemplate, setIsSavingTemplate] = useState(false)
+  const [paymentInfo, setPaymentInfo] = useState<string>("")
+  const [isSavingPaymentInfo, setIsSavingPaymentInfo] = useState(false)
   const [billingMode, setBillingMode] = useState<"PER_SESSION" | "MONTHLY_FIXED">("PER_SESSION")
   const [isSavingBillingMode, setIsSavingBillingMode] = useState(false)
   const [taxPercentage, setTaxPercentage] = useState<number>(0)
@@ -84,14 +99,19 @@ export default function AdminSettingsPage() {
       const data = await response.json()
       setSettings(data.settings)
       setInvoiceTemplate(data.settings.invoiceMessageTemplate || "")
+      setPaymentInfo(data.settings.paymentInfo || "")
       setBillingMode(data.settings.billingMode || "PER_SESSION")
       setTaxPercentage(Number(data.settings.taxPercentage ?? 0))
       reset({
         name: data.settings.name,
+        phone: data.settings.phone || "",
+        email: data.settings.email || "",
+        address: data.settings.address || "",
         timezone: data.settings.timezone,
         defaultSessionDuration: data.settings.defaultSessionDuration,
         minAdvanceBooking: data.settings.minAdvanceBooking,
         reminderHours: data.settings.reminderHours.join(", "),
+        invoiceDueDay: data.settings.invoiceDueDay ?? 15,
       })
     } catch {
       toast.error("Erro ao carregar configurações")
@@ -136,10 +156,14 @@ export default function AdminSettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: data.name,
+          phone: data.phone || null,
+          email: data.email || null,
+          address: data.address || null,
           timezone: data.timezone,
           defaultSessionDuration: data.defaultSessionDuration,
           minAdvanceBooking: data.minAdvanceBooking,
           reminderHours,
+          invoiceDueDay: data.invoiceDueDay,
         }),
       })
 
@@ -152,10 +176,14 @@ export default function AdminSettingsPage() {
       setSettings(result.settings)
       reset({
         name: result.settings.name,
+        phone: result.settings.phone || "",
+        email: result.settings.email || "",
+        address: result.settings.address || "",
         timezone: result.settings.timezone,
         defaultSessionDuration: result.settings.defaultSessionDuration,
         minAdvanceBooking: result.settings.minAdvanceBooking,
         reminderHours: result.settings.reminderHours.join(", "),
+        invoiceDueDay: result.settings.invoiceDueDay ?? 15,
       })
       toast.success("Configurações salvas com sucesso")
     } catch (error) {
@@ -181,6 +209,25 @@ export default function AdminSettingsPage() {
       toast.error("Erro ao salvar modelo de fatura")
     } finally {
       setIsSavingTemplate(false)
+    }
+  }
+
+  async function savePaymentInfo() {
+    setIsSavingPaymentInfo(true)
+    try {
+      const response = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentInfo: paymentInfo || null,
+        }),
+      })
+      if (!response.ok) throw new Error("Failed to save")
+      toast.success("Dados de pagamento salvos com sucesso")
+    } catch {
+      toast.error("Erro ao salvar dados de pagamento")
+    } finally {
+      setIsSavingPaymentInfo(false)
     }
   }
 
@@ -276,6 +323,60 @@ export default function AdminSettingsPage() {
               )}
             </div>
 
+            {/* Phone */}
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-2">
+                Telefone
+              </label>
+              <input
+                id="phone"
+                type="text"
+                {...register("phone")}
+                placeholder="(11) 99999-9999"
+                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+              />
+              {errors.phone && (
+                <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>
+              )}
+            </div>
+
+            {/* Email */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                {...register("email")}
+                placeholder="contato@clinica.com"
+                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+              />
+              {errors.email && (
+                <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
+              )}
+            </div>
+
+            {/* Address */}
+            <div>
+              <label htmlFor="address" className="block text-sm font-medium text-foreground mb-2">
+                Endereço
+              </label>
+              <input
+                id="address"
+                type="text"
+                {...register("address")}
+                placeholder="Rua Example, 123 - São Paulo, SP"
+                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+              />
+              {errors.address && (
+                <p className="text-sm text-destructive mt-1">{errors.address.message}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">
+                Telefone, email e endereço aparecem no cabeçalho do PDF da fatura.
+              </p>
+            </div>
+
             {/* Timezone */}
             <div>
               <label htmlFor="timezone" className="block text-sm font-medium text-foreground mb-2">
@@ -369,6 +470,30 @@ export default function AdminSettingsPage() {
                 Quantas horas antes da consulta enviar lembretes, separados por vírgula (ex: 24, 2)
               </p>
             </div>
+
+            {/* Invoice Due Day */}
+            <div>
+              <label
+                htmlFor="invoiceDueDay"
+                className="block text-sm font-medium text-foreground mb-2"
+              >
+                Dia de Vencimento da Fatura *
+              </label>
+              <input
+                id="invoiceDueDay"
+                type="number"
+                min={1}
+                max={28}
+                {...register("invoiceDueDay", { valueAsNumber: true })}
+                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+              />
+              {errors.invoiceDueDay && (
+                <p className="text-sm text-destructive mt-1">{errors.invoiceDueDay.message}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">
+                Dia do mês para vencimento das faturas geradas (1-28)
+              </p>
+            </div>
           </div>
 
           {/* Invoice Message Template */}
@@ -401,6 +526,33 @@ export default function AdminSettingsPage() {
                 className="h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
               >
                 {isSavingTemplate ? "Salvando..." : "Salvar modelo"}
+              </button>
+            </div>
+          </div>
+
+          {/* Payment Info */}
+          <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Dados para Pagamento</h2>
+            <p className="text-sm text-muted-foreground">
+              Informacoes de pagamento exibidas no PDF da fatura (PIX, dados bancarios, etc).
+            </p>
+            <div>
+              <textarea
+                rows={4}
+                value={paymentInfo}
+                onChange={(e) => setPaymentInfo(e.target.value)}
+                placeholder={"PIX: 12.345.678/0001-00 (CNPJ)\nBanco: Itaú\nAgência: 1234 / Conta: 56789-0"}
+                className="w-full px-4 py-3 rounded-md border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors resize-none"
+              />
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={savePaymentInfo}
+                disabled={isSavingPaymentInfo}
+                className="h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+              >
+                {isSavingPaymentInfo ? "Salvando..." : "Salvar"}
               </button>
             </div>
           </div>

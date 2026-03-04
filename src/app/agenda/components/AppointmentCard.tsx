@@ -178,6 +178,11 @@ export function AppointmentCard({
                 <h4 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
                   {appointment.title || "Sem titulo"}
                 </h4>
+                {appointment.patient && (
+                  <p className="text-sm text-muted-foreground truncate">
+                    <span className="text-green-600 dark:text-green-400 font-semibold">$</span> {appointment.patient.name}
+                  </p>
+                )}
               </div>
               <span
                 className={`flex-shrink-0 text-xs px-2.5 py-1 rounded-full font-medium ${

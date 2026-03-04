@@ -5,6 +5,9 @@ import { withFeatureAuth } from "@/lib/api"
 
 const updateSettingsSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(200).optional(),
+  phone: z.string().max(20).nullable().optional(),
+  email: z.string().email("Email inválido").max(200).nullable().optional(),
+  address: z.string().max(500).nullable().optional(),
   timezone: z.string().min(1).max(100).optional(),
   defaultSessionDuration: z
     .number()
@@ -22,7 +25,9 @@ const updateSettingsSchema = z.object({
     .array(z.number().int().min(0).max(168))
     .max(10, "Máximo de 10 lembretes")
     .optional(),
+  invoiceDueDay: z.number().int().min(1, "Mínimo dia 1").max(28, "Máximo dia 28").optional(),
   invoiceMessageTemplate: z.string().nullable().optional(),
+  paymentInfo: z.string().nullable().optional(),
   billingMode: z.enum(["PER_SESSION", "MONTHLY_FIXED"]).optional(),
   taxPercentage: z.number().min(0).max(100).optional(),
 })
@@ -39,11 +44,16 @@ export const GET = withFeatureAuth(
       select: {
         id: true,
         name: true,
+        phone: true,
+        email: true,
+        address: true,
         timezone: true,
         defaultSessionDuration: true,
         minAdvanceBooking: true,
         reminderHours: true,
+        invoiceDueDay: true,
         invoiceMessageTemplate: true,
+        paymentInfo: true,
         billingMode: true,
         taxPercentage: true,
       },
@@ -88,18 +98,23 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceMessageTemplate, billingMode, taxPercentage } =
+    const { name, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, billingMode, taxPercentage } =
       parsed.data
 
     // Build update object with only provided fields
     const updateData: Record<string, unknown> = {}
     if (name !== undefined) updateData.name = name
+    if (phone !== undefined) updateData.phone = phone || null
+    if (email !== undefined) updateData.email = email || null
+    if (address !== undefined) updateData.address = address || null
     if (timezone !== undefined) updateData.timezone = timezone
     if (defaultSessionDuration !== undefined)
       updateData.defaultSessionDuration = defaultSessionDuration
     if (minAdvanceBooking !== undefined) updateData.minAdvanceBooking = minAdvanceBooking
     if (reminderHours !== undefined) updateData.reminderHours = reminderHours
+    if (invoiceDueDay !== undefined) updateData.invoiceDueDay = invoiceDueDay
     if (invoiceMessageTemplate !== undefined) updateData.invoiceMessageTemplate = invoiceMessageTemplate || null
+    if (paymentInfo !== undefined) updateData.paymentInfo = paymentInfo || null
     if (billingMode !== undefined) updateData.billingMode = billingMode
     if (taxPercentage !== undefined) updateData.taxPercentage = taxPercentage
 
@@ -116,11 +131,16 @@ export const PATCH = withFeatureAuth(
       select: {
         id: true,
         name: true,
+        phone: true,
+        email: true,
+        address: true,
         timezone: true,
         defaultSessionDuration: true,
         minAdvanceBooking: true,
         reminderHours: true,
+        invoiceDueDay: true,
         invoiceMessageTemplate: true,
+        paymentInfo: true,
         billingMode: true,
         taxPercentage: true,
       },

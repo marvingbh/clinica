@@ -109,6 +109,11 @@ enum BillingMode {
   MONTHLY_FIXED
 }
 
+enum InvoiceType {
+  MONTHLY
+  MANUAL
+}
+
 // ============================================================================
 // SAAS MODELS
 // ============================================================================
@@ -162,7 +167,9 @@ model Clinic {
   defaultSessionDuration Int    @default(50) // in minutes
   minAdvanceBooking      Int    @default(2)  // minimum hours in advance for booking
   reminderHours          Int[]  @default([24, 2]) // hours before appointment to send reminders
+  invoiceDueDay          Int     @default(15) // Day of the month for invoice due date (1-28)
   invoiceMessageTemplate String? // Default invoice message template with {{variables}}
+  paymentInfo            String? // Free-text payment info (PIX, bank details) shown on invoice PDFs
   billingMode            BillingMode @default(PER_SESSION)
   taxPercentage          Decimal     @default(0) @db.Decimal(5, 2) // Clinic tax % deducted before repasse
 
@@ -685,6 +692,7 @@ model Invoice {
   patientId             String
   referenceMonth        Int
   referenceYear         Int
+  invoiceType           InvoiceType   @default(MONTHLY)
   status                InvoiceStatus @default(PENDENTE)
   totalSessions         Int
   creditsApplied        Int
@@ -708,7 +716,6 @@ model Invoice {
   items               InvoiceItem[]
   consumedCredits     SessionCredit[]
 
-  @@unique([clinicId, patientId, professionalProfileId, referenceMonth, referenceYear])
   @@index([clinicId])
   @@index([professionalProfileId])
   @@index([patientId])

@@ -4,6 +4,7 @@ import {
   buildInvoiceItems,
   buildMonthlyInvoiceItems,
   calculateInvoiceTotals,
+  getAlreadyInvoicedAppointmentIds,
   type AppointmentForInvoice,
   type CreditForInvoice,
 } from "./invoice-generator"
@@ -13,6 +14,7 @@ const makeAppointment = (overrides: Partial<AppointmentForInvoice> = {}): Appoin
   scheduledAt: new Date("2026-03-05T10:00:00"),
   status: "FINALIZADO",
   type: "CONSULTA",
+  title: null,
   recurrenceId: "rec-1",
   groupId: null,
   price: null,
@@ -134,6 +136,28 @@ describe("buildInvoiceItems", () => {
     expect(items[0].total).toBe(150)
   })
 
+  it("uses meeting title in REUNIAO_ESCOLA description", () => {
+    const classified = {
+      regular: [],
+      extra: [],
+      group: [],
+      schoolMeeting: [makeAppointment({ id: "s1", type: "REUNIAO", title: "Reunião com escola ABC" })],
+    }
+    const items = buildInvoiceItems(classified, sessionFee, [], false)
+    expect(items[0].description).toBe("Reunião com escola ABC")
+  })
+
+  it("falls back to 'Reunião escola' when REUNIAO has no title", () => {
+    const classified = {
+      regular: [],
+      extra: [],
+      group: [],
+      schoolMeeting: [makeAppointment({ id: "s1", type: "REUNIAO", title: null })],
+    }
+    const items = buildInvoiceItems(classified, sessionFee, [], false)
+    expect(items[0].description).toBe("Reunião escola")
+  })
+
   it("creates correct types for extras, groups, and school meetings", () => {
     const classified = {
       regular: [],
@@ -177,6 +201,40 @@ describe("calculateInvoiceTotals", () => {
     const totals = calculateInvoiceTotals(items)
     expect(totals.totalSessions).toBe(2)
     expect(totals.totalAmount).toBe(300)
+  })
+})
+
+describe("getAlreadyInvoicedAppointmentIds", () => {
+  it("extracts appointment IDs from invoice items", () => {
+    const items = [
+      { appointmentId: "apt-1" },
+      { appointmentId: "apt-2" },
+      { appointmentId: "apt-3" },
+    ]
+    const result = getAlreadyInvoicedAppointmentIds(items)
+    expect(result).toEqual(new Set(["apt-1", "apt-2", "apt-3"]))
+  })
+
+  it("ignores null appointment IDs (credits, manual items)", () => {
+    const items = [
+      { appointmentId: "apt-1" },
+      { appointmentId: null },
+      { appointmentId: "apt-2" },
+      { appointmentId: null },
+    ]
+    const result = getAlreadyInvoicedAppointmentIds(items)
+    expect(result).toEqual(new Set(["apt-1", "apt-2"]))
+  })
+
+  it("returns empty set for empty input", () => {
+    const result = getAlreadyInvoicedAppointmentIds([])
+    expect(result).toEqual(new Set())
+  })
+
+  it("returns empty set when all items have null appointmentId", () => {
+    const items = [{ appointmentId: null }, { appointmentId: null }]
+    const result = getAlreadyInvoicedAppointmentIds(items)
+    expect(result).toEqual(new Set())
   })
 })
 

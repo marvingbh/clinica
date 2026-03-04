@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { formatCurrencyBRL } from "@/lib/financeiro/format"
 import { toast } from "sonner"
-import { EyeIcon, CheckCircleIcon, DownloadIcon, RefreshCwIcon } from "@/shared/components/ui/icons"
+import { EyeIcon, CheckCircleIcon, DownloadIcon, RefreshCwIcon, PlusIcon } from "@/shared/components/ui/icons"
 import { useFinanceiroContext } from "../context/FinanceiroContext"
 
 interface Invoice {
@@ -59,6 +59,7 @@ export default function FaturasPage() {
   const [patientSearchInput, setPatientSearchInput] = useState("")
   const [sortBy, setSortBy] = useState<"name" | "recurrence">("name")
   const [recalculatingId, setRecalculatingId] = useState<string | null>(null)
+  const [downloadingZip, setDownloadingZip] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   const fetchInvoices = useCallback(() => {
@@ -179,6 +180,33 @@ export default function FaturasPage() {
     }
   }
 
+  async function handleDownloadZip() {
+    if (month === null) {
+      toast.error("Selecione um mês para baixar os relatórios")
+      return
+    }
+    setDownloadingZip(true)
+    try {
+      const res = await fetch(`/api/financeiro/faturas/download-zip?month=${month}&year=${year}`)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || "Erro ao gerar arquivo")
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || `faturas-${month}-${year}.zip`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error("Erro ao baixar relatórios")
+    } finally {
+      setDownloadingZip(false)
+    }
+  }
+
   return (
     <div>
       {/* Controls */}
@@ -248,6 +276,21 @@ export default function FaturasPage() {
         )}
 
         <div className="ml-auto flex gap-2">
+          <Link
+            href="/financeiro/faturas/nova"
+            className="px-4 py-2 border border-input bg-background text-foreground rounded-lg text-sm font-medium hover:bg-muted transition-colors flex items-center gap-1.5"
+          >
+            <PlusIcon className="h-4 w-4" />
+            Nova Fatura
+          </Link>
+          <button
+            onClick={handleDownloadZip}
+            disabled={downloadingZip || month === null || invoices.length === 0}
+            className="px-4 py-2 border border-input bg-background text-foreground rounded-lg text-sm font-medium hover:bg-muted disabled:opacity-50 transition-colors flex items-center gap-1.5"
+          >
+            <DownloadIcon className="h-4 w-4" />
+            {downloadingZip ? "Baixando..." : "Baixar Relatórios"}
+          </button>
           <button
             onClick={handleBulkMarkEnviado}
             disabled={markingEnviado || invoices.filter(i => i.status === "PENDENTE").length === 0}

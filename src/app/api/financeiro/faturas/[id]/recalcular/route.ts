@@ -63,7 +63,7 @@ export const POST = withFeatureAuth(
         type: { in: ["CONSULTA", "REUNIAO"] },
       },
       select: {
-        id: true, scheduledAt: true, status: true, type: true,
+        id: true, scheduledAt: true, status: true, type: true, title: true,
         recurrenceId: true, groupId: true, price: true,
       },
     })
@@ -83,8 +83,19 @@ export const POST = withFeatureAuth(
     const showDays = patient.showAppointmentDaysOnInvoice
     const profName = professional?.user?.name || ""
 
+    // Filter out appointments already invoiced in OTHER invoices (prevents double-billing)
+    const alreadyInvoiced = await prisma.invoiceItem.findMany({
+      where: {
+        appointmentId: { in: appointments.map(a => a.id) },
+        invoice: { id: { not: invoice.id } },
+      },
+      select: { appointmentId: true },
+    })
+    const invoicedElsewhereIds = new Set(alreadyInvoiced.map(i => i.appointmentId))
+    const availableAppointments = appointments.filter(a => !invoicedElsewhereIds.has(a.id))
+
     const classified = classifyAppointments(
-      appointments.map(a => ({ ...a, price: a.price ? Number(a.price) : null }))
+      availableAppointments.map(a => ({ ...a, price: a.price ? Number(a.price) : null }))
     )
 
     await prisma.$transaction(async (tx) => {

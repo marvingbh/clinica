@@ -40,7 +40,6 @@ export const POST = withFeatureAuth(
 
     const startDate = new Date(year, month - 1, 1)
     const endDate = new Date(year, month, 1)
-    const dueDate = new Date(year, month - 1, 15)
 
     // Step 1: Fetch appointments filtered by professional (determines which patients)
     const whereClause: Record<string, unknown> = {
@@ -73,7 +72,7 @@ export const POST = withFeatureAuth(
         type: { in: ["CONSULTA", "REUNIAO"] },
       },
       select: {
-        id: true, scheduledAt: true, status: true, type: true,
+        id: true, scheduledAt: true, status: true, type: true, title: true,
         recurrenceId: true, groupId: true, price: true,
         patientId: true, professionalProfileId: true,
       },
@@ -106,7 +105,7 @@ export const POST = withFeatureAuth(
       }),
       prisma.clinic.findUnique({
         where: { id: user.clinicId },
-        select: { invoiceMessageTemplate: true, billingMode: true },
+        select: { invoiceDueDay: true, invoiceMessageTemplate: true, billingMode: true },
       }),
       prisma.professionalProfile.findMany({
         where: { id: { in: Array.from(profIds) } },
@@ -116,6 +115,8 @@ export const POST = withFeatureAuth(
 
     const patientMap = new Map(patients.map(p => [p.id, p]))
     const profMap = new Map(professionals.map(p => [p.id, p]))
+
+    const dueDate = new Date(year, month - 1, clinic?.invoiceDueDay ?? 15)
 
     const results = await prisma.$transaction(async (tx) => {
       let generated = 0
@@ -127,12 +128,11 @@ export const POST = withFeatureAuth(
         const patient = patientMap.get(patientId)
         if (!patient || !patient.sessionFee) continue
 
-        // Step 5: Check existing invoice (now includes professionalProfileId in unique key)
-        const existing = await tx.invoice.findUnique({
+        // Step 5: Check existing MONTHLY invoice
+        const existing = await tx.invoice.findFirst({
           where: {
-            clinicId_patientId_professionalProfileId_referenceMonth_referenceYear: {
-              clinicId: user.clinicId, patientId, professionalProfileId: profId, referenceMonth: month, referenceYear: year,
-            },
+            clinicId: user.clinicId, patientId, professionalProfileId: profId,
+            referenceMonth: month, referenceYear: year, invoiceType: "MONTHLY",
           },
           include: { items: true },
         })
@@ -142,12 +142,28 @@ export const POST = withFeatureAuth(
           continue
         }
 
+        // Filter out appointments already invoiced in OTHER invoices (prevents double-billing)
+        const existingItemAptIds = new Set(
+          (existing?.items ?? []).map(i => i.appointmentId).filter(Boolean)
+        )
+        const alreadyInvoiced = await tx.invoiceItem.findMany({
+          where: {
+            appointmentId: { in: patientApts.map(a => a.id) },
+            invoice: { id: { not: existing?.id ?? "" } },
+          },
+          select: { appointmentId: true },
+        })
+        const invoicedElsewhereIds = new Set(alreadyInvoiced.map(i => i.appointmentId))
+        const availableApts = patientApts.filter(a =>
+          !invoicedElsewhereIds.has(a.id) || existingItemAptIds.has(a.id)
+        )
+
         const sessionFee = Number(patient.sessionFee)
         const showDays = patient.showAppointmentDaysOnInvoice
         const profName = profMap.get(profId)?.user?.name || ""
 
         const classified = classifyAppointments(
-          patientApts.map(a => ({ ...a, price: a.price ? Number(a.price) : null }))
+          availableApts.map(a => ({ ...a, price: a.price ? Number(a.price) : null }))
         )
 
         // SessionCredits: query by clinicId + patientId (cross-professional)

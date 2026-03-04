@@ -3,6 +3,7 @@ export interface AppointmentForInvoice {
   scheduledAt: Date
   status: string
   type: string
+  title: string | null
   recurrenceId: string | null
   groupId: string | null
   price: number | null
@@ -70,7 +71,7 @@ function getItemDescription(type: InvoiceItemData["type"], apt: AppointmentForIn
     case "SESSAO_REGULAR": return `Sessão${dateStr}`
     case "SESSAO_EXTRA": return `Sessão extra${dateStr}`
     case "SESSAO_GRUPO": return `Sessão grupo${dateStr}`
-    case "REUNIAO_ESCOLA": return `Reunião escola${dateStr}`
+    case "REUNIAO_ESCOLA": return `${apt.title || "Reunião escola"}${dateStr}`
     default: return `Item${dateStr}`
   }
 }
@@ -148,6 +149,18 @@ export function buildMonthlyInvoiceItems(
   }
 
   return items
+}
+
+export function getAlreadyInvoicedAppointmentIds(
+  items: { appointmentId: string | null }[],
+): Set<string> {
+  const ids = new Set<string>()
+  for (const item of items) {
+    if (item.appointmentId !== null) {
+      ids.add(item.appointmentId)
+    }
+  }
+  return ids
 }
 
 export function calculateInvoiceTotals(items: Pick<InvoiceItemData, "type" | "total" | "quantity">[]): InvoiceTotals {
