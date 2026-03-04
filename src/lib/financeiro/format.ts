@@ -16,3 +16,11 @@ export function formatCurrencyBRL(value: number): string {
 export function formatInvoiceReference(month: number, year: number): string {
   return `${getMonthName(month)}/${year}`
 }
+
+/** Format a date string as DD/MM/YYYY without timezone shift.
+ *  `new Date("2026-04-10T00:00:00Z")` in UTC-3 shows day 9 — this avoids that. */
+export function formatDateBR(dateStr: string): string {
+  const [date] = dateStr.split("T")
+  const [y, m, d] = date.split("-")
+  return `${d}/${m}/${y}`
+}

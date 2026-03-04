@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
-import { formatCurrencyBRL } from "@/lib/financeiro/format"
+import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
 import { toast } from "sonner"
 import { EyeIcon, CheckCircleIcon, DownloadIcon, RefreshCwIcon, PlusIcon } from "@/shared/components/ui/icons"
 import { useFinanceiroContext } from "../context/FinanceiroContext"
@@ -348,7 +348,7 @@ export default function FaturasPage() {
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="text-center py-3 px-4">{new Date(inv.dueDate).toLocaleDateString("pt-BR")}</td>
+                  <td className="text-center py-3 px-4">{formatDateBR(inv.dueDate)}</td>
                   <td className="text-center py-3 px-4">
                     {(inv.status === "PENDENTE" || inv.status === "ENVIADO") ? (
                       <button

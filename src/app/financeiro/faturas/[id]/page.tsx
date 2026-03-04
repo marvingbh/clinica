@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { formatCurrencyBRL } from "@/lib/financeiro/format"
+import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
 import { toast } from "sonner"
 
 interface InvoiceItem {
@@ -355,7 +355,7 @@ export default function InvoiceDetailPage() {
             ))}
           </select>
           <span className="text-sm text-muted-foreground">
-            Venc.: {new Date(invoice.dueDate).toLocaleDateString("pt-BR")}
+            Venc.: {formatDateBR(invoice.dueDate)}
           </span>
         </div>
       </div>

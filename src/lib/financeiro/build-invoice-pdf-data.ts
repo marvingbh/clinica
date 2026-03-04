@@ -1,4 +1,4 @@
-import { formatCurrencyBRL } from "./format"
+import { formatCurrencyBRL, formatDateBR } from "./format"
 import type { InvoicePDFData } from "./invoice-pdf"
 
 /** Invoice with the relations needed for PDF generation (Prisma query result shape). */
@@ -40,7 +40,7 @@ export function buildInvoicePDFData(invoice: InvoiceWithRelations): InvoicePDFDa
     referenceMonth: invoice.referenceMonth,
     referenceYear: invoice.referenceYear,
     status: invoice.status,
-    dueDate: new Date(invoice.dueDate).toLocaleDateString("pt-BR"),
+    dueDate: formatDateBR(typeof invoice.dueDate === "string" ? invoice.dueDate : invoice.dueDate.toISOString()),
     totalAmount: formatCurrencyBRL(Number(invoice.totalAmount)),
     totalSessions: invoice.totalSessions,
     creditsApplied: invoice.creditsApplied,
