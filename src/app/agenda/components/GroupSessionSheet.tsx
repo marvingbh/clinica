@@ -10,6 +10,15 @@ import { getCancelVariant, type CancelVariant } from "@/lib/appointments/status-
 import { toast } from "sonner"
 import type { GroupSession, AppointmentStatus, Professional } from "../lib/types"
 
+const PARTICIPANT_STATUS_LABELS: Record<string, string> = {
+  AGENDADO: "Agendado",
+  CONFIRMADO: "Confirmado",
+  FINALIZADO: "Compareceu",
+  CANCELADO_ACORDADO: "Desmarcou",
+  CANCELADO_FALTA: "Faltou",
+  CANCELADO_PROFISSIONAL: "Sem cobrança",
+}
+
 interface CancelContext {
   variant: CancelVariant
   isBulk: boolean
@@ -235,7 +244,7 @@ export function GroupSessionSheet({
             <span className={`text-sm px-3 py-1.5 rounded-full font-medium ${
               STATUS_COLORS[derivedStatus as AppointmentStatus] || "bg-gray-100 text-gray-800"
             }`}>
-              {STATUS_LABELS[derivedStatus as AppointmentStatus] || derivedStatus}
+              {PARTICIPANT_STATUS_LABELS[derivedStatus] || derivedStatus}
             </span>
           ) : (
             Object.entries(statusCounts).map(([status, count]) => (
@@ -245,7 +254,7 @@ export function GroupSessionSheet({
                   STATUS_COLORS[status as AppointmentStatus] || "bg-gray-100 text-gray-800"
                 }`}
               >
-                {count} {STATUS_LABELS[status as AppointmentStatus] || status}
+                {count} {PARTICIPANT_STATUS_LABELS[status] || status}
               </span>
             ))
           )}
@@ -414,7 +423,7 @@ export function GroupSessionSheet({
                         STATUS_COLORS[participant.status as AppointmentStatus] || "bg-gray-100 text-gray-800"
                       }`}
                     >
-                      {STATUS_LABELS[participant.status as AppointmentStatus] || participant.status}
+                      {PARTICIPANT_STATUS_LABELS[participant.status] || participant.status}
                     </span>
                   )}
                 </div>
