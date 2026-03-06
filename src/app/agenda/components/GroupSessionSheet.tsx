@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Sheet } from "./Sheet"
 import { UsersIcon, ClockIcon, CheckCircleIcon, XIcon, CheckIcon } from "@/shared/components/ui/icons"
 import { STATUS_LABELS, STATUS_COLORS } from "../lib/constants"
-import { updateStatus, updateAppointment } from "../services/appointmentService"
+import { updateStatus, updateAppointment, updateGroupSessionStatus } from "../services/appointmentService"
 import { toast } from "sonner"
 import type { GroupSession, AppointmentStatus, Professional } from "../lib/types"
 
@@ -54,6 +54,7 @@ export function GroupSessionSheet({
   isAdmin = false,
 }: GroupSessionSheetProps) {
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false)
   const [sessionProfIds, setSessionProfIds] = useState<string[]>([])
   const [isSavingProfs, setIsSavingProfs] = useState(false)
   const [isEditingProfs, setIsEditingProfs] = useState(false)
@@ -129,6 +130,37 @@ export function GroupSessionSheet({
     }
   }
 
+  const handleBulkUpdateStatus = async (newStatus: AppointmentStatus) => {
+    const statusMessages: Record<string, string> = {
+      CONFIRMADO: "Confirmar todos os participantes",
+      FINALIZADO: "Marcar todos como compareceram",
+      CANCELADO_ACORDADO: "Marcar todos como desmarcou",
+      CANCELADO_FALTA: "Marcar todos como faltou",
+      CANCELADO_PROFISSIONAL: "Marcar todos como sem cobrança",
+    }
+    const message = statusMessages[newStatus] || "Atualizar todos"
+    if (!window.confirm(`${message}?`)) return
+
+    setIsBulkUpdating(true)
+    try {
+      const result = await updateGroupSessionStatus(
+        session!.groupId,
+        session!.scheduledAt,
+        newStatus
+      )
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success(`${result.updatedCount} participantes atualizados`)
+        onStatusUpdated()
+      }
+    } catch {
+      toast.error("Erro ao atualizar status do grupo")
+    } finally {
+      setIsBulkUpdating(false)
+    }
+  }
+
   // Count statuses for summary
   const statusCounts = session.participants.reduce(
     (acc, p) => {
@@ -137,6 +169,10 @@ export function GroupSessionSheet({
     },
     {} as Record<string, number>
   )
+
+  const allSameStatus = session.participants.length > 0 &&
+    session.participants.every(p => p.status === session.participants[0].status)
+  const derivedStatus = allSameStatus ? session.participants[0].status : null
 
   return (
     <Sheet isOpen={isOpen} onClose={onClose} title={session.groupName}>
@@ -158,18 +194,70 @@ export function GroupSessionSheet({
           </p>
         </div>
 
-        {/* Status Summary */}
+        {/* Derived session status or per-status counts */}
         <div className="flex flex-wrap gap-2 mt-3">
-          {Object.entries(statusCounts).map(([status, count]) => (
-            <span
-              key={status}
-              className={`text-xs px-2 py-1 rounded-full font-medium ${
-                STATUS_COLORS[status as AppointmentStatus] || "bg-gray-100 text-gray-800"
-              }`}
-            >
-              {count} {STATUS_LABELS[status as AppointmentStatus] || status}
+          {derivedStatus ? (
+            <span className={`text-sm px-3 py-1.5 rounded-full font-medium ${
+              STATUS_COLORS[derivedStatus as AppointmentStatus] || "bg-gray-100 text-gray-800"
+            }`}>
+              {STATUS_LABELS[derivedStatus as AppointmentStatus] || derivedStatus}
             </span>
-          ))}
+          ) : (
+            Object.entries(statusCounts).map(([status, count]) => (
+              <span
+                key={status}
+                className={`text-xs px-2 py-1 rounded-full font-medium ${
+                  STATUS_COLORS[status as AppointmentStatus] || "bg-gray-100 text-gray-800"
+                }`}
+              >
+                {count} {STATUS_LABELS[status as AppointmentStatus] || status}
+              </span>
+            ))
+          )}
+        </div>
+
+        {/* Bulk actions */}
+        <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+          <button
+            type="button"
+            onClick={() => handleBulkUpdateStatus("CONFIRMADO")}
+            disabled={isBulkUpdating}
+            className="h-7 px-3 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isBulkUpdating ? "..." : "Confirmar Todos"}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleBulkUpdateStatus("FINALIZADO")}
+            disabled={isBulkUpdating}
+            className="h-7 px-3 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            {isBulkUpdating ? "..." : "Todos Compareceram"}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleBulkUpdateStatus("CANCELADO_ACORDADO")}
+            disabled={isBulkUpdating}
+            className="h-7 px-2 rounded border border-purple-200 dark:border-purple-700 text-[11px] font-medium text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 disabled:opacity-50 transition-colors"
+          >
+            Desmarcou
+          </button>
+          <button
+            type="button"
+            onClick={() => handleBulkUpdateStatus("CANCELADO_FALTA")}
+            disabled={isBulkUpdating}
+            className="h-7 px-2 rounded border border-purple-200 dark:border-purple-700 text-[11px] font-medium text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 disabled:opacity-50 transition-colors"
+          >
+            Faltou
+          </button>
+          <button
+            type="button"
+            onClick={() => handleBulkUpdateStatus("CANCELADO_PROFISSIONAL")}
+            disabled={isBulkUpdating}
+            className="h-7 px-2 rounded border border-purple-200 dark:border-purple-700 text-[11px] font-medium text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 disabled:opacity-50 transition-colors"
+          >
+            Sem cobrança
+          </button>
         </div>
       </div>
 
@@ -264,7 +352,7 @@ export function GroupSessionSheet({
 
         <div className="divide-y divide-border">
           {session.participants.map((participant) => {
-            const isUpdating = updatingId === participant.appointmentId
+            const isUpdating = updatingId === participant.appointmentId || isBulkUpdating
             const isCancelled = ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"].includes(
               participant.status
             )
@@ -301,17 +389,30 @@ export function GroupSessionSheet({
                   <div className="flex items-center gap-1 mt-2 flex-wrap">
                     {/* Primary action: Confirmar (AGENDADO) or Compareceu (CONFIRMADO) */}
                     {canConfirm ? (
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateStatus(participant.appointmentId, "CONFIRMADO", participant.patientName)}
-                        disabled={isUpdating}
-                        title="Confirmar"
-                        className="h-7 px-3 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                      >
-                        {isUpdating ? "..." : <>
-                          <CheckIcon className="w-3.5 h-3.5 inline mr-1" />Confirmar
-                        </>}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus(participant.appointmentId, "CONFIRMADO", participant.patientName)}
+                          disabled={isUpdating}
+                          title="Confirmar"
+                          className="h-7 px-3 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          {isUpdating ? "..." : <>
+                            <CheckIcon className="w-3.5 h-3.5 inline mr-1" />Confirmar
+                          </>}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus(participant.appointmentId, "FINALIZADO", participant.patientName)}
+                          disabled={isUpdating}
+                          title="Compareceu"
+                          className="h-7 px-3 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                        >
+                          {isUpdating ? "..." : <>
+                            <CheckCircleIcon className="w-3.5 h-3.5 inline mr-1" />Compareceu
+                          </>}
+                        </button>
+                      </>
                     ) : (
                       <button
                         type="button"
