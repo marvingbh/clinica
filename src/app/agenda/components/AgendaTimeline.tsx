@@ -143,7 +143,7 @@ export function AgendaTimeline({
     groupSessionsByTime.set(time, [...existing, session])
   }
 
-  // Active group sessions — cancelled groups shouldn't hide slots or block time
+  // Active group sessions — only these block time/availability
   const activeGroupSessions = groupSessions.filter((session) => {
     if (session.participants.length === 0) return false
     return session.participants.some(
@@ -161,18 +161,24 @@ export function AgendaTimeline({
     }
   })
 
-  // Pre-compute which slots to hide (within ongoing active group sessions)
+  // Pre-compute which slots to hide (within ALL group sessions for visual span)
   // and how many extra slots each group session start spans
   const hiddenSlotTimes = new Set<string>()
   const groupSessionSpanCount = new Map<string, number>()
 
-  for (const session of activeGroupSessions) {
+  for (const session of groupSessions) {
     const startTime = getTimeFromISO(session.scheduledAt)
     const endTime = getTimeFromISO(session.endAt)
     let count = 0
     for (const slot of timeSlots) {
       if (slot.time > startTime && slot.time < endTime) {
-        hiddenSlotTimes.add(slot.time)
+        // Only hide if the slot has no individual blocking appointments
+        const hasIndividualBlockingApts = slot.appointments.some(
+          apt => !apt.groupId && apt.blocksTime
+        )
+        if (!hasIndividualBlockingApts) {
+          hiddenSlotTimes.add(slot.time)
+        }
         count++
       }
     }
