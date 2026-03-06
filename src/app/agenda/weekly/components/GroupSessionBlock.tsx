@@ -11,12 +11,16 @@ interface GroupSessionBlockProps {
   session: GroupSession
   onClick?: (session: GroupSession) => void
   showProfessional?: boolean
+  columnIndex?: number
+  totalColumns?: number
 }
 
 export function GroupSessionBlock({
   session,
   onClick,
   showProfessional = false,
+  columnIndex = 0,
+  totalColumns = 1,
 }: GroupSessionBlockProps) {
   const scheduledAt = new Date(session.scheduledAt)
   const endAt = new Date(session.endAt)
@@ -28,6 +32,10 @@ export function GroupSessionBlock({
   // Calculate position and height
   const top = ((hour - START_HOUR) * 60 + minutes) * PIXELS_PER_MINUTE
   const height = Math.max(durationMinutes * PIXELS_PER_MINUTE, 32) // Min height of 32px for readability
+
+  // Calculate width and left position for overlapping blocks
+  const columnWidth = 100 / totalColumns
+  const leftPercent = columnIndex * columnWidth
 
   const startTimeStr = `${hour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`
   const endHour = endAt.getHours()
@@ -50,8 +58,8 @@ export function GroupSessionBlock({
         position: "absolute",
         top: `${top}px`,
         height: `${height}px`,
-        left: "1px",
-        width: "calc(100% - 2px)",
+        left: `calc(${leftPercent}% + 1px)`,
+        width: `calc(${columnWidth}% - 2px)`,
       }}
       className={`
         border border-purple-300 dark:border-purple-700 rounded px-1 py-0.5 text-left

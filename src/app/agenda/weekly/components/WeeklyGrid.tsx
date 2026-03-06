@@ -41,73 +41,93 @@ interface AppointmentWithLayout extends Appointment {
   totalColumns: number
 }
 
-// Check if two appointments overlap in time
-function appointmentsOverlap(a: Appointment, b: Appointment): boolean {
-  const aStart = new Date(a.scheduledAt).getTime()
-  const aEnd = new Date(a.endAt).getTime()
-  const bStart = new Date(b.scheduledAt).getTime()
-  const bEnd = new Date(b.endAt).getTime()
-
-  return aStart < bEnd && bStart < aEnd
+interface GroupSessionWithLayout extends GroupSession {
+  columnIndex: number
+  totalColumns: number
 }
 
-// Calculate layout for overlapping appointments
-function calculateAppointmentLayout(appointments: Appointment[]): AppointmentWithLayout[] {
-  if (appointments.length === 0) return []
+// A generic time block for unified overlap calculation
+interface TimeBlock {
+  id: string
+  startMs: number
+  endMs: number
+}
 
-  // Sort by start time
-  const sorted = [...appointments].sort(
-    (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
-  )
+// Check if two time blocks overlap
+function blocksOverlap(a: TimeBlock, b: TimeBlock): boolean {
+  return a.startMs < b.endMs && b.startMs < a.endMs
+}
 
-  const result: AppointmentWithLayout[] = []
-  const columns: Appointment[][] = []
+// Calculate column layout for a set of time blocks
+function calculateBlockLayout(blocks: TimeBlock[]): Map<string, { columnIndex: number; totalColumns: number }> {
+  if (blocks.length === 0) return new Map()
 
-  for (const apt of sorted) {
-    // Find a column where this appointment doesn't overlap with the last one
+  const sorted = [...blocks].sort((a, b) => a.startMs - b.startMs)
+
+  const columns: TimeBlock[][] = []
+
+  for (const block of sorted) {
     let placed = false
     for (let colIndex = 0; colIndex < columns.length; colIndex++) {
       const lastInColumn = columns[colIndex][columns[colIndex].length - 1]
-      if (!appointmentsOverlap(lastInColumn, apt)) {
-        columns[colIndex].push(apt)
+      if (!blocksOverlap(lastInColumn, block)) {
+        columns[colIndex].push(block)
         placed = true
         break
       }
     }
-
-    // If no suitable column found, create a new one
     if (!placed) {
-      columns.push([apt])
+      columns.push([block])
     }
   }
 
-  // Assign column indices to appointments
-  const appointmentColumnMap = new Map<string, number>()
+  const columnMap = new Map<string, number>()
   columns.forEach((column, colIndex) => {
-    column.forEach(apt => {
-      appointmentColumnMap.set(apt.id, colIndex)
-    })
+    column.forEach(block => columnMap.set(block.id, colIndex))
   })
 
-  // For each appointment, find how many columns exist in its time range
-  for (const apt of sorted) {
-    const colIndex = appointmentColumnMap.get(apt.id) || 0
-
-    // Count overlapping appointments to determine total columns in this time slot
-    const overlapping = sorted.filter(other => appointmentsOverlap(apt, other))
-    const maxColumnInOverlap = Math.max(
-      ...overlapping.map(o => appointmentColumnMap.get(o.id) || 0)
-    )
-    const totalColumns = maxColumnInOverlap + 1
-
-    result.push({
-      ...apt,
-      columnIndex: colIndex,
-      totalColumns,
-    })
+  const result = new Map<string, { columnIndex: number; totalColumns: number }>()
+  for (const block of sorted) {
+    const colIndex = columnMap.get(block.id) || 0
+    const overlapping = sorted.filter(other => blocksOverlap(block, other))
+    const maxCol = Math.max(...overlapping.map(o => columnMap.get(o.id) || 0))
+    result.set(block.id, { columnIndex: colIndex, totalColumns: maxCol + 1 })
   }
 
   return result
+}
+
+// Calculate layout for appointments and group sessions together
+function calculateDayLayout(
+  appointments: Appointment[],
+  groupSessions: GroupSession[],
+): { appointments: AppointmentWithLayout[]; groupSessions: GroupSessionWithLayout[] } {
+  const blocks: TimeBlock[] = [
+    ...appointments.map(apt => ({
+      id: apt.id,
+      startMs: new Date(apt.scheduledAt).getTime(),
+      endMs: new Date(apt.endAt).getTime(),
+    })),
+    ...groupSessions.map(gs => ({
+      id: `gs-${gs.groupId}-${gs.scheduledAt}`,
+      startMs: new Date(gs.scheduledAt).getTime(),
+      endMs: new Date(gs.endAt).getTime(),
+    })),
+  ]
+
+  const layoutMap = calculateBlockLayout(blocks)
+
+  const appointmentsWithLayout = appointments.map(apt => {
+    const layout = layoutMap.get(apt.id) || { columnIndex: 0, totalColumns: 1 }
+    return { ...apt, ...layout }
+  })
+
+  const groupSessionsWithLayout = groupSessions.map(gs => {
+    const layout = layoutMap.get(`gs-${gs.groupId}-${gs.scheduledAt}`) || { columnIndex: 0, totalColumns: 1 }
+    return { ...gs, ...layout }
+  })
+
+  return { appointments: appointmentsWithLayout, groupSessions: groupSessionsWithLayout }
 }
 
 export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availabilitySlots, appointmentDuration, birthdayPatients = [], onAppointmentClick, onGroupSessionClick, onAlternateWeekClick, onAvailabilitySlotClick, onBiweeklyHintClick, showProfessional = false }: WeeklyGridProps) {
@@ -134,32 +154,23 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
     return createProfessionalColorMap(professionalIds)
   }, [individualAppointments])
 
-  // Group appointments by day and calculate layout
-  const appointmentsByDay = useMemo(() => {
-    const grouped: Record<string, AppointmentWithLayout[]> = {}
+  // Group appointments and group sessions by day and calculate unified layout
+  const dayLayouts = useMemo(() => {
+    const result: Record<string, { appointments: AppointmentWithLayout[]; groupSessions: GroupSessionWithLayout[] }> = {}
+
     for (const day of weekDays) {
-      grouped[toDateString(day)] = []
+      const dateStr = toDateString(day)
+      const dayApts = individualAppointments.filter(
+        apt => toDateString(new Date(apt.scheduledAt)) === dateStr
+      )
+      const dayGS = groupSessions.filter(
+        gs => toDateString(new Date(gs.scheduledAt)) === dateStr
+      )
+      result[dateStr] = calculateDayLayout(dayApts, dayGS)
     }
 
-    // Group by date first
-    const byDate: Record<string, Appointment[]> = {}
-    for (const day of weekDays) {
-      byDate[toDateString(day)] = []
-    }
-    for (const apt of individualAppointments) {
-      const aptDate = toDateString(new Date(apt.scheduledAt))
-      if (byDate[aptDate]) {
-        byDate[aptDate].push(apt)
-      }
-    }
-
-    // Calculate layout for each day
-    for (const dateStr of Object.keys(byDate)) {
-      grouped[dateStr] = calculateAppointmentLayout(byDate[dateStr])
-    }
-
-    return grouped
-  }, [weekDays, individualAppointments])
+    return result
+  }, [weekDays, individualAppointments, groupSessions])
 
   // Group birthday patients by day from API data
   const birthdaysByDay = useMemo(() => {
@@ -172,20 +183,6 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
     return result
   }, [birthdayPatients])
 
-  // Group sessions by day
-  const groupSessionsByDay = useMemo(() => {
-    const grouped: Record<string, GroupSession[]> = {}
-    for (const day of weekDays) {
-      grouped[toDateString(day)] = []
-    }
-    for (const session of groupSessions) {
-      const sessionDate = toDateString(new Date(session.scheduledAt))
-      if (grouped[sessionDate]) {
-        grouped[sessionDate].push(session)
-      }
-    }
-    return grouped
-  }, [weekDays, groupSessions])
 
   const gridHeight = HOURS.length * HOUR_HEIGHT
 
@@ -255,8 +252,9 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
             {/* Day Columns */}
             {weekDays.map((day, dayIndex) => {
               const dateStr = toDateString(day)
-              const dayAppointments = appointmentsByDay[dateStr] || []
-              const dayGroupSessions = groupSessionsByDay[dateStr] || []
+              const layout = dayLayouts[dateStr] || { appointments: [], groupSessions: [] }
+              const dayAppointments = layout.appointments
+              const dayGroupSessions = layout.groupSessions
               const isCurrentDay = isSameDay(day, today)
               const isPastDay = day < today && !isCurrentDay
               const weekend = isWeekend(day)
@@ -341,6 +339,8 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                       session={session}
                       onClick={onGroupSessionClick}
                       showProfessional={showProfessional}
+                      columnIndex={session.columnIndex}
+                      totalColumns={session.totalColumns}
                     />
                   ))}
 
