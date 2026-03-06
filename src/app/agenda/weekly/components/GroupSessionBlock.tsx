@@ -34,6 +34,13 @@ export function GroupSessionBlock({
   const endTimeStr = `${endHour.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`
 
   const participantCount = session.participants.length
+  const TERMINAL_STATUSES = ["FINALIZADO", "CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"]
+  const allTerminal = participantCount > 0 && session.participants.every(
+    p => TERMINAL_STATUSES.includes(p.status)
+  )
+  const allCancelled = participantCount > 0 && session.participants.every(
+    p => ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"].includes(p.status)
+  )
 
   return (
     <button
@@ -51,6 +58,7 @@ export function GroupSessionBlock({
         border-l-[3px] border-l-purple-500 overflow-hidden cursor-pointer
         bg-purple-50 dark:bg-purple-950/30
         hover:shadow-md hover:z-10 transition-all
+        ${allCancelled ? "opacity-40" : allTerminal ? "opacity-60" : ""}
       `}
     >
       <div className="h-full flex flex-col overflow-hidden gap-0.5">

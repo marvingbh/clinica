@@ -265,6 +265,7 @@ export function DailyOverviewGrid({
             const isTall = height >= 110
 
             const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"].includes(appointment.status)
+            const isFinalized = appointment.status === "FINALIZADO"
 
             const startTimeStr = `${hour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`
             const endTimeStr = `${endAt.getHours().toString().padStart(2, "0")}:${endAt.getMinutes().toString().padStart(2, "0")}`
@@ -303,7 +304,7 @@ export function DailyOverviewGrid({
                   hover:shadow-md hover:z-30 active:scale-[0.98] transition-all
                   border-t-[3px] ${showProfessional ? profColors.accent.replace("bg-", "border-t-") : getStatusBorderTop(appointment.status as AppointmentStatus)}
                   ${bgClass} ${borderClass}
-                  ${isCancelled ? "opacity-40" : ""}
+                  ${isCancelled ? "opacity-40" : isFinalized ? "opacity-50" : ""}
                 `}
               >
                 <div className={`flex flex-col overflow-hidden h-full ${isCompact ? "px-2 py-1 gap-0" : "px-3 py-2 gap-0.5"}`}>
@@ -426,6 +427,14 @@ export function DailyOverviewGrid({
               ? getProfessionalColor(session.professionalProfileId, professionalColorMap)
               : null
 
+            const TERMINAL_STATUSES = ["FINALIZADO", "CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"]
+            const allTerminal = session.participants.length > 0 && session.participants.every(
+              p => TERMINAL_STATUSES.includes(p.status)
+            )
+            const allCancelled = session.participants.length > 0 && session.participants.every(
+              p => ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"].includes(p.status)
+            )
+
             const columnWidth = 100 / layout.totalColumns
             const leftPercent = layout.columnIndex * columnWidth
 
@@ -454,6 +463,7 @@ export function DailyOverviewGrid({
                     ? `${colors.bg} ${colors.border}`
                     : "bg-purple-50 dark:bg-purple-950/30 border-l-purple-500"
                   }
+                  ${allCancelled ? "opacity-40" : allTerminal ? "opacity-50" : ""}
                 `}
               >
                 <div className={`flex flex-col overflow-hidden h-full ${isCompact ? "px-2 py-1 gap-0" : "px-3 py-2 gap-0.5"}`}>
