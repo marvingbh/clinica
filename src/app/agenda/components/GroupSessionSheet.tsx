@@ -131,6 +131,7 @@ export function GroupSessionSheet({
   }
 
   const handleBulkUpdateStatus = async (newStatus: AppointmentStatus) => {
+    if (!session) return
     const statusMessages: Record<string, string> = {
       CONFIRMADO: "Confirmar todos os participantes",
       FINALIZADO: "Marcar todos como compareceram",
@@ -144,8 +145,8 @@ export function GroupSessionSheet({
     setIsBulkUpdating(true)
     try {
       const result = await updateGroupSessionStatus(
-        session!.groupId,
-        session!.scheduledAt,
+        session.groupId,
+        session.scheduledAt,
         newStatus
       )
       if (result.error) {
@@ -238,7 +239,7 @@ export function GroupSessionSheet({
             type="button"
             onClick={() => handleBulkUpdateStatus("CANCELADO_ACORDADO")}
             disabled={isBulkUpdating}
-            className="h-7 px-2 rounded border border-purple-200 dark:border-purple-700 text-[11px] font-medium text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 disabled:opacity-50 transition-colors"
+            className="h-7 px-2 rounded border border-teal-200 dark:border-teal-700 text-[11px] font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/30 disabled:opacity-50 transition-colors"
           >
             Desmarcou
           </button>
@@ -246,7 +247,7 @@ export function GroupSessionSheet({
             type="button"
             onClick={() => handleBulkUpdateStatus("CANCELADO_FALTA")}
             disabled={isBulkUpdating}
-            className="h-7 px-2 rounded border border-purple-200 dark:border-purple-700 text-[11px] font-medium text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 disabled:opacity-50 transition-colors"
+            className="h-7 px-2 rounded border border-amber-200 dark:border-amber-700 text-[11px] font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30 disabled:opacity-50 transition-colors"
           >
             Faltou
           </button>
@@ -254,7 +255,7 @@ export function GroupSessionSheet({
             type="button"
             onClick={() => handleBulkUpdateStatus("CANCELADO_PROFISSIONAL")}
             disabled={isBulkUpdating}
-            className="h-7 px-2 rounded border border-purple-200 dark:border-purple-700 text-[11px] font-medium text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 disabled:opacity-50 transition-colors"
+            className="h-7 px-2 rounded border border-red-200 dark:border-red-700 text-[11px] font-medium text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 transition-colors"
           >
             Sem cobrança
           </button>
