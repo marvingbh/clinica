@@ -5,8 +5,22 @@ import { Sheet } from "./Sheet"
 import { UsersIcon, ClockIcon, CheckCircleIcon, XIcon, CheckIcon } from "@/shared/components/ui/icons"
 import { STATUS_LABELS, STATUS_COLORS, CANCELLED_STATUSES } from "../lib/constants"
 import { updateStatus, updateAppointment, updateGroupSessionStatus } from "../services/appointmentService"
+import { CancelConfirmDialog, type CancelVariant } from "./CancelConfirmDialog"
 import { toast } from "sonner"
 import type { GroupSession, AppointmentStatus, Professional } from "../lib/types"
+
+const STATUS_TO_CANCEL_VARIANT: Record<string, CancelVariant> = {
+  CANCELADO_FALTA: "faltou",
+  CANCELADO_ACORDADO: "desmarcou",
+  CANCELADO_PROFISSIONAL: "sem_cobranca",
+}
+
+interface CancelContext {
+  variant: CancelVariant
+  isBulk: boolean
+  appointmentId?: string
+  patientName?: string
+}
 
 interface GroupSessionSheetProps {
   isOpen: boolean
@@ -58,6 +72,7 @@ export function GroupSessionSheet({
   const [sessionProfIds, setSessionProfIds] = useState<string[]>([])
   const [isSavingProfs, setIsSavingProfs] = useState(false)
   const [isEditingProfs, setIsEditingProfs] = useState(false)
+  const [cancelContext, setCancelContext] = useState<CancelContext | null>(null)
 
   // Initialize session professional IDs when session changes
   useEffect(() => {
@@ -132,16 +147,27 @@ export function GroupSessionSheet({
 
   const handleBulkUpdateStatus = async (newStatus: AppointmentStatus) => {
     if (!session) return
+
+    // For cancel statuses, open the confirmation dialog
+    const cancelVariant = STATUS_TO_CANCEL_VARIANT[newStatus]
+    if (cancelVariant) {
+      setCancelContext({ variant: cancelVariant, isBulk: true })
+      return
+    }
+
+    // For non-cancel statuses (CONFIRMADO, FINALIZADO), use simple confirm
     const statusMessages: Record<string, string> = {
       CONFIRMADO: "Confirmar todos os participantes",
       FINALIZADO: "Marcar todos como compareceram",
-      CANCELADO_ACORDADO: "Marcar todos como desmarcou",
-      CANCELADO_FALTA: "Marcar todos como faltou",
-      CANCELADO_PROFISSIONAL: "Marcar todos como sem cobrança",
     }
     const message = statusMessages[newStatus] || "Atualizar todos"
     if (!window.confirm(`${message}?`)) return
 
+    await executeBulkUpdate(newStatus)
+  }
+
+  const executeBulkUpdate = async (newStatus: string) => {
+    if (!session) return
     setIsBulkUpdating(true)
     try {
       const result = await updateGroupSessionStatus(
@@ -160,6 +186,19 @@ export function GroupSessionSheet({
     } finally {
       setIsBulkUpdating(false)
     }
+  }
+
+  const handleCancelConfirm = async (status: string, _reason: string) => {
+    if (!cancelContext) return
+    if (cancelContext.isBulk) {
+      await executeBulkUpdate(status)
+    } else if (cancelContext.appointmentId && cancelContext.patientName) {
+      await handleUpdateStatus(cancelContext.appointmentId, status as AppointmentStatus, cancelContext.patientName)
+    }
+  }
+
+  const openIndividualCancel = (variant: CancelVariant, appointmentId: string, patientName: string) => {
+    setCancelContext({ variant, isBulk: false, appointmentId, patientName })
   }
 
   // Count statuses for summary
@@ -430,7 +469,7 @@ export function GroupSessionSheet({
                     {/* Cancel actions */}
                     <button
                       type="button"
-                      onClick={() => handleUpdateStatus(participant.appointmentId, "CANCELADO_ACORDADO", participant.patientName)}
+                      onClick={() => openIndividualCancel("desmarcou", participant.appointmentId, participant.patientName)}
                       disabled={isUpdating}
                       title="Desmarcou (gera crédito)"
                       className="h-7 px-2 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-teal-600 hover:border-teal-300 hover:bg-teal-50 dark:hover:text-teal-400 dark:hover:border-teal-700 dark:hover:bg-teal-950/30 disabled:opacity-50 transition-colors"
@@ -439,7 +478,7 @@ export function GroupSessionSheet({
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleUpdateStatus(participant.appointmentId, "CANCELADO_FALTA", participant.patientName)}
+                      onClick={() => openIndividualCancel("faltou", participant.appointmentId, participant.patientName)}
                       disabled={isUpdating}
                       title="Faltou (cobra normalmente)"
                       className="h-7 px-2 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 dark:hover:text-amber-400 dark:hover:border-amber-700 dark:hover:bg-amber-950/30 disabled:opacity-50 transition-colors"
@@ -448,7 +487,7 @@ export function GroupSessionSheet({
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleUpdateStatus(participant.appointmentId, "CANCELADO_PROFISSIONAL", participant.patientName)}
+                      onClick={() => openIndividualCancel("sem_cobranca", participant.appointmentId, participant.patientName)}
                       disabled={isUpdating}
                       title="Sem cobrança (não cobra)"
                       className="h-7 px-2 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-red-600 hover:border-red-300 hover:bg-red-50 dark:hover:text-red-400 dark:hover:border-red-700 dark:hover:bg-red-950/30 disabled:opacity-50 transition-colors"
@@ -465,7 +504,7 @@ export function GroupSessionSheet({
                     {participant.status !== "CANCELADO_ACORDADO" && (
                       <button
                         type="button"
-                        onClick={() => handleUpdateStatus(participant.appointmentId, "CANCELADO_ACORDADO", participant.patientName)}
+                        onClick={() => openIndividualCancel("desmarcou", participant.appointmentId, participant.patientName)}
                         disabled={isUpdating}
                         className="h-6 px-2 rounded border border-teal-200 dark:border-teal-800 text-[10px] font-medium text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/30 disabled:opacity-50 transition-colors"
                       >
@@ -475,7 +514,7 @@ export function GroupSessionSheet({
                     {participant.status !== "CANCELADO_FALTA" && (
                       <button
                         type="button"
-                        onClick={() => handleUpdateStatus(participant.appointmentId, "CANCELADO_FALTA", participant.patientName)}
+                        onClick={() => openIndividualCancel("faltou", participant.appointmentId, participant.patientName)}
                         disabled={isUpdating}
                         className="h-6 px-2 rounded border border-amber-200 dark:border-amber-800 text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 disabled:opacity-50 transition-colors"
                       >
@@ -485,7 +524,7 @@ export function GroupSessionSheet({
                     {participant.status !== "CANCELADO_PROFISSIONAL" && (
                       <button
                         type="button"
-                        onClick={() => handleUpdateStatus(participant.appointmentId, "CANCELADO_PROFISSIONAL", participant.patientName)}
+                        onClick={() => openIndividualCancel("sem_cobranca", participant.appointmentId, participant.patientName)}
                         disabled={isUpdating}
                         className="h-6 px-2 rounded border border-red-200 dark:border-red-800 text-[10px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 transition-colors"
                       >
@@ -519,6 +558,16 @@ export function GroupSessionSheet({
           Fechar
         </button>
       </div>
+
+      {/* Cancel confirmation dialog */}
+      {cancelContext && (
+        <CancelConfirmDialog
+          isOpen={!!cancelContext}
+          onClose={() => setCancelContext(null)}
+          variant={cancelContext.variant}
+          onConfirm={handleCancelConfirm}
+        />
+      )}
     </Sheet>
   )
 }
