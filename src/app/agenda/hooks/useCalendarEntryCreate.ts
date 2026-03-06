@@ -103,16 +103,24 @@ export function useCalendarEntryCreate({
       setAdditionalProfessionalIds([])
       setSelectedPatient(null)
       setPatientSearch("")
+
+      // Non-blocking types (LEMBRETE, NOTA) use fixed defaults.
+      // Time-blocking types (TAREFA, REUNIAO) use the professional's configured duration.
+      const profDuration = professionals.find(
+        p => p.professionalProfile?.id === selectedProfessionalId
+      )?.professionalProfile?.appointmentDuration
+      const duration = DEFAULT_ENTRY_DURATIONS[type] ?? profDuration ?? 60
+
       form.reset({
         title: "",
         date: toDisplayDateFromDate(selectedDate),
         startTime: slotTime || "",
-        duration: DEFAULT_ENTRY_DURATIONS[type] || 60,
+        duration,
         notes: "",
       })
       setIsSheetOpen(true)
     },
-    [selectedDate, selectedProfessionalId, form]
+    [selectedDate, selectedProfessionalId, professionals, form]
   )
 
   const closeSheet = useCallback(() => {

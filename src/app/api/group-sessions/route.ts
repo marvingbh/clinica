@@ -47,7 +47,6 @@ export const GET = withFeatureAuth(
     const where: Record<string, unknown> = {
       clinicId: user.clinicId,
       groupId: groupId ? groupId : { not: null },
-      status: { notIn: ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"] },
     }
 
     // Apply time-based filter (upcoming/past)

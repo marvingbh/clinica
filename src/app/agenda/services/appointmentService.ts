@@ -256,3 +256,23 @@ export async function deleteAppointment(id: string): Promise<DeleteAppointmentRe
 
   return { success: true }
 }
+
+export async function updateGroupSessionStatus(
+  groupId: string,
+  scheduledAt: string,
+  status: string
+): Promise<{ success?: boolean; updatedCount?: number; error?: string }> {
+  const response = await fetch("/api/group-sessions/status", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ groupId, scheduledAt, status }),
+  })
+
+  const result = await response.json()
+
+  if (!response.ok) {
+    return { error: result.error || "Erro ao atualizar status do grupo" }
+  }
+
+  return result
+}

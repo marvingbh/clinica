@@ -87,12 +87,11 @@ function getBlocksTime(type: AppointmentType): boolean {
   return type === "TAREFA" || type === "REUNIAO" || type === "CONSULTA"
 }
 
-// Default durations for entry types
+// Default durations for non-blocking entry types only.
+// Time-blocking types (TAREFA, REUNIAO) use the professional's configured appointmentDuration.
 const DEFAULT_DURATIONS: Record<string, number> = {
-  TAREFA: 60,
   LEMBRETE: 15,
   NOTA: 15,
-  REUNIAO: 60,
 }
 
 /**
@@ -513,7 +512,7 @@ async function handleCreateCalendarEntry(
     patientId = patient.id
   }
 
-  const entryDuration = duration || DEFAULT_DURATIONS[type] || 60
+  const entryDuration = duration || DEFAULT_DURATIONS[type] || professional.appointmentDuration || 60
   const blocksTime = getBlocksTime(type as AppointmentType)
 
   // Validate date is not in the past

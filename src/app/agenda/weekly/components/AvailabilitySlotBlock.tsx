@@ -11,6 +11,7 @@ interface AvailabilitySlotBlockProps {
   appointmentDuration: number
   onClick: () => void
   halfRight?: boolean
+  isPast?: boolean
 }
 
 export function AvailabilitySlotBlock({
@@ -18,6 +19,7 @@ export function AvailabilitySlotBlock({
   appointmentDuration,
   onClick,
   halfRight = false,
+  isPast = false,
 }: AvailabilitySlotBlockProps) {
   const [hour, min] = slot.time.split(":").map(Number)
   const top = ((hour - START_HOUR) * 60 + min) * PIXELS_PER_MINUTE
@@ -40,7 +42,10 @@ export function AvailabilitySlotBlock({
       className={`
         rounded px-1 py-0.5 text-left overflow-hidden cursor-pointer
         rounded-md transition-all hover:shadow-sm
-        border border-teal-300/70 dark:border-teal-600/50 border-l-[3px] border-l-teal-500 dark:border-l-teal-400 bg-teal-50/80 dark:bg-teal-900/30 hover:bg-teal-100 dark:hover:bg-teal-800/40
+        ${isPast
+          ? "border border-border/50 border-l-[3px] border-l-muted-foreground/30 bg-muted/30 opacity-40"
+          : "border border-teal-300/70 dark:border-teal-600/50 border-l-[3px] border-l-teal-500 dark:border-l-teal-400 bg-teal-50/80 dark:bg-teal-900/30 hover:bg-teal-100 dark:hover:bg-teal-800/40"
+        }
       `}
     >
       <div className="h-full flex flex-col items-center justify-center gap-1 overflow-hidden">

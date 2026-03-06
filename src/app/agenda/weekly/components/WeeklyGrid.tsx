@@ -258,6 +258,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
               const dayAppointments = appointmentsByDay[dateStr] || []
               const dayGroupSessions = groupSessionsByDay[dateStr] || []
               const isCurrentDay = isSameDay(day, today)
+              const isPastDay = day < today && !isCurrentDay
               const weekend = isWeekend(day)
 
               // Find times where cancelled appointments coexist with available slots
@@ -350,6 +351,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                       slot={slot}
                       appointmentDuration={appointmentDuration || 50}
                       halfRight={splitTimes.has(slot.time)}
+                      isPast={isPastDay}
                       onClick={() => {
                         if (slot.biweeklyHint) {
                           onBiweeklyHintClick?.(dateStr, slot.time)
