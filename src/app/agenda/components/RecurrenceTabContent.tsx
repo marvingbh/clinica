@@ -120,7 +120,7 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
       const result = await response.json()
 
       if (!response.ok) {
-        if (result.code === "DAY_CHANGE_CONFLICTS" && result.conflicts) {
+        if (result.conflicts && Array.isArray(result.conflicts)) {
           const conflictDates = result.conflicts.map((c: { date: string; conflictsWith: string }) =>
             `${c.date} (conflito com ${c.conflictsWith})`
           ).join(", ")

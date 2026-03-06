@@ -119,6 +119,8 @@ export interface BulkConflictCheckParams {
   dates: Array<{ scheduledAt: Date; endAt: Date }>
   excludeAppointmentIds?: string[]
   excludeGroupId?: string
+  /** Exclude all appointments belonging to this recurrence (same recurrence = no conflict) */
+  excludeRecurrenceId?: string
   /** Additional professional IDs to check for conflicts (multi-professional support) */
   additionalProfessionalIds?: string[]
   bufferMinutes?: number
@@ -144,7 +146,7 @@ export async function checkConflictsBulk(
   tx?: Prisma.TransactionClient
 ): Promise<BulkConflictResult> {
   const client = tx || prisma
-  const { professionalProfileId, dates, excludeAppointmentIds, excludeGroupId, additionalProfessionalIds } = params
+  const { professionalProfileId, dates, excludeAppointmentIds, excludeGroupId, excludeRecurrenceId, additionalProfessionalIds } = params
 
   if (dates.length === 0) {
     return { conflicts: [] }
@@ -174,6 +176,13 @@ export async function checkConflictsBulk(
     paramIndex += excludeAppointmentIds.length
   }
 
+  let excludeRecurrenceClause = ""
+  if (excludeRecurrenceId) {
+    excludeRecurrenceClause = `AND (a."recurrenceId" IS NULL OR a."recurrenceId" != $${paramIndex}::text)`
+    queryParams.push(excludeRecurrenceId)
+    paramIndex += 1
+  }
+
   let excludeGroupClause = ""
   if (excludeGroupId) {
     excludeGroupClause = `AND (a."groupId" IS NULL OR a."groupId" != $${paramIndex}::text)`
@@ -196,6 +205,7 @@ export async function checkConflictsBulk(
       AND a."blocksTime" = true
       AND a."scheduledAt" < v.end_at AND a."endAt" > v.start_at
       ${excludeClause}
+      ${excludeRecurrenceClause}
       ${excludeGroupClause}
     LEFT JOIN "Patient" p ON a."patientId" = p.id
     ORDER BY v.idx, a."scheduledAt"

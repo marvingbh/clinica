@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
 import { createAuditLog } from "@/lib/rbac/audit"
-import { RecurrenceType, RecurrenceEndType, AppointmentStatus, AppointmentModality } from "@prisma/client"
+import { RecurrenceType, RecurrenceEndType, AppointmentStatus, AppointmentModality, AppointmentType } from "@prisma/client"
 import { z } from "zod"
 import { calculateDayShiftedDates, calculateBiweeklySwapDates } from "@/lib/appointments/recurrence"
 import { checkConflictsBulk } from "@/lib/appointments/conflict-check"
@@ -501,10 +501,92 @@ export const PATCH = withFeatureAuth(
       }
     }
 
+    // When changing recurrence type (e.g. BIWEEKLY → WEEKLY), create missing appointments
+    // Uses actual appointment dates as anchor (not startDate which may have drifted)
+    const appointmentsToCreate: Array<{ scheduledAt: Date; endAt: Date }> = []
+
+    if (isRecurrenceTypeChange && recurrence.appointments.length > 0) {
+      const newRecurrenceType = updateData.recurrenceType!
+
+      const sortedAppointments = [...recurrence.appointments].sort(
+        (a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime()
+      )
+      const anchorApt = sortedAppointments[0]
+      const lastApt = sortedAppointments[sortedAppointments.length - 1]
+
+      const getIntervalDaysForType = (type: RecurrenceType): number => {
+        switch (type) {
+          case RecurrenceType.WEEKLY: return 7
+          case RecurrenceType.BIWEEKLY: return 14
+          default: return 7
+        }
+      }
+
+      // Calculate expected dates from the anchor appointment under the new interval
+      // (same approach the deletion code above uses)
+      if (newRecurrenceType !== RecurrenceType.MONTHLY) {
+        const newIntervalDays = getIntervalDaysForType(newRecurrenceType)
+        const msPerDay = 24 * 60 * 60 * 1000
+        const anchorTime = anchorApt.scheduledAt.getTime()
+        const maxTime = lastApt.scheduledAt.getTime()
+        const duration = anchorApt.endAt.getTime() - anchorApt.scheduledAt.getTime()
+
+        // Build set of existing appointment dates (excluding ones being deleted)
+        const keptAppointmentDates = new Set(
+          recurrence.appointments
+            .filter(apt => !appointmentsToDelete.includes(apt.id))
+            .map(apt => apt.scheduledAt.toISOString().split("T")[0])
+        )
+
+        const now = new Date()
+        let currentTime = anchorTime
+        while (currentTime <= maxTime) {
+          const candidateDate = new Date(currentTime)
+          const dateStr = candidateDate.toISOString().split("T")[0]
+          if (candidateDate > now && !keptAppointmentDates.has(dateStr)) {
+            appointmentsToCreate.push({
+              scheduledAt: candidateDate,
+              endAt: new Date(currentTime + duration),
+            })
+          }
+          currentTime += newIntervalDays * msPerDay
+        }
+      }
+
+      // Conflict check — excludes appointments from the same recurrence (no self-conflict)
+      if (appointmentsToCreate.length > 0) {
+        const effectiveAdditionalProfIds = body.additionalProfessionalIds
+          ?? recurrence.additionalProfessionals.map(ap => ap.professionalProfileId)
+        const bulkResult = await checkConflictsBulk({
+          professionalProfileId: recurrence.professionalProfileId,
+          dates: appointmentsToCreate,
+          excludeRecurrenceId: recurrenceId,
+          additionalProfessionalIds: effectiveAdditionalProfIds,
+        })
+
+        if (bulkResult.conflicts.length > 0) {
+          const conflicts = bulkResult.conflicts.map(c => ({
+            date: appointmentsToCreate[c.index].scheduledAt.toLocaleDateString("pt-BR"),
+            conflictsWith: c.conflictingAppointment.patientName || c.conflictingAppointment.title || "outro compromisso",
+          }))
+
+          return NextResponse.json(
+            {
+              error: "Conflitos de horario encontrados ao mudar a frequencia",
+              code: "RECURRENCE_TYPE_CHANGE_CONFLICTS",
+              conflicts,
+            },
+            { status: 409 }
+          )
+        }
+      }
+    }
+
     // Apply changes
     const applyToFuture = body.applyTo === "future"
     let updatedAppointmentsCount = 0
     let deletedAppointmentsCount = 0
+    let createdAppointmentsCount = 0
 
     await prisma.$transaction(async (tx) => {
       // Update the recurrence record
@@ -521,6 +603,55 @@ export const PATCH = withFeatureAuth(
           },
         })
         deletedAppointmentsCount = appointmentsToDelete.length
+      }
+
+      // If recurrence type changed, create missing appointments for the new pattern
+      if (isRecurrenceTypeChange && appointmentsToCreate.length > 0) {
+        const blockingTypes: AppointmentType[] = [AppointmentType.CONSULTA, AppointmentType.TAREFA, AppointmentType.REUNIAO]
+        const blocksTime = blockingTypes.includes(recurrence.type)
+
+        await tx.appointment.createMany({
+          data: appointmentsToCreate.map(apt => ({
+            clinicId: recurrence.clinicId,
+            professionalProfileId: recurrence.professionalProfileId,
+            patientId: recurrence.patientId,
+            recurrenceId: recurrenceId,
+            type: recurrence.type,
+            title: recurrence.title,
+            blocksTime,
+            scheduledAt: apt.scheduledAt,
+            endAt: apt.endAt,
+            modality: body.modality as AppointmentModality ?? recurrence.modality,
+            status: AppointmentStatus.AGENDADO,
+          })),
+        })
+
+        // Create AppointmentProfessional records for additional professionals
+        const effectiveAdditionalProfIds = body.additionalProfessionalIds
+          ?? recurrence.additionalProfessionals.map(ap => ap.professionalProfileId)
+        if (effectiveAdditionalProfIds.length > 0) {
+          // Fetch newly created appointment IDs by matching recurrence + dates
+          const newAptDates = appointmentsToCreate.map(a => a.scheduledAt)
+          const newApts = await tx.appointment.findMany({
+            where: {
+              recurrenceId: recurrenceId,
+              scheduledAt: { in: newAptDates },
+            },
+            select: { id: true },
+          })
+          if (newApts.length > 0) {
+            await tx.appointmentProfessional.createMany({
+              data: newApts.flatMap(apt =>
+                effectiveAdditionalProfIds.map(profId => ({
+                  appointmentId: apt.id,
+                  professionalProfileId: profId,
+                }))
+              ),
+            })
+          }
+        }
+
+        createdAppointmentsCount = appointmentsToCreate.length
       }
 
       // If day of week changed, bulk update all future appointments with raw SQL
@@ -686,6 +817,7 @@ export const PATCH = withFeatureAuth(
         swapScope: body.swapScope,
         updatedAppointmentsCount,
         deletedAppointmentsCount,
+        createdAppointmentsCount,
       },
       ipAddress,
       userAgent,
@@ -695,8 +827,11 @@ export const PATCH = withFeatureAuth(
     let message = "Recorrencia atualizada com sucesso"
     if (isSwapBiweeklyWeek) {
       message = `Semana quinzenal trocada com sucesso. ${updatedAppointmentsCount} agendamento(s) atualizado(s).`
-    } else if (deletedAppointmentsCount > 0) {
-      message = `Recorrencia atualizada. ${deletedAppointmentsCount} agendamento(s) removido(s) para ajustar a nova frequencia.`
+    } else if (deletedAppointmentsCount > 0 || createdAppointmentsCount > 0) {
+      const parts: string[] = []
+      if (deletedAppointmentsCount > 0) parts.push(`${deletedAppointmentsCount} removido(s)`)
+      if (createdAppointmentsCount > 0) parts.push(`${createdAppointmentsCount} criado(s)`)
+      message = `Recorrencia atualizada. ${parts.join(" e ")} para ajustar a nova frequencia.`
     }
 
     return NextResponse.json({
@@ -704,6 +839,7 @@ export const PATCH = withFeatureAuth(
       message,
       updatedAppointmentsCount,
       deletedAppointmentsCount,
+      createdAppointmentsCount,
     })
   }
 )
