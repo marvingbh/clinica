@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { UsersIcon, ClockIcon } from "@/shared/components/ui/icons"
 import type { GroupSession } from "../lib/types"
+import { CANCELLED_STATUSES } from "../lib/constants"
 import { getProfessionalColor, ProfessionalColorMap } from "../lib/professional-colors"
 
 interface GroupSessionCardProps {
@@ -44,6 +45,10 @@ export function GroupSessionCard({
   const startTime = formatTime(session.scheduledAt)
   const endTime = formatTime(session.endAt)
 
+  const allCancelled = session.participants.length > 0 && session.participants.every(
+    p => CANCELLED_STATUSES.includes(p.status)
+  )
+
   // Use professional color when showing all professionals, otherwise default purple
   const colors = showProfessional && professionalColorMap
     ? getProfessionalColor(session.professionalProfileId, professionalColorMap)
@@ -55,7 +60,7 @@ export function GroupSessionCard({
       hoverable
       className={`group cursor-pointer overflow-hidden transition-all duration-normal active:scale-[0.98] ${
         colors ? `${colors.bg} border-l-[3px] ${colors.border}` : "bg-purple-50 dark:bg-purple-950/30"
-      }`}
+      } ${allCancelled ? "opacity-50" : ""}`}
       onClick={onClick}
     >
       {/* Accent bar */}
@@ -99,17 +104,24 @@ export function GroupSessionCard({
             Sessão em Grupo
           </span>
 
-          {/* Confirmation status */}
-          {statusSummary.confirmed > 0 && (
-            <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-              {statusSummary.confirmed} confirmado{statusSummary.confirmed !== 1 ? "s" : ""}
+          {allCancelled ? (
+            <span className="text-xs text-red-600 dark:text-red-400 font-medium">
+              Cancelado
             </span>
-          )}
+          ) : (
+            <>
+              {statusSummary.confirmed > 0 && (
+                <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                  {statusSummary.confirmed} confirmado{statusSummary.confirmed !== 1 ? "s" : ""}
+                </span>
+              )}
 
-          {statusSummary.pending > 0 && (
-            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-              {statusSummary.pending} pendente{statusSummary.pending !== 1 ? "s" : ""}
-            </span>
+              {statusSummary.pending > 0 && (
+                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                  {statusSummary.pending} pendente{statusSummary.pending !== 1 ? "s" : ""}
+                </span>
+              )}
+            </>
           )}
         </div>
       </CardContent>

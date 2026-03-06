@@ -480,8 +480,8 @@ export function DailyOverviewGrid({
                     </p>
                   </div>
                   {!isCompact && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {startTimeStr} – {endTimeStr} ({session.participants.length})
+                    <p className={`text-xs truncate ${allCancelled ? "text-red-500 dark:text-red-400 font-medium" : "text-muted-foreground"}`}>
+                      {allCancelled ? "Cancelado" : `${startTimeStr} – ${endTimeStr} (${session.participants.length})`}
                     </p>
                   )}
                 </div>
