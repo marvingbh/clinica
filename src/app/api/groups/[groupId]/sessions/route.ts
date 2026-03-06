@@ -156,29 +156,23 @@ export const POST = withFeatureAuth(
       )
     }
 
-    // Handle reschedule mode: cancel all future sessions, then generate new ones
-    let rescheduleCancelledCount = 0
+    // Handle reschedule mode: delete all sessions from startDate onward, then generate new ones
+    let rescheduleDeletedCount = 0
     if (mode === "reschedule") {
-      const now = new Date()
-      const cancelResult = await prisma.appointment.updateMany({
+      const deleteResult = await prisma.appointment.deleteMany({
         where: {
           groupId,
-          scheduledAt: { gte: now },
-          status: { in: ["AGENDADO", "CONFIRMADO"] },
+          scheduledAt: { gte: start },
         },
-        data: { status: "CANCELADO_PROFISSIONAL" },
       })
-      rescheduleCancelledCount = cancelResult.count
+      rescheduleDeletedCount = deleteResult.count
     }
 
     // Get existing session times for this group
-    // For reschedule mode, exclude cancelled sessions since we just cancelled them
+    // For reschedule mode, we already deleted everything so this will be empty
     const existingSessionsWhere: Record<string, unknown> = {
       groupId,
       scheduledAt: { gte: effectiveStart, lte: effectiveEnd },
-    }
-    if (mode === "reschedule") {
-      existingSessionsWhere.status = { in: ["AGENDADO", "CONFIRMADO"] }
     }
     const existingSessions = await prisma.appointment.findMany({
       where: existingSessionsWhere,
@@ -582,7 +576,7 @@ export const POST = withFeatureAuth(
 
     const totalAppointments = result.createdAppointments.length + regeneratedCount
     const message = mode === "reschedule"
-      ? `${rescheduleCancelledCount} sessão(ões) cancelada(s), ${newSessionDates.length} nova(s) sessão(ões) criada(s)`
+      ? `${rescheduleDeletedCount} sessão(ões) removida(s), ${newSessionDates.length} nova(s) sessão(ões) criada(s)`
       : regeneratedCount > 0
       ? `${newSessionDates.length} sessão(ões) criada(s), ${regeneratedCount} agendamento(s) adicionado(s) a sessões existentes`
       : "Sessões geradas com sucesso"
@@ -592,7 +586,7 @@ export const POST = withFeatureAuth(
       sessionsCreated: newSessionDates.length,
       appointmentsCreated: totalAppointments,
       regeneratedCount,
-      cancelledCount: rescheduleCancelledCount,
+      deletedCount: rescheduleDeletedCount,
       sessions: newSessionDates.map(s => ({
         date: s.date,
         scheduledAt: s.scheduledAt.toISOString(),

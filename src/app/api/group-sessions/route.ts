@@ -179,12 +179,27 @@ export const GET = withFeatureAuth(
       }
 
       if (apt.patient) {
-        sessionMap.get(key)!.participants.push({
-          appointmentId: apt.id,
-          patientId: apt.patient.id,
-          patientName: apt.patient.name,
-          status: apt.status,
-        })
+        const session = sessionMap.get(key)!
+        // Deduplicate: after a reschedule the same patient may have both a
+        // cancelled (old) and an active (new) appointment in the same slot.
+        // Keep only the most relevant one (active wins over cancelled).
+        const cancelledStatuses = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"]
+        const existing = session.participants.find(p => p.patientId === apt.patient!.id)
+        if (existing) {
+          // Replace if current entry is cancelled but new one is active
+          if (cancelledStatuses.includes(existing.status) && !cancelledStatuses.includes(apt.status)) {
+            existing.appointmentId = apt.id
+            existing.status = apt.status
+          }
+          // Otherwise keep what we have (don't add duplicate)
+        } else {
+          session.participants.push({
+            appointmentId: apt.id,
+            patientId: apt.patient.id,
+            patientName: apt.patient.name,
+            status: apt.status,
+          })
+        }
       }
     }
 

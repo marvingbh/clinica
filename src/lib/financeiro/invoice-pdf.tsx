@@ -1,11 +1,13 @@
 import React from "react"
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer"
+import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer"
+import path from "path"
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: "Helvetica" },
   // Header
   headerRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 24 },
   clinicInfo: { flex: 1 },
+  logo: { width: 160, height: "auto", marginBottom: 6 },
   clinicName: { fontSize: 16, fontWeight: "bold", marginBottom: 2 },
   clinicDetail: { fontSize: 9, color: "#555", marginBottom: 1 },
   reportLabel: { fontSize: 12, fontWeight: "bold", textAlign: "right", color: "#333" },
@@ -137,7 +139,8 @@ export function InvoicePDF({ data }: { data: InvoicePDFData }) {
         {/* Header */}
         <View style={styles.headerRow}>
           <View style={styles.clinicInfo}>
-            <Text style={styles.clinicName}>{data.clinicName}</Text>
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
+            <Image style={styles.logo} src={path.join(process.cwd(), "public/img/logo-elena-horizontal.png")} />
             {data.clinicPhone && <Text style={styles.clinicDetail}>{data.clinicPhone}</Text>}
             {data.clinicEmail && <Text style={styles.clinicDetail}>{data.clinicEmail}</Text>}
             {data.clinicAddress && <Text style={styles.clinicDetail}>{data.clinicAddress}</Text>}

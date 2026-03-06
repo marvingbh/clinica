@@ -26,6 +26,7 @@ import { fetchAppointmentById } from "../services/appointmentService"
 
 import {
   DEFAULT_APPOINTMENT_DURATION,
+  filterActiveGroupSessions,
 } from "../lib/constants"
 
 import {
@@ -187,7 +188,7 @@ function WeeklyAgendaPageContent() {
       }
       const data = await appointmentsResponse.json()
       setAppointments(data.appointments)
-      setGroupSessions(groupSessionsData.groupSessions)
+      setGroupSessions(filterActiveGroupSessions(groupSessionsData.groupSessions))
     } catch {
       toast.error("Erro ao carregar agenda")
     }
@@ -622,7 +623,7 @@ function WeeklyAgendaPageContent() {
         if (abortController.signal.aborted) return
 
         setAppointments(appointmentsData.appointments)
-        setGroupSessions(groupSessionsData.groupSessions)
+        setGroupSessions(filterActiveGroupSessions(groupSessionsData.groupSessions))
         setBiweeklyHints(appointmentsData.biweeklyHints || [])
         setBirthdayPatients(appointmentsData.birthdayPatients || [])
 

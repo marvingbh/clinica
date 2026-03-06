@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { toDateString } from "../lib/utils"
-import { DEFAULT_APPOINTMENT_DURATION } from "../lib/constants"
+import { DEFAULT_APPOINTMENT_DURATION, filterActiveGroupSessions } from "../lib/constants"
 import type { Appointment, AvailabilityRule, AvailabilityException, Professional, GroupSession, BiweeklyHint } from "../lib/types"
 import type { BirthdayPatient } from "../services/appointmentService"
 import {
@@ -97,7 +97,7 @@ export function useAgendaData({
       setAppointments(appointmentsData.appointments)
       setBiweeklyHints(appointmentsData.biweeklyHints || [])
       setBirthdayPatients(appointmentsData.birthdayPatients || [])
-      setGroupSessions(groupSessionsData.groupSessions)
+      setGroupSessions(filterActiveGroupSessions(groupSessionsData.groupSessions))
     } catch (error) {
       if (error instanceof Error && error.message === "ACCESS_DENIED") {
         toast.error("Acesso negado")
@@ -140,7 +140,7 @@ export function useAgendaData({
         setAppointments(appointmentsData.appointments)
         setBiweeklyHints(appointmentsData.biweeklyHints || [])
         setBirthdayPatients(appointmentsData.birthdayPatients || [])
-        setGroupSessions(groupSessionsData.groupSessions)
+        setGroupSessions(filterActiveGroupSessions(groupSessionsData.groupSessions))
         setAvailabilityRules(availabilityData.rules || [])
         setAvailabilityExceptions(exceptionsData.exceptions || [])
       } catch (error) {

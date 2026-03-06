@@ -75,12 +75,12 @@ export function SessionGenerationPanel({
               ? "Cria novas sessões no período selecionado."
               : generateMode === "regenerate"
               ? "Adiciona novos membros a todas as sessões futuras já existentes."
-              : "Cancela todas as sessões futuras e recria com as configurações atuais do grupo."}
+              : "Remove todas as sessões futuras e recria com as configurações atuais do grupo."}
           </p>
 
           {generateMode === "reschedule" && (
             <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-              Todas as sessões futuras serão canceladas e recriadas com as configurações atuais do grupo.
+              Todas as sessões futuras pendentes serão removidas e recriadas com as configurações atuais do grupo.
             </p>
           )}
 

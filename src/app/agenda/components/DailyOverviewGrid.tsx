@@ -1,10 +1,11 @@
 "use client"
 
 import { useMemo, useCallback, useState, useEffect } from "react"
-import { UsersIcon, RefreshCwIcon, PhoneIcon, VideoIcon, BuildingIcon } from "@/shared/components/ui/icons"
-import type { Appointment, GroupSession, AppointmentStatus } from "../lib/types"
-import { STATUS_LABELS, STATUS_COLORS, STATUS_BORDER_COLORS, CANCELLED_STATUSES, TERMINAL_STATUSES } from "../lib/constants"
-import { formatPhone, isBirthdayToday, isRecurrenceModified } from "../lib/utils"
+import { UsersIcon, RefreshCwIcon, PhoneIcon, VideoIcon, BuildingIcon, PlusIcon, BanIcon } from "@/shared/components/ui/icons"
+import { ArrowLeftRightIcon } from "@/shared/components/ui/icons"
+import type { Appointment, GroupSession, AppointmentStatus, TimeSlot } from "../lib/types"
+import { STATUS_LABELS, STATUS_COLORS, STATUS_BORDER_COLORS, CANCELLED_STATUSES, TERMINAL_STATUSES, ENTRY_TYPE_LABELS } from "../lib/constants"
+import { formatPhone, isBirthdayToday, isRecurrenceModified, isSlotInPast } from "../lib/utils"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../lib/professional-colors"
 
 const PIXELS_PER_MINUTE = 2.4
@@ -123,6 +124,9 @@ export interface DailyOverviewGridProps {
   onAppointmentClick: (appointment: Appointment) => void
   onGroupSessionClick: (session: GroupSession) => void
   onSlotClick: (time: string) => void
+  timeSlots?: TimeSlot[]
+  appointmentDuration?: number
+  onBiweeklyHintClick?: (time: string) => void
 }
 
 export function DailyOverviewGrid({
@@ -134,6 +138,9 @@ export function DailyOverviewGrid({
   onAppointmentClick,
   onGroupSessionClick,
   onSlotClick,
+  timeSlots,
+  appointmentDuration = 50,
+  onBiweeklyHintClick,
 }: DailyOverviewGridProps) {
   const individualAppointments = useMemo(() => {
     return appointments.filter(apt => !apt.groupId)
@@ -157,8 +164,15 @@ export function DailyOverviewGrid({
   }, [individualAppointments, groupSessions])
 
   const { startHour, endHour } = useMemo(() => {
-    return computeHourRange(individualAppointments, groupSessions)
-  }, [individualAppointments, groupSessions])
+    const range = computeHourRange(individualAppointments, groupSessions)
+    if (timeSlots && timeSlots.length > 0) {
+      const [fh] = timeSlots[0].time.split(":").map(Number)
+      const [lh] = timeSlots[timeSlots.length - 1].time.split(":").map(Number)
+      range.startHour = Math.max(0, Math.min(range.startHour, fh))
+      range.endHour = Math.min(24, Math.max(range.endHour, lh + 1))
+    }
+    return range
+  }, [individualAppointments, groupSessions, timeSlots])
 
   const hours = useMemo(() => {
     return Array.from({ length: endHour - startHour }, (_, i) => startHour + i)
@@ -246,6 +260,81 @@ export function DailyOverviewGrid({
           className="absolute inset-0 z-10"
           onClick={handleGridClick}
         >
+          {/* Availability slot markers (behind appointment/group blocks) */}
+          {timeSlots?.map((slot) => {
+            if (slot.isBlocked) {
+              const [sh, sm] = slot.time.split(":").map(Number)
+              const rawTop = ((sh - startHour) * 60 + sm) * PIXELS_PER_MINUTE
+              const rawHeight = appointmentDuration * PIXELS_PER_MINUTE
+              return (
+                <div
+                  key={`blocked-${slot.time}`}
+                  style={{
+                    position: "absolute",
+                    top: `${rawTop + BLOCK_VERTICAL_GAP}px`,
+                    height: `${rawHeight - BLOCK_VERTICAL_GAP * 2}px`,
+                    left: `${SLOT_LEFT_MARGIN}px`,
+                    right: "2px",
+                  }}
+                  className="border border-dashed border-border rounded-xl flex items-center justify-center bg-muted/20 pointer-events-none"
+                >
+                  <BanIcon className="w-4 h-4 text-muted-foreground" />
+                  {slot.blockReason && (
+                    <span className="text-xs text-muted-foreground ml-1.5">{slot.blockReason}</span>
+                  )}
+                </div>
+              )
+            }
+            if (!slot.isAvailable) return null
+            const isPast = isSlotInPast(selectedDate, slot.time)
+            if (isPast && !slot.biweeklyHint) return null
+            const [sh, sm] = slot.time.split(":").map(Number)
+            const rawTop = ((sh - startHour) * 60 + sm) * PIXELS_PER_MINUTE
+            const rawHeight = appointmentDuration * PIXELS_PER_MINUTE
+
+            if (slot.biweeklyHint) {
+              return (
+                <button
+                  key={`avail-${slot.time}`}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onBiweeklyHintClick?.(slot.time) }}
+                  style={{
+                    position: "absolute",
+                    top: `${rawTop + BLOCK_VERTICAL_GAP}px`,
+                    height: `${rawHeight - BLOCK_VERTICAL_GAP * 2}px`,
+                    left: `${SLOT_LEFT_MARGIN}px`,
+                    right: "2px",
+                    maxWidth: "400px",
+                  }}
+                  className="border border-dashed border-purple-300 dark:border-purple-700 rounded-xl flex items-center justify-center text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-400 transition-all"
+                >
+                  <ArrowLeftRightIcon className="w-4 h-4 mr-2 flex-shrink-0" />
+                  <span className="text-sm font-medium truncate">Quinzenal · {slot.biweeklyHint.patientName}</span>
+                </button>
+              )
+            }
+
+            return (
+              <button
+                key={`avail-${slot.time}`}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onSlotClick(slot.time) }}
+                style={{
+                  position: "absolute",
+                  top: `${rawTop + BLOCK_VERTICAL_GAP}px`,
+                  height: `${rawHeight - BLOCK_VERTICAL_GAP * 2}px`,
+                  left: `${SLOT_LEFT_MARGIN}px`,
+                  right: "2px",
+                  maxWidth: "400px",
+                }}
+                className="border border-dashed border-border rounded-xl flex items-center justify-center text-muted-foreground hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all group/slot"
+              >
+                <PlusIcon className="w-4 h-4 mr-2 transition-transform group-hover/slot:scale-110" />
+                <span className="text-sm font-medium">Disponivel</span>
+              </button>
+            )
+          })}
+
           {/* Appointment blocks */}
           {individualAppointments.map((appointment) => {
             const layout = layoutMap.get(appointment.id)
@@ -321,26 +410,50 @@ export function DailyOverviewGrid({
                   {/* Header row: patient name + status badge */}
                   <div className="flex items-start justify-between gap-2 min-w-0">
                     <div className="min-w-0 flex-1">
-                      <h4 className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-                        {appointment.patient?.name || appointment.title || "Sem titulo"}
-                        {appointment.patient?.birthDate && isBirthdayToday(appointment.patient.birthDate) && (
-                          <span className="ml-1 text-xs" title="Aniversario hoje!">🎂</span>
-                        )}
-                        {isCompact && appointment.recurrence && (
-                          <span title={isRecurrenceModified(appointment) ? "Recorrência alterada neste dia" : "Recorrente"}>
-                            <RefreshCwIcon className={`inline w-3 h-3 ml-1 ${
-                              isRecurrenceModified(appointment)
-                                ? "text-amber-600 dark:text-amber-400"
-                                : "text-blue-600 dark:text-blue-400"
-                            }`} />
-                          </span>
-                        )}
-                      </h4>
-                      {/* Mother name */}
-                      {appointment.patient?.motherName && (
-                        <p className="text-xs text-muted-foreground truncate">
-                          Mãe: {appointment.patient.motherName}
-                        </p>
+                      {appointment.type !== "CONSULTA" ? (
+                        <>
+                          <h4 className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                            {appointment.title || ENTRY_TYPE_LABELS[appointment.type] || "Sem titulo"}
+                            {isCompact && appointment.recurrence && (
+                              <span title={isRecurrenceModified(appointment) ? "Recorrência alterada neste dia" : "Recorrente"}>
+                                <RefreshCwIcon className={`inline w-3 h-3 ml-1 ${
+                                  isRecurrenceModified(appointment)
+                                    ? "text-amber-600 dark:text-amber-400"
+                                    : "text-blue-600 dark:text-blue-400"
+                                }`} />
+                              </span>
+                            )}
+                          </h4>
+                          {appointment.patient && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              <span className="text-green-600 dark:text-green-400 font-semibold">$</span> {appointment.patient.name}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <h4 className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                            {appointment.patient?.name || appointment.title || "Sem titulo"}
+                            {appointment.patient?.birthDate && isBirthdayToday(appointment.patient.birthDate) && (
+                              <span className="ml-1 text-xs" title="Aniversario hoje!">🎂</span>
+                            )}
+                            {isCompact && appointment.recurrence && (
+                              <span title={isRecurrenceModified(appointment) ? "Recorrência alterada neste dia" : "Recorrente"}>
+                                <RefreshCwIcon className={`inline w-3 h-3 ml-1 ${
+                                  isRecurrenceModified(appointment)
+                                    ? "text-amber-600 dark:text-amber-400"
+                                    : "text-blue-600 dark:text-blue-400"
+                                }`} />
+                              </span>
+                            )}
+                          </h4>
+                          {/* Mother name */}
+                          {appointment.patient?.motherName && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              Mãe: {appointment.patient.motherName}
+                            </p>
+                          )}
+                        </>
                       )}
                       {/* Phone */}
                       {!isCompact && appointment.patient?.phone && (

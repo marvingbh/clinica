@@ -1,4 +1,4 @@
-import { AppointmentStatus, CalendarEntryType } from "./types"
+import { AppointmentStatus, CalendarEntryType, GroupSession } from "./types"
 
 export const CANCELLED_STATUSES: AppointmentStatus[] = [
   "CANCELADO_ACORDADO",
@@ -106,6 +106,14 @@ export const ENTRY_TYPE_COLORS: Record<CalendarEntryType, {
     text: "text-violet-700 dark:text-violet-300",
     accent: "bg-violet-500",
   },
+}
+
+/** Filter out group sessions where every participant is cancelled (e.g. after reschedule) */
+export function filterActiveGroupSessions(sessions: GroupSession[]): GroupSession[] {
+  return sessions.filter(s =>
+    s.participants.length === 0 ||
+    !s.participants.every(p => CANCELLED_STATUSES.includes(p.status))
+  )
 }
 
 export const TIME_BLOCKING_TYPES: CalendarEntryType[] = ["CONSULTA", "TAREFA", "REUNIAO"]
