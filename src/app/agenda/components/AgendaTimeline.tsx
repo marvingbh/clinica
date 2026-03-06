@@ -143,8 +143,16 @@ export function AgendaTimeline({
     groupSessionsByTime.set(time, [...existing, session])
   }
 
-  // Build group session time ranges for overlap checking
-  const groupSessionRanges = groupSessions.map((session) => {
+  // Active group sessions — cancelled groups shouldn't hide slots or block time
+  const activeGroupSessions = groupSessions.filter((session) => {
+    if (session.participants.length === 0) return false
+    return session.participants.some(
+      (p) => !CANCELLED_STATUSES.includes(p.status)
+    )
+  })
+
+  // Build group session time ranges for overlap checking (active only)
+  const groupSessionRanges = activeGroupSessions.map((session) => {
     const start = new Date(session.scheduledAt)
     const end = new Date(session.endAt)
     return {
@@ -153,12 +161,12 @@ export function AgendaTimeline({
     }
   })
 
-  // Pre-compute which slots to hide (within ongoing group sessions)
+  // Pre-compute which slots to hide (within ongoing active group sessions)
   // and how many extra slots each group session start spans
   const hiddenSlotTimes = new Set<string>()
   const groupSessionSpanCount = new Map<string, number>()
 
-  for (const session of groupSessions) {
+  for (const session of activeGroupSessions) {
     const startTime = getTimeFromISO(session.scheduledAt)
     const endTime = getTimeFromISO(session.endAt)
     let count = 0
