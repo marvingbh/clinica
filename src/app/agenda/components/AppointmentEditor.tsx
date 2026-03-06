@@ -11,7 +11,7 @@ import { usePermission } from "@/shared/hooks/usePermission"
 import { Appointment, EditAppointmentFormData, CalendarEntryType, Professional } from "../lib/types"
 import { TimeInput } from "./TimeInput"
 import { DateInput } from "./DateInput"
-import { STATUS_LABELS, STATUS_COLORS, RECURRENCE_TYPE_LABELS, ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
+import { STATUS_LABELS, STATUS_COLORS, RECURRENCE_TYPE_LABELS, ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS, CANCELLED_STATUSES } from "../lib/constants"
 import { formatPhone, isDateException, calculateEndTime, isRecurrenceModified } from "../lib/utils"
 import {
   RefreshCwIcon,
@@ -406,7 +406,7 @@ function OccurrenceTabContent({
 }: OccurrenceTabContentProps) {
   const [cancelVariant, setCancelVariant] = useState<CancelVariant | null>(null)
 
-  const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"].includes(appointment.status)
+  const isCancelled = CANCELLED_STATUSES.includes(appointment.status)
   const isNoShow = appointment.status === "CANCELADO_FALTA"
   const isFinished = appointment.status === "FINALIZADO"
   const isTerminal = isCancelled || isNoShow || isFinished

@@ -5,7 +5,7 @@ import { RefreshCwIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { Appointment } from "../../lib/types"
 import { isBirthdayOnDate } from "../../lib/utils"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../../lib/professional-colors"
-import { STATUS_LABELS, ENTRY_TYPE_COLORS, ENTRY_TYPE_LABELS } from "../../lib/constants"
+import { STATUS_LABELS, ENTRY_TYPE_COLORS, ENTRY_TYPE_LABELS, CANCELLED_STATUSES } from "../../lib/constants"
 import type { AppointmentStatus, CalendarEntryType } from "../../lib/types"
 
 const URL_REGEX = /https?:\/\/[^\s]+/
@@ -43,7 +43,8 @@ export function AppointmentBlock({
   const top = ((hour - START_HOUR) * 60 + minutes) * PIXELS_PER_MINUTE
   const height = Math.max(durationMinutes * PIXELS_PER_MINUTE, 32) // Min height of 32px for readability
 
-  const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"].includes(appointment.status)
+  const isCancelled = CANCELLED_STATUSES.includes(appointment.status)
+  const isFinalized = appointment.status === "FINALIZADO"
   const isConsulta = appointment.type === "CONSULTA"
 
   const startTimeStr = `${hour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`
@@ -81,7 +82,7 @@ export function AppointmentBlock({
         hover:shadow-md hover:z-10 transition-all
         ${showProfessional ? profColors.bg : entryColors.bg}
         ${showProfessional ? profColors.border : entryColors.borderLeft}
-        ${isCancelled ? "opacity-50" : ""}
+        ${isCancelled ? "opacity-50" : isFinalized ? "opacity-60" : ""}
       `}
     >
       <div className="h-full flex flex-col overflow-hidden gap-0.5 relative">

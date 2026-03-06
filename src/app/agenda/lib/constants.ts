@@ -1,5 +1,16 @@
 import { AppointmentStatus, CalendarEntryType } from "./types"
 
+export const CANCELLED_STATUSES: AppointmentStatus[] = [
+  "CANCELADO_ACORDADO",
+  "CANCELADO_FALTA",
+  "CANCELADO_PROFISSIONAL",
+]
+
+export const TERMINAL_STATUSES: AppointmentStatus[] = [
+  ...CANCELLED_STATUSES,
+  "FINALIZADO",
+]
+
 export const STATUS_LABELS: Record<AppointmentStatus, string> = {
   AGENDADO: "Agendado",
   CONFIRMADO: "Confirmado",
@@ -100,9 +111,9 @@ export const ENTRY_TYPE_COLORS: Record<CalendarEntryType, {
 export const TIME_BLOCKING_TYPES: CalendarEntryType[] = ["CONSULTA", "TAREFA", "REUNIAO"]
 export const NON_BLOCKING_TYPES: CalendarEntryType[] = ["LEMBRETE", "NOTA"]
 
+// Only non-blocking types have fixed default durations.
+// Time-blocking types (TAREFA, REUNIAO) use the professional's configured appointmentDuration.
 export const DEFAULT_ENTRY_DURATIONS: Record<string, number> = {
-  TAREFA: 60,
   LEMBRETE: 15,
   NOTA: 15,
-  REUNIAO: 60,
 }

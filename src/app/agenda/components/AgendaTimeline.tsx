@@ -5,7 +5,7 @@ import { SwipeContainer, EmptyState, ClockIcon, BanIcon, PlusIcon } from "@/shar
 import { ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { formatTime, isSlotInPast } from "../lib/utils"
 import type { BirthdayPatient } from "../services/appointmentService"
-import { ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
+import { ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS, CANCELLED_STATUSES } from "../lib/constants"
 import { AppointmentCard } from "./AppointmentCard"
 import { GroupSessionCard } from "./GroupSessionCard"
 import { DailyOverviewGrid } from "./DailyOverviewGrid"
@@ -231,9 +231,8 @@ export function AgendaTimeline({
             const canShowBiweeklyHint = canShowAvailableSlot && !!slot.biweeklyHint
 
             // Check if all appointments in the slot are cancelled
-            const cancelledStatuses = ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"]
             const allAppointmentsCancelled = hasAppointments && slot.appointments.every(
-              apt => cancelledStatuses.includes(apt.status)
+              apt => CANCELLED_STATUSES.includes(apt.status)
             )
 
             // Show available slot button when no appointments/groups, or when all appointments are cancelled
@@ -255,7 +254,7 @@ export function AgendaTimeline({
 
             // Recalculate allAppointmentsCancelled for blocking appointments only
             const allBlockingCancelled = hasBlockingAppointments && blockingAppointments.every(
-              apt => cancelledStatuses.includes(apt.status)
+              apt => CANCELLED_STATUSES.includes(apt.status)
             )
             // Show available button based on blocking content only:
             // 1. All blocking appointments are cancelled, or

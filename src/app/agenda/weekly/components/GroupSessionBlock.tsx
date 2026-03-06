@@ -2,6 +2,7 @@
 
 import { UsersIcon } from "@/shared/components/ui/icons"
 import { GroupSession } from "../../lib/types"
+import { CANCELLED_STATUSES, TERMINAL_STATUSES } from "../../lib/constants"
 
 const PIXELS_PER_MINUTE = 1.6 // 48px per 30 minutes = 96px per hour
 const START_HOUR = 7
@@ -34,12 +35,11 @@ export function GroupSessionBlock({
   const endTimeStr = `${endHour.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`
 
   const participantCount = session.participants.length
-  const TERMINAL_STATUSES = ["FINALIZADO", "CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"]
   const allTerminal = participantCount > 0 && session.participants.every(
     p => TERMINAL_STATUSES.includes(p.status)
   )
   const allCancelled = participantCount > 0 && session.participants.every(
-    p => ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"].includes(p.status)
+    p => CANCELLED_STATUSES.includes(p.status)
   )
 
   return (

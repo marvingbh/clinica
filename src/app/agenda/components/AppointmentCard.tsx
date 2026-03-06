@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { RefreshCwIcon, VideoIcon, BuildingIcon, PhoneIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
-import { STATUS_LABELS, STATUS_COLORS, ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS } from "../lib/constants"
+import { STATUS_LABELS, STATUS_COLORS, ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS, CANCELLED_STATUSES } from "../lib/constants"
 import { formatPhone, isBirthdayToday, isRecurrenceModified } from "../lib/utils"
 import type { Appointment, AppointmentStatus, CalendarEntryType } from "../lib/types"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../lib/professional-colors"
@@ -36,7 +36,8 @@ export function AppointmentCard({
   compact = false,
   professionalColorMap,
 }: AppointmentCardProps) {
-  const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"].includes(appointment.status)
+  const isCancelled = CANCELLED_STATUSES.includes(appointment.status)
+  const isFinalized = appointment.status === "FINALIZADO"
   const isConsulta = appointment.type === "CONSULTA"
 
   // Get professional color from map when showing all professionals
@@ -52,7 +53,7 @@ export function AppointmentCard({
       elevation="sm"
       hoverable
       className={`group cursor-pointer overflow-hidden transition-all duration-normal active:scale-[0.98] ${
-        isCancelled ? "opacity-50" : ""
+        isCancelled ? "opacity-50" : isFinalized ? "opacity-60" : ""
       } ${!appointment.blocksTime ? "border-dashed" : ""} ${
         showProfessional && isConsulta ? `${colors.bg} border-l-[3px] ${colors.border}` : ""
       } ${entryColors ? `${entryColors.bg} border ${entryColors.border}` : ""}`}

@@ -3,7 +3,7 @@
 import { useMemo, useCallback, useState, useEffect } from "react"
 import { UsersIcon, RefreshCwIcon, PhoneIcon, VideoIcon, BuildingIcon } from "@/shared/components/ui/icons"
 import type { Appointment, GroupSession, AppointmentStatus } from "../lib/types"
-import { STATUS_LABELS, STATUS_COLORS, STATUS_BORDER_COLORS } from "../lib/constants"
+import { STATUS_LABELS, STATUS_COLORS, STATUS_BORDER_COLORS, CANCELLED_STATUSES, TERMINAL_STATUSES } from "../lib/constants"
 import { formatPhone, isBirthdayToday, isRecurrenceModified } from "../lib/utils"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../lib/professional-colors"
 
@@ -264,7 +264,7 @@ export function DailyOverviewGrid({
             const isCompact = height < 72
             const isTall = height >= 110
 
-            const isCancelled = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"].includes(appointment.status)
+            const isCancelled = CANCELLED_STATUSES.includes(appointment.status)
             const isFinalized = appointment.status === "FINALIZADO"
 
             const startTimeStr = `${hour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`
@@ -427,12 +427,11 @@ export function DailyOverviewGrid({
               ? getProfessionalColor(session.professionalProfileId, professionalColorMap)
               : null
 
-            const TERMINAL_STATUSES = ["FINALIZADO", "CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"]
             const allTerminal = session.participants.length > 0 && session.participants.every(
               p => TERMINAL_STATUSES.includes(p.status)
             )
             const allCancelled = session.participants.length > 0 && session.participants.every(
-              p => ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"].includes(p.status)
+              p => CANCELLED_STATUSES.includes(p.status)
             )
 
             const columnWidth = 100 / layout.totalColumns

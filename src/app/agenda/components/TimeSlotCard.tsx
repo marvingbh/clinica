@@ -2,7 +2,7 @@
 
 import { RefreshCwIcon, BanIcon, PlusIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { TimeSlot, Appointment, AppointmentStatus } from "../lib/types"
-import { STATUS_LABELS, STATUS_COLORS, STATUS_BORDER_COLORS } from "../lib/constants"
+import { STATUS_LABELS, STATUS_COLORS, STATUS_BORDER_COLORS, CANCELLED_STATUSES } from "../lib/constants"
 import { formatTime, formatPhone, isRecurrenceModified } from "../lib/utils"
 
 interface TimeSlotCardProps {
@@ -32,7 +32,7 @@ export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointm
               onClick={() => onAppointmentClick(appointment)}
               className={`${slot.appointments.length > 1 ? 'flex-1 min-w-[150px]' : 'flex-1'} bg-card border border-border rounded-lg p-3 text-left hover:shadow-md transition-all border-l-4 ${
                 STATUS_BORDER_COLORS[appointment.status as AppointmentStatus] || "border-l-gray-500"
-              } ${["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"].includes(appointment.status) ? "opacity-50" : ""}`}
+              } ${CANCELLED_STATUSES.includes(appointment.status) ? "opacity-50" : appointment.status === "FINALIZADO" ? "opacity-60" : ""}`}
             >
               {/* Professional name - prominent when viewing all */}
               {!selectedProfessionalId && (

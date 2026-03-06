@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Sheet } from "./Sheet"
 import { UsersIcon, ClockIcon, CheckCircleIcon, XIcon, CheckIcon } from "@/shared/components/ui/icons"
-import { STATUS_LABELS, STATUS_COLORS } from "../lib/constants"
+import { STATUS_LABELS, STATUS_COLORS, CANCELLED_STATUSES } from "../lib/constants"
 import { updateStatus, updateAppointment, updateGroupSessionStatus } from "../services/appointmentService"
 import { toast } from "sonner"
 import type { GroupSession, AppointmentStatus, Professional } from "../lib/types"
@@ -354,7 +354,7 @@ export function GroupSessionSheet({
         <div className="divide-y divide-border">
           {session.participants.map((participant) => {
             const isUpdating = updatingId === participant.appointmentId || isBulkUpdating
-            const isCancelled = ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"].includes(
+            const isCancelled = CANCELLED_STATUSES.includes(
               participant.status
             )
             const canMarkStatus = ["AGENDADO", "CONFIRMADO"].includes(participant.status)
