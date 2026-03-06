@@ -3,8 +3,9 @@
 import { useState } from "react"
 import { Dialog } from "./Sheet"
 import { AlertTriangleIcon } from "@/shared/components/ui/icons"
+import type { CancelVariant } from "@/lib/appointments/status-transitions"
 
-export type CancelVariant = "faltou" | "desmarcou" | "sem_cobranca"
+export type { CancelVariant }
 
 const CANCEL_CONFIG: Record<CancelVariant, {
   title: string

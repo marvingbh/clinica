@@ -88,3 +88,30 @@ export function computeStatusUpdateData(targetStatus: string, now: Date): Status
 export function shouldUpdateLastVisitAt(targetStatus: string): boolean {
   return targetStatus === AppointmentStatus.FINALIZADO
 }
+
+/**
+ * Cancel dialog variant type.
+ * Maps to UI-specific cancel confirmation dialogs.
+ */
+export type CancelVariant = "faltou" | "desmarcou" | "sem_cobranca"
+
+const STATUS_TO_CANCEL_VARIANT: Record<string, CancelVariant> = {
+  CANCELADO_FALTA: "faltou",
+  CANCELADO_ACORDADO: "desmarcou",
+  CANCELADO_PROFISSIONAL: "sem_cobranca",
+}
+
+/**
+ * Returns the cancel dialog variant for a given status, or null if
+ * the status is not a cancellation status.
+ */
+export function getCancelVariant(status: string): CancelVariant | null {
+  return STATUS_TO_CANCEL_VARIANT[status] ?? null
+}
+
+/**
+ * Whether a status requires a cancel confirmation dialog.
+ */
+export function isCancelStatus(status: string): boolean {
+  return status in STATUS_TO_CANCEL_VARIANT
+}

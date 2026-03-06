@@ -5,15 +5,10 @@ import { Sheet } from "./Sheet"
 import { UsersIcon, ClockIcon, CheckCircleIcon, XIcon, CheckIcon } from "@/shared/components/ui/icons"
 import { STATUS_LABELS, STATUS_COLORS, CANCELLED_STATUSES } from "../lib/constants"
 import { updateStatus, updateAppointment, updateGroupSessionStatus } from "../services/appointmentService"
-import { CancelConfirmDialog, type CancelVariant } from "./CancelConfirmDialog"
+import { CancelConfirmDialog } from "./CancelConfirmDialog"
+import { getCancelVariant, type CancelVariant } from "@/lib/appointments/status-transitions"
 import { toast } from "sonner"
 import type { GroupSession, AppointmentStatus, Professional } from "../lib/types"
-
-const STATUS_TO_CANCEL_VARIANT: Record<string, CancelVariant> = {
-  CANCELADO_FALTA: "faltou",
-  CANCELADO_ACORDADO: "desmarcou",
-  CANCELADO_PROFISSIONAL: "sem_cobranca",
-}
 
 interface CancelContext {
   variant: CancelVariant
@@ -149,7 +144,7 @@ export function GroupSessionSheet({
     if (!session) return
 
     // For cancel statuses, open the confirmation dialog
-    const cancelVariant = STATUS_TO_CANCEL_VARIANT[newStatus]
+    const cancelVariant = getCancelVariant(newStatus)
     if (cancelVariant) {
       setCancelContext({ variant: cancelVariant, isBulk: true })
       return

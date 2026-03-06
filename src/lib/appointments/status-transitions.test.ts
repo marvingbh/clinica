@@ -3,6 +3,8 @@ import {
   isValidTransition,
   computeStatusUpdateData,
   shouldUpdateLastVisitAt,
+  getCancelVariant,
+  isCancelStatus,
   VALID_TRANSITIONS,
   STATUS_LABELS,
 } from "./status-transitions"
@@ -164,5 +166,43 @@ describe("STATUS_LABELS", () => {
     expect(STATUS_LABELS.AGENDADO).toBe("Agendado")
     expect(STATUS_LABELS.FINALIZADO).toBe("Finalizado")
     expect(STATUS_LABELS.CANCELADO_PROFISSIONAL).toBe("Cancelado (sem cobrança)")
+  })
+})
+
+describe("getCancelVariant", () => {
+  it("returns 'faltou' for CANCELADO_FALTA", () => {
+    expect(getCancelVariant("CANCELADO_FALTA")).toBe("faltou")
+  })
+
+  it("returns 'desmarcou' for CANCELADO_ACORDADO", () => {
+    expect(getCancelVariant("CANCELADO_ACORDADO")).toBe("desmarcou")
+  })
+
+  it("returns 'sem_cobranca' for CANCELADO_PROFISSIONAL", () => {
+    expect(getCancelVariant("CANCELADO_PROFISSIONAL")).toBe("sem_cobranca")
+  })
+
+  it("returns null for non-cancel statuses", () => {
+    expect(getCancelVariant("AGENDADO")).toBeNull()
+    expect(getCancelVariant("CONFIRMADO")).toBeNull()
+    expect(getCancelVariant("FINALIZADO")).toBeNull()
+  })
+
+  it("returns null for unknown status", () => {
+    expect(getCancelVariant("UNKNOWN")).toBeNull()
+  })
+})
+
+describe("isCancelStatus", () => {
+  it("returns true for all cancel statuses", () => {
+    expect(isCancelStatus("CANCELADO_FALTA")).toBe(true)
+    expect(isCancelStatus("CANCELADO_ACORDADO")).toBe(true)
+    expect(isCancelStatus("CANCELADO_PROFISSIONAL")).toBe(true)
+  })
+
+  it("returns false for non-cancel statuses", () => {
+    expect(isCancelStatus("AGENDADO")).toBe(false)
+    expect(isCancelStatus("CONFIRMADO")).toBe(false)
+    expect(isCancelStatus("FINALIZADO")).toBe(false)
   })
 })
