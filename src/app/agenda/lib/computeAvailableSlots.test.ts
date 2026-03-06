@@ -344,7 +344,7 @@ describe("computeSlotsForDay", () => {
         endAt: "2026-02-23T09:00:00",
         professionalProfileId: "prof-1",
         professionalName: "Dr. Test",
-        participants: [],
+        participants: [{ id: "p1", patientName: "Patient 1", status: "AGENDADO" }],
       }],
       appointmentDuration: 50,
       selectedProfessionalId: "prof-1",
@@ -356,5 +356,58 @@ describe("computeSlotsForDay", () => {
     // 08:50 (530 min) — 450 < 530 < 540 → occupied
     expect(result.slots[1].time).toBe("08:50")
     expect(result.slots[1].isAvailable).toBe(false)
+  })
+
+  it("does not block slots for group sessions where all participants are cancelled", () => {
+    const result = computeSlotsForDay({
+      date: monday,
+      availabilityRules: [makeRule({ startTime: "08:00", endTime: "10:00" })],
+      availabilityExceptions: [],
+      appointments: [],
+      groupSessions: [{
+        groupId: "g1",
+        groupName: "Cancelled Group",
+        scheduledAt: "2026-02-23T07:30:00",
+        endAt: "2026-02-23T09:00:00",
+        professionalProfileId: "prof-1",
+        professionalName: "Dr. Test",
+        participants: [
+          { id: "p1", patientName: "Patient 1", status: "CANCELADO_ACORDADO" },
+          { id: "p2", patientName: "Patient 2", status: "CANCELADO_FALTA" },
+        ],
+      }],
+      appointmentDuration: 50,
+      selectedProfessionalId: "prof-1",
+    })
+
+    // All participants cancelled — group should NOT block slots
+    expect(result.slots[0].time).toBe("08:00")
+    expect(result.slots[0].isAvailable).toBe(true)
+    expect(result.slots[1].time).toBe("08:50")
+    expect(result.slots[1].isAvailable).toBe(true)
+  })
+
+  it("does not block slots for group sessions with no participants", () => {
+    const result = computeSlotsForDay({
+      date: monday,
+      availabilityRules: [makeRule({ startTime: "08:00", endTime: "10:00" })],
+      availabilityExceptions: [],
+      appointments: [],
+      groupSessions: [{
+        groupId: "g1",
+        groupName: "Empty Group",
+        scheduledAt: "2026-02-23T07:30:00",
+        endAt: "2026-02-23T09:00:00",
+        professionalProfileId: "prof-1",
+        professionalName: "Dr. Test",
+        participants: [],
+      }],
+      appointmentDuration: 50,
+      selectedProfessionalId: "prof-1",
+    })
+
+    // No participants — group should NOT block slots
+    expect(result.slots[0].time).toBe("08:00")
+    expect(result.slots[0].isAvailable).toBe(true)
   })
 })
