@@ -135,21 +135,38 @@ export function AgendaTimeline({
   const isToday = selectedDate === todayStr
   const nowTimeStr = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`
 
-  // Create a map of group sessions by their start time
+  // Separate active vs cancelled group sessions
+  const isGroupCancelled = (session: GroupSession): boolean => {
+    return session.participants.length === 0 || session.participants.every(
+      (p) => CANCELLED_STATUSES.includes(p.status)
+    )
+  }
+
+  // Map group sessions to the slot times they cover.
+  // Active groups: only at their start time (intermediate slots are hidden for visual span).
+  // Cancelled groups: at every slot they cover (so they appear in each slot).
   const groupSessionsByTime = new Map<string, GroupSession[]>()
   for (const session of groupSessions) {
-    const time = getTimeFromISO(session.scheduledAt)
-    const existing = groupSessionsByTime.get(time) || []
-    groupSessionsByTime.set(time, [...existing, session])
+    const startTime = getTimeFromISO(session.scheduledAt)
+    const endTime = getTimeFromISO(session.endAt)
+
+    // Always add at start time
+    const existing = groupSessionsByTime.get(startTime) || []
+    groupSessionsByTime.set(startTime, [...existing, session])
+
+    // Cancelled groups also appear at every covered slot
+    if (isGroupCancelled(session)) {
+      for (const slot of timeSlots) {
+        if (slot.time > startTime && slot.time < endTime) {
+          const slotSessions = groupSessionsByTime.get(slot.time) || []
+          groupSessionsByTime.set(slot.time, [...slotSessions, session])
+        }
+      }
+    }
   }
 
   // Active group sessions — only these block time/availability
-  const activeGroupSessions = groupSessions.filter((session) => {
-    if (session.participants.length === 0) return false
-    return session.participants.some(
-      (p) => !CANCELLED_STATUSES.includes(p.status)
-    )
-  })
+  const activeGroupSessions = groupSessions.filter((s) => !isGroupCancelled(s))
 
   // Build group session time ranges for overlap checking (active only)
   const groupSessionRanges = activeGroupSessions.map((session) => {
@@ -161,24 +178,18 @@ export function AgendaTimeline({
     }
   })
 
-  // Pre-compute which slots to hide (within ALL group sessions for visual span)
+  // Pre-compute which slots to hide (only active group sessions span/hide slots)
   // and how many extra slots each group session start spans
   const hiddenSlotTimes = new Set<string>()
   const groupSessionSpanCount = new Map<string, number>()
 
-  for (const session of groupSessions) {
+  for (const session of activeGroupSessions) {
     const startTime = getTimeFromISO(session.scheduledAt)
     const endTime = getTimeFromISO(session.endAt)
     let count = 0
     for (const slot of timeSlots) {
       if (slot.time > startTime && slot.time < endTime) {
-        // Only hide if the slot has no individual blocking appointments
-        const hasIndividualBlockingApts = slot.appointments.some(
-          apt => !apt.groupId && apt.blocksTime
-        )
-        if (!hasIndividualBlockingApts) {
-          hiddenSlotTimes.add(slot.time)
-        }
+        hiddenSlotTimes.add(slot.time)
         count++
       }
     }
@@ -231,6 +242,7 @@ export function AgendaTimeline({
             const hasAppointments = slot.appointments.length > 0
             const slotGroupSessions = groupSessionsByTime.get(slot.time) || []
             const hasGroupSessions = slotGroupSessions.length > 0
+            const hasActiveGroupSessions = slotGroupSessions.some((s) => !isGroupCancelled(s))
             const [slotH, slotM] = slot.time.split(":").map(Number)
             const slotMin = slotH * 60 + slotM
             const isOccupiedByOngoingSession = groupSessionRanges.some(
@@ -251,10 +263,10 @@ export function AgendaTimeline({
 
             // Show available slot button when no appointments/groups, or when all appointments are cancelled
             const showAvailableSlot = !hasContent && canShowAvailableButton
-            const showAvailableWithCancelled = allAppointmentsCancelled && !hasGroupSessions && canShowAvailableButton
+            const showAvailableWithCancelled = allAppointmentsCancelled && !hasActiveGroupSessions && canShowAvailableButton
 
             // Determine if the timeline connector should be active
-            const hasActiveContent = (hasAppointments && !allAppointmentsCancelled) || hasGroupSessions
+            const hasActiveContent = (hasAppointments && !allAppointmentsCancelled) || hasActiveGroupSessions
 
             // Filter out appointments that belong to a group session (they're shown in the group card)
             const individualAppointments = slot.appointments.filter(apt => !apt.groupId)
@@ -273,13 +285,13 @@ export function AgendaTimeline({
             // Show available button based on blocking content only:
             // 1. All blocking appointments are cancelled, or
             // 2. Only non-blocking entries exist (no blocking appointments at all)
-            const noActiveBlockingContent = !hasGroupSessions && !isOccupiedByOngoingSession && (
+            const noActiveBlockingContent = !hasActiveGroupSessions && !isOccupiedByOngoingSession && (
               (hasBlockingAppointments && allBlockingCancelled) ||
               (!hasBlockingAppointments)
             )
             const showAvailableWithCancelledRecalc = noActiveBlockingContent && (canShowAvailableButton || canShowBiweeklyHint)
             // Non-blocking entries alone don't make the slot "active"
-            const hasActiveContentRecalc = (hasBlockingAppointments && !allBlockingCancelled) || hasGroupSessions || isOccupiedByOngoingSession
+            const hasActiveContentRecalc = (hasBlockingAppointments && !allBlockingCancelled) || hasActiveGroupSessions || isOccupiedByOngoingSession
 
             // Extra height for group sessions that span multiple slots
             const extraSpan = groupSessionSpanCount.get(slot.time) || 0
