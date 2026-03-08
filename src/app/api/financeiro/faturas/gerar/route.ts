@@ -116,7 +116,7 @@ export const POST = withFeatureAuth(
     const patientMap = new Map(patients.map(p => [p.id, p]))
     const profMap = new Map(professionals.map(p => [p.id, p]))
 
-    const dueDate = new Date(Date.UTC(year, month, clinic?.invoiceDueDay ?? 15, 12))
+    const dueDate = new Date(Date.UTC(year, month - 1, clinic?.invoiceDueDay ?? 15, 12))
 
     // Process each patient individually (not in a single transaction)
     // to avoid Vercel function timeouts with large patient counts
