@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useCallback, useRef } from "react"
-import { XIcon, PencilIcon } from "@/shared/components/ui/icons"
+import { XIcon, PencilIcon, TrashIcon } from "@/shared/components/ui/icons"
 import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
 import { toast } from "sonner"
 
@@ -28,13 +28,15 @@ interface InvoiceDetail {
 interface InvoiceDetailModalProps {
   invoiceId: string
   onClose: () => void
+  onUpdate?: () => void
 }
 
-export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalProps) {
+export function InvoiceDetailModal({ invoiceId, onClose, onUpdate }: InvoiceDetailModalProps) {
   const [data, setData] = useState<InvoiceDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState("")
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -71,6 +73,24 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
       toast.error("Erro ao atualizar descrição")
     }
     setEditingId(null)
+  }
+
+  async function deleteItem(itemId: string) {
+    if (!confirm("Remover este item da fatura?")) return
+    setDeletingId(itemId)
+    const res = await fetch(`/api/financeiro/faturas/${invoiceId}/items/${itemId}`, {
+      method: "DELETE",
+    })
+    if (res.ok) {
+      // Re-fetch to get updated totals from server
+      const updated = await fetch(`/api/financeiro/faturas/${invoiceId}`).then(r => r.json())
+      setData(updated)
+      onUpdate?.()
+      toast.success("Item removido")
+    } else {
+      toast.error("Erro ao remover item")
+    }
+    setDeletingId(null)
   }
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -146,16 +166,26 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
                       <td className="py-2 text-center">{item.quantity}</td>
                       <td className="py-2 text-right">{formatCurrencyBRL(Number(item.unitPrice))}</td>
                       <td className="py-2 text-right font-medium">{formatCurrencyBRL(Number(item.total))}</td>
-                      <td className="py-2 text-center">
-                        {editingId !== item.id && (
+                      <td className="py-2">
+                        <div className="flex items-center justify-end gap-0.5">
+                          {editingId !== item.id && (
+                            <button
+                              onClick={() => startEditing(item)}
+                              className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                              title="Editar descrição"
+                            >
+                              <PencilIcon className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           <button
-                            onClick={() => startEditing(item)}
-                            className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                            title="Editar descrição"
+                            onClick={() => deleteItem(item.id)}
+                            disabled={deletingId === item.id}
+                            className="p-1 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-50"
+                            title="Remover item"
                           >
-                            <PencilIcon className="w-3.5 h-3.5" />
+                            <TrashIcon className="w-3.5 h-3.5" />
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -434,6 +434,7 @@ export default function FaturasPage() {
         <InvoiceDetailModal
           invoiceId={detailInvoiceId}
           onClose={() => setDetailInvoiceId(null)}
+          onUpdate={fetchInvoices}
         />
       )}
     </div>
