@@ -154,21 +154,7 @@ export const PATCH = withFeatureAuth(
       }
     }
 
-    // Pre-check: block ACORDADO→PROFISSIONAL if credit was already consumed by an invoice
-    if (currentStatus === AppointmentStatus.CANCELADO_ACORDADO && targetStatus === AppointmentStatus.CANCELADO_PROFISSIONAL) {
-      const unconsumedCredit = await prisma.sessionCredit.findFirst({
-        where: {
-          originAppointmentId: existing.id,
-          consumedByInvoiceId: null,
-        },
-      })
-      if (!unconsumedCredit) {
-        return NextResponse.json(
-          { error: "Crédito já foi utilizado em uma fatura. Não é possível alterar para cancelado sem cobrança." },
-          { status: 400 }
-        )
-      }
-    }
+    // ACORDADO→PROFISSIONAL: allowed even if credit is consumed (will clean up)
 
     // Pre-check: block ACORDADO→AGENDADO if credit was already consumed by an invoice
     if (currentStatus === AppointmentStatus.CANCELADO_ACORDADO && targetStatus === AppointmentStatus.AGENDADO) {
@@ -265,15 +251,32 @@ export const PATCH = withFeatureAuth(
       }
     }
 
-    // Switching from ACORDADO to PROFISSIONAL: delete the unconsumed credit (pre-checked above)
+    // Switching from ACORDADO to PROFISSIONAL: delete credit and clean up invoice if consumed
     if (currentStatus === AppointmentStatus.CANCELADO_ACORDADO && targetStatus === AppointmentStatus.CANCELADO_PROFISSIONAL) {
       const credit = await prisma.sessionCredit.findFirst({
-        where: {
-          originAppointmentId: existing.id,
-          consumedByInvoiceId: null,
-        },
+        where: { originAppointmentId: existing.id },
       })
       if (credit) {
+        if (credit.consumedByInvoiceId) {
+          // Remove the credit item from the invoice and recalculate
+          await prisma.invoiceItem.deleteMany({
+            where: {
+              invoiceId: credit.consumedByInvoiceId,
+              type: "CREDITO",
+              description: { contains: credit.reason || "" },
+            },
+          })
+          // Recalculate invoice totals
+          const remainingItems = await prisma.invoiceItem.findMany({
+            where: { invoiceId: credit.consumedByInvoiceId },
+          })
+          const newTotal = remainingItems.reduce((sum, i) => sum + Number(i.total), 0)
+          const newCredits = remainingItems.filter(i => i.type === "CREDITO").length
+          await prisma.invoice.update({
+            where: { id: credit.consumedByInvoiceId },
+            data: { totalAmount: newTotal, creditsApplied: newCredits },
+          })
+        }
         await prisma.sessionCredit.delete({ where: { id: credit.id } })
         await prisma.appointment.update({
           where: { id: existing.id },
