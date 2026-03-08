@@ -5,8 +5,9 @@ import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
 import { toast } from "sonner"
-import { EyeIcon, CheckCircleIcon, DownloadIcon, RefreshCwIcon, PlusIcon } from "@/shared/components/ui/icons"
+import { EyeIcon, CheckCircleIcon, DownloadIcon, RefreshCwIcon, PlusIcon, SquarePenIcon } from "@/shared/components/ui/icons"
 import { useFinanceiroContext } from "../context/FinanceiroContext"
+import { InvoiceDetailModal } from "./InvoiceDetailModal"
 
 interface Invoice {
   id: string
@@ -60,6 +61,7 @@ export default function FaturasPage() {
   const [sortBy, setSortBy] = useState<"name" | "recurrence">("name")
   const [recalculatingId, setRecalculatingId] = useState<string | null>(null)
   const [downloadingZip, setDownloadingZip] = useState(false)
+  const [detailInvoiceId, setDetailInvoiceId] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   const fetchInvoices = useCallback(() => {
@@ -332,7 +334,7 @@ export default function FaturasPage() {
             </thead>
             <tbody>
               {invoices.map(inv => (
-                <tr key={inv.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                <tr key={inv.id} className="border-b border-border last:border-0 even:bg-muted/30 hover:bg-muted/50">
                   <td className="py-3 px-4 font-medium">{inv.patient.name}</td>
                   <td className="text-center py-3 px-4">{inv.totalSessions}</td>
                   <td className="text-right py-3 px-4">{formatCurrencyBRL(Number(inv.totalAmount))}</td>
@@ -379,12 +381,19 @@ export default function FaturasPage() {
                           <RefreshCwIcon className={`w-4 h-4 ${recalculatingId === inv.id ? "animate-spin" : ""}`} />
                         </button>
                       )}
-                      <Link
-                        href={`/financeiro/faturas/${inv.id}`}
+                      <button
+                        onClick={() => setDetailInvoiceId(inv.id)}
                         className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                         title="Ver detalhes"
                       >
                         <EyeIcon className="w-4 h-4" />
+                      </button>
+                      <Link
+                        href={`/financeiro/faturas/${inv.id}`}
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                        title="Editar fatura"
+                      >
+                        <SquarePenIcon className="w-4 h-4" />
                       </Link>
                       <a
                         href={`/api/financeiro/faturas/${inv.id}/pdf`}
@@ -417,6 +426,13 @@ export default function FaturasPage() {
             </tfoot>
           </table>
         </div>
+      )}
+
+      {detailInvoiceId && (
+        <InvoiceDetailModal
+          invoiceId={detailInvoiceId}
+          onClose={() => setDetailInvoiceId(null)}
+        />
       )}
     </div>
   )
