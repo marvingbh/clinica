@@ -189,7 +189,9 @@ export default function FaturasPage() {
     }
     setDownloadingZip(true)
     try {
-      const res = await fetch(`/api/financeiro/faturas/download-zip?month=${month}&year=${year}`)
+      const dlParams = new URLSearchParams({ month: String(month), year: String(year) })
+      if (selectedProfessionalId) dlParams.set("professionalId", selectedProfessionalId)
+      const res = await fetch(`/api/financeiro/faturas/download-zip?${dlParams}`)
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         toast.error(data.error || "Erro ao gerar arquivo")

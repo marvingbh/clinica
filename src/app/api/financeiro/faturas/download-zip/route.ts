@@ -19,6 +19,7 @@ export const GET = withFeatureAuth(
     const url = new URL(req.url)
     const month = Number(url.searchParams.get("month"))
     const year = Number(url.searchParams.get("year"))
+    const professionalId = url.searchParams.get("professionalId")
 
     if (!month || !year || month < 1 || month > 12) {
       return NextResponse.json({ error: "Mês e ano são obrigatórios" }, { status: 400 })
@@ -26,15 +27,19 @@ export const GET = withFeatureAuth(
 
     const scope = user.role === "ADMIN" ? "clinic" : "own"
 
+    const whereClause: Record<string, unknown> = {
+      clinicId: user.clinicId,
+      referenceMonth: month,
+      referenceYear: year,
+    }
+    if (scope === "own" && user.professionalProfileId) {
+      whereClause.professionalProfileId = user.professionalProfileId
+    } else if (professionalId) {
+      whereClause.professionalProfileId = professionalId
+    }
+
     const invoices = await prisma.invoice.findMany({
-      where: {
-        clinicId: user.clinicId,
-        referenceMonth: month,
-        referenceYear: year,
-        ...(scope === "own" && user.professionalProfileId
-          ? { professionalProfileId: user.professionalProfileId }
-          : {}),
-      },
+      where: whereClause,
       include: INVOICE_INCLUDE,
       orderBy: { patient: { name: "asc" } },
     })
