@@ -78,7 +78,7 @@ export default function ConciliacaoPage() {
         <>
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Transações (últimos 30 dias)</h3>
-            <Button onClick={handleFetch} disabled={fetching} size="sm" variant="outline">
+            <Button onClick={handleFetch} disabled={fetching} size="sm" variant="outlined">
               {fetching ? (
                 <Loader2Icon className="w-4 h-4 animate-spin mr-1" />
               ) : (

@@ -55,7 +55,7 @@ export function IntegrationForm({ existing, onSaved }: IntegrationFormProps) {
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold">Integração Banco Inter</h3>
         {existing && (
-          <Button variant="ghost" size="sm" onClick={() => setIsOpen(!isOpen)}>
+          <Button variant="text" size="sm" onClick={() => setIsOpen(!isOpen)}>
             {isOpen ? "Fechar" : "Editar"}
           </Button>
         )}
