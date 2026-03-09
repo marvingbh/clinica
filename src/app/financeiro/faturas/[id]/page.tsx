@@ -92,6 +92,8 @@ export default function InvoiceDetailPage() {
   const [savingEdit, setSavingEdit] = useState(false)
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null)
   const [recalculating, setRecalculating] = useState(false)
+  const [editingDueDate, setEditingDueDate] = useState(false)
+  const [dueDateValue, setDueDateValue] = useState("")
 
   const fetchInvoice = useCallback(async () => {
     const res = await fetch(`/api/financeiro/faturas/${params.id}`)
@@ -328,6 +330,28 @@ export default function InvoiceDetailPage() {
     setDeletingItemId(null)
   }
 
+  function startEditingDueDate() {
+    if (!invoice) return
+    setDueDateValue(new Date(invoice.dueDate).toISOString().slice(0, 10))
+    setEditingDueDate(true)
+  }
+
+  async function saveDueDate() {
+    if (!invoice || !dueDateValue) { setEditingDueDate(false); return }
+    const res = await fetch(`/api/financeiro/faturas/${invoice.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dueDate: `${dueDateValue}T12:00:00.000Z` }),
+    })
+    if (res.ok) {
+      setInvoice({ ...invoice, dueDate: `${dueDateValue}T12:00:00.000Z` })
+      toast.success("Vencimento atualizado")
+    } else {
+      toast.error("Erro ao atualizar vencimento")
+    }
+    setEditingDueDate(false)
+  }
+
   if (loading) return <div className="animate-pulse text-muted-foreground">Carregando...</div>
   if (!invoice) return <div className="text-destructive">Fatura não encontrada</div>
 
@@ -354,9 +378,28 @@ export default function InvoiceDetailPage() {
               <option key={value} value={value}>{label}</option>
             ))}
           </select>
-          <span className="text-sm text-muted-foreground">
-            Venc.: {formatDateBR(invoice.dueDate)}
-          </span>
+          {editingDueDate ? (
+            <input
+              type="date"
+              value={dueDateValue}
+              onChange={e => setDueDateValue(e.target.value)}
+              onBlur={saveDueDate}
+              onKeyDown={e => {
+                if (e.key === "Enter") saveDueDate()
+                if (e.key === "Escape") setEditingDueDate(false)
+              }}
+              autoFocus
+              className="px-2 py-1 rounded border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          ) : (
+            <span
+              onClick={startEditingDueDate}
+              className="text-sm text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+              title="Clique para alterar vencimento"
+            >
+              Venc.: {formatDateBR(invoice.dueDate)}
+            </span>
+          )}
         </div>
       </div>
 
