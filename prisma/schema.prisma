@@ -114,6 +114,10 @@ enum InvoiceType {
   MANUAL
 }
 
+enum BankProvider {
+  INTER
+}
+
 // ============================================================================
 // SAAS MODELS
 // ============================================================================
@@ -196,6 +200,8 @@ model Clinic {
   userPermissions         UserPermission[]
   invoices               Invoice[]
   sessionCredits         SessionCredit[]
+  bankIntegrations       BankIntegration[]
+  bankTransactions       BankTransaction[]
 
   @@index([slug])
   @@index([isActive])
@@ -219,6 +225,7 @@ model User {
   professionalProfile ProfessionalProfile?
   auditLogs           AuditLog[]
   permissions         UserPermission[]
+  reconciledTransactions BankTransaction[]
 
   @@unique([clinicId, email])
   @@index([clinicId])
@@ -716,6 +723,7 @@ model Invoice {
   patient             Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
   items               InvoiceItem[]
   consumedCredits     SessionCredit[]
+  bankTransactions    BankTransaction[]
 
   @@index([clinicId])
   @@index([professionalProfileId])
@@ -769,4 +777,57 @@ model SessionCredit {
   @@index([patientId])
   @@index([consumedByInvoiceId])
   @@index([professionalProfileId, patientId, consumedByInvoiceId])
+}
+
+// ============================================================================
+// BANK RECONCILIATION MODELS
+// ============================================================================
+
+/// Bank API integration configuration (one per clinic per provider)
+model BankIntegration {
+  id            String       @id @default(cuid())
+  clinicId      String
+  provider      BankProvider @default(INTER)
+  clientId      String
+  clientSecret  String       // Encrypted
+  certificate   String       @db.Text // PEM content, encrypted
+  privateKey    String       @db.Text // PEM content, encrypted
+  accountNumber String?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  clinic       Clinic            @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  transactions BankTransaction[]
+
+  @@unique([clinicId, provider])
+  @@index([clinicId])
+}
+
+/// Bank transaction fetched from bank API
+model BankTransaction {
+  id                  String    @id @default(cuid())
+  clinicId            String
+  bankIntegrationId   String
+  externalId          String    // Bank's unique transaction identifier
+  date                DateTime  @db.Date
+  amount              Decimal   @db.Decimal(10, 2)
+  description         String
+  payerName           String?
+  type                String    // CREDIT or DEBIT
+  reconciledInvoiceId String?
+  reconciledAt        DateTime?
+  reconciledByUserId  String?
+  createdAt           DateTime  @default(now())
+
+  clinic          Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  bankIntegration BankIntegration  @relation(fields: [bankIntegrationId], references: [id], onDelete: Cascade)
+  reconciledInvoice Invoice?       @relation(fields: [reconciledInvoiceId], references: [id], onDelete: SetNull)
+  reconciledByUser  User?          @relation(fields: [reconciledByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([clinicId, externalId])
+  @@index([clinicId])
+  @@index([bankIntegrationId])
+  @@index([reconciledInvoiceId])
+  @@index([clinicId, date])
 }
