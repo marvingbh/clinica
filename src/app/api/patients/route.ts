@@ -202,7 +202,6 @@ export const GET = withFeatureAuth(
     ])
 
     const totalPages = Math.ceil(total / limit)
-
     return NextResponse.json({
       patients,
       pagination: {

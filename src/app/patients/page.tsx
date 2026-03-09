@@ -41,6 +41,7 @@ const patientSchema = z.object({
   schoolName: z.string().max(200).optional().or(z.literal("")),
   firstAppointmentDate: z.string().optional().or(z.literal("")),
   sessionFee: z.string().optional().or(z.literal("")),
+  invoiceDueDay: z.string().optional().or(z.literal("")),
   lastFeeAdjustmentDate: z.string().optional().or(z.literal("")),
   therapeuticProject: z.string().max(5000).optional().or(z.literal("")),
   notes: z.string().max(2000).optional().or(z.literal("")),
