@@ -119,6 +119,7 @@ export const GET = withFeatureAuth(
       // Normalize: when there's no reference professional, set to null instead of {id: null, user: {name: null}}
       const patients = rawPatients.map((p) => ({
         ...p,
+        invoiceDueDay: p.invoiceDueDay != null ? Number(p.invoiceDueDay) : null,
         referenceProfessional: p.referenceProfessionalId ? p.referenceProfessional : null,
         // additionalPhones not loaded in search for performance — empty array
         additionalPhones: [],
