@@ -44,6 +44,7 @@ const updateSchema = z.object({
   notes: z.string().optional(),
   paidAt: z.string().datetime().optional().nullable(),
   notaFiscalEmitida: z.boolean().optional(),
+  dueDate: z.string().optional(),
 })
 
 export const PATCH = withFeatureAuth(
@@ -75,6 +76,9 @@ export const PATCH = withFeatureAuth(
     if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes
     if (parsed.data.status === "PAGO") {
       updateData.paidAt = parsed.data.paidAt ? new Date(parsed.data.paidAt) : new Date()
+    }
+    if (parsed.data.dueDate) {
+      updateData.dueDate = new Date(parsed.data.dueDate)
     }
     if (parsed.data.notaFiscalEmitida === true) {
       updateData.notaFiscalEmitida = true

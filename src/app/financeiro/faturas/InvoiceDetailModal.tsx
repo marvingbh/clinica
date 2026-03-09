@@ -20,6 +20,7 @@ interface InvoiceDetail {
   totalSessions: number
   creditsApplied: number
   totalAmount: string
+  dueDate: string
   patient: { name: string }
   professionalProfile: { user: { name: string } }
   items: InvoiceItem[]
@@ -37,6 +38,8 @@ export function InvoiceDetailModal({ invoiceId, onClose, onUpdate }: InvoiceDeta
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState("")
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [editingDueDate, setEditingDueDate] = useState(false)
+  const [dueDateValue, setDueDateValue] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -93,9 +96,33 @@ export function InvoiceDetailModal({ invoiceId, onClose, onUpdate }: InvoiceDeta
     setDeletingId(null)
   }
 
+  function startEditingDueDate() {
+    if (!data) return
+    const d = new Date(data.dueDate)
+    setDueDateValue(d.toISOString().slice(0, 10))
+    setEditingDueDate(true)
+  }
+
+  async function saveDueDate() {
+    if (!dueDateValue) { setEditingDueDate(false); return }
+    const res = await fetch(`/api/financeiro/faturas/${invoiceId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dueDate: `${dueDateValue}T12:00:00.000Z` }),
+    })
+    if (res.ok) {
+      setData(prev => prev ? { ...prev, dueDate: `${dueDateValue}T12:00:00.000Z` } : prev)
+      onUpdate?.()
+      toast.success("Vencimento atualizado")
+    } else {
+      toast.error("Erro ao atualizar vencimento")
+    }
+    setEditingDueDate(false)
+  }
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === "Escape" && !editingId) onClose()
-  }, [onClose, editingId])
+    if (e.key === "Escape" && !editingId && !editingDueDate) onClose()
+  }, [onClose, editingId, editingDueDate])
 
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown)
@@ -195,6 +222,31 @@ export function InvoiceDetailModal({ invoiceId, onClose, onUpdate }: InvoiceDeta
               {/* Summary */}
               <div className="mt-4 pt-3 border-t border-border flex justify-end">
                 <div className="space-y-1 text-sm">
+                  <div className="flex justify-between items-center gap-8">
+                    <span className="text-muted-foreground">Vencimento</span>
+                    {editingDueDate ? (
+                      <input
+                        type="date"
+                        value={dueDateValue}
+                        onChange={e => setDueDateValue(e.target.value)}
+                        onBlur={saveDueDate}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") saveDueDate()
+                          if (e.key === "Escape") setEditingDueDate(false)
+                        }}
+                        autoFocus
+                        className="px-2 py-0.5 rounded border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                    ) : (
+                      <span
+                        onClick={startEditingDueDate}
+                        className="font-medium cursor-pointer hover:text-primary transition-colors"
+                        title="Clique para alterar"
+                      >
+                        {formatDateBR(data.dueDate)}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex justify-between gap-8">
                     <span className="text-muted-foreground">Sessões</span>
                     <span className="font-medium">{data.totalSessions}</span>
