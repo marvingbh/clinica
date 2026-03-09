@@ -39,7 +39,7 @@ export const POST = withFeatureAuth(
       select: {
         id: true, name: true, motherName: true, fatherName: true,
         sessionFee: true, showAppointmentDaysOnInvoice: true,
-        invoiceMessageTemplate: true,
+        invoiceDueDay: true, invoiceMessageTemplate: true,
       },
     })
 
@@ -161,7 +161,7 @@ export const POST = withFeatureAuth(
       }
 
       // Update due date from clinic settings
-      const newDueDate = new Date(Date.UTC(invoice.referenceYear, invoice.referenceMonth, clinic?.invoiceDueDay ?? 15, 12))
+      const newDueDate = new Date(Date.UTC(invoice.referenceYear, invoice.referenceMonth - 1, patient.invoiceDueDay ?? clinic?.invoiceDueDay ?? 15, 12))
       await tx.invoice.update({
         where: { id: invoice.id },
         data: { dueDate: newDueDate },

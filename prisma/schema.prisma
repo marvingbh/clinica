@@ -325,6 +325,7 @@ model Patient {
   lastFeeAdjustmentDate DateTime? @db.Date // Date of last session fee adjustment
   sessionFee  Decimal?  @db.Decimal(10, 2) // Session fee in BRL
   showAppointmentDaysOnInvoice Boolean @default(false)
+  invoiceDueDay                Int?    // Day of the month for due date (overrides clinic default)
   invoiceMessageTemplate       String? // Overrides clinic default for invoice text
   therapeuticProject String? // Therapeutic project (free text)
   isActive    Boolean   @default(true)

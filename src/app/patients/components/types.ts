@@ -59,6 +59,7 @@ export interface Patient {
   updatedAt?: string
   cpf?: string | null
   showAppointmentDaysOnInvoice?: boolean
+  invoiceDueDay?: number | null
   invoiceMessageTemplate?: string | null
   referenceProfessionalId: string | null
   referenceProfessional: ReferenceProfessional | null

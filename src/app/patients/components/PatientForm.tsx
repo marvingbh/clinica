@@ -16,6 +16,7 @@ export interface PatientFormData {
   firstAppointmentDate?: string | undefined
   sessionFee?: string | undefined
   lastFeeAdjustmentDate?: string | undefined
+  invoiceDueDay?: string | undefined
   therapeuticProject?: string | undefined
   notes?: string | undefined
   referenceProfessionalId?: string | undefined
@@ -296,6 +297,24 @@ export function PatientForm({
               className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
             />
           </div>
+        </div>
+
+        <div>
+          <label htmlFor="invoiceDueDay" className="block text-sm font-medium text-foreground mb-2">
+            Dia de Vencimento da Fatura
+          </label>
+          <input
+            id="invoiceDueDay"
+            type="number"
+            min={1}
+            max={28}
+            {...register("invoiceDueDay")}
+            placeholder="Usar padrão da clínica"
+            className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Opcional. Se vazio, usa o padrão da clínica.
+          </p>
         </div>
 
         <div>

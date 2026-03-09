@@ -75,7 +75,7 @@ export const POST = withFeatureAuth(
         select: {
           id: true, name: true, motherName: true, fatherName: true,
           sessionFee: true, showAppointmentDaysOnInvoice: true,
-          invoiceMessageTemplate: true,
+          invoiceDueDay: true, invoiceMessageTemplate: true,
         },
       }),
       prisma.clinic.findUnique({
@@ -106,7 +106,7 @@ export const POST = withFeatureAuth(
     const refDate = new Date(firstDate)
     const referenceMonth = refDate.getMonth() + 1
     const referenceYear = refDate.getFullYear()
-    const dueDate = new Date(Date.UTC(referenceYear, referenceMonth, clinic?.invoiceDueDay ?? 15, 12))
+    const dueDate = new Date(Date.UTC(referenceYear, referenceMonth - 1, patient.invoiceDueDay ?? clinic?.invoiceDueDay ?? 15, 12))
 
     // Build message body
     const detalhes = buildDetailBlock(

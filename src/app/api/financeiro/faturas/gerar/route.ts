@@ -100,7 +100,7 @@ export const POST = withFeatureAuth(
         select: {
           id: true, name: true, motherName: true, fatherName: true,
           sessionFee: true, showAppointmentDaysOnInvoice: true,
-          invoiceMessageTemplate: true, referenceProfessionalId: true,
+          invoiceDueDay: true, invoiceMessageTemplate: true, referenceProfessionalId: true,
         },
       }),
       prisma.clinic.findUnique({
@@ -116,7 +116,7 @@ export const POST = withFeatureAuth(
     const patientMap = new Map(patients.map(p => [p.id, p]))
     const profMap = new Map(professionals.map(p => [p.id, p]))
 
-    const dueDate = new Date(Date.UTC(year, month - 1, clinic?.invoiceDueDay ?? 15, 12))
+    const clinicDueDay = clinic?.invoiceDueDay ?? 15
 
     // Process each patient individually (not in a single transaction)
     // to avoid Vercel function timeouts with large patient counts
@@ -128,6 +128,8 @@ export const POST = withFeatureAuth(
       const [patientId, profId] = key.split("|")
       const patient = patientMap.get(patientId)
       if (!patient || !patient.sessionFee) continue
+
+      const dueDate = new Date(Date.UTC(year, month - 1, patient.invoiceDueDay ?? clinicDueDay, 12))
 
       try {
         await prisma.$transaction(async (tx) => {

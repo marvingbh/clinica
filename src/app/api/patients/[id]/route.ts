@@ -36,6 +36,7 @@ const updatePatientSchema = z.object({
   consentWhatsApp: z.boolean().optional(),
   consentEmail: z.boolean().optional(),
   showAppointmentDaysOnInvoice: z.boolean().optional(),
+  invoiceDueDay: z.number().int().min(1).max(28).nullable().optional(),
   invoiceMessageTemplate: z.string().nullable().optional(),
   additionalPhones: z.array(additionalPhoneSchema).max(4, "Máximo de 4 telefones adicionais").optional(),
 })
@@ -89,6 +90,7 @@ export const GET = withFeatureAuth(
           consentEmail: true,
           consentEmailAt: true,
           showAppointmentDaysOnInvoice: true,
+          invoiceDueDay: true,
           invoiceMessageTemplate: true,
           createdAt: true,
           updatedAt: true,
@@ -223,6 +225,7 @@ export const PATCH = withFeatureAuth(
     if (data.referenceProfessionalId !== undefined) updateData.referenceProfessionalId = data.referenceProfessionalId || null
     if (data.isActive !== undefined) updateData.isActive = data.isActive
     if (data.showAppointmentDaysOnInvoice !== undefined) updateData.showAppointmentDaysOnInvoice = data.showAppointmentDaysOnInvoice
+    if (data.invoiceDueDay !== undefined) updateData.invoiceDueDay = data.invoiceDueDay
     if (data.invoiceMessageTemplate !== undefined) updateData.invoiceMessageTemplate = data.invoiceMessageTemplate || null
 
     // Handle phone update with duplicate check
