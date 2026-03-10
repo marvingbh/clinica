@@ -40,13 +40,16 @@ export const GET = withFeatureAuth(
         patient: { select: { id: true, name: true } },
         professionalProfile: { select: { id: true, user: { select: { name: true } } } },
         _count: { select: { items: true } },
+        bankTransactions: { select: { id: true, payerName: true, date: true }, take: 1 },
       },
       orderBy: [{ patient: { name: "asc" } }, { referenceYear: "desc" }, { referenceMonth: "desc" }],
     })
 
-    let result = invoices.map(({ notaFiscalPdf, ...inv }) => ({
+    let result = invoices.map(({ notaFiscalPdf, bankTransactions, ...inv }) => ({
       ...inv,
       hasNotaFiscalPdf: !!notaFiscalPdf,
+      paidViaBank: bankTransactions.length > 0,
+      bankPayerName: bankTransactions[0]?.payerName || null,
     }))
 
     if (sortBy === "recurrence" && result.length > 0) {

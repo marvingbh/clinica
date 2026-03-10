@@ -1,4 +1,5 @@
 import https from "https"
+import crypto from "crypto"
 import { decrypt } from "./encryption"
 
 interface InterTokenResponse {
@@ -8,18 +9,12 @@ interface InterTokenResponse {
 }
 
 interface InterTransaction {
-  idTransacao: string
-  dataEntradaContaBancaria: string
-  dataLancamento: string
-  tipoTransacao: string
-  tipoOperacao: string
-  valor: string
-  titulo: string
-  descricao: string
-}
-
-interface InterStatementResponse {
-  transacoes: InterTransaction[]
+  dataEntrada: string      // "2026-03-08"
+  tipoTransacao: string    // "PIX", "TED", etc.
+  tipoOperacao: string     // "C" (credit) or "D" (debit)
+  valor: string            // "1400.0"
+  titulo: string           // "Pix recebido"
+  descricao: string        // "PIX RECEBIDO - Cp :00000000-ADRIANA MC SIQUEIRA"
 }
 
 export interface InterConfig {
@@ -113,15 +108,27 @@ export async function fetchStatements(
           reject(new Error(`Inter statement fetch failed: ${res.statusCode} ${data}`))
           return
         }
-        const parsed: InterStatementResponse = JSON.parse(data)
-        const transactions = (parsed.transacoes || []).map(tx => ({
-          externalId: tx.idTransacao,
-          date: tx.dataLancamento || tx.dataEntradaContaBancaria,
-          amount: parseFloat(tx.valor),
-          description: tx.descricao || tx.titulo || "",
-          payerName: extractPayerName(tx.descricao || tx.titulo || ""),
-          type: (tx.tipoOperacao === "C" ? "CREDIT" : "DEBIT") as "CREDIT" | "DEBIT",
-        }))
+        const parsed: { transacoes: InterTransaction[] } = JSON.parse(data)
+        const rawList = (parsed.transacoes || []).filter((tx: InterTransaction) => tx.tipoOperacao === "C")
+        // Build stable externalIds from transaction content (not array index)
+        const keyCounts = new Map<string, number>()
+        const transactions = rawList.map((tx) => {
+          const amount = parseFloat(tx.valor)
+          const desc = (tx.descricao || tx.titulo || "").trim()
+          const contentHash = crypto.createHash("md5").update(desc).digest("hex").slice(0, 10)
+          const baseKey = `${tx.dataEntrada}-${amount}-${contentHash}`
+          const seq = keyCounts.get(baseKey) || 0
+          keyCounts.set(baseKey, seq + 1)
+          const externalId = seq === 0 ? baseKey : `${baseKey}-${seq}`
+          return {
+            externalId,
+            date: tx.dataEntrada,
+            amount,
+            description: desc,
+            payerName: extractPayerName(desc),
+            type: (tx.tipoOperacao === "C" ? "CREDIT" : "DEBIT") as "CREDIT" | "DEBIT",
+          }
+        })
         resolve(transactions)
       })
     })
@@ -131,16 +138,28 @@ export async function fetchStatements(
 }
 
 /**
- * Extract payer name from PIX description.
- * Inter PIX descriptions typically contain the sender's name.
+ * Extract payer name from Inter transaction description.
+ * Known formats:
+ * - "PIX RECEBIDO - Cp :00000000-ADRIANA MC SIQUEIRA"
+ * - "PIX RECEBIDO INTERNO - 00019 7258666 SAVIO MOREIRA"
  */
 function extractPayerName(description: string): string | null {
   if (!description) return null
-  // Try to extract name from common Inter PIX formats
-  const match = description.match(/PIX\s*[-–]?\s*(.+?)(?:\s*[-–]\s*\d|$)/i)
-  if (match?.[1]) {
-    const name = match[1].trim()
-    if (name && !/^\d+$/.test(name)) return name
+  // "PIX RECEBIDO - Cp :12345678-NOME COMPLETO"
+  const cpfMatch = description.match(/Cp\s*:\d+-(.+)$/i)
+  if (cpfMatch?.[1]) {
+    return cpfMatch[1].trim()
   }
-  return description.trim() || null
+  // "PIX RECEBIDO INTERNO - 00019 7258666 NOME COMPLETO"
+  // Name comes after the numeric codes following the dash
+  const internalMatch = description.match(/-\s*[\d\s]+\s+([A-Z][A-Z\s]+)$/i)
+  if (internalMatch?.[1]) {
+    return internalMatch[1].trim()
+  }
+  // Fallback: try after last dash
+  const dashMatch = description.match(/-([A-Z][A-Z\s]+)$/i)
+  if (dashMatch?.[1]) {
+    return dashMatch[1].trim()
+  }
+  return null
 }

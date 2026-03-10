@@ -25,11 +25,29 @@ interface UnbilledAppointment {
   professionalProfile: { user: { name: string } }
 }
 
-type Step = "patient" | "appointments" | "confirm"
+type Step = "patient" | "value" | "confirm"
+type Mode = "appointments" | "manual"
+
+const STATUS_LABELS: Record<string, string> = {
+  AGENDADO: "Agendado",
+  CONFIRMADO: "Confirmado",
+  FINALIZADO: "Finalizado",
+  CANCELADO_FALTA: "Falta",
+}
+
+const MONTH_LABELS = [
+  "", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+  "Jul", "Ago", "Set", "Out", "Nov", "Dez",
+]
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("pt-BR")
+}
 
 export default function NovaFaturaPage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>("patient")
+  const [mode, setMode] = useState<Mode>("appointments")
 
   // Patient search
   const [patientSearch, setPatientSearch] = useState("")
@@ -42,6 +60,12 @@ export default function NovaFaturaPage() {
   const [appointments, setAppointments] = useState<UnbilledAppointment[]>([])
   const [loadingAppointments, setLoadingAppointments] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  // Manual mode
+  const [manualAmount, setManualAmount] = useState("")
+  const [manualDescription, setManualDescription] = useState("")
+  const [refMonth, setRefMonth] = useState(new Date().getMonth() + 1)
+  const [refYear, setRefYear] = useState(new Date().getFullYear())
 
   // Submit
   const [markAsPaid, setMarkAsPaid] = useState(false)
@@ -65,7 +89,7 @@ export default function NovaFaturaPage() {
 
   async function handleSelectPatient(patient: Patient) {
     setSelectedPatient(patient)
-    setStep("appointments")
+    setStep("value")
     setLoadingAppointments(true)
     try {
       const res = await fetch(`/api/financeiro/faturas/appointments-unbilled?patientId=${patient.id}`)
@@ -97,26 +121,41 @@ export default function NovaFaturaPage() {
 
   const selectedAppointments = appointments.filter(a => selectedIds.has(a.id))
   const sessionFee = selectedPatient?.sessionFee ? Number(selectedPatient.sessionFee) : 0
-  const totalAmount = selectedAppointments.reduce((sum, a) => {
+  const appointmentTotal = selectedAppointments.reduce((sum, a) => {
     return sum + (a.price ? Number(a.price) : sessionFee)
   }, 0)
+  const parsedManualAmount = parseFloat(manualAmount) || 0
 
-  // Get the professional from the first selected appointment
+  const effectiveTotal = mode === "manual" ? parsedManualAmount : appointmentTotal
+  const canContinue = mode === "manual"
+    ? parsedManualAmount > 0
+    : selectedIds.size > 0
+
   const profId = selectedAppointments[0]?.professionalProfileId || ""
 
   async function handleSubmit() {
-    if (!selectedPatient || selectedIds.size === 0) return
+    if (!selectedPatient || !canContinue) return
     setSubmitting(true)
     try {
+      const body: Record<string, unknown> = {
+        patientId: selectedPatient.id,
+        markAsPaid,
+      }
+
+      if (mode === "manual") {
+        body.manualAmount = parsedManualAmount
+        body.manualDescription = manualDescription || undefined
+        body.referenceMonth = refMonth
+        body.referenceYear = refYear
+      } else {
+        body.professionalProfileId = profId
+        body.appointmentIds = Array.from(selectedIds)
+      }
+
       const res = await fetch("/api/financeiro/faturas/manual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patientId: selectedPatient.id,
-          professionalProfileId: profId,
-          appointmentIds: Array.from(selectedIds),
-          markAsPaid,
-        }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -132,17 +171,6 @@ export default function NovaFaturaPage() {
     }
   }
 
-  function formatDate(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString("pt-BR")
-  }
-
-  const STATUS_LABELS: Record<string, string> = {
-    AGENDADO: "Agendado",
-    CONFIRMADO: "Confirmado",
-    FINALIZADO: "Finalizado",
-    CANCELADO_FALTA: "Falta",
-  }
-
   return (
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
@@ -154,10 +182,10 @@ export default function NovaFaturaPage() {
 
       {/* Step indicators */}
       <div className="flex items-center gap-2 mb-6 text-sm">
-        {(["patient", "appointments", "confirm"] as const).map((s, i) => {
-          const labels = ["Paciente", "Agendamentos", "Confirmar"]
+        {(["patient", "value", "confirm"] as const).map((s, i) => {
+          const labels = ["Paciente", "Valor", "Confirmar"]
           const isCurrent = step === s
-          const isPast = (step === "appointments" && i === 0) || (step === "confirm" && i < 2)
+          const isPast = (step === "value" && i === 0) || (step === "confirm" && i < 2)
           return (
             <React.Fragment key={s}>
               {i > 0 && <span className="text-muted-foreground">—</span>}
@@ -222,8 +250,8 @@ export default function NovaFaturaPage() {
         </div>
       )}
 
-      {/* Step 2: Select Appointments */}
-      {step === "appointments" && (
+      {/* Step 2: Value — appointments or manual */}
+      {step === "value" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -231,83 +259,166 @@ export default function NovaFaturaPage() {
               <span className="font-medium">{selectedPatient?.name}</span>
             </div>
             <button
-              onClick={() => { setStep("patient"); setSelectedIds(new Set()) }}
+              onClick={() => { setStep("patient"); setSelectedIds(new Set()); setMode("appointments") }}
               className="text-sm text-primary hover:underline"
             >
               Alterar
             </button>
           </div>
 
-          {loadingAppointments ? (
-            <div className="text-sm text-muted-foreground animate-pulse py-8 text-center">
-              Carregando agendamentos...
-            </div>
-          ) : appointments.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Nenhum agendamento não faturado encontrado
-            </div>
-          ) : (
+          {/* Mode toggle */}
+          <div className="flex rounded-lg border border-border overflow-hidden text-sm">
+            <button
+              onClick={() => setMode("appointments")}
+              className={`flex-1 py-2 text-center transition-colors ${
+                mode === "appointments"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
+              }`}
+            >
+              Agendamentos
+            </button>
+            <button
+              onClick={() => setMode("manual")}
+              className={`flex-1 py-2 text-center transition-colors ${
+                mode === "manual"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
+              }`}
+            >
+              Valor avulso
+            </button>
+          </div>
+
+          {mode === "appointments" && (
             <>
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={toggleAll}
-                  className="text-sm text-primary hover:underline"
-                >
-                  {selectedIds.size === appointments.length ? "Desmarcar todos" : "Selecionar todos"}
-                </button>
-                <span className="text-sm text-muted-foreground">
-                  {selectedIds.size} selecionado(s)
-                </span>
-              </div>
-
-              <div className="border border-border rounded-lg divide-y divide-border max-h-96 overflow-y-auto">
-                {appointments.map(apt => {
-                  const isSelected = selectedIds.has(apt.id)
-                  const price = apt.price ? Number(apt.price) : sessionFee
-                  return (
-                    <button
-                      key={apt.id}
-                      onClick={() => toggleAppointment(apt.id)}
-                      className={`w-full text-left px-4 py-3 transition-colors flex items-center gap-3 ${
-                        isSelected ? "bg-primary/5" : "hover:bg-muted/50"
-                      }`}
-                    >
-                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                        isSelected ? "bg-primary border-primary text-primary-foreground" : "border-border"
-                      }`}>
-                        {isSelected && <CheckIcon className="w-3.5 h-3.5" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">{formatDate(apt.scheduledAt)}</span>
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                            {apt.type === "REUNIAO" ? apt.title || "Reunião" : "Sessão"}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {STATUS_LABELS[apt.status] || apt.status}
-                          </span>
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {apt.professionalProfile.user.name}
-                        </div>
-                      </div>
-                      <span className="text-sm font-medium">{formatCurrencyBRL(price)}</span>
+              {loadingAppointments ? (
+                <div className="text-sm text-muted-foreground animate-pulse py-8 text-center">
+                  Carregando agendamentos...
+                </div>
+              ) : appointments.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhum agendamento não faturado encontrado
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <button onClick={toggleAll} className="text-sm text-primary hover:underline">
+                      {selectedIds.size === appointments.length ? "Desmarcar todos" : "Selecionar todos"}
                     </button>
-                  )
-                })}
-              </div>
+                    <span className="text-sm text-muted-foreground">
+                      {selectedIds.size} selecionado(s)
+                    </span>
+                  </div>
 
-              <div className="flex justify-end">
-                <button
-                  onClick={() => setStep("confirm")}
-                  disabled={selectedIds.size === 0}
-                  className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                >
-                  Continuar
-                </button>
-              </div>
+                  <div className="border border-border rounded-lg divide-y divide-border max-h-96 overflow-y-auto">
+                    {appointments.map(apt => {
+                      const isSelected = selectedIds.has(apt.id)
+                      const price = apt.price ? Number(apt.price) : sessionFee
+                      return (
+                        <button
+                          key={apt.id}
+                          onClick={() => toggleAppointment(apt.id)}
+                          className={`w-full text-left px-4 py-3 transition-colors flex items-center gap-3 ${
+                            isSelected ? "bg-primary/5" : "hover:bg-muted/50"
+                          }`}
+                        >
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                            isSelected ? "bg-primary border-primary text-primary-foreground" : "border-border"
+                          }`}>
+                            {isSelected && <CheckIcon className="w-3.5 h-3.5" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{formatDate(apt.scheduledAt)}</span>
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                {apt.type === "REUNIAO" ? apt.title || "Reunião" : "Sessão"}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {STATUS_LABELS[apt.status] || apt.status}
+                              </span>
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {apt.professionalProfile.user.name}
+                            </div>
+                          </div>
+                          <span className="text-sm font-medium">{formatCurrencyBRL(price)}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
             </>
           )}
+
+          {mode === "manual" && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Valor</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={manualAmount}
+                    onChange={e => setManualAmount(e.target.value)}
+                    placeholder="0,00"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Descrição <span className="text-muted-foreground font-normal">(opcional)</span></label>
+                <input
+                  type="text"
+                  value={manualDescription}
+                  onChange={e => setManualDescription(e.target.value)}
+                  placeholder="Ex: Sessão extra, Avaliação, Relatório..."
+                  maxLength={200}
+                  className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-1">Mês referência</label>
+                  <select
+                    value={refMonth}
+                    onChange={e => setRefMonth(Number(e.target.value))}
+                    className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm"
+                  >
+                    {MONTH_LABELS.slice(1).map((m, i) => (
+                      <option key={i + 1} value={i + 1}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="w-24">
+                  <label className="block text-sm font-medium mb-1">Ano</label>
+                  <input
+                    type="number"
+                    value={refYear}
+                    onChange={e => setRefYear(Number(e.target.value))}
+                    className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-sm font-medium">
+              Total: {formatCurrencyBRL(effectiveTotal)}
+            </span>
+            <button
+              onClick={() => setStep("confirm")}
+              disabled={!canContinue}
+              className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              Continuar
+            </button>
+          </div>
         </div>
       )}
 
@@ -319,29 +430,40 @@ export default function NovaFaturaPage() {
               <span className="text-muted-foreground">Paciente</span>
               <span className="font-medium">{selectedPatient?.name}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Profissional</span>
-              <span className="font-medium">
-                {selectedAppointments[0]?.professionalProfile.user.name}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Agendamentos</span>
-              <span className="font-medium">{selectedIds.size}</span>
-            </div>
-            <hr className="border-border" />
-            {selectedAppointments.map(apt => (
-              <div key={apt.id} className="flex justify-between text-sm">
-                <span>
-                  {formatDate(apt.scheduledAt)} — {apt.type === "REUNIAO" ? apt.title || "Reunião" : "Sessão"}
+            {mode === "appointments" && selectedAppointments[0] && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Profissional</span>
+                <span className="font-medium">
+                  {selectedAppointments[0].professionalProfile.user.name}
                 </span>
-                <span>{formatCurrencyBRL(apt.price ? Number(apt.price) : sessionFee)}</span>
               </div>
-            ))}
+            )}
+            {mode === "manual" && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Referência</span>
+                <span className="font-medium">{MONTH_LABELS[refMonth]}/{refYear}</span>
+              </div>
+            )}
+            <hr className="border-border" />
+            {mode === "appointments" ? (
+              selectedAppointments.map(apt => (
+                <div key={apt.id} className="flex justify-between text-sm">
+                  <span>
+                    {formatDate(apt.scheduledAt)} — {apt.type === "REUNIAO" ? apt.title || "Reunião" : "Sessão"}
+                  </span>
+                  <span>{formatCurrencyBRL(apt.price ? Number(apt.price) : sessionFee)}</span>
+                </div>
+              ))
+            ) : (
+              <div className="flex justify-between text-sm">
+                <span>{manualDescription || "Valor avulso"}</span>
+                <span className="tabular-nums">{formatCurrencyBRL(parsedManualAmount)}</span>
+              </div>
+            )}
             <hr className="border-border" />
             <div className="flex justify-between font-semibold">
               <span>Total</span>
-              <span>{formatCurrencyBRL(totalAmount)}</span>
+              <span>{formatCurrencyBRL(effectiveTotal)}</span>
             </div>
           </div>
 
@@ -357,7 +479,7 @@ export default function NovaFaturaPage() {
 
           <div className="flex gap-3 justify-end">
             <button
-              onClick={() => setStep("appointments")}
+              onClick={() => setStep("value")}
               className="px-4 py-2 border border-input bg-background rounded-lg text-sm hover:bg-muted transition-colors"
             >
               Voltar
