@@ -106,11 +106,15 @@ export function CreateInvoiceSheet({ isOpen, onClose, onCreated, defaultAmount, 
       .finally(() => setSearchingPatients(false))
   }, [])
 
+  const didAutoSearch = useRef(false)
   useEffect(() => {
-    if (isOpen && defaultSearch && step === "patient" && !selectedPatient) {
+    if (!isOpen) { didAutoSearch.current = false; return }
+    if (didAutoSearch.current) return
+    if (defaultSearch && step === "patient" && !selectedPatient) {
+      didAutoSearch.current = true
       searchPatients(defaultSearch)
     }
-  }, [isOpen, defaultSearch]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, defaultSearch, step, selectedPatient, searchPatients])
 
   function handlePatientSearchChange(value: string) {
     setPatientSearch(value)
