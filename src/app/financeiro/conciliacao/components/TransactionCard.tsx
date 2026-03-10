@@ -29,6 +29,7 @@ interface TransactionCardProps {
   selectedIds: string[]
   addedInvoices: CreatedInvoiceInfo[]
   onToggleInvoice: (invoiceId: string) => void
+  onUpdateAmount: (invoiceId: string, amount: number) => void
   onSelectGroup: (invoiceIds: string[]) => void
   onConfirm: () => void
   isConfirming: boolean
@@ -40,6 +41,7 @@ export function TransactionCard({
   selectedIds,
   addedInvoices,
   onToggleInvoice,
+  onUpdateAmount,
   onSelectGroup,
   onConfirm,
   isConfirming,
@@ -66,6 +68,11 @@ export function TransactionCard({
               {formatCurrencyBRL(tx.amount)}
             </span>
             <span className="text-sm text-muted-foreground">{formatDateBR(tx.date)}</span>
+            {tx.allocatedAmount > 0 && tx.remainingAmount > 0.01 && (
+              <span className="text-xs text-orange-600 dark:text-orange-400 tabular-nums">
+                {formatCurrencyBRL(tx.allocatedAmount)} / {formatCurrencyBRL(tx.amount)} alocado
+              </span>
+            )}
             {!expanded && selectedIds.length > 0 && (
               <span className="text-xs text-primary font-medium">{selectedIds.length} fatura(s)</span>
             )}
@@ -107,6 +114,30 @@ export function TransactionCard({
           </div>
         )}
       </div>
+
+      {expanded && tx.links.length > 0 && (
+        <div className="divide-y divide-border">
+          {tx.links.map(link => (
+            <div key={link.linkId} className="px-4 py-2 bg-green-50/50 dark:bg-green-950/10 border-b border-border">
+              <div className="flex items-center gap-2 text-sm">
+                <CheckIcon className="w-3.5 h-3.5 text-green-600" />
+                <span className="font-medium">{link.patientName}</span>
+                <span className="text-xs text-muted-foreground">
+                  {getMonthName(link.referenceMonth)}/{link.referenceYear}
+                </span>
+                <span className="text-xs font-medium tabular-nums">
+                  {formatCurrencyBRL(link.amount)}
+                </span>
+                {link.amount < link.totalAmount && (
+                  <span className="text-xs text-orange-600">
+                    de {formatCurrencyBRL(link.totalAmount)}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {expanded && <div className="divide-y divide-border">
         {groups.map((g, gi) => {
@@ -163,6 +194,11 @@ export function TransactionCard({
                     <span className="text-xs font-medium tabular-nums">
                       {formatCurrencyBRL(c.totalAmount)}
                     </span>
+                    {c.remainingAmount !== undefined && c.remainingAmount < c.totalAmount && (
+                      <span className="text-xs text-orange-600 tabular-nums">
+                        (falta {formatCurrencyBRL(c.remainingAmount)})
+                      </span>
+                    )}
                   </div>
                   <ParentNames motherName={c.motherName} fatherName={c.fatherName} payerName={tx.payerName} />
                   {c.matchedField === "patientSurname" && (
