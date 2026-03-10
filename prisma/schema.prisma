@@ -92,6 +92,7 @@ enum FeatureAccess {
 enum InvoiceStatus {
   PENDENTE
   ENVIADO
+  PARCIAL
   PAGO
   CANCELADO
 }
@@ -168,10 +169,10 @@ model Clinic {
   updatedAt DateTime @updatedAt
 
   // Clinic settings
-  defaultSessionDuration Int    @default(50) // in minutes
-  minAdvanceBooking      Int    @default(2)  // minimum hours in advance for booking
-  reminderHours          Int[]  @default([24, 2]) // hours before appointment to send reminders
-  invoiceDueDay          Int     @default(15) // Day of the month for invoice due date (1-28)
+  defaultSessionDuration Int         @default(50) // in minutes
+  minAdvanceBooking      Int         @default(2) // minimum hours in advance for booking
+  reminderHours          Int[]       @default([24, 2]) // hours before appointment to send reminders
+  invoiceDueDay          Int         @default(15) // Day of the month for invoice due date (1-28)
   invoiceMessageTemplate String? // Default invoice message template with {{variables}}
   paymentInfo            String? // Free-text payment info (PIX, bank details) shown on invoice PDFs
   billingMode            BillingMode @default(PER_SESSION)
@@ -179,11 +180,11 @@ model Clinic {
 
   // SaaS subscription fields
   planId               String?
-  plan                 Plan?    @relation(fields: [planId], references: [id])
-  subscriptionStatus   String   @default("trialing")
+  plan                 Plan?     @relation(fields: [planId], references: [id])
+  subscriptionStatus   String    @default("trialing")
   trialEndsAt          DateTime?
-  stripeCustomerId     String?  @unique
-  stripeSubscriptionId String?  @unique
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
 
   // Relations
   users                  User[]
@@ -192,16 +193,17 @@ model Clinic {
   appointmentRecurrences AppointmentRecurrence[]
   notifications          Notification[]
   auditLogs              AuditLog[]
-  notificationTemplates   NotificationTemplate[]
-  therapyGroups           TherapyGroup[]
-  groupMemberships        GroupMembership[]
-  availabilityExceptions  AvailabilityException[]
-  patientPhones           PatientPhone[]
-  userPermissions         UserPermission[]
+  notificationTemplates  NotificationTemplate[]
+  therapyGroups          TherapyGroup[]
+  groupMemberships       GroupMembership[]
+  availabilityExceptions AvailabilityException[]
+  patientPhones          PatientPhone[]
+  userPermissions        UserPermission[]
   invoices               Invoice[]
   sessionCredits         SessionCredit[]
   bankIntegrations       BankIntegration[]
   bankTransactions       BankTransaction[]
+  reconciliationLinks    ReconciliationLink[]
 
   @@index([slug])
   @@index([isActive])
@@ -225,7 +227,7 @@ model User {
   professionalProfile ProfessionalProfile?
   auditLogs           AuditLog[]
   permissions         UserPermission[]
-  reconciledTransactions BankTransaction[]
+  reconciliationLinks ReconciliationLink[]
 
   @@unique([clinicId, email])
   @@index([clinicId])
@@ -251,18 +253,18 @@ model ProfessionalProfile {
   updatedAt DateTime @updatedAt
 
   // Relations
-  user                       User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  availabilityRules          AvailabilityRule[]
-  availabilityExceptions     AvailabilityException[]
-  appointments               Appointment[]
-  appointmentRecurrences     AppointmentRecurrence[]
-  therapyGroups              TherapyGroup[]
-  referencePatients          Patient[]                  @relation("ReferenceProfessional")
-  appointmentParticipations  AppointmentProfessional[]  @relation("AppointmentParticipations")
-  groupParticipations        TherapyGroupProfessional[] @relation("GroupParticipations")
-  recurrenceParticipations   RecurrenceProfessional[]   @relation("RecurrenceParticipations")
-  invoices               Invoice[]
-  sessionCredits         SessionCredit[]
+  user                      User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availabilityRules         AvailabilityRule[]
+  availabilityExceptions    AvailabilityException[]
+  appointments              Appointment[]
+  appointmentRecurrences    AppointmentRecurrence[]
+  therapyGroups             TherapyGroup[]
+  referencePatients         Patient[]                  @relation("ReferenceProfessional")
+  appointmentParticipations AppointmentProfessional[]  @relation("AppointmentParticipations")
+  groupParticipations       TherapyGroupProfessional[] @relation("GroupParticipations")
+  recurrenceParticipations  RecurrenceProfessional[]   @relation("RecurrenceParticipations")
+  invoices                  Invoice[]
+  sessionCredits            SessionCredit[]
 
   @@index([userId])
 }
@@ -290,8 +292,8 @@ model AvailabilityRule {
 /// Exceptions to regular availability (vacations, specific unavailable dates, or clinic-wide holidays)
 model AvailabilityException {
   id                    String    @id @default(cuid())
-  professionalProfileId String?   // null for clinic-wide exceptions
-  clinicId              String?   // set for clinic-wide exceptions (when professionalProfileId is null)
+  professionalProfileId String? // null for clinic-wide exceptions
+  clinicId              String? // set for clinic-wide exceptions (when professionalProfileId is null)
   date                  DateTime? @db.Date // null for recurring blocks
   dayOfWeek             Int? // 0-6 for recurring blocks (null for specific date)
   isRecurring           Boolean   @default(false)
@@ -317,26 +319,26 @@ model AvailabilityException {
 
 /// Patient information
 model Patient {
-  id          String    @id @default(cuid())
-  clinicId    String
-  name        String
-  email       String?
-  phone       String
-  birthDate   DateTime? @db.Date
-  cpf         String?   // Brazilian tax ID
-  fatherName  String?   // Father's name
-  motherName  String?   // Mother's name
-  notes       String?   // Administrative observations
-  schoolName  String?   // School name (for children)
-  firstAppointmentDate DateTime? @db.Date // Date of first appointment (manual)
-  lastFeeAdjustmentDate DateTime? @db.Date // Date of last session fee adjustment
-  sessionFee  Decimal?  @db.Decimal(10, 2) // Session fee in BRL
-  showAppointmentDaysOnInvoice Boolean @default(false)
-  invoiceDueDay                Int?    // Day of the month for due date (overrides clinic default)
+  id                           String    @id @default(cuid())
+  clinicId                     String
+  name                         String
+  email                        String?
+  phone                        String
+  birthDate                    DateTime? @db.Date
+  cpf                          String? // Brazilian tax ID
+  fatherName                   String? // Father's name
+  motherName                   String? // Mother's name
+  notes                        String? // Administrative observations
+  schoolName                   String? // School name (for children)
+  firstAppointmentDate         DateTime? @db.Date // Date of first appointment (manual)
+  lastFeeAdjustmentDate        DateTime? @db.Date // Date of last session fee adjustment
+  sessionFee                   Decimal?  @db.Decimal(10, 2) // Session fee in BRL
+  showAppointmentDaysOnInvoice Boolean   @default(false)
+  invoiceDueDay                Int? // Day of the month for due date (overrides clinic default)
   invoiceMessageTemplate       String? // Overrides clinic default for invoice text
-  therapeuticProject String? // Therapeutic project (free text)
-  isActive    Boolean   @default(true)
-  lastVisitAt DateTime?
+  therapeuticProject           String? // Therapeutic project (free text)
+  isActive                     Boolean   @default(true)
+  lastVisitAt                  DateTime?
 
   // Reference professional (primary responsible)
   referenceProfessionalId String?
@@ -375,8 +377,8 @@ model PatientPhone {
   id        String   @id @default(cuid())
   patientId String
   clinicId  String
-  phone     String   // Normalized digits only, same format as Patient.phone
-  label     String   // e.g., "Mãe", "Trabalho", "Esposo"
+  phone     String // Normalized digits only, same format as Patient.phone
+  label     String // e.g., "Mãe", "Trabalho", "Esposo"
   notify    Boolean  @default(true) // Whether this phone receives WhatsApp notifications
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -392,26 +394,26 @@ model PatientPhone {
 
 /// Individual appointment or calendar entry
 model Appointment {
-  id                    String              @id @default(cuid())
+  id                    String               @id @default(cuid())
   clinicId              String
   professionalProfileId String
   patientId             String?
   recurrenceId          String?
-  groupId               String?             // Links appointments in same group session
-  type                  AppointmentType     @default(CONSULTA)
-  title                 String?             // Display name for non-patient entries
-  blocksTime            Boolean             @default(true) // Denormalized for efficient conflict queries
+  groupId               String? // Links appointments in same group session
+  type                  AppointmentType      @default(CONSULTA)
+  title                 String? // Display name for non-patient entries
+  blocksTime            Boolean              @default(true) // Denormalized for efficient conflict queries
   scheduledAt           DateTime
   endAt                 DateTime
-  status                AppointmentStatus   @default(AGENDADO)
+  status                AppointmentStatus    @default(AGENDADO)
   modality              AppointmentModality?
   meetingUrl            String? // For online appointments
   notes                 String?
-  price                 Decimal?            @db.Decimal(10, 2) // Session price
+  price                 Decimal?             @db.Decimal(10, 2) // Session price
   cancellationReason    String?
   cancelledAt           DateTime?
   confirmedAt           DateTime?
-  creditGenerated       Boolean             @default(false)
+  creditGenerated       Boolean              @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -424,8 +426,8 @@ model Appointment {
   group                   TherapyGroup?             @relation(fields: [groupId], references: [id], onDelete: SetNull)
   notifications           Notification[]
   additionalProfessionals AppointmentProfessional[]
-  invoiceItems           InvoiceItem[]
-  sessionCredits         SessionCredit[]
+  invoiceItems            InvoiceItem[]
+  sessionCredits          SessionCredit[]
 
   @@index([clinicId])
   @@index([professionalProfileId])
@@ -522,7 +524,7 @@ model Notification {
 
 /// Audit log for tracking important actions
 model AuditLog {
-  id         String   @id @default(cuid())
+  id         String  @id @default(cuid())
   clinicId   String
   userId     String?
   action     String
@@ -549,14 +551,14 @@ model AuditLog {
 
 /// Configurable notification templates per clinic
 model NotificationTemplate {
-  id        String              @id @default(cuid())
-  clinicId  String
-  type      NotificationType
-  channel   NotificationChannel
-  name      String              // Display name for the template
-  subject   String?             // Email subject (only for EMAIL channel)
-  content   String              // Template content with {{variables}}
-  isActive  Boolean             @default(true)
+  id       String              @id @default(cuid())
+  clinicId String
+  type     NotificationType
+  channel  NotificationChannel
+  name     String // Display name for the template
+  subject  String? // Email subject (only for EMAIL channel)
+  content  String // Template content with {{variables}}
+  isActive Boolean             @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -574,11 +576,11 @@ model NotificationTemplate {
 
 /// Per-user feature permission overrides (if no row exists, role default applies)
 model UserPermission {
-  id        String        @id @default(cuid())
-  userId    String
-  clinicId  String
-  feature   String        // e.g. "agenda_own", "patients", "users"
-  access    FeatureAccess
+  id       String        @id @default(cuid())
+  userId   String
+  clinicId String
+  feature  String // e.g. "agenda_own", "patients", "users"
+  access   FeatureAccess
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
@@ -597,9 +599,9 @@ model TherapyGroup {
   id                    String         @id @default(cuid())
   clinicId              String
   professionalProfileId String
-  name                  String         // e.g., "Thursday Anxiety Group"
-  dayOfWeek             Int            // 0-6 (Sunday-Saturday)
-  startTime             String         // e.g., "14:00"
+  name                  String // e.g., "Thursday Anxiety Group"
+  dayOfWeek             Int // 0-6 (Sunday-Saturday)
+  startTime             String // e.g., "14:00"
   duration              Int            @default(90) // in minutes
   recurrenceType        RecurrenceType @default(WEEKLY)
   isActive              Boolean        @default(true)
@@ -608,8 +610,8 @@ model TherapyGroup {
   updatedAt DateTime @updatedAt
 
   // Relations
-  clinic                  Clinic                      @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  professionalProfile     ProfessionalProfile         @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  clinic                  Clinic                     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile     ProfessionalProfile        @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
   memberships             GroupMembership[]
   appointments            Appointment[]
   additionalProfessionals TherapyGroupProfessional[]
@@ -622,7 +624,7 @@ model TherapyGroup {
 /// Tracks patient membership in a therapy group with temporal boundaries
 model GroupMembership {
   id        String    @id @default(cuid())
-  clinicId  String    // Denormalized for tenant isolation queries
+  clinicId  String // Denormalized for tenant isolation queries
   groupId   String
   patientId String
   joinDate  DateTime  @db.Date
@@ -718,12 +720,12 @@ model Invoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
-  patient             Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  clinic              Clinic               @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile  @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  patient             Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
   items               InvoiceItem[]
   consumedCredits     SessionCredit[]
-  bankTransactions    BankTransaction[]
+  reconciliationLinks ReconciliationLink[]
 
   @@index([clinicId])
   @@index([professionalProfileId])
@@ -789,7 +791,7 @@ model BankIntegration {
   clinicId      String
   provider      BankProvider @default(INTER)
   clientId      String
-  clientSecret  String       // Encrypted
+  clientSecret  String // Encrypted
   certificate   String       @db.Text // PEM content, encrypted
   privateKey    String       @db.Text // PEM content, encrypted
   accountNumber String?
@@ -806,28 +808,43 @@ model BankIntegration {
 
 /// Bank transaction fetched from bank API
 model BankTransaction {
-  id                  String    @id @default(cuid())
-  clinicId            String
-  bankIntegrationId   String
-  externalId          String    // Bank's unique transaction identifier
-  date                DateTime  @db.Date
-  amount              Decimal   @db.Decimal(10, 2)
-  description         String
-  payerName           String?
-  type                String    // CREDIT or DEBIT
-  reconciledInvoiceId String?
-  reconciledAt        DateTime?
-  reconciledByUserId  String?
-  createdAt           DateTime  @default(now())
+  id                String   @id @default(cuid())
+  clinicId          String
+  bankIntegrationId String
+  externalId        String // Bank's unique transaction identifier
+  date              DateTime @db.Date
+  amount            Decimal  @db.Decimal(10, 2)
+  description       String
+  payerName         String?
+  type              String // CREDIT or DEBIT
+  createdAt         DateTime @default(now())
 
-  clinic          Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  bankIntegration BankIntegration  @relation(fields: [bankIntegrationId], references: [id], onDelete: Cascade)
-  reconciledInvoice Invoice?       @relation(fields: [reconciledInvoiceId], references: [id], onDelete: SetNull)
-  reconciledByUser  User?          @relation(fields: [reconciledByUserId], references: [id], onDelete: SetNull)
+  clinic              Clinic               @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  bankIntegration     BankIntegration      @relation(fields: [bankIntegrationId], references: [id], onDelete: Cascade)
+  reconciliationLinks ReconciliationLink[]
 
   @@unique([clinicId, externalId])
   @@index([clinicId])
   @@index([bankIntegrationId])
-  @@index([reconciledInvoiceId])
   @@index([clinicId, date])
+}
+
+/// Junction table linking bank transactions to invoices (many-to-many with amounts)
+model ReconciliationLink {
+  id                 String   @id @default(cuid())
+  clinicId           String
+  transactionId      String
+  invoiceId          String
+  amount             Decimal  @db.Decimal(10, 2)
+  reconciledAt       DateTime @default(now())
+  reconciledByUserId String?
+
+  clinic           Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  transaction      BankTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  invoice          Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  reconciledByUser User?           @relation(fields: [reconciledByUserId], references: [id], onDelete: SetNull)
+
+  @@index([transactionId])
+  @@index([invoiceId])
+  @@index([clinicId])
 }
