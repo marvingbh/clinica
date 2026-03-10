@@ -49,8 +49,8 @@ export default function ConciliacaoPage() {
     }
   }, [])
 
-  const fetchTransactions = useCallback(async () => {
-    setLoadingTransactions(true)
+  const fetchTransactions = useCallback(async (silent = false) => {
+    if (!silent) setLoadingTransactions(true)
     try {
       const params = showReconciled ? "?showReconciled=true" : ""
       const res = await fetch(`/api/financeiro/conciliacao/transactions${params}`)
@@ -187,7 +187,7 @@ export default function ConciliacaoPage() {
           ) : (
             <TransactionList
               transactions={transactions}
-              onReconciled={fetchTransactions}
+              onReconciled={() => fetchTransactions(true)}
               showReconciled={showReconciled}
               onToggleReconciled={() => setShowReconciled(v => !v)}
             />
