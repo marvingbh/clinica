@@ -18,7 +18,7 @@ export const GET = withFeatureAuth(
       clinicId: user.clinicId,
       OR: [
         { status: { in: ["PENDENTE", "ENVIADO", "PARCIAL"] } },
-        { status: "PAGO", bankTransactions: { none: {} } },
+        { status: "PAGO", reconciliationLinks: { none: {} } },
       ],
       patient: {
         OR: [
