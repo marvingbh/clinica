@@ -13,7 +13,7 @@ import {
 import { formatCurrencyBRL, formatDateBR, getMonthName } from "@/lib/financeiro/format"
 import { InvoiceSearch } from "./InvoiceSearch"
 import type { Transaction, CreatedInvoiceInfo } from "./types"
-import { CONFIDENCE_CONFIG, hasWordOverlap } from "./types"
+import { hasWordOverlap } from "./types"
 import {
   Checkbox,
   StatusBadge,
@@ -142,7 +142,6 @@ export function TransactionCard({
 
         {tx.candidates.map(c => {
           const isSelected = selectedIds.includes(c.invoiceId)
-          const conf = CONFIDENCE_CONFIG[c.confidence]
 
           return (
             <button
@@ -181,10 +180,7 @@ export function TransactionCard({
                     </div>
                   )}
                 </div>
-                <div className={`shrink-0 flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border ${conf.bg}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${conf.dot}`} />
-                  {conf.label}
-                </div>
+                <ConfidenceBadge confidence={c.confidence} />
               </div>
             </button>
           )
