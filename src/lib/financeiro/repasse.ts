@@ -28,7 +28,7 @@ export interface RepasseSummary {
 }
 
 export const REPASSE_BILLABLE_INVOICE_STATUSES = [
-  "PENDENTE", "ENVIADO", "PAGO",
+  "PENDENTE", "ENVIADO", "PARCIAL", "PAGO",
 ] as const
 
 const round2 = (n: number) => Math.round(n * 100) / 100

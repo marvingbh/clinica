@@ -26,9 +26,9 @@ export const POST = withFeatureAuth(
       return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 })
     }
 
-    if (invoice.status !== "PENDENTE" && invoice.status !== "ENVIADO") {
+    if (invoice.status !== "PENDENTE" && invoice.status !== "ENVIADO" && invoice.status !== "PARCIAL") {
       return NextResponse.json(
-        { error: "Apenas faturas pendentes ou enviadas podem ser recalculadas" },
+        { error: "Apenas faturas pendentes, enviadas ou parciais podem ser recalculadas" },
         { status: 400 }
       )
     }

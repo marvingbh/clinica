@@ -117,6 +117,7 @@ const MONTH_NAMES = [
 
 const STATUS_LABELS: Record<string, string> = {
   PAGO: "Pago",
+  PARCIAL: "Parcial",
   ENVIADO: "Enviado",
   PENDENTE: "Pendente",
   CANCELADO: "Cancelado",

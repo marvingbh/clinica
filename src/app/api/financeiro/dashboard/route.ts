@@ -38,6 +38,7 @@ export const GET = withFeatureAuth(
     let totalFaturado = 0
     let totalPendente = 0
     let totalEnviado = 0
+    let totalParcial = 0
     let totalPago = 0
     let totalSessions = 0
     let totalCredits = 0
@@ -45,19 +46,20 @@ export const GET = withFeatureAuth(
     let invoiceCount = 0
     let pendingCount = 0
     let enviadoCount = 0
+    let parcialCount = 0
     let paidCount = 0
 
     // By month
     const byMonth: Record<number, {
-      faturado: number; pendente: number; enviado: number; pago: number
+      faturado: number; pendente: number; enviado: number; parcial: number; pago: number
       sessions: number; credits: number; extras: number
-      invoiceCount: number; pendingCount: number; enviadoCount: number; paidCount: number
+      invoiceCount: number; pendingCount: number; enviadoCount: number; parcialCount: number; paidCount: number
     }> = {}
 
     // By professional
     const byProfessional: Record<string, {
       name: string
-      faturado: number; pendente: number; enviado: number; pago: number
+      faturado: number; pendente: number; enviado: number; parcial: number; pago: number
       sessions: number; invoiceCount: number; patientIds: Set<string>
     }> = {}
 
@@ -65,6 +67,7 @@ export const GET = withFeatureAuth(
       const amount = Number(inv.totalAmount)
       const isPendente = inv.status === "PENDENTE"
       const isEnviado = inv.status === "ENVIADO"
+      const isParcial = inv.status === "PARCIAL"
       const isPago = inv.status === "PAGO"
 
       totalFaturado += amount
@@ -74,12 +77,13 @@ export const GET = withFeatureAuth(
       invoiceCount++
       if (isPendente) { totalPendente += amount; pendingCount++ }
       if (isEnviado) { totalEnviado += amount; enviadoCount++ }
+      if (isParcial) { totalParcial += amount; parcialCount++ }
       if (isPago) { totalPago += amount; paidCount++ }
 
       // By month
       const m = inv.referenceMonth
       if (!byMonth[m]) {
-        byMonth[m] = { faturado: 0, pendente: 0, enviado: 0, pago: 0, sessions: 0, credits: 0, extras: 0, invoiceCount: 0, pendingCount: 0, enviadoCount: 0, paidCount: 0 }
+        byMonth[m] = { faturado: 0, pendente: 0, enviado: 0, parcial: 0, pago: 0, sessions: 0, credits: 0, extras: 0, invoiceCount: 0, pendingCount: 0, enviadoCount: 0, parcialCount: 0, paidCount: 0 }
       }
       byMonth[m].faturado += amount
       byMonth[m].sessions += inv.totalSessions
@@ -88,6 +92,7 @@ export const GET = withFeatureAuth(
       byMonth[m].invoiceCount++
       if (isPendente) { byMonth[m].pendente += amount; byMonth[m].pendingCount++ }
       if (isEnviado) { byMonth[m].enviado += amount; byMonth[m].enviadoCount++ }
+      if (isParcial) { byMonth[m].parcial += amount; byMonth[m].parcialCount++ }
       if (isPago) { byMonth[m].pago += amount; byMonth[m].paidCount++ }
 
       // By professional
@@ -95,7 +100,7 @@ export const GET = withFeatureAuth(
       if (!byProfessional[profId]) {
         byProfessional[profId] = {
           name: inv.professionalProfile.user.name,
-          faturado: 0, pendente: 0, enviado: 0, pago: 0,
+          faturado: 0, pendente: 0, enviado: 0, parcial: 0, pago: 0,
           sessions: 0, invoiceCount: 0, patientIds: new Set(),
         }
       }
@@ -105,6 +110,7 @@ export const GET = withFeatureAuth(
       byProfessional[profId].patientIds.add(inv.patientId)
       if (isPendente) byProfessional[profId].pendente += amount
       if (isEnviado) byProfessional[profId].enviado += amount
+      if (isParcial) byProfessional[profId].parcial += amount
       if (isPago) byProfessional[profId].pago += amount
     }
 
@@ -125,6 +131,7 @@ export const GET = withFeatureAuth(
       faturado: p.faturado,
       pendente: p.pendente,
       enviado: p.enviado,
+      parcial: p.parcial,
       pago: p.pago,
       sessions: p.sessions,
       invoiceCount: p.invoiceCount,
@@ -137,6 +144,7 @@ export const GET = withFeatureAuth(
       totalFaturado,
       totalPendente,
       totalEnviado,
+      totalParcial,
       totalPago,
       totalSessions,
       totalCredits,
@@ -144,6 +152,7 @@ export const GET = withFeatureAuth(
       invoiceCount,
       pendingCount,
       enviadoCount,
+      parcialCount,
       paidCount,
       availableCredits,
       byMonth,
