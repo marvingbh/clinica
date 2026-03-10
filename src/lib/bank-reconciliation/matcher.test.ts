@@ -20,6 +20,7 @@ const makeInvoice = (overrides: Partial<InvoiceForMatching> = {}): InvoiceForMat
   motherName: "Maria Silva",
   fatherName: "Carlos Silva",
   totalAmount: 500,
+  remainingAmount: 500,
   referenceMonth: 3,
   referenceYear: 2026,
   status: "PENDENTE",
@@ -188,7 +189,7 @@ describe("matchTransactions", () => {
     expect(results[0].candidates[1].invoice.id).toBe("inv2") // LOW — no name match
   })
 
-  it("only matches invoices with PENDENTE, ENVIADO or PAGO status", () => {
+  it("only matches invoices with PENDENTE, ENVIADO, PAGO or PARCIAL status", () => {
     const transactions = [makeTransaction()]
     const invoices = [
       makeInvoice({ id: "inv1", status: "CANCELADO" }),
@@ -207,7 +208,7 @@ describe("matchTransactions", () => {
     ]
     const invoices = [
       makeInvoice({ id: "inv1", totalAmount: 500 }),
-      makeInvoice({ id: "inv2", patientId: "p2", totalAmount: 300 }),
+      makeInvoice({ id: "inv2", patientId: "p2", totalAmount: 300, remainingAmount: 300 }),
     ]
     const results = matchTransactions(transactions, invoices)
     expect(results).toHaveLength(2)
@@ -280,6 +281,13 @@ describe("matchTransactions", () => {
     expect(results[0].candidates[0].confidence).toBe("MEDIUM")
   })
 
+  it("matches on remainingAmount for partially paid invoices", () => {
+    const transactions = [makeTransaction({ amount: 200 })]
+    const invoices = [makeInvoice({ totalAmount: 500, remainingAmount: 200 })]
+    const results = matchTransactions(transactions, invoices)
+    expect(results[0].candidates).toHaveLength(1)
+  })
+
   it("returns empty candidates for transaction with no matching invoices", () => {
     const transactions = [makeTransaction({ amount: 777 })]
     const invoices = [makeInvoice({ totalAmount: 500 })]
@@ -295,6 +303,7 @@ const makeInvoiceWithParent = (overrides: Partial<InvoiceWithParent> = {}): Invo
   motherName: "Maria Silva",
   fatherName: "Carlos Silva",
   totalAmount: 250,
+  remainingAmount: 250,
   referenceMonth: 3,
   referenceYear: 2026,
   status: "PENDENTE",
@@ -306,8 +315,8 @@ const makeInvoiceWithParent = (overrides: Partial<InvoiceWithParent> = {}): Invo
 describe("findGroupCandidates", () => {
   it("finds a pair of invoices that sum to the transaction amount with shared parent", () => {
     const invoices = [
-      makeInvoiceWithParent({ id: "inv1", totalAmount: 300 }),
-      makeInvoiceWithParent({ id: "inv2", patientId: "p2", patientName: "Ana Silva", totalAmount: 200 }),
+      makeInvoiceWithParent({ id: "inv1", totalAmount: 300, remainingAmount: 300 }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p2", patientName: "Ana Silva", totalAmount: 200, remainingAmount: 200 }),
     ]
     const groups = findGroupCandidates(500, "Maria Silva", invoices)
     expect(groups).toHaveLength(1)
@@ -317,8 +326,8 @@ describe("findGroupCandidates", () => {
 
   it("returns empty when amounts don't sum", () => {
     const invoices = [
-      makeInvoiceWithParent({ id: "inv1", totalAmount: 300 }),
-      makeInvoiceWithParent({ id: "inv2", patientId: "p2", totalAmount: 300 }),
+      makeInvoiceWithParent({ id: "inv1", totalAmount: 300, remainingAmount: 300 }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p2", totalAmount: 300, remainingAmount: 300 }),
     ]
     const groups = findGroupCandidates(500, "Maria Silva", invoices)
     expect(groups).toHaveLength(0)
@@ -326,8 +335,8 @@ describe("findGroupCandidates", () => {
 
   it("returns empty when no shared parent", () => {
     const invoices = [
-      makeInvoiceWithParent({ id: "inv1", totalAmount: 300, normalizedMother: "ana", normalizedFather: "pedro" }),
-      makeInvoiceWithParent({ id: "inv2", patientId: "p2", totalAmount: 200, normalizedMother: "julia", normalizedFather: "marcos" }),
+      makeInvoiceWithParent({ id: "inv1", totalAmount: 300, remainingAmount: 300, normalizedMother: "ana", normalizedFather: "pedro" }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p2", totalAmount: 200, remainingAmount: 200, normalizedMother: "julia", normalizedFather: "marcos" }),
     ]
     const groups = findGroupCandidates(500, null, invoices)
     expect(groups).toHaveLength(0)
@@ -335,8 +344,8 @@ describe("findGroupCandidates", () => {
 
   it("skips pairs where payer name doesn't overlap with shared parent", () => {
     const invoices = [
-      makeInvoiceWithParent({ id: "inv1", totalAmount: 300 }),
-      makeInvoiceWithParent({ id: "inv2", patientId: "p2", totalAmount: 200 }),
+      makeInvoiceWithParent({ id: "inv1", totalAmount: 300, remainingAmount: 300 }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p2", totalAmount: 200, remainingAmount: 200 }),
     ]
     const groups = findGroupCandidates(500, "Unknown Person", invoices)
     expect(groups).toHaveLength(0)
@@ -344,8 +353,8 @@ describe("findGroupCandidates", () => {
 
   it("works without payer name (no payer filtering)", () => {
     const invoices = [
-      makeInvoiceWithParent({ id: "inv1", totalAmount: 300 }),
-      makeInvoiceWithParent({ id: "inv2", patientId: "p2", totalAmount: 200 }),
+      makeInvoiceWithParent({ id: "inv1", totalAmount: 300, remainingAmount: 300 }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p2", totalAmount: 200, remainingAmount: 200 }),
     ]
     const groups = findGroupCandidates(500, null, invoices)
     expect(groups).toHaveLength(1)

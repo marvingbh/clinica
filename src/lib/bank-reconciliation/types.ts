@@ -13,6 +13,7 @@ export interface InvoiceForMatching {
   motherName: string | null
   fatherName: string | null
   totalAmount: number
+  remainingAmount: number  // totalAmount - sum(linked payments)
   referenceMonth: number
   referenceYear: number
   status: string // PENDENTE or ENVIADO
