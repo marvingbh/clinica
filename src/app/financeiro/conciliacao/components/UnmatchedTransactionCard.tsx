@@ -11,7 +11,7 @@ interface UnmatchedTransactionCardProps {
   tx: Transaction
   selectedIds: string[]
   addedInvoices: CreatedInvoiceInfo[]
-  onToggleInvoice: (invoiceId: string) => void
+  onToggleInvoice: (invoiceId: string, amount?: number) => void
   onUpdateAmount: (invoiceId: string, amount: number) => void
   onConfirm: () => void
   isConfirming: boolean

@@ -69,7 +69,12 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
         return { ...prev, [txId]: next }
       }
       const tx = transactions.find(t => t.id === txId)
-      const defaultAmount = amount ?? tx?.remainingAmount ?? 0
+      const txRemaining = tx?.remainingAmount ?? 0
+      // Look up invoice amount from candidates if not explicitly provided
+      const invoiceAmount = amount
+        ?? tx?.candidates.find(c => c.invoiceId === invoiceId)?.remainingAmount
+        ?? tx?.groupCandidates?.flatMap(g => g.invoices).find(i => i.invoiceId === invoiceId)?.totalAmount
+      const defaultAmount = invoiceAmount ? Math.min(txRemaining, invoiceAmount) : txRemaining
       return { ...prev, [txId]: [...current, { invoiceId, amount: defaultAmount }] }
     })
   }
@@ -253,7 +258,7 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
               tx={tx}
               selectedIds={(selections[tx.id] || []).map(e => e.invoiceId)}
               addedInvoices={addedInvoices[tx.id] || []}
-              onToggleInvoice={(invoiceId) => toggleInvoice(tx.id, invoiceId)}
+              onToggleInvoice={(invoiceId, amount) => toggleInvoice(tx.id, invoiceId, amount)}
               onSelectGroup={(invoiceIds) => selectGroup(tx.id, invoiceIds)}
               onConfirm={() => handleConfirmSingle(tx.id)}
               isConfirming={reconcilingTxId === tx.id}
@@ -273,7 +278,7 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
               tx={tx}
               selectedIds={(selections[tx.id] || []).map(e => e.invoiceId)}
               addedInvoices={addedInvoices[tx.id] || []}
-              onToggleInvoice={(invoiceId) => toggleInvoice(tx.id, invoiceId)}
+              onToggleInvoice={(invoiceId, amount) => toggleInvoice(tx.id, invoiceId, amount)}
               onConfirm={() => handleConfirmSingle(tx.id)}
               isConfirming={reconcilingTxId === tx.id}
               onCreateInvoice={() => setCreateSheetTxId(tx.id)}

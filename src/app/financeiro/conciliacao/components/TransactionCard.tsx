@@ -28,7 +28,7 @@ interface TransactionCardProps {
   tx: Transaction
   selectedIds: string[]
   addedInvoices: CreatedInvoiceInfo[]
-  onToggleInvoice: (invoiceId: string) => void
+  onToggleInvoice: (invoiceId: string, amount?: number) => void
   onUpdateAmount: (invoiceId: string, amount: number) => void
   onSelectGroup: (invoiceIds: string[]) => void
   onConfirm: () => void
@@ -177,7 +177,7 @@ export function TransactionCard({
           return (
             <button
               key={c.invoiceId}
-              onClick={() => onToggleInvoice(c.invoiceId)}
+              onClick={() => onToggleInvoice(c.invoiceId, c.remainingAmount ?? c.totalAmount)}
               className={`w-full text-left px-4 py-3 transition-colors ${
                 isSelected ? "bg-primary/8 ring-2 ring-inset ring-primary/30" : "hover:bg-muted/40"
               }`}

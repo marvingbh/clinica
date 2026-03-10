@@ -20,7 +20,7 @@ interface SearchResult {
 interface InvoiceSearchProps {
   selectedInvoiceId?: string | null
   selectedIds?: string[]
-  onSelect: (invoiceId: string) => void
+  onSelect: (invoiceId: string, amount?: number) => void
 }
 
 export function InvoiceSearch({ selectedInvoiceId, selectedIds, onSelect }: InvoiceSearchProps) {
@@ -103,7 +103,7 @@ export function InvoiceSearch({ selectedInvoiceId, selectedIds, onSelect }: Invo
             return (
               <button
                 key={inv.invoiceId}
-                onClick={() => onSelect(inv.invoiceId)}
+                onClick={() => onSelect(inv.invoiceId, inv.remainingAmount ?? inv.totalAmount)}
                 className={`w-full text-left px-3 py-2 text-sm transition-colors ${
                   isSelected
                     ? "bg-primary/8 ring-2 ring-inset ring-primary/30"
