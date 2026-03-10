@@ -12,10 +12,14 @@ export const GET = withFeatureAuth(
       return NextResponse.json({ error: "patientId é obrigatório" }, { status: 400 })
     }
 
-    // Only show appointments from previous month, current month, and next month
-    const now = new Date()
-    const startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    const endDate = new Date(now.getFullYear(), now.getMonth() + 2, 1)
+    // Center the 3-month window around the given month/year, or now
+    const refMonth = url.searchParams.get("month")
+    const refYear = url.searchParams.get("year")
+    const anchor = refMonth && refYear
+      ? new Date(Number(refYear), Number(refMonth) - 1, 1)
+      : new Date()
+    const startDate = new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1)
+    const endDate = new Date(anchor.getFullYear(), anchor.getMonth() + 2, 1)
 
     const appointments = await prisma.appointment.findMany({
       where: {

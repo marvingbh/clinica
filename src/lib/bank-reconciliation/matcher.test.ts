@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { matchTransactions, normalizeForComparison, nameSimilarity } from "./matcher"
+import { matchTransactions, normalizeForComparison, nameSimilarity, surnameMatches, nameContainedIn } from "./matcher"
 import { TransactionForMatching, InvoiceForMatching } from "./types"
 
 const makeTransaction = (overrides: Partial<TransactionForMatching> = {}): TransactionForMatching => ({
@@ -37,6 +37,11 @@ describe("normalizeForComparison", () => {
     expect(normalizeForComparison(null)).toBe("")
     expect(normalizeForComparison(undefined)).toBe("")
   })
+
+  it("strips parenthetical content like nicknames", () => {
+    expect(normalizeForComparison("Sara Vernaschi da Silva (Letícia)")).toBe("sara vernaschi da silva")
+    expect(normalizeForComparison("João (Juca) Santos")).toBe("joao santos")
+  })
 })
 
 describe("nameSimilarity", () => {
@@ -61,6 +66,57 @@ describe("nameSimilarity", () => {
   it("handles empty strings", () => {
     expect(nameSimilarity("", "Maria")).toBe(0)
     expect(nameSimilarity("Maria", "")).toBe(0)
+  })
+})
+
+describe("surnameMatches", () => {
+  it("returns true when patient surname appears in payer name", () => {
+    expect(surnameMatches("Ana Oliveira", "João Oliveira")).toBe(true)
+  })
+
+  it("is case and accent insensitive", () => {
+    expect(surnameMatches("ANA OLIVEIRA", "joão oliveira")).toBe(true)
+  })
+
+  it("returns false when surname does not appear", () => {
+    expect(surnameMatches("Ana Santos", "João Oliveira")).toBe(false)
+  })
+
+  it("returns false for single-name patients", () => {
+    expect(surnameMatches("Maria", "João")).toBe(false)
+  })
+
+  it("skips short surnames (da, de, dos) and uses second-to-last", () => {
+    // Patient "João Oliveira da" → effectiveSurname = "oliveira"
+    expect(surnameMatches("Ana Oliveira", "João Oliveira da")).toBe(true)
+  })
+
+  it("returns false for empty inputs", () => {
+    expect(surnameMatches("", "João Silva")).toBe(false)
+    expect(surnameMatches("Ana Silva", "")).toBe(false)
+  })
+})
+
+describe("nameContainedIn", () => {
+  it("returns true when short name is fully contained in longer name", () => {
+    expect(nameContainedIn("Diego", "DIEGO CARLOS VERNASCHI DA SILVA")).toBe(true)
+  })
+
+  it("returns true when multi-word name is contained", () => {
+    expect(nameContainedIn("Diego Carlos", "DIEGO CARLOS VERNASCHI DA SILVA")).toBe(true)
+  })
+
+  it("returns false when name is not contained", () => {
+    expect(nameContainedIn("Letícia", "DIEGO CARLOS VERNASCHI DA SILVA")).toBe(false)
+  })
+
+  it("ignores short words (da, de, dos) in the name", () => {
+    // "da" is filtered out (length <= 2), only "silva" checked
+    expect(nameContainedIn("da Silva", "DIEGO CARLOS VERNASCHI DA SILVA")).toBe(true)
+  })
+
+  it("returns false for empty names", () => {
+    expect(nameContainedIn("", "DIEGO CARLOS")).toBe(false)
   })
 })
 
@@ -130,15 +186,16 @@ describe("matchTransactions", () => {
     expect(results[0].candidates[1].invoice.id).toBe("inv2") // LOW — no name match
   })
 
-  it("only matches invoices with PENDENTE or ENVIADO status", () => {
+  it("only matches invoices with PENDENTE, ENVIADO or PAGO status", () => {
     const transactions = [makeTransaction()]
     const invoices = [
-      makeInvoice({ id: "inv1", status: "PAGO" }),
+      makeInvoice({ id: "inv1", status: "CANCELADO" }),
       makeInvoice({ id: "inv2", status: "PENDENTE" }),
+      makeInvoice({ id: "inv3", patientId: "p3", status: "PAGO", totalAmount: 500 }),
     ]
     const results = matchTransactions(transactions, invoices)
-    expect(results[0].candidates).toHaveLength(1)
-    expect(results[0].candidates[0].invoice.id).toBe("inv2")
+    expect(results[0].candidates).toHaveLength(2)
+    expect(results[0].candidates.map((c: { invoice: { id: string } }) => c.invoice.id).sort()).toEqual(["inv2", "inv3"])
   })
 
   it("handles multiple transactions", () => {
@@ -154,6 +211,71 @@ describe("matchTransactions", () => {
     expect(results).toHaveLength(2)
     expect(results[0].candidates[0].invoice.id).toBe("inv1")
     expect(results[1].candidates[0].invoice.id).toBe("inv2")
+  })
+
+  it("gives MEDIUM confidence via surname match when no parent name matches well", () => {
+    // payerName "Roberto Costa Oliveira" won't match mother/father names well,
+    // but patient surname "Oliveira" appears in payer name → surname fallback
+    const transactions = [makeTransaction({ payerName: "Roberto Costa Oliveira" })]
+    const invoices = [makeInvoice({
+      patientName: "Lucas Oliveira",
+      motherName: "Ana Santos",
+      fatherName: "Pedro Souza",
+    })]
+    const results = matchTransactions(transactions, invoices)
+    expect(results[0].candidates[0].confidence).toBe("MEDIUM")
+    expect(results[0].candidates[0].matchedField).toBe("patientSurname")
+  })
+
+  it("gives HIGH confidence when parent AND patient words both match payer", () => {
+    // Father "Diego" matches payer, patient "Vernaschi" uniquely matches payer → combined HIGH
+    const transactions = [makeTransaction({ payerName: "DIEGO CARLOS VERNASCHI DA SILVA" })]
+    const invoices = [makeInvoice({
+      patientName: "Sara Marinho Martins Vernaschi da Silva",
+      motherName: "Letícia",
+      fatherName: "Diego",
+    })]
+    const results = matchTransactions(transactions, invoices)
+    expect(results[0].candidates[0].confidence).toBe("HIGH")
+    expect(results[0].candidates[0].matchedField).toBe("fatherName")
+  })
+
+  it("gives HIGH with parenthetical nicknames stripped", () => {
+    const transactions = [makeTransaction({ payerName: "DIEGO CARLOS VERNASCHI DA SILVA" })]
+    const invoices = [makeInvoice({
+      patientName: "Sara Marinho Martins Vernaschi da Silva (Letícia)",
+      motherName: "Letícia",
+      fatherName: "Diego",
+    })]
+    const results = matchTransactions(transactions, invoices)
+    expect(results[0].candidates[0].confidence).toBe("HIGH")
+    expect(results[0].candidates[0].matchedField).toBe("fatherName")
+  })
+
+  it("gives HIGH when mother name + patient surname both match payer", () => {
+    // Mother "Ana Carolina" → "ana" matches payer, patient "Buzelin" uniquely matches payer
+    const transactions = [makeTransaction({ payerName: "ANA C JORGE BUZELIN" })]
+    const invoices = [makeInvoice({
+      patientName: "Samir Buzelin Dzaferagic (Ana Carolina)",
+      motherName: "Ana Carolina",
+      fatherName: "Kenan",
+    })]
+    const results = matchTransactions(transactions, invoices)
+    expect(results[0].candidates[0].confidence).toBe("HIGH")
+    expect(results[0].candidates[0].matchedField).toBe("motherName")
+  })
+
+  it("does not give HIGH when patient word overlap is same as parent word", () => {
+    // "Silva" appears in both parent and patient — not a unique patient signal
+    const transactions = [makeTransaction({ payerName: "Maria Silva Santos" })]
+    const invoices = [makeInvoice({
+      patientName: "João Silva",
+      motherName: "Maria Silva",
+      fatherName: "Carlos Santos",
+    })]
+    const results = matchTransactions(transactions, invoices)
+    // Should stay MEDIUM from individual scoring, not jump to HIGH
+    expect(results[0].candidates[0].confidence).toBe("MEDIUM")
   })
 
   it("returns empty candidates for transaction with no matching invoices", () => {

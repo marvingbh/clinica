@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { toast } from "sonner"
-import { SaveIcon, EyeIcon, EyeOffIcon, Loader2Icon, UploadIcon, WifiIcon } from "lucide-react"
+import { SaveIcon, EyeIcon, EyeOffIcon, Loader2Icon, UploadIcon, SettingsIcon } from "lucide-react"
 
 interface Integration {
   id: string
@@ -25,7 +25,6 @@ export function IntegrationForm({ existing, onSaved }: IntegrationFormProps) {
   const [accountNumber, setAccountNumber] = useState(existing?.accountNumber || "")
   const [showSecret, setShowSecret] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [testing, setTesting] = useState(false)
   const [isOpen, setIsOpen] = useState(!existing)
 
   const handleFileUpload = (setter: (v: string) => void) => {
@@ -65,144 +64,176 @@ export function IntegrationForm({ existing, onSaved }: IntegrationFormProps) {
     }
   }
 
-  const handleTestAuth = async () => {
-    setTesting(true)
-    try {
-      const res = await fetch("/api/financeiro/conciliacao/test-auth", { method: "POST" })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Falha no teste")
-      toast.success(data.message)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao testar autenticação")
-    } finally {
-      setTesting(false)
-    }
+  // When not configured, show just the form
+  if (!existing) {
+    return (
+      <div className="border border-border rounded-lg p-4">
+        <h3 className="text-sm font-semibold mb-4">Configurar Banco Inter</h3>
+        <IntegrationFields
+          clientId={clientId} setClientId={setClientId}
+          clientSecret={clientSecret} setClientSecret={setClientSecret}
+          showSecret={showSecret} setShowSecret={setShowSecret}
+          certificate={certificate} setCertificate={setCertificate}
+          privateKey={privateKey} setPrivateKey={setPrivateKey}
+          accountNumber={accountNumber} setAccountNumber={setAccountNumber}
+          handleFileUpload={handleFileUpload}
+          existing={existing}
+          saving={saving}
+          onSubmit={handleSubmit}
+        />
+      </div>
+    )
   }
 
+  // When configured, show a compact settings toggle
   return (
-    <div className="border border-border rounded-lg p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold">Integração Banco Inter</h3>
-        <div className="flex items-center gap-2">
-          {existing && !isOpen && (
-            <Button variant="outlined" size="sm" onClick={handleTestAuth} disabled={testing}>
-              {testing ? <Loader2Icon className="w-4 h-4 animate-spin mr-1" /> : <WifiIcon className="w-4 h-4 mr-1" />}
-              Testar Conexão
-            </Button>
-          )}
-          {existing && (
-            <Button variant="text" size="sm" onClick={() => setIsOpen(!isOpen)}>
-              {isOpen ? "Fechar" : "Editar"}
-            </Button>
-          )}
+    <>
+      {isOpen && (
+        <div className="border border-border rounded-lg p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold">Configuração Banco Inter</h3>
+            <button onClick={() => setIsOpen(false)} className="text-xs text-muted-foreground hover:text-foreground">
+              Fechar
+            </button>
+          </div>
+          <IntegrationFields
+            clientId={clientId} setClientId={setClientId}
+            clientSecret={clientSecret} setClientSecret={setClientSecret}
+            showSecret={showSecret} setShowSecret={setShowSecret}
+            certificate={certificate} setCertificate={setCertificate}
+            privateKey={privateKey} setPrivateKey={setPrivateKey}
+            accountNumber={accountNumber} setAccountNumber={setAccountNumber}
+            handleFileUpload={handleFileUpload}
+            existing={existing}
+            saving={saving}
+            onSubmit={handleSubmit}
+          />
+        </div>
+      )}
+      {!isOpen && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <SettingsIcon className="w-3.5 h-3.5" />
+          Configuração
+        </button>
+      )}
+    </>
+  )
+}
+
+/** Extracted form fields to avoid duplication */
+function IntegrationFields({
+  clientId, setClientId,
+  clientSecret, setClientSecret,
+  showSecret, setShowSecret,
+  certificate, setCertificate,
+  privateKey, setPrivateKey,
+  accountNumber, setAccountNumber,
+  handleFileUpload,
+  existing,
+  saving,
+  onSubmit,
+}: {
+  clientId: string; setClientId: (v: string) => void
+  clientSecret: string; setClientSecret: (v: string) => void
+  showSecret: boolean; setShowSecret: (v: boolean) => void
+  certificate: string; setCertificate: (v: string) => void
+  privateKey: string; setPrivateKey: (v: string) => void
+  accountNumber: string; setAccountNumber: (v: string) => void
+  handleFileUpload: (setter: (v: string) => void) => void
+  existing: Integration | null
+  saving: boolean
+  onSubmit: (e: React.FormEvent) => void
+}) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium mb-1">Client ID</label>
+        <input
+          type="text"
+          value={clientId}
+          onChange={e => setClientId(e.target.value)}
+          className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm"
+          required
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Client Secret</label>
+        <div className="relative">
+          <input
+            type={showSecret ? "text" : "password"}
+            value={clientSecret}
+            onChange={e => setClientSecret(e.target.value)}
+            placeholder={existing ? "••••••••" : ""}
+            className="w-full px-3 py-2 pr-10 border border-border rounded-md bg-background text-sm"
+            required={!existing}
+          />
+          <button
+            type="button"
+            onClick={() => setShowSecret(!showSecret)}
+            className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground"
+          >
+            {showSecret ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+          </button>
         </div>
       </div>
-
-      {existing && !isOpen && (
-        <div className="text-sm text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-green-500" />
-            Configurado
-          </span>
-          <span className="ml-3">Client ID: {existing.clientId}</span>
-          {existing.accountNumber && <span className="ml-3">Conta: {existing.accountNumber}</span>}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-sm font-medium">Certificado (.crt / .pem)</label>
+          <button
+            type="button"
+            onClick={() => handleFileUpload(setCertificate)}
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <UploadIcon className="w-3 h-3" />
+            Importar arquivo
+          </button>
         </div>
-      )}
-
-      {isOpen && (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Client ID</label>
-            <input
-              type="text"
-              value={clientId}
-              onChange={e => setClientId(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Client Secret</label>
-            <div className="relative">
-              <input
-                type={showSecret ? "text" : "password"}
-                value={clientSecret}
-                onChange={e => setClientSecret(e.target.value)}
-                placeholder={existing ? "••••••••" : ""}
-                className="w-full px-3 py-2 pr-10 border border-border rounded-md bg-background text-sm"
-                required={!existing}
-              />
-              <button
-                type="button"
-                onClick={() => setShowSecret(!showSecret)}
-                className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground"
-              >
-                {showSecret ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-sm font-medium">Certificado (.crt / .pem)</label>
-              <button
-                type="button"
-                onClick={() => handleFileUpload(setCertificate)}
-                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-              >
-                <UploadIcon className="w-3 h-3" />
-                Importar arquivo
-              </button>
-            </div>
-            <textarea
-              value={certificate}
-              onChange={e => setCertificate(e.target.value)}
-              placeholder={existing ? "Cole ou importe o certificado" : "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"}
-              rows={4}
-              className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm font-mono"
-              required={!existing}
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-sm font-medium">Chave Privada (.key)</label>
-              <button
-                type="button"
-                onClick={() => handleFileUpload(setPrivateKey)}
-                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-              >
-                <UploadIcon className="w-3 h-3" />
-                Importar arquivo
-              </button>
-            </div>
-            <textarea
-              value={privateKey}
-              onChange={e => setPrivateKey(e.target.value)}
-              placeholder={existing ? "Cole ou importe a chave privada" : "-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"}
-              rows={4}
-              className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm font-mono"
-              required={!existing}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Número da Conta (opcional)</label>
-            <input
-              type="text"
-              value={accountNumber}
-              onChange={e => setAccountNumber(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm"
-            />
-          </div>
-
-          <Button type="submit" disabled={saving} size="sm">
-            {saving ? <Loader2Icon className="w-4 h-4 animate-spin mr-1" /> : <SaveIcon className="w-4 h-4 mr-1" />}
-            {existing ? "Atualizar" : "Salvar"}
-          </Button>
-        </form>
-      )}
-    </div>
+        <textarea
+          value={certificate}
+          onChange={e => setCertificate(e.target.value)}
+          placeholder={existing ? "Cole ou importe o certificado" : "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"}
+          rows={4}
+          className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm font-mono"
+          required={!existing}
+        />
+      </div>
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-sm font-medium">Chave Privada (.key)</label>
+          <button
+            type="button"
+            onClick={() => handleFileUpload(setPrivateKey)}
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <UploadIcon className="w-3 h-3" />
+            Importar arquivo
+          </button>
+        </div>
+        <textarea
+          value={privateKey}
+          onChange={e => setPrivateKey(e.target.value)}
+          placeholder={existing ? "Cole ou importe a chave privada" : "-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"}
+          rows={4}
+          className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm font-mono"
+          required={!existing}
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Número da Conta (opcional)</label>
+        <input
+          type="text"
+          value={accountNumber}
+          onChange={e => setAccountNumber(e.target.value)}
+          className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm"
+        />
+      </div>
+      <Button type="submit" disabled={saving} size="sm">
+        {saving ? <Loader2Icon className="w-4 h-4 animate-spin mr-1" /> : <SaveIcon className="w-4 h-4 mr-1" />}
+        {existing ? "Atualizar" : "Salvar"}
+      </Button>
+    </form>
   )
 }

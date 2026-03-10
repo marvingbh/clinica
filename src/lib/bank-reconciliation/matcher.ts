@@ -6,7 +6,7 @@ import {
   MatchConfidence,
 } from "./types"
 
-const VALID_STATUSES = ["PENDENTE", "ENVIADO"]
+const VALID_STATUSES = ["PENDENTE", "ENVIADO", "PAGO"]
 
 /**
  * Normalize a string for comparison: lowercase, remove accents, collapse whitespace.
@@ -16,6 +16,7 @@ export function normalizeForComparison(str: string | null | undefined): string {
   return str
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\([^)]*\)/g, "")
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim()
@@ -40,6 +41,38 @@ export function nameSimilarity(a: string, b: string): number {
 
   const maxWords = Math.max(wordsA.length, wordsB.length)
   return matchingWords.length / maxWords
+}
+
+/**
+ * Check if the payer name contains the patient's surname (last word of name).
+ * Returns true if the surname appears anywhere in the payer name.
+ */
+export function surnameMatches(payerName: string, patientName: string): boolean {
+  const normalizedPayer = normalizeForComparison(payerName)
+  const normalizedPatient = normalizeForComparison(patientName)
+  if (!normalizedPayer || !normalizedPatient) return false
+
+  const patientWords = normalizedPatient.split(" ")
+  if (patientWords.length < 2) return false
+
+  const surname = patientWords[patientWords.length - 1]
+  // Ignore very short surnames (e.g., "da", "de", "dos") — use second-to-last if available
+  const effectiveSurname = surname.length <= 3 && patientWords.length > 2
+    ? patientWords[patientWords.length - 2]
+    : surname
+
+  return normalizedPayer.split(" ").includes(effectiveSurname)
+}
+
+/**
+ * Check if all significant words (length > 2) of a name appear in the payer name.
+ * Useful for short parent names like "Diego" matching "DIEGO CARLOS VERNASCHI DA SILVA".
+ */
+export function nameContainedIn(name: string, payerName: string): boolean {
+  const nameWords = normalizeForComparison(name).split(" ").filter(w => w.length > 2)
+  const payerWords = normalizeForComparison(payerName).split(" ")
+  if (nameWords.length === 0) return false
+  return nameWords.every(w => payerWords.includes(w))
 }
 
 function getConfidence(nameScore: number): MatchConfidence {
@@ -74,13 +107,57 @@ export function matchTransactions(
         }
       }
 
-      const scores = [
-        { field: "motherName", score: nameSimilarity(transaction.payerName, invoice.motherName ?? "") },
-        { field: "fatherName", score: nameSimilarity(transaction.payerName, invoice.fatherName ?? "") },
-        { field: "patientName", score: nameSimilarity(transaction.payerName, invoice.patientName) },
+      const payer = transaction.payerName!
+
+      // Combined signal: if payer shares words with BOTH a parent name AND the patient
+      // name (via different words), it's a strong match → HIGH confidence
+      const payerWords = normalizeForComparison(payer).split(" ").filter(w => w.length > 2)
+      const motherWords = normalizeForComparison(invoice.motherName).split(" ").filter(w => w.length > 2)
+      const fatherWords = normalizeForComparison(invoice.fatherName).split(" ").filter(w => w.length > 2)
+      const parentWords = [...motherWords, ...fatherWords]
+      const patientWords = normalizeForComparison(invoice.patientName).split(" ").filter(w => w.length > 2)
+
+      const parentOverlap = parentWords.some(w => payerWords.includes(w))
+      const patientUniqueOverlap = patientWords.some(w => payerWords.includes(w) && !parentWords.includes(w))
+
+      if (parentOverlap && patientUniqueOverlap) {
+        const motherMatch = motherWords.some(w => payerWords.includes(w))
+        return {
+          invoice,
+          confidence: "HIGH" as MatchConfidence,
+          nameScore: 1,
+          matchedField: motherMatch ? "motherName" : "fatherName",
+        }
+      }
+
+      // Individual field scoring
+      const fieldNames: Array<{ field: string; name: string }> = [
+        { field: "motherName", name: invoice.motherName ?? "" },
+        { field: "fatherName", name: invoice.fatherName ?? "" },
+        { field: "patientName", name: invoice.patientName },
       ]
 
+      const scores = fieldNames.map(({ field, name }) => {
+        let score = nameSimilarity(payer, name)
+        // Boost short parent names fully contained in payer name (e.g. "Diego" in "DIEGO CARLOS...")
+        if (score < 0.5 && name && nameContainedIn(name, payer)) {
+          score = Math.max(score, 0.6)
+        }
+        return { field, score }
+      })
+
       const best = scores.reduce((a, b) => (b.score > a.score ? b : a))
+
+      // If no strong name match, check if patient surname appears in payer name
+      if (best.score < 0.5 && surnameMatches(payer, invoice.patientName)) {
+        return {
+          invoice,
+          confidence: "MEDIUM" as MatchConfidence,
+          nameScore: 0.5,
+          matchedField: "patientSurname",
+        }
+      }
+
       const confidence = getConfidence(best.score)
 
       return {

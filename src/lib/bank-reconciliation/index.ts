@@ -3,6 +3,8 @@ export {
   matchTransactions,
   normalizeForComparison,
   nameSimilarity,
+  surnameMatches,
+  nameContainedIn,
 } from "./matcher"
 export { fetchStatements } from "./inter-client"
 export type {

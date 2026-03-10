@@ -19,6 +19,8 @@ interface Invoice {
   dueDate: string
   paidAt: string | null
   notaFiscalEmitida: boolean
+  paidViaBank: boolean
+  bankPayerName: string | null
   patient: { id: string; name: string }
   professionalProfile: { id: string; user: { name: string } }
   _count: { items: number }
@@ -364,9 +366,14 @@ export default function FaturasPage() {
                         Pagar
                       </button>
                     ) : inv.status === "PAGO" ? (
-                      <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                        {inv.paidAt ? new Date(inv.paidAt).toLocaleDateString("pt-BR") : "Pago"}
-                      </span>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                          {inv.paidAt ? new Date(inv.paidAt).toLocaleDateString("pt-BR") : "Pago"}
+                        </span>
+                        <span className={`text-[10px] ${inv.paidViaBank ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"}`}>
+                          {inv.paidViaBank ? "Conciliado" : "Manual"}
+                        </span>
+                      </div>
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
