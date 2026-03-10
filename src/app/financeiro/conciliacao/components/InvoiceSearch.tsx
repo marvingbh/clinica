@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from "react"
 import { CheckIcon, SearchIcon, Loader2Icon } from "lucide-react"
-import { formatCurrencyBRL } from "@/lib/financeiro/format"
+import { formatCurrencyBRL, getMonthNameShort } from "@/lib/financeiro/format"
+import { INVOICE_STATUS_CONFIG } from "./types"
 
 interface SearchResult {
   invoiceId: string
@@ -13,17 +14,6 @@ interface SearchResult {
   totalAmount: number
   referenceMonth: number
   referenceYear: number
-}
-
-const FULL_MONTHS = [
-  "", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-  "Jul", "Ago", "Set", "Out", "Nov", "Dez",
-]
-
-const invoiceStatusConfig: Record<string, { bg: string; label: string }> = {
-  PENDENTE: { bg: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400", label: "Pendente" },
-  ENVIADO: { bg: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400", label: "Enviado" },
-  PAGO: { bg: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", label: "Pago manual" },
 }
 
 interface InvoiceSearchProps {
@@ -90,8 +80,8 @@ export function InvoiceSearch({ selectedInvoiceId, selectedIds, onSelect }: Invo
           onChange={e => setMonth(Number(e.target.value))}
           className="px-2 py-1.5 text-sm border border-border rounded-md bg-background"
         >
-          {FULL_MONTHS.slice(1).map((m, i) => (
-            <option key={i + 1} value={i + 1}>{m}</option>
+          {Array.from({ length: 12 }, (_, i) => (
+            <option key={i + 1} value={i + 1}>{getMonthNameShort(i + 1)}</option>
           ))}
         </select>
         <input
@@ -130,13 +120,13 @@ export function InvoiceSearch({ selectedInvoiceId, selectedIds, onSelect }: Invo
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium">{inv.patientName}</span>
-                      {inv.status && invoiceStatusConfig[inv.status] && (
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${invoiceStatusConfig[inv.status].bg}`}>
-                          {invoiceStatusConfig[inv.status].label}
+                      {inv.status && INVOICE_STATUS_CONFIG[inv.status] && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${INVOICE_STATUS_CONFIG[inv.status].bg}`}>
+                          {INVOICE_STATUS_CONFIG[inv.status].label}
                         </span>
                       )}
                       <span className="text-xs text-muted-foreground">
-                        {FULL_MONTHS[inv.referenceMonth]}/{inv.referenceYear}
+                        {getMonthNameShort(inv.referenceMonth)}/{inv.referenceYear}
                       </span>
                       <span className="text-xs font-medium tabular-nums">
                         {formatCurrencyBRL(inv.totalAmount)}

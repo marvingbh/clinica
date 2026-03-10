@@ -30,7 +30,15 @@ function createAgent(config: InterConfig): https.Agent {
   return new https.Agent({ cert, key })
 }
 
+// In-memory token cache per clientId
+const tokenCache = new Map<string, { token: string; expiresAt: number }>()
+
 async function getAccessToken(config: InterConfig): Promise<string> {
+  const cached = tokenCache.get(config.clientId)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.token
+  }
+
   const agent = createAgent(config)
   const clientSecret = decrypt(config.clientSecret)
 
@@ -60,7 +68,18 @@ async function getAccessToken(config: InterConfig): Promise<string> {
             reject(new Error(`Inter OAuth failed: ${res.statusCode} ${data}`))
             return
           }
-          const parsed: InterTokenResponse = JSON.parse(data)
+          let parsed: InterTokenResponse
+          try {
+            parsed = JSON.parse(data)
+          } catch {
+            reject(new Error(`Inter OAuth returned invalid JSON: ${data.slice(0, 200)}`))
+            return
+          }
+          // Cache with 60s safety margin
+          tokenCache.set(config.clientId, {
+            token: parsed.access_token,
+            expiresAt: Date.now() + (parsed.expires_in - 60) * 1000,
+          })
           resolve(parsed.access_token)
         })
       }
@@ -108,7 +127,13 @@ export async function fetchStatements(
           reject(new Error(`Inter statement fetch failed: ${res.statusCode} ${data}`))
           return
         }
-        const parsed: { transacoes: InterTransaction[] } = JSON.parse(data)
+        let parsed: { transacoes: InterTransaction[] }
+        try {
+          parsed = JSON.parse(data)
+        } catch {
+          reject(new Error(`Inter statement returned invalid JSON: ${data.slice(0, 200)}`))
+          return
+        }
         const rawList = (parsed.transacoes || []).filter((tx: InterTransaction) => tx.tipoOperacao === "C")
         // Build stable externalIds from transaction content (not array index)
         const keyCounts = new Map<string, number>()
@@ -143,7 +168,7 @@ export async function fetchStatements(
  * - "PIX RECEBIDO - Cp :00000000-ADRIANA MC SIQUEIRA"
  * - "PIX RECEBIDO INTERNO - 00019 7258666 SAVIO MOREIRA"
  */
-function extractPayerName(description: string): string | null {
+export function extractPayerName(description: string): string | null {
   if (!description) return null
   // "PIX RECEBIDO - Cp :12345678-NOME COMPLETO"
   const cpfMatch = description.match(/Cp\s*:\d+-(.+)$/i)
