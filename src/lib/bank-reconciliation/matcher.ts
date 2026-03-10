@@ -6,7 +6,7 @@ import {
   MatchConfidence,
 } from "./types"
 
-const VALID_STATUSES = ["PENDENTE", "ENVIADO", "PAGO"]
+const VALID_STATUSES = ["PENDENTE", "ENVIADO", "PAGO", "PARCIAL"]
 
 export interface InvoiceWithParent extends InvoiceForMatching {
   normalizedMother: string
@@ -109,7 +109,7 @@ export function findGroupCandidates(
     for (let j = i + 1; j < allInvoices.length; j++) {
       const a = allInvoices[i]
       const b = allInvoices[j]
-      if (Math.abs(a.totalAmount + b.totalAmount - txAmount) >= 0.01) continue
+      if (Math.abs(a.remainingAmount + b.remainingAmount - txAmount) >= 0.01) continue
 
       const shared = getSharedParent(a, b)
       if (!shared) continue
@@ -146,7 +146,7 @@ export function matchTransactions(
 
   return transactions.map(transaction => {
     const amountMatches = eligibleInvoices.filter(
-      inv => Math.abs(inv.totalAmount - transaction.amount) < 0.01
+      inv => Math.abs(inv.remainingAmount - transaction.amount) < 0.01
     )
 
     const candidates: MatchCandidate[] = amountMatches.map(invoice => {
