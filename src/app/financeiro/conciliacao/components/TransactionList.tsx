@@ -17,17 +17,26 @@ interface TransactionListProps {
   onToggleReconciled: () => void
 }
 
-type Selections = Record<string, string[]>
+type SelectionEntry = { invoiceId: string; amount: number }
+type Selections = Record<string, SelectionEntry[]>
 
 export function TransactionList({ transactions, onReconciled, showReconciled, onToggleReconciled }: TransactionListProps) {
   const [selections, setSelections] = useState<Selections>(() => {
     const initial: Selections = {}
     for (const tx of transactions) {
-      if (tx.reconciledInvoiceId) continue
+      if (tx.isFullyReconciled) continue
       if (tx.groupCandidates && tx.groupCandidates.length > 0) {
-        initial[tx.id] = tx.groupCandidates[0].invoices.map(i => i.invoiceId)
+        const group = tx.groupCandidates[0]
+        initial[tx.id] = group.invoices.map(i => ({
+          invoiceId: i.invoiceId,
+          amount: Math.min(tx.remainingAmount, i.remainingAmount ?? i.totalAmount),
+        }))
       } else if (tx.candidates.length > 0 && tx.candidates[0].confidence !== "LOW") {
-        initial[tx.id] = [tx.candidates[0].invoiceId]
+        const c = tx.candidates[0]
+        initial[tx.id] = [{
+          invoiceId: c.invoiceId,
+          amount: Math.min(tx.remainingAmount, c.remainingAmount ?? c.totalAmount),
+        }]
       }
     }
     return initial
@@ -36,59 +45,86 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
   const [reconcilingTxId, setReconcilingTxId] = useState<string | null>(null)
   const [createSheetTxId, setCreateSheetTxId] = useState<string | null>(null)
   const [addedInvoices, setAddedInvoices] = useState<Record<string, CreatedInvoiceInfo[]>>({})
-  const [undoingTxId, setUndoingTxId] = useState<string | null>(null)
 
-  const unreconciledTx = transactions.filter(tx => !tx.reconciledInvoiceId)
-  const reconciledTx = transactions.filter(tx => tx.reconciledInvoiceId)
+  const unreconciledTx = transactions.filter(tx => !tx.isFullyReconciled)
+  const reconciledTx = transactions.filter(tx => tx.isFullyReconciled)
   const withMatches = unreconciledTx.filter(tx =>
     tx.candidates.length > 0 || (tx.groupCandidates && tx.groupCandidates.length > 0)
   )
   const withoutMatches = unreconciledTx.filter(tx =>
     tx.candidates.length === 0 && (!tx.groupCandidates || tx.groupCandidates.length === 0)
   )
-  const selectedCount = Object.keys(selections).length
+  const selectedCount = Object.values(selections).reduce((sum, entries) => sum + entries.length, 0)
 
-  const toggleInvoice = (txId: string, invoiceId: string) => {
+  const toggleInvoice = (txId: string, invoiceId: string, amount?: number) => {
     setSelections(prev => {
       const current = prev[txId] || []
-      const next = current.includes(invoiceId)
-        ? current.filter(id => id !== invoiceId)
-        : [...current, invoiceId]
-      if (next.length === 0) {
-        const { [txId]: _, ...rest } = prev
-        return rest
+      const existing = current.find(e => e.invoiceId === invoiceId)
+      if (existing) {
+        const next = current.filter(e => e.invoiceId !== invoiceId)
+        if (next.length === 0) {
+          const { [txId]: _, ...rest } = prev
+          return rest
+        }
+        return { ...prev, [txId]: next }
       }
-      return { ...prev, [txId]: next }
+      const tx = transactions.find(t => t.id === txId)
+      const defaultAmount = amount ?? tx?.remainingAmount ?? 0
+      return { ...prev, [txId]: [...current, { invoiceId, amount: defaultAmount }] }
+    })
+  }
+
+  const updateAmount = (txId: string, invoiceId: string, amount: number) => {
+    setSelections(prev => {
+      const current = prev[txId] || []
+      return {
+        ...prev,
+        [txId]: current.map(e => e.invoiceId === invoiceId ? { ...e, amount } : e),
+      }
     })
   }
 
   const selectGroup = (txId: string, invoiceIds: string[]) => {
     setSelections(prev => {
       const current = prev[txId] || []
-      const allSelected = invoiceIds.every(id => current.includes(id))
+      const allSelected = invoiceIds.every(id => current.some(e => e.invoiceId === id))
       if (allSelected) {
-        const remaining = current.filter(id => !invoiceIds.includes(id))
+        const remaining = current.filter(e => !invoiceIds.includes(e.invoiceId))
         if (remaining.length === 0) {
           const { [txId]: _, ...rest } = prev
           return rest
         }
         return { ...prev, [txId]: remaining }
       }
-      return { ...prev, [txId]: invoiceIds }
+      const tx = transactions.find(t => t.id === txId)
+      return {
+        ...prev,
+        [txId]: invoiceIds.map(invoiceId => ({
+          invoiceId,
+          amount: tx?.candidates.find(c => c.invoiceId === invoiceId)?.remainingAmount
+            ?? tx?.groupCandidates?.flatMap(g => g.invoices).find(i => i.invoiceId === invoiceId)?.totalAmount
+            ?? tx?.remainingAmount ?? 0,
+        })),
+      }
     })
   }
 
   const handleInvoiceCreated = (txId: string, invoice: CreatedInvoiceInfo) => {
-    setSelections(prev => ({ ...prev, [txId]: [...(prev[txId] || []), invoice.id] }))
+    const tx = transactions.find(t => t.id === txId)
+    const amount = tx?.remainingAmount ?? invoice.totalAmount
+    setSelections(prev => ({
+      ...prev,
+      [txId]: [...(prev[txId] || []), { invoiceId: invoice.id, amount }],
+    }))
     setAddedInvoices(prev => ({ ...prev, [txId]: [...(prev[txId] || []), invoice] }))
     setCreateSheetTxId(null)
   }
 
-  const reconcileMatches = async (matches: Array<{ transactionId: string; invoiceIds: string[] }>) => {
+  const reconcileMatches = async (links: Array<{ transactionId: string; invoiceId: string; amount: number }>) => {
     const res = await fetch("/api/financeiro/conciliacao/reconcile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ matches }),
+      body: JSON.stringify({ links }),
     })
     if (!res.ok) {
       const data = await res.json()
@@ -101,8 +137,10 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
     if (selectedCount === 0) return
     setReconciling(true)
     try {
-      const matches = Object.entries(selections).map(([transactionId, invoiceIds]) => ({ transactionId, invoiceIds }))
-      const data = await reconcileMatches(matches)
+      const links = Object.entries(selections).flatMap(([transactionId, entries]) =>
+        entries.map(({ invoiceId, amount }) => ({ transactionId, invoiceId, amount }))
+      )
+      const data = await reconcileMatches(links)
       toast.success(data.message)
       setSelections({})
       onReconciled()
@@ -114,11 +152,12 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
   }
 
   const handleConfirmSingle = async (txId: string) => {
-    const invoiceIds = selections[txId]
-    if (!invoiceIds || invoiceIds.length === 0) return
+    const entries = selections[txId]
+    if (!entries || entries.length === 0) return
     setReconcilingTxId(txId)
     try {
-      const data = await reconcileMatches([{ transactionId: txId, invoiceIds }])
+      const links = entries.map(({ invoiceId, amount }) => ({ transactionId: txId, invoiceId, amount }))
+      const data = await reconcileMatches(links)
       toast.success(data.message)
       setSelections(prev => { const { [txId]: _, ...rest } = prev; return rest })
       onReconciled()
@@ -129,24 +168,21 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
     }
   }
 
-  const handleUndo = async (txId: string) => {
-    setUndoingTxId(txId)
+  const handleUndoLink = async (linkId: string) => {
     try {
       const res = await fetch("/api/financeiro/conciliacao/reconcile", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transactionId: txId }),
+        body: JSON.stringify({ linkId }),
       })
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error || "Erro ao desfazer")
       }
-      toast.success("Conciliação desfeita")
+      toast.success("Link desfeito")
       onReconciled()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao desfazer conciliação")
-    } finally {
-      setUndoingTxId(null)
+      toast.error(err instanceof Error ? err.message : "Erro ao desfazer")
     }
   }
 
@@ -193,13 +229,14 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
             <TransactionCard
               key={tx.id}
               tx={tx}
-              selectedIds={selections[tx.id] || []}
+              selectedIds={(selections[tx.id] || []).map(e => e.invoiceId)}
               addedInvoices={addedInvoices[tx.id] || []}
               onToggleInvoice={(invoiceId) => toggleInvoice(tx.id, invoiceId)}
               onSelectGroup={(invoiceIds) => selectGroup(tx.id, invoiceIds)}
               onConfirm={() => handleConfirmSingle(tx.id)}
               isConfirming={reconcilingTxId === tx.id}
               onCreateInvoice={() => setCreateSheetTxId(tx.id)}
+              onUpdateAmount={(invoiceId, amount) => updateAmount(tx.id, invoiceId, amount)}
             />
           ))}
         </div>
@@ -212,12 +249,13 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
             <UnmatchedTransactionCard
               key={tx.id}
               tx={tx}
-              selectedIds={selections[tx.id] || []}
+              selectedIds={(selections[tx.id] || []).map(e => e.invoiceId)}
               addedInvoices={addedInvoices[tx.id] || []}
               onToggleInvoice={(invoiceId) => toggleInvoice(tx.id, invoiceId)}
               onConfirm={() => handleConfirmSingle(tx.id)}
               isConfirming={reconcilingTxId === tx.id}
               onCreateInvoice={() => setCreateSheetTxId(tx.id)}
+              onUpdateAmount={(invoiceId, amount) => updateAmount(tx.id, invoiceId, amount)}
             />
           ))}
         </div>
@@ -230,8 +268,7 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
             <ReconciledTransactionCard
               key={tx.id}
               tx={tx}
-              onUndo={() => handleUndo(tx.id)}
-              isUndoing={undoingTxId === tx.id}
+              onUndoLink={handleUndoLink}
             />
           ))}
         </div>
