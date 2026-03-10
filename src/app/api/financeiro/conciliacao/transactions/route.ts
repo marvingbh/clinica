@@ -18,6 +18,7 @@ const mapInvoice = (inv: InvoiceForMatching) => ({
   motherName: inv.motherName,
   fatherName: inv.fatherName,
   totalAmount: inv.totalAmount,
+  remainingAmount: inv.remainingAmount,
   referenceMonth: inv.referenceMonth,
   referenceYear: inv.referenceYear,
   status: inv.status,
@@ -29,28 +30,27 @@ export const GET = withFeatureAuth(
     const { searchParams } = new URL(req.url)
     const showReconciled = searchParams.get("showReconciled") === "true"
 
-    const where: Record<string, unknown> = {
-      clinicId: user.clinicId,
-      type: "CREDIT",
-    }
-    if (!showReconciled) {
-      where.reconciledInvoiceId = null
-    }
-
     const [transactions, invoices] = await Promise.all([
       prisma.bankTransaction.findMany({
-        where,
+        where: {
+          clinicId: user.clinicId,
+          type: "CREDIT",
+        },
         orderBy: { date: "desc" },
         take: 200,
         include: {
-          reconciledInvoice: {
-            select: {
-              id: true,
-              totalAmount: true,
-              referenceMonth: true,
-              referenceYear: true,
-              status: true,
-              patient: { select: { name: true } },
+          reconciliationLinks: {
+            include: {
+              invoice: {
+                select: {
+                  id: true,
+                  totalAmount: true,
+                  referenceMonth: true,
+                  referenceYear: true,
+                  status: true,
+                  patient: { select: { name: true } },
+                },
+              },
             },
           },
         },
@@ -59,8 +59,8 @@ export const GET = withFeatureAuth(
         where: {
           clinicId: user.clinicId,
           OR: [
-            { status: { in: ["PENDENTE", "ENVIADO"] } },
-            { status: "PAGO", bankTransactions: { none: {} } },
+            { status: { in: ["PENDENTE", "ENVIADO", "PARCIAL"] } },
+            { status: "PAGO", reconciliationLinks: { none: {} } },
           ],
         },
         select: {
@@ -73,31 +73,53 @@ export const GET = withFeatureAuth(
           patient: {
             select: { name: true, motherName: true, fatherName: true },
           },
+          reconciliationLinks: {
+            select: { amount: true },
+          },
         },
       }),
     ])
 
     const txForMatching: TransactionForMatching[] = transactions
-      .filter((tx) => tx.reconciledInvoiceId === null)
-      .map((tx) => ({
-        id: tx.id,
-        date: tx.date,
-        amount: Number(tx.amount),
-        description: tx.description,
-        payerName: tx.payerName,
-      }))
+      .filter((tx) => {
+        const allocated = tx.reconciliationLinks.reduce(
+          (sum, l) => sum + Number(l.amount),
+          0
+        )
+        return Number(tx.amount) - allocated >= 0.01
+      })
+      .map((tx) => {
+        const allocated = tx.reconciliationLinks.reduce(
+          (sum, l) => sum + Number(l.amount),
+          0
+        )
+        return {
+          id: tx.id,
+          date: tx.date,
+          amount: Number(tx.amount) - allocated,
+          description: tx.description,
+          payerName: tx.payerName,
+        }
+      })
 
-    const invForMatching: InvoiceForMatching[] = invoices.map((inv) => ({
-      id: inv.id,
-      patientId: inv.patientId,
-      patientName: inv.patient.name,
-      motherName: inv.patient.motherName,
-      fatherName: inv.patient.fatherName,
-      totalAmount: Number(inv.totalAmount),
-      referenceMonth: inv.referenceMonth,
-      referenceYear: inv.referenceYear,
-      status: inv.status,
-    }))
+    const invForMatching: InvoiceForMatching[] = invoices.map((inv) => {
+      const paidAmount = inv.reconciliationLinks.reduce(
+        (sum, link) => sum + Number(link.amount),
+        0
+      )
+      return {
+        id: inv.id,
+        patientId: inv.patientId,
+        patientName: inv.patient.name,
+        motherName: inv.patient.motherName,
+        fatherName: inv.patient.fatherName,
+        totalAmount: Number(inv.totalAmount),
+        remainingAmount: Number(inv.totalAmount) - paidAmount,
+        referenceMonth: inv.referenceMonth,
+        referenceYear: inv.referenceYear,
+        status: inv.status,
+      }
+    })
 
     const invWithParent: InvoiceWithParent[] = invForMatching.map((inv) => ({
       ...inv,
@@ -108,31 +130,37 @@ export const GET = withFeatureAuth(
     const matchResults = matchTransactions(txForMatching, invForMatching)
 
     const response = transactions.map((tx) => {
-      const match = matchResults.find((m) => m.transaction.id === tx.id)
+      const allocatedAmount = tx.reconciliationLinks.reduce(
+        (sum, link) => sum + Number(link.amount),
+        0
+      )
       const txAmount = Number(tx.amount)
+      const remainingAmount = txAmount - allocatedAmount
+      const isFullyReconciled = remainingAmount < 0.01
+
+      const match = matchResults.find((m) => m.transaction.id === tx.id)
       const txDate = new Date(tx.date)
       const txMonth = txDate.getMonth() + 1
       const txYear = txDate.getFullYear()
 
-      const sameMonthCandidates = match?.candidates.filter(
-        (c) => c.invoice.referenceMonth === txMonth && c.invoice.referenceYear === txYear
-      ) || []
+      const sameMonthCandidates =
+        match?.candidates.filter(
+          (c) =>
+            c.invoice.referenceMonth === txMonth &&
+            c.invoice.referenceYear === txYear
+        ) || []
 
       const sameMonthInvWithParent = invWithParent.filter(
-        (inv) => inv.referenceMonth === txMonth && inv.referenceYear === txYear
+        (inv) =>
+          inv.referenceMonth === txMonth && inv.referenceYear === txYear
       )
-      const groups = tx.reconciledInvoiceId === null
-        ? findGroupCandidates(txAmount, tx.payerName, sameMonthInvWithParent)
+      const groups = !isFullyReconciled
+        ? findGroupCandidates(
+            remainingAmount,
+            tx.payerName,
+            sameMonthInvWithParent
+          )
         : []
-
-      const reconciledInvoice = tx.reconciledInvoice ? {
-        invoiceId: tx.reconciledInvoice.id,
-        patientName: tx.reconciledInvoice.patient.name,
-        totalAmount: Number(tx.reconciledInvoice.totalAmount),
-        referenceMonth: tx.reconciledInvoice.referenceMonth,
-        referenceYear: tx.reconciledInvoice.referenceYear,
-        status: tx.reconciledInvoice.status,
-      } : null
 
       return {
         id: tx.id,
@@ -141,22 +169,40 @@ export const GET = withFeatureAuth(
         amount: txAmount,
         description: tx.description,
         payerName: tx.payerName,
-        reconciledInvoiceId: tx.reconciledInvoiceId,
-        reconciledAt: tx.reconciledAt,
-        reconciledInvoice,
-        candidates: sameMonthCandidates.map((c) => ({
-          ...mapInvoice(c.invoice),
-          confidence: c.confidence,
-          nameScore: c.nameScore,
-          matchedField: c.matchedField,
+        allocatedAmount,
+        remainingAmount,
+        isFullyReconciled,
+        links: tx.reconciliationLinks.map((link) => ({
+          linkId: link.id,
+          invoiceId: link.invoice.id,
+          patientName: link.invoice.patient.name,
+          amount: Number(link.amount),
+          totalAmount: Number(link.invoice.totalAmount),
+          referenceMonth: link.invoice.referenceMonth,
+          referenceYear: link.invoice.referenceYear,
+          status: link.invoice.status,
         })),
-        groupCandidates: groups.map((g) => ({
-          invoices: g.invoices.map(mapInvoice),
-          sharedParent: g.sharedParent,
-        })),
+        candidates: !isFullyReconciled
+          ? sameMonthCandidates.map((c) => ({
+              ...mapInvoice(c.invoice),
+              confidence: c.confidence,
+              nameScore: c.nameScore,
+              matchedField: c.matchedField,
+            }))
+          : [],
+        groupCandidates: !isFullyReconciled
+          ? groups.map((g) => ({
+              invoices: g.invoices.map(mapInvoice),
+              sharedParent: g.sharedParent,
+            }))
+          : [],
       }
     })
 
-    return NextResponse.json({ transactions: response })
+    const filteredResponse = showReconciled
+      ? response
+      : response.filter((tx) => !tx.isFullyReconciled)
+
+    return NextResponse.json({ transactions: filteredResponse })
   }
 )
