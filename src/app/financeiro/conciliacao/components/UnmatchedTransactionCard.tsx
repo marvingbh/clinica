@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { CircleAlertIcon, PlusIcon, SearchIcon } from "lucide-react"
-import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
+import { CheckIcon, CircleAlertIcon, PlusIcon, SearchIcon } from "lucide-react"
+import { formatCurrencyBRL, formatDateBR, getMonthName } from "@/lib/financeiro/format"
 import { InvoiceSearch } from "./InvoiceSearch"
 import type { Transaction, CreatedInvoiceInfo } from "./types"
 import { Checkbox, ConfirmButton, AddedInvoiceRow } from "./shared-ui"
@@ -12,6 +12,7 @@ interface UnmatchedTransactionCardProps {
   selectedIds: string[]
   addedInvoices: CreatedInvoiceInfo[]
   onToggleInvoice: (invoiceId: string) => void
+  onUpdateAmount: (invoiceId: string, amount: number) => void
   onConfirm: () => void
   isConfirming: boolean
   onCreateInvoice: () => void
@@ -22,6 +23,7 @@ export function UnmatchedTransactionCard({
   selectedIds,
   addedInvoices,
   onToggleInvoice,
+  onUpdateAmount,
   onConfirm,
   isConfirming,
   onCreateInvoice,
@@ -36,6 +38,11 @@ export function UnmatchedTransactionCard({
           <div className="flex items-center gap-2 text-sm">
             <span className="font-semibold tabular-nums">{formatCurrencyBRL(tx.amount)}</span>
             <span className="text-muted-foreground">{formatDateBR(tx.date)}</span>
+            {tx.allocatedAmount > 0 && tx.remainingAmount > 0.01 && (
+              <span className="text-xs text-orange-600 dark:text-orange-400 tabular-nums">
+                {formatCurrencyBRL(tx.allocatedAmount)} / {formatCurrencyBRL(tx.amount)} alocado
+              </span>
+            )}
             {selectedIds.length > 0 && (
               <span className="text-xs text-primary font-medium">{selectedIds.length} fatura(s)</span>
             )}
@@ -69,6 +76,21 @@ export function UnmatchedTransactionCard({
           </button>
         </div>
       </div>
+
+      {tx.links.map(link => (
+        <div key={link.linkId} className="px-4 py-2 bg-green-50/50 dark:bg-green-950/10 border-b border-border">
+          <div className="flex items-center gap-2 text-sm">
+            <CheckIcon className="w-3.5 h-3.5 text-green-600" />
+            <span className="font-medium">{link.patientName}</span>
+            <span className="text-xs text-muted-foreground">
+              {getMonthName(link.referenceMonth)}/{link.referenceYear}
+            </span>
+            <span className="text-xs font-medium tabular-nums">
+              {formatCurrencyBRL(link.amount)}
+            </span>
+          </div>
+        </div>
+      ))}
 
       {addedInvoices.length > 0 && (
         <div className="divide-y divide-border border-t border-border">
