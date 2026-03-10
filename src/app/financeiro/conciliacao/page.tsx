@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { toast } from "sonner"
 import {
-  RefreshCwIcon,
   Loader2Icon,
   WifiIcon,
   CheckCircle2Icon,
