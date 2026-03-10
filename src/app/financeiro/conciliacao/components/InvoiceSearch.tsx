@@ -12,6 +12,7 @@ interface SearchResult {
   fatherName: string | null
   status?: string
   totalAmount: number
+  remainingAmount?: number
   referenceMonth: number
   referenceYear: number
 }
@@ -123,6 +124,11 @@ export function InvoiceSearch({ selectedInvoiceId, selectedIds, onSelect }: Invo
                       {inv.status && INVOICE_STATUS_CONFIG[inv.status] && (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${INVOICE_STATUS_CONFIG[inv.status].bg}`}>
                           {INVOICE_STATUS_CONFIG[inv.status].label}
+                        </span>
+                      )}
+                      {inv.status === "PARCIAL" && inv.remainingAmount !== undefined && (
+                        <span className="text-xs text-orange-600 dark:text-orange-400 tabular-nums">
+                          Falta: {formatCurrencyBRL(inv.remainingAmount)}
                         </span>
                       )}
                       <span className="text-xs text-muted-foreground">

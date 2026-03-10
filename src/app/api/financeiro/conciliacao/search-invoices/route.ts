@@ -17,7 +17,7 @@ export const GET = withFeatureAuth(
     const where: Record<string, unknown> = {
       clinicId: user.clinicId,
       OR: [
-        { status: { in: ["PENDENTE", "ENVIADO"] } },
+        { status: { in: ["PENDENTE", "ENVIADO", "PARCIAL"] } },
         { status: "PAGO", bankTransactions: { none: {} } },
       ],
       patient: {
@@ -49,22 +49,33 @@ export const GET = withFeatureAuth(
             fatherName: true,
           },
         },
+        reconciliationLinks: {
+          select: { amount: true },
+        },
       },
       take: 20,
       orderBy: [{ referenceYear: "desc" }, { referenceMonth: "desc" }],
     })
 
     return NextResponse.json({
-      invoices: invoices.map((inv) => ({
-        invoiceId: inv.id,
-        patientName: inv.patient.name,
-        motherName: inv.patient.motherName,
-        fatherName: inv.patient.fatherName,
-        status: inv.status,
-        totalAmount: Number(inv.totalAmount),
-        referenceMonth: inv.referenceMonth,
-        referenceYear: inv.referenceYear,
-      })),
+      invoices: invoices.map((inv) => {
+        const total = Number(inv.totalAmount)
+        const paid = inv.reconciliationLinks.reduce(
+          (sum, link) => sum + Number(link.amount),
+          0
+        )
+        return {
+          invoiceId: inv.id,
+          patientName: inv.patient.name,
+          motherName: inv.patient.motherName,
+          fatherName: inv.patient.fatherName,
+          status: inv.status,
+          totalAmount: total,
+          remainingAmount: total - paid,
+          referenceMonth: inv.referenceMonth,
+          referenceYear: inv.referenceYear,
+        }
+      }),
     })
   }
 )
