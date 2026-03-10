@@ -18,3 +18,4 @@ export type {
   MatchResult,
 } from "./types"
 export type { InterConfig } from "./inter-client"
+export { computeInvoiceStatus, computeSmartDefault } from "./reconciliation"
