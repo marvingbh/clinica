@@ -69,7 +69,7 @@ export const POST = withFeatureAuth(
     await prisma.bankTransaction.deleteMany({
       where: {
         clinicId: user.clinicId,
-        reconciledInvoiceId: null,
+        reconciliationLinks: { none: {} },
       },
     })
 
@@ -77,7 +77,7 @@ export const POST = withFeatureAuth(
     const reconciledInRange = await prisma.bankTransaction.findMany({
       where: {
         clinicId: user.clinicId,
-        reconciledInvoiceId: { not: null },
+        reconciliationLinks: { some: {} },
         date: { gte: startDate, lte: endDate },
       },
       select: { id: true, date: true, amount: true, description: true },
@@ -127,7 +127,7 @@ export const POST = withFeatureAuth(
           type: tx.type,
         },
       })
-      if (!result.reconciledInvoiceId) newCount++
+      newCount++
     }
 
     return NextResponse.json({
