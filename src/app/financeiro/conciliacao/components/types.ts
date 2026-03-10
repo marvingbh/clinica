@@ -13,6 +13,7 @@ export interface CandidateInvoice {
   motherName: string | null
   fatherName: string | null
   totalAmount: number
+  remainingAmount: number
   referenceMonth: number
   referenceYear: number
   status?: string
@@ -29,9 +30,11 @@ export interface GroupCandidate {
   sharedParent: string | null
 }
 
-export interface ReconciledInvoiceInfo {
+export interface ReconciliationLinkInfo {
+  linkId: string
   invoiceId: string
   patientName: string
+  amount: number
   totalAmount: number
   referenceMonth: number
   referenceYear: number
@@ -45,9 +48,10 @@ export interface Transaction {
   amount: number
   description: string
   payerName: string | null
-  reconciledInvoiceId: string | null
-  reconciledAt: string | null
-  reconciledInvoice?: ReconciledInvoiceInfo | null
+  allocatedAmount: number
+  remainingAmount: number
+  isFullyReconciled: boolean
+  links: ReconciliationLinkInfo[]
   candidates: Candidate[]
   groupCandidates?: GroupCandidate[]
 }
@@ -55,7 +59,8 @@ export interface Transaction {
 export const INVOICE_STATUS_CONFIG: Record<string, { bg: string; label: string }> = {
   PENDENTE: { bg: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400", label: "Pendente" },
   ENVIADO: { bg: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400", label: "Enviado" },
-  PAGO: { bg: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", label: "Pago manual" },
+  PARCIAL: { bg: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", label: "Parcial" },
+  PAGO: { bg: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", label: "Pago" },
 }
 
 export const CONFIDENCE_CONFIG: Record<string, { bg: string; dot: string; label: string }> = {
