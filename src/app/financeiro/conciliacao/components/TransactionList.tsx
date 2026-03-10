@@ -304,6 +304,7 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
         onCreated={(invoice) => { if (createSheetTxId) handleInvoiceCreated(createSheetTxId, invoice) }}
         defaultAmount={createSheetTxId ? transactions.find(t => t.id === createSheetTxId)?.amount : undefined}
         defaultDate={createSheetTxId ? transactions.find(t => t.id === createSheetTxId)?.date : undefined}
+        defaultSearch={createSheetTxId ? transactions.find(t => t.id === createSheetTxId)?.payerName ?? undefined : undefined}
       />
     </div>
   )

@@ -81,10 +81,14 @@ export const CONFIDENCE_CONFIG: Record<string, { bg: string; dot: string; label:
   },
 }
 
+function stripAccents(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+}
+
 export function hasWordOverlap(name: string | null, payerName: string | null): boolean {
   if (!name || !payerName) return false
-  const nameWords = name.toLowerCase().replace(/\([^)]*\)/g, "").split(/\s+/).filter(w => w.length > 2)
-  const payerWords = payerName.toLowerCase().split(/\s+/).filter(w => w.length > 2)
+  const nameWords = stripAccents(name.toLowerCase()).replace(/\([^)]*\)/g, "").split(/\s+/).filter(w => w.length > 2)
+  const payerWords = stripAccents(payerName.toLowerCase()).split(/\s+/).filter(w => w.length > 2)
   return nameWords.some(w => payerWords.includes(w))
 }
 

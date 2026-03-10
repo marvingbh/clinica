@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useCallback, useRef } from "react"
+import React, { useState, useCallback, useRef, useEffect } from "react"
 import { toast } from "sonner"
 import { BottomSheet } from "@/shared/components/ui/bottom-sheet"
 import { formatCurrencyBRL, getMonthNameShort } from "@/lib/financeiro/format"
@@ -10,6 +10,8 @@ import type { CreatedInvoiceInfo } from "./types"
 interface Patient {
   id: string
   name: string
+  motherName: string | null
+  fatherName: string | null
   sessionFee: string | null
   referenceProfessionalId: string | null
 }
@@ -45,9 +47,10 @@ interface CreateInvoiceSheetProps {
   onCreated: (invoice: CreatedInvoiceInfo) => void
   defaultAmount?: number
   defaultDate?: string // ISO date string from the transaction
+  defaultSearch?: string // payer name from the transaction
 }
 
-export function CreateInvoiceSheet({ isOpen, onClose, onCreated, defaultAmount, defaultDate }: CreateInvoiceSheetProps) {
+export function CreateInvoiceSheet({ isOpen, onClose, onCreated, defaultAmount, defaultDate, defaultSearch }: CreateInvoiceSheetProps) {
   const [step, setStep] = useState<Step>("patient")
   const [mode, setMode] = useState<Mode>("appointments")
 
@@ -102,6 +105,13 @@ export function CreateInvoiceSheet({ isOpen, onClose, onCreated, defaultAmount, 
       .catch(() => {})
       .finally(() => setSearchingPatients(false))
   }, [])
+
+  useEffect(() => {
+    if (isOpen && defaultSearch && step === "patient" && !selectedPatient) {
+      setPatientSearch(defaultSearch)
+      searchPatients(defaultSearch)
+    }
+  }, [isOpen, defaultSearch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handlePatientSearchChange(value: string) {
     setPatientSearch(value)
@@ -262,6 +272,10 @@ export function CreateInvoiceSheet({ isOpen, onClose, onCreated, defaultAmount, 
                   >
                     <div>
                       <div className="font-medium text-sm">{p.name}</div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {p.motherName && <span>Mãe: {p.motherName}</span>}
+                        {p.fatherName && <span>Pai: {p.fatherName}</span>}
+                      </div>
                       {p.sessionFee && (
                         <div className="text-xs text-muted-foreground">
                           Sessão: {formatCurrencyBRL(Number(p.sessionFee))}
