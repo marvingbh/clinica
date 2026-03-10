@@ -186,6 +186,28 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
     }
   }
 
+  const handleUndo = async (txId: string) => {
+    const tx = transactions.find(t => t.id === txId)
+    if (!tx || tx.links.length === 0) return
+    try {
+      for (const link of tx.links) {
+        const res = await fetch("/api/financeiro/conciliacao/reconcile", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ linkId: link.linkId }),
+        })
+        if (!res.ok) {
+          const data = await res.json()
+          throw new Error(data.error || "Erro ao desfazer")
+        }
+      }
+      toast.success("Todos os links desfeitos")
+      onReconciled()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao desfazer")
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -268,6 +290,7 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
             <ReconciledTransactionCard
               key={tx.id}
               tx={tx}
+              onUndo={() => handleUndo(tx.id)}
               onUndoLink={handleUndoLink}
             />
           ))}
