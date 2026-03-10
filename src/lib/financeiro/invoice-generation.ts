@@ -46,7 +46,7 @@ export function determineInvoiceProfessional(
  * (i.e., it's already paid or sent).
  */
 export function shouldSkipInvoice(status: string): boolean {
-  return status === "PAGO" || status === "ENVIADO"
+  return status === "PAGO" || status === "ENVIADO" || status === "PARCIAL"
 }
 
 /**

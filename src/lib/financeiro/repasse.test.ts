@@ -11,11 +11,11 @@ import {
 // --- REPASSE_BILLABLE_INVOICE_STATUSES ---
 
 describe("REPASSE_BILLABLE_INVOICE_STATUSES", () => {
-  it("includes PENDENTE, ENVIADO, PAGO", () => {
+  it("includes PENDENTE, ENVIADO, PARCIAL, PAGO", () => {
     expect(REPASSE_BILLABLE_INVOICE_STATUSES).toEqual(
-      expect.arrayContaining(["PENDENTE", "ENVIADO", "PAGO"])
+      expect.arrayContaining(["PENDENTE", "ENVIADO", "PARCIAL", "PAGO"])
     )
-    expect(REPASSE_BILLABLE_INVOICE_STATUSES).toHaveLength(3)
+    expect(REPASSE_BILLABLE_INVOICE_STATUSES).toHaveLength(4)
   })
 
   it("excludes CANCELADO", () => {

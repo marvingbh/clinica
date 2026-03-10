@@ -52,6 +52,10 @@ describe("shouldSkipInvoice", () => {
     expect(shouldSkipInvoice("ENVIADO")).toBe(true)
   })
 
+  it("returns true for PARCIAL", () => {
+    expect(shouldSkipInvoice("PARCIAL")).toBe(true)
+  })
+
   it("returns false for PENDENTE", () => {
     expect(shouldSkipInvoice("PENDENTE")).toBe(false)
   })

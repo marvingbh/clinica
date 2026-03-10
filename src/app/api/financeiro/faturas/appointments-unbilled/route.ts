@@ -42,11 +42,11 @@ export const GET = withFeatureAuth(
       orderBy: { scheduledAt: "asc" },
     })
 
-    // Exclude appointments linked to a PAGO invoice (already paid)
+    // Exclude appointments linked to a PAGO or PARCIAL invoice (already paid/partially paid)
     const invoicedItems = await prisma.invoiceItem.findMany({
       where: {
         appointmentId: { in: appointments.map(a => a.id) },
-        invoice: { status: "PAGO" },
+        invoice: { status: { in: ["PAGO", "PARCIAL"] } },
       },
       select: { appointmentId: true },
     })

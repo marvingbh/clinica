@@ -29,6 +29,7 @@ interface Invoice {
 const STATUS_LABELS: Record<string, string> = {
   PENDENTE: "Pendente",
   ENVIADO: "Enviado",
+  PARCIAL: "Parcial",
   PAGO: "Pago",
   CANCELADO: "Cancelado",
 }
@@ -36,6 +37,7 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_COLORS: Record<string, string> = {
   PENDENTE: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
   ENVIADO: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  PARCIAL: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
   PAGO: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
   CANCELADO: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
 }
@@ -230,6 +232,7 @@ export default function FaturasPage() {
             { label: "Todos", value: "" },
             { label: "Pendente", value: "PENDENTE" },
             { label: "Enviado", value: "ENVIADO" },
+            { label: "Parcial", value: "PARCIAL" },
             { label: "Pago", value: "PAGO" },
             { label: "Cancelado", value: "CANCELADO" },
           ].map(opt => (
@@ -356,7 +359,7 @@ export default function FaturasPage() {
                   </td>
                   <td className="text-center py-3 px-4">{formatDateBR(inv.dueDate)}</td>
                   <td className="text-center py-3 px-4">
-                    {(inv.status === "PENDENTE" || inv.status === "ENVIADO") ? (
+                    {(inv.status === "PENDENTE" || inv.status === "ENVIADO" || inv.status === "PARCIAL") ? (
                       <button
                         onClick={() => handleMarkPaid(inv.id)}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition-colors"
@@ -380,7 +383,7 @@ export default function FaturasPage() {
                   </td>
                   <td className="text-right py-3 px-4">
                     <div className="flex items-center justify-end gap-1">
-                      {(inv.status === "PENDENTE" || inv.status === "ENVIADO") && (
+                      {(inv.status === "PENDENTE" || inv.status === "ENVIADO" || inv.status === "PARCIAL") && (
                         <button
                           onClick={() => handleRecalcular(inv.id)}
                           disabled={recalculatingId === inv.id}
@@ -425,6 +428,8 @@ export default function FaturasPage() {
                 <td className="text-right py-3 px-4">{formatCurrencyBRL(invoices.reduce((s, i) => s + Number(i.totalAmount), 0))}</td>
                 <td className="text-center py-3 px-4">
                   <span className="text-xs text-green-600 dark:text-green-400">{invoices.filter(i => i.status === "PAGO").length} pagos</span>
+                  {" / "}
+                  <span className="text-xs text-orange-600 dark:text-orange-400">{invoices.filter(i => i.status === "PARCIAL").length} parciais</span>
                   {" / "}
                   <span className="text-xs text-blue-600 dark:text-blue-400">{invoices.filter(i => i.status === "ENVIADO").length} enviados</span>
                   {" / "}
