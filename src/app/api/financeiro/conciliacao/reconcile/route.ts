@@ -2,21 +2,26 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
-
-const deleteSchema = z.object({
-  transactionId: z.string(),
-})
+import { computeInvoiceStatus } from "@/lib/bank-reconciliation"
 
 const schema = z.object({
-  matches: z
+  links: z
     .array(
       z.object({
         transactionId: z.string(),
-        invoiceIds: z.array(z.string()).min(1),
+        invoiceId: z.string(),
+        amount: z.number().positive(),
       })
     )
     .min(1, "Selecione pelo menos uma conciliação"),
 })
+
+const deleteSchema = z.union([
+  z.object({ linkId: z.string() }),
+  z.object({ transactionId: z.string() }),
+])
+
+const VALID_STATUSES = ["PENDENTE", "ENVIADO", "PARCIAL", "PAGO"]
 
 export const POST = withFeatureAuth(
   { feature: "finances", minAccess: "WRITE" },
@@ -30,18 +35,18 @@ export const POST = withFeatureAuth(
       )
     }
 
-    const { matches } = parsed.data
+    const { links } = parsed.data
     const now = new Date()
 
-    const transactionIds = matches.map((m) => m.transactionId)
-    const allInvoiceIds = matches.flatMap((m) => m.invoiceIds)
+    const transactionIds = [...new Set(links.map((l) => l.transactionId))]
+    const invoiceIds = [...new Set(links.map((l) => l.invoiceId))]
 
     const [transactions, invoices] = await Promise.all([
       prisma.bankTransaction.findMany({
         where: { id: { in: transactionIds }, clinicId: user.clinicId },
       }),
       prisma.invoice.findMany({
-        where: { id: { in: allInvoiceIds }, clinicId: user.clinicId },
+        where: { id: { in: invoiceIds }, clinicId: user.clinicId },
       }),
     ])
 
@@ -52,24 +57,16 @@ export const POST = withFeatureAuth(
       )
     }
 
-    const foundIds = new Set(invoices.map((inv) => inv.id))
-    if (allInvoiceIds.some((id) => !foundIds.has(id))) {
+    const foundInvoiceIds = new Set(invoices.map((inv) => inv.id))
+    if (invoiceIds.some((id) => !foundInvoiceIds.has(id))) {
       return NextResponse.json(
         { error: "Fatura não encontrada" },
         { status: 404 }
       )
     }
 
-    const alreadyReconciled = transactions.filter((tx) => tx.reconciledInvoiceId)
-    if (alreadyReconciled.length > 0) {
-      return NextResponse.json(
-        { error: "Algumas transações já foram conciliadas" },
-        { status: 400 }
-      )
-    }
-
     const invalidInvoices = invoices.filter(
-      (inv) => !["PENDENTE", "ENVIADO", "PAGO"].includes(inv.status)
+      (inv) => !VALID_STATUSES.includes(inv.status)
     )
     if (invalidInvoices.length > 0) {
       return NextResponse.json(
@@ -79,64 +76,50 @@ export const POST = withFeatureAuth(
     }
 
     const invoiceMap = new Map(invoices.map((inv) => [inv.id, inv]))
-    const txMap = new Map(transactions.map((tx) => [tx.id, tx]))
-
-    let totalReconciled = 0
 
     await prisma.$transaction(async (tx) => {
-      for (const match of matches) {
-        const bankTx = txMap.get(match.transactionId)!
-        const invoiceIds = match.invoiceIds
-
-        // Atomically update only if still unreconciled (guards concurrent requests)
-        const updated = await tx.bankTransaction.updateMany({
-          where: { id: match.transactionId, reconciledInvoiceId: null },
+      // Create all ReconciliationLink rows
+      for (const link of links) {
+        await tx.reconciliationLink.create({
           data: {
-            reconciledInvoiceId: invoiceIds[0],
+            clinicId: user.clinicId,
+            transactionId: link.transactionId,
+            invoiceId: link.invoiceId,
+            amount: link.amount,
             reconciledAt: now,
             reconciledByUserId: user.id,
           },
         })
-        if (updated.count === 0) {
-          throw new Error("Transação já foi conciliada por outro usuário")
-        }
+      }
 
-        // Additional invoices: create split bank transaction records
-        for (let i = 1; i < invoiceIds.length; i++) {
-          await tx.bankTransaction.create({
-            data: {
-              clinicId: user.clinicId,
-              bankIntegrationId: bankTx.bankIntegrationId,
-              externalId: `${bankTx.externalId}:split-${i + 1}`,
-              date: bankTx.date,
-              amount: bankTx.amount,
-              description: bankTx.description,
-              payerName: bankTx.payerName,
-              type: bankTx.type,
-              reconciledInvoiceId: invoiceIds[i],
-              reconciledAt: now,
-              reconciledByUserId: user.id,
-            },
-          })
-        }
+      // For each affected invoice, recalculate status from ALL links
+      for (const invoiceId of invoiceIds) {
+        const allLinks = await tx.reconciliationLink.findMany({
+          where: { invoiceId },
+          select: { amount: true },
+        })
 
-        // Mark all invoices as PAGO
-        for (const invoiceId of invoiceIds) {
-          const invoice = invoiceMap.get(invoiceId)!
-          if (invoice.status !== "PAGO") {
-            await tx.invoice.update({
-              where: { id: invoiceId },
-              data: { status: "PAGO", paidAt: now },
-            })
-          }
-          totalReconciled++
-        }
+        const paidAmount = allLinks.reduce(
+          (sum, l) => sum + Number(l.amount),
+          0
+        )
+        const invoice = invoiceMap.get(invoiceId)!
+        const totalAmount = Number(invoice.totalAmount)
+        const newStatus = computeInvoiceStatus(paidAmount, totalAmount)
+
+        await tx.invoice.update({
+          where: { id: invoiceId },
+          data: {
+            status: newStatus,
+            paidAt: newStatus === "PAGO" ? now : null,
+          },
+        })
       }
     })
 
     return NextResponse.json({
-      reconciled: totalReconciled,
-      message: `${totalReconciled} fatura(s) conciliada(s)`,
+      reconciled: links.length,
+      message: `${links.length} conciliação(ões) criada(s)`,
     })
   }
 )
@@ -147,56 +130,90 @@ export const DELETE = withFeatureAuth(
     const body = await req.json()
     const parsed = deleteSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
+      return NextResponse.json(
+        { error: parsed.error.issues[0].message },
+        { status: 400 }
+      )
     }
 
-    const { transactionId } = parsed.data
+    // Find links to delete
+    let linksToDelete: { id: string; invoiceId: string }[]
 
-    const bankTx = await prisma.bankTransaction.findFirst({
-      where: { id: transactionId, clinicId: user.clinicId, reconciledInvoiceId: { not: null } },
-    })
-    if (!bankTx) {
-      return NextResponse.json({ error: "Transação não encontrada ou não conciliada" }, { status: 404 })
+    if ("linkId" in parsed.data) {
+      const link = await prisma.reconciliationLink.findFirst({
+        where: { id: parsed.data.linkId, clinicId: user.clinicId },
+        select: { id: true, invoiceId: true },
+      })
+      if (!link) {
+        return NextResponse.json(
+          { error: "Link de conciliação não encontrado" },
+          { status: 404 }
+        )
+      }
+      linksToDelete = [link]
+    } else {
+      const transaction = await prisma.bankTransaction.findFirst({
+        where: { id: parsed.data.transactionId, clinicId: user.clinicId },
+      })
+      if (!transaction) {
+        return NextResponse.json(
+          { error: "Transação não encontrada" },
+          { status: 404 }
+        )
+      }
+      linksToDelete = await prisma.reconciliationLink.findMany({
+        where: {
+          transactionId: parsed.data.transactionId,
+          clinicId: user.clinicId,
+        },
+        select: { id: true, invoiceId: true },
+      })
+      if (linksToDelete.length === 0) {
+        return NextResponse.json(
+          { error: "Nenhuma conciliação encontrada para esta transação" },
+          { status: 404 }
+        )
+      }
     }
+
+    const affectedInvoiceIds = [
+      ...new Set(linksToDelete.map((l) => l.invoiceId)),
+    ]
+    const linkIdsToDelete = linksToDelete.map((l) => l.id)
 
     await prisma.$transaction(async (tx) => {
-      // Find all linked records (original + splits)
-      const allLinked = await tx.bankTransaction.findMany({
-        where: {
-          clinicId: user.clinicId,
-          reconciledInvoiceId: { not: null },
-          OR: [
-            { id: transactionId },
-            { externalId: { startsWith: `${bankTx.externalId}:split-` } },
-          ],
-        },
+      // Delete the links
+      await tx.reconciliationLink.deleteMany({
+        where: { id: { in: linkIdsToDelete } },
       })
 
-      const invoiceIds = allLinked
-        .map((t) => t.reconciledInvoiceId)
-        .filter((id): id is string => id !== null)
+      // Recalculate status for each affected invoice from remaining links
+      for (const invoiceId of affectedInvoiceIds) {
+        const remainingLinks = await tx.reconciliationLink.findMany({
+          where: { invoiceId },
+          select: { amount: true },
+        })
 
-      // Revert invoices to PENDENTE
-      for (const invoiceId of invoiceIds) {
+        const paidAmount = remainingLinks.reduce(
+          (sum, l) => sum + Number(l.amount),
+          0
+        )
+
+        const invoice = await tx.invoice.findUniqueOrThrow({
+          where: { id: invoiceId },
+          select: { totalAmount: true, paidAt: true },
+        })
+        const totalAmount = Number(invoice.totalAmount)
+        const newStatus = computeInvoiceStatus(paidAmount, totalAmount)
+
         await tx.invoice.update({
           where: { id: invoiceId },
-          data: { status: "PENDENTE", paidAt: null },
+          data: {
+            status: newStatus,
+            paidAt: newStatus === "PAGO" ? (invoice.paidAt ?? new Date()) : null,
+          },
         })
       }
-
-      // Clear reconciliation on the original transaction
-      await tx.bankTransaction.update({
-        where: { id: transactionId },
-        data: { reconciledInvoiceId: null, reconciledAt: null, reconciledByUserId: null },
-      })
-
-      // Delete split records
-      await tx.bankTransaction.deleteMany({
-        where: {
-          clinicId: user.clinicId,
-          externalId: { startsWith: `${bankTx.externalId}:split-` },
-        },
-      })
     })
 
     return NextResponse.json({ message: "Conciliação desfeita" })
