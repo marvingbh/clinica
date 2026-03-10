@@ -80,27 +80,22 @@ export const GET = withFeatureAuth(
       }),
     ])
 
+    // Pre-compute allocated amounts per transaction (used for matching and response)
+    const txAllocatedMap = new Map<string, number>()
+    for (const tx of transactions) {
+      const allocated = tx.reconciliationLinks.reduce((sum, l) => sum + Number(l.amount), 0)
+      txAllocatedMap.set(tx.id, allocated)
+    }
+
     const txForMatching: TransactionForMatching[] = transactions
-      .filter((tx) => {
-        const allocated = tx.reconciliationLinks.reduce(
-          (sum, l) => sum + Number(l.amount),
-          0
-        )
-        return Number(tx.amount) - allocated >= 0.01
-      })
-      .map((tx) => {
-        const allocated = tx.reconciliationLinks.reduce(
-          (sum, l) => sum + Number(l.amount),
-          0
-        )
-        return {
-          id: tx.id,
-          date: tx.date,
-          amount: Number(tx.amount) - allocated,
-          description: tx.description,
-          payerName: tx.payerName,
-        }
-      })
+      .filter((tx) => Number(tx.amount) - txAllocatedMap.get(tx.id)! >= 0.01)
+      .map((tx) => ({
+        id: tx.id,
+        date: tx.date,
+        amount: Number(tx.amount) - txAllocatedMap.get(tx.id)!,
+        description: tx.description,
+        payerName: tx.payerName,
+      }))
 
     const invForMatching: InvoiceForMatching[] = invoices.map((inv) => {
       const paidAmount = inv.reconciliationLinks.reduce(
@@ -130,10 +125,7 @@ export const GET = withFeatureAuth(
     const matchResults = matchTransactions(txForMatching, invForMatching)
 
     const response = transactions.map((tx) => {
-      const allocatedAmount = tx.reconciliationLinks.reduce(
-        (sum, link) => sum + Number(link.amount),
-        0
-      )
+      const allocatedAmount = txAllocatedMap.get(tx.id)!
       const txAmount = Number(tx.amount)
       const remainingAmount = txAmount - allocatedAmount
       const isFullyReconciled = remainingAmount < 0.01

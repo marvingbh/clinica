@@ -844,7 +844,7 @@ model ReconciliationLink {
   invoice          Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   reconciledByUser User?           @relation(fields: [reconciledByUserId], references: [id], onDelete: SetNull)
 
-  @@index([transactionId])
+  @@unique([transactionId, invoiceId])
   @@index([invoiceId])
   @@index([clinicId])
 }

@@ -107,7 +107,7 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
         [txId]: invoiceIds.map(invoiceId => ({
           invoiceId,
           amount: tx?.candidates.find(c => c.invoiceId === invoiceId)?.remainingAmount
-            ?? tx?.groupCandidates?.flatMap(g => g.invoices).find(i => i.invoiceId === invoiceId)?.totalAmount
+            ?? tx?.groupCandidates?.flatMap(g => g.invoices).find(i => i.invoiceId === invoiceId)?.remainingAmount
             ?? tx?.remainingAmount ?? 0,
         })),
       }
@@ -192,21 +192,17 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
   }
 
   const handleUndo = async (txId: string) => {
-    const tx = transactions.find(t => t.id === txId)
-    if (!tx || tx.links.length === 0) return
     try {
-      for (const link of tx.links) {
-        const res = await fetch("/api/financeiro/conciliacao/reconcile", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ linkId: link.linkId }),
-        })
-        if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.error || "Erro ao desfazer")
-        }
+      const res = await fetch("/api/financeiro/conciliacao/reconcile", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactionId: txId }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Erro ao desfazer")
       }
-      toast.success("Todos os links desfeitos")
+      toast.success("Conciliação desfeita")
       onReconciled()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao desfazer")

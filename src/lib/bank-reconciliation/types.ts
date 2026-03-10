@@ -16,7 +16,7 @@ export interface InvoiceForMatching {
   remainingAmount: number  // totalAmount - sum(linked payments)
   referenceMonth: number
   referenceYear: number
-  status: string // PENDENTE or ENVIADO
+  status: string
 }
 
 export type MatchConfidence = "HIGH" | "MEDIUM" | "LOW"
