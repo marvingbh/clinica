@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { BottomSheet } from "@/shared/components/ui/bottom-sheet"
 import { formatCurrencyBRL, getMonthNameShort } from "@/lib/financeiro/format"
 import { SearchIcon, CheckIcon, Loader2Icon, ArrowLeftIcon } from "lucide-react"
+import type { CreatedInvoiceInfo } from "./types"
 
 interface Patient {
   id: string
@@ -38,14 +39,7 @@ function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("pt-BR")
 }
 
-export interface CreatedInvoiceInfo {
-  id: string
-  patientName: string
-  totalAmount: number
-  referenceMonth: number
-  referenceYear: number
-  description: string
-}
+export type { CreatedInvoiceInfo }
 
 interface CreateInvoiceSheetProps {
   isOpen: boolean

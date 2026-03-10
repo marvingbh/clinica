@@ -1,4 +1,11 @@
-import type { CreatedInvoiceInfo } from "./CreateInvoiceSheet"
+export interface CreatedInvoiceInfo {
+  id: string
+  patientName: string
+  totalAmount: number
+  referenceMonth: number
+  referenceYear: number
+  description: string
+}
 
 export interface CandidateInvoice {
   invoiceId: string
@@ -76,4 +83,3 @@ export function hasWordOverlap(name: string | null, payerName: string | null): b
   return nameWords.some(w => payerWords.includes(w))
 }
 
-export type { CreatedInvoiceInfo }

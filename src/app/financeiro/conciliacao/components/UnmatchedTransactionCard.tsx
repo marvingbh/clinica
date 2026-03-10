@@ -1,16 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import {
-  CheckIcon,
-  CircleAlertIcon,
-  PlusIcon,
-  SearchIcon,
-  Loader2Icon,
-} from "lucide-react"
-import { formatCurrencyBRL, formatDateBR, getMonthName } from "@/lib/financeiro/format"
+import { CircleAlertIcon, PlusIcon, SearchIcon } from "lucide-react"
+import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
 import { InvoiceSearch } from "./InvoiceSearch"
 import type { Transaction, CreatedInvoiceInfo } from "./types"
+import { Checkbox, ConfirmButton, AddedInvoiceRow } from "./shared-ui"
 
 interface UnmatchedTransactionCardProps {
   tx: Transaction
@@ -52,17 +47,7 @@ export function UnmatchedTransactionCard({
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {selectedIds.length > 0 && (
-            <button
-              onClick={onConfirm}
-              disabled={isConfirming}
-              className="inline-flex items-center gap-1 text-xs font-medium text-white bg-primary hover:bg-primary/90 disabled:opacity-50 px-2.5 py-1.5 rounded-md transition-colors"
-            >
-              {isConfirming
-                ? <Loader2Icon className="w-3 h-3 animate-spin" />
-                : <CheckIcon className="w-3 h-3" />
-              }
-              Confirmar
-            </button>
+            <ConfirmButton onClick={onConfirm} isConfirming={isConfirming} />
           )}
           <button
             onClick={() => setExpanded(!expanded)}
@@ -87,41 +72,14 @@ export function UnmatchedTransactionCard({
 
       {addedInvoices.length > 0 && (
         <div className="divide-y divide-border border-t border-border">
-          {addedInvoices.map(inv => {
-            const isSelected = selectedIds.includes(inv.id)
-            return (
-              <button
-                key={inv.id}
-                onClick={() => onToggleInvoice(inv.id)}
-                className={`w-full text-left px-4 py-3 transition-colors ${
-                  isSelected ? "bg-primary/8 ring-2 ring-inset ring-primary/30" : "hover:bg-muted/40"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-5 h-5 rounded border-2 shrink-0 flex items-center justify-center transition-colors ${
-                    isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/30"
-                  }`}>
-                    {isSelected && <CheckIcon className="w-3.5 h-3.5" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm">{inv.patientName}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                        Nova
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {getMonthName(inv.referenceMonth)}/{inv.referenceYear}
-                      </span>
-                      <span className="text-xs font-medium tabular-nums">
-                        {formatCurrencyBRL(inv.totalAmount)}
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{inv.description}</div>
-                  </div>
-                </div>
-              </button>
-            )
-          })}
+          {addedInvoices.map(inv => (
+            <AddedInvoiceRow
+              key={inv.id}
+              inv={inv}
+              isSelected={selectedIds.includes(inv.id)}
+              onToggle={() => onToggleInvoice(inv.id)}
+            />
+          ))}
         </div>
       )}
 
