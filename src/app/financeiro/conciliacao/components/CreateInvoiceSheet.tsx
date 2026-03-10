@@ -108,7 +108,6 @@ export function CreateInvoiceSheet({ isOpen, onClose, onCreated, defaultAmount, 
 
   useEffect(() => {
     if (isOpen && defaultSearch && step === "patient" && !selectedPatient) {
-      setPatientSearch(defaultSearch)
       searchPatients(defaultSearch)
     }
   }, [isOpen, defaultSearch]) // eslint-disable-line react-hooks/exhaustive-deps
