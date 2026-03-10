@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useCallback, useRef, useEffect } from "react"
+import React, { useState, useCallback, useRef } from "react"
 import { toast } from "sonner"
 import { BottomSheet } from "@/shared/components/ui/bottom-sheet"
 import { formatCurrencyBRL, getMonthNameShort } from "@/lib/financeiro/format"
@@ -47,10 +47,9 @@ interface CreateInvoiceSheetProps {
   onCreated: (invoice: CreatedInvoiceInfo) => void
   defaultAmount?: number
   defaultDate?: string // ISO date string from the transaction
-  defaultSearch?: string // payer name from the transaction
 }
 
-export function CreateInvoiceSheet({ isOpen, onClose, onCreated, defaultAmount, defaultDate, defaultSearch }: CreateInvoiceSheetProps) {
+export function CreateInvoiceSheet({ isOpen, onClose, onCreated, defaultAmount, defaultDate }: CreateInvoiceSheetProps) {
   const [step, setStep] = useState<Step>("patient")
   const [mode, setMode] = useState<Mode>("appointments")
 
@@ -106,15 +105,6 @@ export function CreateInvoiceSheet({ isOpen, onClose, onCreated, defaultAmount, 
       .finally(() => setSearchingPatients(false))
   }, [])
 
-  const didAutoSearch = useRef(false)
-  useEffect(() => {
-    if (!isOpen) { didAutoSearch.current = false; return }
-    if (didAutoSearch.current) return
-    if (defaultSearch && step === "patient" && !selectedPatient) {
-      didAutoSearch.current = true
-      searchPatients(defaultSearch)
-    }
-  }, [isOpen, defaultSearch, step, selectedPatient, searchPatients])
 
   function handlePatientSearchChange(value: string) {
     setPatientSearch(value)
