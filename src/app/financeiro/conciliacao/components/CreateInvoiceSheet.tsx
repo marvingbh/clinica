@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useRef } from "react"
 import { toast } from "sonner"
 import { BottomSheet } from "@/shared/components/ui/bottom-sheet"
-import { formatCurrencyBRL } from "@/lib/financeiro/format"
+import { formatCurrencyBRL, getMonthNameShort } from "@/lib/financeiro/format"
 import { SearchIcon, CheckIcon, Loader2Icon, ArrowLeftIcon } from "lucide-react"
 
 interface Patient {
@@ -33,11 +33,6 @@ const STATUS_LABELS: Record<string, string> = {
   FINALIZADO: "Finalizado",
   CANCELADO_FALTA: "Falta",
 }
-
-const MONTH_LABELS = [
-  "", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-  "Jul", "Ago", "Set", "Out", "Nov", "Dez",
-]
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("pt-BR")
@@ -432,8 +427,8 @@ export function CreateInvoiceSheet({ isOpen, onClose, onCreated, defaultAmount, 
                       onChange={e => setRefMonth(Number(e.target.value))}
                       className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm"
                     >
-                      {MONTH_LABELS.slice(1).map((m, i) => (
-                        <option key={i + 1} value={i + 1}>{m}</option>
+                      {Array.from({ length: 12 }, (_, i) => (
+                        <option key={i + 1} value={i + 1}>{getMonthNameShort(i + 1)}</option>
                       ))}
                     </select>
                   </div>
@@ -484,7 +479,7 @@ export function CreateInvoiceSheet({ isOpen, onClose, onCreated, defaultAmount, 
               {mode === "manual" && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Referência</span>
-                  <span className="font-medium">{MONTH_LABELS[refMonth]}/{refYear}</span>
+                  <span className="font-medium">{getMonthNameShort(refMonth)}/{refYear}</span>
                 </div>
               )}
               <hr className="border-border" />

@@ -15,10 +15,13 @@ Users need to see already-reconciled bank transactions and either undo the recon
   - **Desfazer** (`Undo2Icon`, ghost) — unlinks, reverts invoice to previous status, deletes split records
   - **Buscar** / **Criar** — same as unmatched cards; selecting a new invoice swaps the link
 
+### Matching includes PAGO invoices
+Invoices with status PAGO that are not yet linked to a bank transaction are included in matching candidates. This handles cases where invoices were manually marked as paid before the reconciliation feature existed.
+
 ### API: `DELETE /api/financeiro/conciliacao/reconcile`
 - Accepts `{ transactionId }`
 - Clears `reconciledInvoiceId`, `reconciledAt`, `reconciledByUserId`
-- Reverts linked invoice status from PAGO to PENDENTE (or ENVIADO if it was ENVIADO before)
+- Reverts linked invoice status from PAGO to PENDENTE
 - Deletes split bank transaction records (`externalId` containing `:split-`)
 
 ### Swap flow

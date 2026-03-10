@@ -8,6 +8,11 @@ import {
 
 const VALID_STATUSES = ["PENDENTE", "ENVIADO", "PAGO"]
 
+export interface InvoiceWithParent extends InvoiceForMatching {
+  normalizedMother: string
+  normalizedFather: string
+}
+
 /**
  * Normalize a string for comparison: lowercase, remove accents, collapse whitespace.
  */
@@ -73,6 +78,53 @@ export function nameContainedIn(name: string, payerName: string): boolean {
   const payerWords = normalizeForComparison(payerName).split(" ")
   if (nameWords.length === 0) return false
   return nameWords.every(w => payerWords.includes(w))
+}
+
+/**
+ * Find the shared parent name between two invoices (by normalized mother/father).
+ */
+export function getSharedParent(a: InvoiceWithParent, b: InvoiceWithParent): string | null {
+  if (a.normalizedMother && a.normalizedMother === b.normalizedMother) return a.motherName
+  if (a.normalizedFather && a.normalizedFather === b.normalizedFather) return a.fatherName
+  if (a.normalizedMother && a.normalizedMother === b.normalizedFather) return a.motherName
+  if (a.normalizedFather && a.normalizedFather === b.normalizedMother) return a.fatherName
+  return null
+}
+
+/**
+ * Find pairs of invoices from the same family that sum to the transaction amount.
+ */
+export function findGroupCandidates(
+  txAmount: number,
+  txPayerName: string | null,
+  allInvoices: InvoiceWithParent[]
+): Array<{ invoices: InvoiceWithParent[]; sharedParent: string | null }> {
+  const groups: Array<{ invoices: InvoiceWithParent[]; sharedParent: string | null }> = []
+
+  const payerWords = txPayerName
+    ? normalizeForComparison(txPayerName).split(" ").filter(w => w.length > 2)
+    : []
+
+  for (let i = 0; i < allInvoices.length; i++) {
+    for (let j = i + 1; j < allInvoices.length; j++) {
+      const a = allInvoices[i]
+      const b = allInvoices[j]
+      if (Math.abs(a.totalAmount + b.totalAmount - txAmount) >= 0.01) continue
+
+      const shared = getSharedParent(a, b)
+      if (!shared) continue
+
+      if (payerWords.length > 0) {
+        const parentWords = normalizeForComparison(shared).split(" ").filter(w => w.length > 2)
+        const hasOverlap = parentWords.some(w => payerWords.includes(w))
+        if (!hasOverlap) continue
+      }
+
+      groups.push({ invoices: [a, b], sharedParent: shared })
+    }
+  }
+
+  return groups
 }
 
 function getConfidence(nameScore: number): MatchConfidence {

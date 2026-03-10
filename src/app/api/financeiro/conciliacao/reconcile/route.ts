@@ -88,15 +88,18 @@ export const POST = withFeatureAuth(
         const bankTx = txMap.get(match.transactionId)!
         const invoiceIds = match.invoiceIds
 
-        // First invoice: link to the original bank transaction
-        await tx.bankTransaction.update({
-          where: { id: match.transactionId },
+        // Atomically update only if still unreconciled (guards concurrent requests)
+        const updated = await tx.bankTransaction.updateMany({
+          where: { id: match.transactionId, reconciledInvoiceId: null },
           data: {
             reconciledInvoiceId: invoiceIds[0],
             reconciledAt: now,
             reconciledByUserId: user.id,
           },
         })
+        if (updated.count === 0) {
+          throw new Error("Transação já foi conciliada por outro usuário")
+        }
 
         // Additional invoices: create split bank transaction records
         for (let i = 1; i < invoiceIds.length; i++) {

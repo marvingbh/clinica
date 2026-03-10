@@ -5,8 +5,11 @@ export {
   nameSimilarity,
   surnameMatches,
   nameContainedIn,
+  findGroupCandidates,
+  getSharedParent,
 } from "./matcher"
-export { fetchStatements } from "./inter-client"
+export type { InvoiceWithParent } from "./matcher"
+export { fetchStatements, extractPayerName } from "./inter-client"
 export type {
   TransactionForMatching,
   InvoiceForMatching,

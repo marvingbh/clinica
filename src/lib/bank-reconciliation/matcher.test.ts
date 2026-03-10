@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest"
-import { matchTransactions, normalizeForComparison, nameSimilarity, surnameMatches, nameContainedIn } from "./matcher"
+import { matchTransactions, normalizeForComparison, nameSimilarity, surnameMatches, nameContainedIn, findGroupCandidates } from "./matcher"
+import type { InvoiceWithParent } from "./matcher"
+import { extractPayerName } from "./inter-client"
 import { TransactionForMatching, InvoiceForMatching } from "./types"
 
 const makeTransaction = (overrides: Partial<TransactionForMatching> = {}): TransactionForMatching => ({
@@ -283,5 +285,91 @@ describe("matchTransactions", () => {
     const invoices = [makeInvoice({ totalAmount: 500 })]
     const results = matchTransactions(transactions, invoices)
     expect(results[0].candidates).toHaveLength(0)
+  })
+})
+
+const makeInvoiceWithParent = (overrides: Partial<InvoiceWithParent> = {}): InvoiceWithParent => ({
+  id: "inv1",
+  patientId: "p1",
+  patientName: "João Silva",
+  motherName: "Maria Silva",
+  fatherName: "Carlos Silva",
+  totalAmount: 250,
+  referenceMonth: 3,
+  referenceYear: 2026,
+  status: "PENDENTE",
+  normalizedMother: "maria silva",
+  normalizedFather: "carlos silva",
+  ...overrides,
+})
+
+describe("findGroupCandidates", () => {
+  it("finds a pair of invoices that sum to the transaction amount with shared parent", () => {
+    const invoices = [
+      makeInvoiceWithParent({ id: "inv1", totalAmount: 300 }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p2", patientName: "Ana Silva", totalAmount: 200 }),
+    ]
+    const groups = findGroupCandidates(500, "Maria Silva", invoices)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].invoices.map(i => i.id).sort()).toEqual(["inv1", "inv2"])
+    expect(groups[0].sharedParent).toBe("Maria Silva")
+  })
+
+  it("returns empty when amounts don't sum", () => {
+    const invoices = [
+      makeInvoiceWithParent({ id: "inv1", totalAmount: 300 }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p2", totalAmount: 300 }),
+    ]
+    const groups = findGroupCandidates(500, "Maria Silva", invoices)
+    expect(groups).toHaveLength(0)
+  })
+
+  it("returns empty when no shared parent", () => {
+    const invoices = [
+      makeInvoiceWithParent({ id: "inv1", totalAmount: 300, normalizedMother: "ana", normalizedFather: "pedro" }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p2", totalAmount: 200, normalizedMother: "julia", normalizedFather: "marcos" }),
+    ]
+    const groups = findGroupCandidates(500, null, invoices)
+    expect(groups).toHaveLength(0)
+  })
+
+  it("skips pairs where payer name doesn't overlap with shared parent", () => {
+    const invoices = [
+      makeInvoiceWithParent({ id: "inv1", totalAmount: 300 }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p2", totalAmount: 200 }),
+    ]
+    const groups = findGroupCandidates(500, "Unknown Person", invoices)
+    expect(groups).toHaveLength(0)
+  })
+
+  it("works without payer name (no payer filtering)", () => {
+    const invoices = [
+      makeInvoiceWithParent({ id: "inv1", totalAmount: 300 }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p2", totalAmount: 200 }),
+    ]
+    const groups = findGroupCandidates(500, null, invoices)
+    expect(groups).toHaveLength(1)
+  })
+})
+
+describe("extractPayerName", () => {
+  it("extracts name after CPF pattern", () => {
+    expect(extractPayerName("PIX RECEBIDO - Cp :00000000-ADRIANA MC SIQUEIRA")).toBe("ADRIANA MC SIQUEIRA")
+  })
+
+  it("extracts name from internal PIX format", () => {
+    expect(extractPayerName("PIX RECEBIDO INTERNO - 00019 7258666 SAVIO MOREIRA")).toBe("SAVIO MOREIRA")
+  })
+
+  it("extracts name after last dash as fallback", () => {
+    expect(extractPayerName("TED RECEBIDO-MARIA SILVA")).toBe("MARIA SILVA")
+  })
+
+  it("returns null for empty string", () => {
+    expect(extractPayerName("")).toBeNull()
+  })
+
+  it("returns null when no pattern matches", () => {
+    expect(extractPayerName("TARIFA BANCARIA 123")).toBeNull()
   })
 })

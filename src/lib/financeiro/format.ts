@@ -1,10 +1,19 @@
-const MONTH_NAMES = [
+export const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ]
 
+const MONTH_NAMES_SHORT = [
+  "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+  "Jul", "Ago", "Set", "Out", "Nov", "Dez",
+]
+
 export function getMonthName(month: number): string {
   return MONTH_NAMES[month - 1] || ""
+}
+
+export function getMonthNameShort(month: number): string {
+  return MONTH_NAMES_SHORT[month - 1] || ""
 }
 
 export function formatCurrencyBRL(value: number): string {

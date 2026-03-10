@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import { IntegrationForm } from "./components/IntegrationForm"
 import { TransactionList } from "./components/TransactionList"
+import type { Transaction } from "./components/types"
 
 interface Integration {
   id: string
@@ -24,8 +25,7 @@ type ConnectionStatus = "idle" | "testing" | "ok" | "error"
 
 export default function ConciliacaoPage() {
   const [integration, setIntegration] = useState<Integration | null>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [transactions, setTransactions] = useState<any[]>([])
+  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loadingIntegration, setLoadingIntegration] = useState(true)
   const [loadingTransactions, setLoadingTransactions] = useState(false)
   const [fetching, setFetching] = useState(false)
