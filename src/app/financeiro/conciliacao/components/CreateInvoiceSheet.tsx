@@ -39,8 +39,6 @@ function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("pt-BR")
 }
 
-export type { CreatedInvoiceInfo }
-
 interface CreateInvoiceSheetProps {
   isOpen: boolean
   onClose: () => void
