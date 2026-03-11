@@ -5,6 +5,9 @@ import { classifyAppointments, buildInvoiceItems, buildMonthlyInvoiceItems } fro
 import { recalculateInvoice } from "@/lib/financeiro/recalculate-invoice"
 import { getMonthName } from "@/lib/financeiro/format"
 import { separateManualItems } from "@/lib/financeiro/invoice-generation"
+import { resolveGrouping } from "@/lib/financeiro/invoice-grouping"
+import { generatePerSessionInvoices } from "@/lib/financeiro/generate-per-session-invoices"
+import { generateMonthlyInvoice } from "@/lib/financeiro/generate-monthly-invoice"
 
 export const POST = withFeatureAuth(
   { feature: "finances", minAccess: "WRITE" },
@@ -40,6 +43,7 @@ export const POST = withFeatureAuth(
         id: true, name: true, motherName: true, fatherName: true,
         sessionFee: true, showAppointmentDaysOnInvoice: true,
         invoiceDueDay: true, invoiceMessageTemplate: true,
+        invoiceGrouping: true,
       },
     })
 
@@ -48,6 +52,28 @@ export const POST = withFeatureAuth(
         { error: "Paciente sem valor de sessão configurado" },
         { status: 400 }
       )
+    }
+
+    // Check if the grouping mode changed — if so, cancel this invoice and regenerate
+    const clinic = await prisma.clinic.findUnique({
+      where: { id: user.clinicId },
+      select: {
+        invoiceDueDay: true, invoiceMessageTemplate: true,
+        billingMode: true, invoiceGrouping: true,
+      },
+    })
+
+    const currentGrouping = resolveGrouping(
+      clinic?.invoiceGrouping ?? "MONTHLY",
+      patient.invoiceGrouping
+    )
+
+    const invoiceIsMonthly = invoice.invoiceType !== "PER_SESSION"
+    const groupingChanged = (invoiceIsMonthly && currentGrouping === "PER_SESSION")
+      || (!invoiceIsMonthly && currentGrouping === "MONTHLY")
+
+    if (groupingChanged) {
+      return handleGroupingTransition(invoice, patient, clinic, user, currentGrouping)
     }
 
     // PER_SESSION: simplified recalculation for single-appointment invoices
@@ -73,16 +99,10 @@ export const POST = withFeatureAuth(
       },
     })
 
-    const [clinic, professional] = await Promise.all([
-      prisma.clinic.findUnique({
-        where: { id: user.clinicId },
-        select: { invoiceDueDay: true, invoiceMessageTemplate: true, billingMode: true },
-      }),
-      prisma.professionalProfile.findUnique({
-        where: { id: invoice.professionalProfileId },
-        select: { user: { select: { name: true } } },
-      }),
-    ])
+    const professional = await prisma.professionalProfile.findUnique({
+      where: { id: invoice.professionalProfileId },
+      select: { user: { select: { name: true } } },
+    })
 
     const sessionFee = Number(patient.sessionFee)
     const showDays = patient.showAppointmentDaysOnInvoice
@@ -255,4 +275,116 @@ async function recalculatePerSession(
   })
 
   return NextResponse.json({ success: true, message: "Fatura recalculada com sucesso" })
+}
+
+/**
+ * Handles recalculation when the patient's grouping mode has changed
+ * (e.g., MONTHLY invoice but patient is now PER_SESSION).
+ * Cancels the current invoice and generates new ones with the correct type.
+ */
+async function handleGroupingTransition(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  invoice: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  patient: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  clinic: any,
+  user: { clinicId: string },
+  newGrouping: "MONTHLY" | "PER_SESSION",
+) {
+  const startDate = new Date(invoice.referenceYear, invoice.referenceMonth - 1, 1)
+  const endDate = new Date(invoice.referenceYear, invoice.referenceMonth, 1)
+
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      clinicId: user.clinicId,
+      patientId: invoice.patientId,
+      professionalProfileId: invoice.professionalProfileId,
+      scheduledAt: { gte: startDate, lt: endDate },
+      type: { in: ["CONSULTA", "REUNIAO"] },
+    },
+    select: {
+      id: true, scheduledAt: true, status: true, type: true, title: true,
+      recurrenceId: true, groupId: true, price: true,
+    },
+  })
+
+  const professional = await prisma.professionalProfile.findUnique({
+    where: { id: invoice.professionalProfileId },
+    select: { user: { select: { name: true } } },
+  })
+  const profName = professional?.user?.name || ""
+  const sessionFee = Number(patient.sessionFee)
+
+  const mappedApts = appointments.map(a => ({
+    ...a,
+    price: a.price ? Number(a.price) : null,
+  }))
+
+  await prisma.$transaction(async (tx) => {
+    // Release any credits consumed by the old invoice
+    await tx.sessionCredit.updateMany({
+      where: { consumedByInvoiceId: invoice.id },
+      data: { consumedByInvoiceId: null, consumedAt: null },
+    })
+
+    // Cancel the old invoice
+    await tx.invoice.update({
+      where: { id: invoice.id },
+      data: { status: "CANCELADO" },
+    })
+
+    if (newGrouping === "PER_SESSION") {
+      await generatePerSessionInvoices(tx, {
+        clinicId: user.clinicId,
+        patientId: invoice.patientId,
+        profId: invoice.professionalProfileId,
+        month: invoice.referenceMonth,
+        year: invoice.referenceYear,
+        appointments: mappedApts,
+        sessionFee,
+        patientTemplate: patient.invoiceMessageTemplate,
+        clinicTemplate: clinic?.invoiceMessageTemplate ?? null,
+        clinicPaymentInfo: null,
+        profName,
+        patientName: patient.name,
+        motherName: patient.motherName,
+        fatherName: patient.fatherName,
+        showAppointmentDays: patient.showAppointmentDaysOnInvoice,
+      })
+    } else {
+      const clinicDueDay = clinic?.invoiceDueDay ?? 15
+      const dueDate = new Date(Date.UTC(
+        invoice.referenceYear, invoice.referenceMonth - 1,
+        patient.invoiceDueDay ?? clinicDueDay, 12,
+      ))
+      await generateMonthlyInvoice(tx, {
+        clinicId: user.clinicId,
+        patientId: invoice.patientId,
+        professionalProfileId: invoice.professionalProfileId,
+        month: invoice.referenceMonth,
+        year: invoice.referenceYear,
+        dueDate,
+        sessionFee,
+        showAppointmentDays: patient.showAppointmentDaysOnInvoice,
+        profName,
+        billingMode: clinic?.billingMode ?? null,
+        patient: {
+          name: patient.name,
+          motherName: patient.motherName,
+          fatherName: patient.fatherName,
+          invoiceMessageTemplate: patient.invoiceMessageTemplate,
+        },
+        clinicInvoiceMessageTemplate: clinic?.invoiceMessageTemplate ?? null,
+        appointments: mappedApts,
+      })
+    }
+  }, { timeout: 15000 })
+
+  const label = newGrouping === "PER_SESSION" ? "por sessão" : "mensal"
+  return NextResponse.json({
+    success: true,
+    message: `Fatura convertida para modo ${label}`,
+    groupingChanged: true,
+  })
 }
