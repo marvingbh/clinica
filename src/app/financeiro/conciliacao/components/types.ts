@@ -20,7 +20,7 @@ export interface CandidateInvoice {
 }
 
 export interface Candidate extends CandidateInvoice {
-  confidence: "HIGH" | "MEDIUM" | "LOW"
+  confidence: "KNOWN" | "HIGH" | "MEDIUM" | "LOW"
   nameScore: number
   matchedField: string | null
 }
@@ -64,6 +64,11 @@ export const INVOICE_STATUS_CONFIG: Record<string, { bg: string; label: string }
 }
 
 export const CONFIDENCE_CONFIG: Record<string, { bg: string; dot: string; label: string }> = {
+  KNOWN: {
+    bg: "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800",
+    dot: "bg-blue-500",
+    label: "Pagador usual",
+  },
   HIGH: {
     bg: "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800",
     dot: "bg-green-500",
