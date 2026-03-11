@@ -1,46 +1,23 @@
 "use client"
 
-import React, { useEffect, useState, useCallback, useRef } from "react"
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
-import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
+import { formatCurrencyBRL } from "@/lib/financeiro/format"
 import { toast } from "sonner"
-import { EyeIcon, CheckCircleIcon, DownloadIcon, RefreshCwIcon, PlusIcon, SquarePenIcon } from "@/shared/components/ui/icons"
+import { DownloadIcon, PlusIcon } from "@/shared/components/ui/icons"
 import { useFinanceiroContext } from "../context/FinanceiroContext"
 import { InvoiceDetailModal } from "./InvoiceDetailModal"
-
-interface Invoice {
-  id: string
-  referenceMonth: number
-  referenceYear: number
-  status: string
-  totalSessions: number
-  totalAmount: string
-  dueDate: string
-  paidAt: string | null
-  notaFiscalEmitida: boolean
-  paidViaBank: boolean
-  bankPayerName: string | null
-  patient: { id: string; name: string }
-  professionalProfile: { id: string; user: { name: string } }
-  _count: { items: number }
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  PENDENTE: "Pendente",
-  ENVIADO: "Enviado",
-  PARCIAL: "Parcial",
-  PAGO: "Pago",
-  CANCELADO: "Cancelado",
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  PENDENTE: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  ENVIADO: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  PARCIAL: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-  PAGO: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  CANCELADO: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-}
+import { InvoiceTableBody, STATUS_LABELS, STATUS_COLORS } from "./InvoiceTableBody"
+import {
+  type Invoice,
+  buildInvoiceRows,
+  filterRowsByStatus,
+  countAllInvoices,
+  sumTotalSessions,
+  sumTotalAmount,
+  collectAllInvoices,
+} from "./invoice-grouping-helpers"
 
 interface Professional {
   id: string
@@ -66,6 +43,7 @@ export default function FaturasPage() {
   const [recalculatingId, setRecalculatingId] = useState<string | null>(null)
   const [downloadingZip, setDownloadingZip] = useState(false)
   const [detailInvoiceId, setDetailInvoiceId] = useState<string | null>(null)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   const fetchInvoices = useCallback(() => {
@@ -73,7 +51,6 @@ export default function FaturasPage() {
     const params = new URLSearchParams()
     if (month !== null) params.set("month", String(month))
     params.set("year", String(year))
-    if (statusFilter) params.set("status", statusFilter)
     if (selectedProfessionalId) params.set("professionalId", selectedProfessionalId)
     if (patientSearch.trim()) params.set("patientSearch", patientSearch.trim())
     if (sortBy !== "name") params.set("sortBy", sortBy)
@@ -81,9 +58,15 @@ export default function FaturasPage() {
       .then(r => r.json())
       .then(setInvoices)
       .finally(() => setLoading(false))
-  }, [month, year, statusFilter, selectedProfessionalId, patientSearch, sortBy])
+  }, [month, year, selectedProfessionalId, patientSearch, sortBy])
 
   useEffect(() => { fetchInvoices() }, [fetchInvoices])
+
+  // Build grouped rows from invoices, then apply status filter client-side
+  const displayRows = useMemo(() => {
+    const allRows = buildInvoiceRows(invoices)
+    return filterRowsByStatus(allRows, statusFilter)
+  }, [invoices, statusFilter])
 
   function handlePatientSearchChange(value: string) {
     setPatientSearchInput(value)
@@ -91,6 +74,15 @@ export default function FaturasPage() {
     debounceRef.current = setTimeout(() => {
       setPatientSearch(value)
     }, 350)
+  }
+
+  function handleToggleGroup(key: string) {
+    setExpandedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
   }
 
   useEffect(() => {
@@ -131,7 +123,8 @@ export default function FaturasPage() {
   }
 
   async function handleBulkMarkEnviado() {
-    const pendentes = invoices.filter(i => i.status === "PENDENTE")
+    const allInvoices = collectAllInvoices(displayRows)
+    const pendentes = allInvoices.filter(i => i.status === "PENDENTE")
     if (pendentes.length === 0) {
       toast.error("Nenhuma fatura pendente para marcar")
       return
@@ -214,6 +207,9 @@ export default function FaturasPage() {
       setDownloadingZip(false)
     }
   }
+
+  const allInvoicesForFooter = useMemo(() => collectAllInvoices(displayRows), [displayRows])
+  const hasPendentes = allInvoicesForFooter.some(i => i.status === "PENDENTE")
 
   return (
     <div>
@@ -302,7 +298,7 @@ export default function FaturasPage() {
           </button>
           <button
             onClick={handleBulkMarkEnviado}
-            disabled={markingEnviado || invoices.filter(i => i.status === "PENDENTE").length === 0}
+            disabled={markingEnviado || !hasPendentes}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
             {markingEnviado ? "Marcando..." : "Marcar como Enviado"}
@@ -320,7 +316,7 @@ export default function FaturasPage() {
       {/* Table */}
       {loading ? (
         <div className="animate-pulse text-muted-foreground">Carregando...</div>
-      ) : invoices.length === 0 ? (
+      ) : displayRows.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           Nenhuma fatura encontrada para este período
         </div>
@@ -340,100 +336,29 @@ export default function FaturasPage() {
               </tr>
             </thead>
             <tbody>
-              {invoices.map(inv => (
-                <tr key={inv.id} className="border-b border-border last:border-0 even:bg-muted/30 hover:bg-muted/50">
-                  <td className="py-3 px-4 font-medium">{inv.patient.name}</td>
-                  <td className="text-center py-3 px-4">{inv.totalSessions}</td>
-                  <td className="text-right py-3 px-4">{formatCurrencyBRL(Number(inv.totalAmount))}</td>
-                  <td className="text-center py-3 px-4">
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[inv.status] || ""}`}>
-                      {STATUS_LABELS[inv.status] || inv.status}
-                    </span>
-                  </td>
-                  <td className="text-center py-3 px-4">
-                    {inv.notaFiscalEmitida ? (
-                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" title="NF emitida">✓</span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="text-center py-3 px-4">{formatDateBR(inv.dueDate)}</td>
-                  <td className="text-center py-3 px-4">
-                    {(inv.status === "PENDENTE" || inv.status === "ENVIADO" || inv.status === "PARCIAL") ? (
-                      <button
-                        onClick={() => handleMarkPaid(inv.id)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition-colors"
-                        title="Marcar como pago"
-                      >
-                        <CheckCircleIcon className="w-3.5 h-3.5" />
-                        Pagar
-                      </button>
-                    ) : inv.status === "PAGO" ? (
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                          {inv.paidAt ? new Date(inv.paidAt).toLocaleDateString("pt-BR") : "Pago"}
-                        </span>
-                        <span className={`text-[10px] ${inv.paidViaBank ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"}`}>
-                          {inv.paidViaBank ? "Conciliado" : "Manual"}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="text-right py-3 px-4">
-                    <div className="flex items-center justify-end gap-1">
-                      {(inv.status === "PENDENTE" || inv.status === "ENVIADO" || inv.status === "PARCIAL") && (
-                        <button
-                          onClick={() => handleRecalcular(inv.id)}
-                          disabled={recalculatingId === inv.id}
-                          className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
-                          title="Recalcular fatura"
-                        >
-                          <RefreshCwIcon className={`w-4 h-4 ${recalculatingId === inv.id ? "animate-spin" : ""}`} />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setDetailInvoiceId(inv.id)}
-                        className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                        title="Ver detalhes"
-                      >
-                        <EyeIcon className="w-4 h-4" />
-                      </button>
-                      <Link
-                        href={`/financeiro/faturas/${inv.id}`}
-                        className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                        title="Editar fatura"
-                      >
-                        <SquarePenIcon className="w-4 h-4" />
-                      </Link>
-                      <a
-                        href={`/api/financeiro/faturas/${inv.id}/pdf`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                        title="Baixar PDF"
-                      >
-                        <DownloadIcon className="w-4 h-4" />
-                      </a>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              <InvoiceTableBody
+                rows={displayRows}
+                expandedGroups={expandedGroups}
+                onToggleGroup={handleToggleGroup}
+                recalculatingId={recalculatingId}
+                onMarkPaid={handleMarkPaid}
+                onRecalcular={handleRecalcular}
+                onViewDetail={setDetailInvoiceId}
+              />
             </tbody>
             <tfoot>
               <tr className="border-t border-border bg-muted/50 font-medium">
-                <td className="py-3 px-4">{invoices.length} fatura(s)</td>
-                <td className="text-center py-3 px-4">{invoices.reduce((s, i) => s + i.totalSessions, 0)}</td>
-                <td className="text-right py-3 px-4">{formatCurrencyBRL(invoices.reduce((s, i) => s + Number(i.totalAmount), 0))}</td>
+                <td className="py-3 px-4">{countAllInvoices(displayRows)} fatura(s)</td>
+                <td className="text-center py-3 px-4">{sumTotalSessions(displayRows)}</td>
+                <td className="text-right py-3 px-4">{formatCurrencyBRL(sumTotalAmount(displayRows))}</td>
                 <td className="text-center py-3 px-4">
-                  <span className="text-xs text-green-600 dark:text-green-400">{invoices.filter(i => i.status === "PAGO").length} pagos</span>
+                  <span className="text-xs text-green-600 dark:text-green-400">{allInvoicesForFooter.filter(i => i.status === "PAGO").length} pagos</span>
                   {" / "}
-                  <span className="text-xs text-orange-600 dark:text-orange-400">{invoices.filter(i => i.status === "PARCIAL").length} parciais</span>
+                  <span className="text-xs text-orange-600 dark:text-orange-400">{allInvoicesForFooter.filter(i => i.status === "PARCIAL").length} parciais</span>
                   {" / "}
-                  <span className="text-xs text-blue-600 dark:text-blue-400">{invoices.filter(i => i.status === "ENVIADO").length} enviados</span>
+                  <span className="text-xs text-blue-600 dark:text-blue-400">{allInvoicesForFooter.filter(i => i.status === "ENVIADO").length} enviados</span>
                   {" / "}
-                  <span className="text-xs text-yellow-600 dark:text-yellow-400">{invoices.filter(i => i.status === "PENDENTE").length} pendentes</span>
+                  <span className="text-xs text-yellow-600 dark:text-yellow-400">{allInvoicesForFooter.filter(i => i.status === "PENDENTE").length} pendentes</span>
                 </td>
                 <td colSpan={4}></td>
               </tr>

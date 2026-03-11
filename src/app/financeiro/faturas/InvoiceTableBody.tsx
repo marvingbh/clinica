@@ -1,0 +1,306 @@
+"use client"
+
+import React from "react"
+import Link from "next/link"
+import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
+import {
+  EyeIcon,
+  CheckCircleIcon,
+  DownloadIcon,
+  RefreshCwIcon,
+  SquarePenIcon,
+  ChevronRightIcon,
+  ChevronDownIcon,
+} from "@/shared/components/ui/icons"
+import type { Invoice, InvoiceRow } from "./invoice-grouping-helpers"
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDENTE: "Pendente",
+  ENVIADO: "Enviado",
+  PARCIAL: "Parcial",
+  PAGO: "Pago",
+  CANCELADO: "Cancelado",
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  PENDENTE: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+  ENVIADO: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  PARCIAL: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  PAGO: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  CANCELADO: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+}
+
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[status] || ""}`}>
+      {STATUS_LABELS[status] || status}
+    </span>
+  )
+}
+
+function PaymentCell({
+  invoice,
+  onMarkPaid,
+}: {
+  invoice: Invoice
+  onMarkPaid: (id: string) => void
+}) {
+  if (invoice.status === "PENDENTE" || invoice.status === "ENVIADO" || invoice.status === "PARCIAL") {
+    return (
+      <button
+        onClick={() => onMarkPaid(invoice.id)}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition-colors"
+        title="Marcar como pago"
+      >
+        <CheckCircleIcon className="w-3.5 h-3.5" />
+        Pagar
+      </button>
+    )
+  }
+  if (invoice.status === "PAGO") {
+    return (
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+          {invoice.paidAt ? new Date(invoice.paidAt).toLocaleDateString("pt-BR") : "Pago"}
+        </span>
+        <span className={`text-[10px] ${invoice.paidViaBank ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"}`}>
+          {invoice.paidViaBank ? "Conciliado" : "Manual"}
+        </span>
+      </div>
+    )
+  }
+  return <span className="text-xs text-muted-foreground">&mdash;</span>
+}
+
+function ActionButtons({
+  invoice,
+  recalculatingId,
+  onRecalcular,
+  onViewDetail,
+}: {
+  invoice: Invoice
+  recalculatingId: string | null
+  onRecalcular: (id: string) => void
+  onViewDetail: (id: string) => void
+}) {
+  return (
+    <div className="flex items-center justify-end gap-1">
+      {(invoice.status === "PENDENTE" || invoice.status === "ENVIADO" || invoice.status === "PARCIAL") && (
+        <button
+          onClick={() => onRecalcular(invoice.id)}
+          disabled={recalculatingId === invoice.id}
+          className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+          title="Recalcular fatura"
+        >
+          <RefreshCwIcon className={`w-4 h-4 ${recalculatingId === invoice.id ? "animate-spin" : ""}`} />
+        </button>
+      )}
+      <button
+        onClick={() => onViewDetail(invoice.id)}
+        className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+        title="Ver detalhes"
+      >
+        <EyeIcon className="w-4 h-4" />
+      </button>
+      <Link
+        href={`/financeiro/faturas/${invoice.id}`}
+        className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+        title="Editar fatura"
+      >
+        <SquarePenIcon className="w-4 h-4" />
+      </Link>
+      <a
+        href={`/api/financeiro/faturas/${invoice.id}/pdf`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        title="Baixar PDF"
+      >
+        <DownloadIcon className="w-4 h-4" />
+      </a>
+    </div>
+  )
+}
+
+function IndividualRow({
+  invoice,
+  recalculatingId,
+  onMarkPaid,
+  onRecalcular,
+  onViewDetail,
+  indent,
+}: {
+  invoice: Invoice
+  recalculatingId: string | null
+  onMarkPaid: (id: string) => void
+  onRecalcular: (id: string) => void
+  onViewDetail: (id: string) => void
+  indent?: boolean
+}) {
+  return (
+    <tr className={`border-b border-border last:border-0 hover:bg-muted/50 ${indent ? "bg-background" : "even:bg-muted/30"}`}>
+      <td className={`py-3 px-4 ${indent ? "pl-10" : "font-medium"}`}>
+        {indent ? (
+          <span className="text-muted-foreground">{invoice._count.items > 0 ? invoice.dueDate ? formatDateBR(invoice.dueDate) : "Sessão" : "Sessão"}</span>
+        ) : (
+          invoice.patient.name
+        )}
+      </td>
+      <td className="text-center py-3 px-4">{invoice.totalSessions}</td>
+      <td className="text-right py-3 px-4">{formatCurrencyBRL(Number(invoice.totalAmount))}</td>
+      <td className="text-center py-3 px-4">
+        <StatusBadge status={invoice.status} />
+      </td>
+      <td className="text-center py-3 px-4">
+        {invoice.notaFiscalEmitida ? (
+          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" title="NF emitida">&#x2713;</span>
+        ) : (
+          <span className="text-muted-foreground">&mdash;</span>
+        )}
+      </td>
+      <td className="text-center py-3 px-4">{formatDateBR(invoice.dueDate)}</td>
+      <td className="text-center py-3 px-4">
+        <PaymentCell invoice={invoice} onMarkPaid={onMarkPaid} />
+      </td>
+      <td className="text-right py-3 px-4">
+        <ActionButtons
+          invoice={invoice}
+          recalculatingId={recalculatingId}
+          onRecalcular={onRecalcular}
+          onViewDetail={onViewDetail}
+        />
+      </td>
+    </tr>
+  )
+}
+
+function GroupHeaderRow({
+  group,
+  isExpanded,
+  onToggle,
+}: {
+  group: { key: string; patientName: string; sessionCount: number; totalAmount: number; derivedStatus: string }
+  isExpanded: boolean
+  onToggle: () => void
+}) {
+  const ChevronIcon = isExpanded ? ChevronDownIcon : ChevronRightIcon
+  return (
+    <tr
+      className="border-b border-border bg-muted/30 hover:bg-muted/50 cursor-pointer"
+      onClick={onToggle}
+    >
+      <td className="py-3 px-4 font-medium">
+        <div className="flex items-center gap-2">
+          <ChevronIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <span>{group.patientName}</span>
+          <span className="text-xs text-muted-foreground font-normal">
+            ({group.sessionCount} {group.sessionCount === 1 ? "sessão" : "sessões"})
+          </span>
+        </div>
+      </td>
+      <td className="text-center py-3 px-4">{group.sessionCount}</td>
+      <td className="text-right py-3 px-4 font-medium">{formatCurrencyBRL(group.totalAmount)}</td>
+      <td className="text-center py-3 px-4">
+        <StatusBadge status={group.derivedStatus} />
+      </td>
+      <td className="text-center py-3 px-4">
+        <span className="text-muted-foreground">&mdash;</span>
+      </td>
+      <td className="text-center py-3 px-4">
+        <span className="text-muted-foreground">&mdash;</span>
+      </td>
+      <td className="text-center py-3 px-4">
+        <span className="text-muted-foreground">&mdash;</span>
+      </td>
+      <td className="text-right py-3 px-4"></td>
+    </tr>
+  )
+}
+
+interface InvoiceTableBodyProps {
+  rows: InvoiceRow[]
+  expandedGroups: Set<string>
+  onToggleGroup: (key: string) => void
+  recalculatingId: string | null
+  onMarkPaid: (id: string) => void
+  onRecalcular: (id: string) => void
+  onViewDetail: (id: string) => void
+}
+
+export function InvoiceTableBody({
+  rows,
+  expandedGroups,
+  onToggleGroup,
+  recalculatingId,
+  onMarkPaid,
+  onRecalcular,
+  onViewDetail,
+}: InvoiceTableBodyProps) {
+  return (
+    <>
+      {rows.map(row => {
+        if (row.type === "individual") {
+          return (
+            <IndividualRow
+              key={row.invoice.id}
+              invoice={row.invoice}
+              recalculatingId={recalculatingId}
+              onMarkPaid={onMarkPaid}
+              onRecalcular={onRecalcular}
+              onViewDetail={onViewDetail}
+            />
+          )
+        }
+
+        const { group } = row
+        const isExpanded = expandedGroups.has(group.key)
+        return (
+          <React.Fragment key={group.key}>
+            <GroupHeaderRow
+              group={group}
+              isExpanded={isExpanded}
+              onToggle={() => onToggleGroup(group.key)}
+            />
+            {isExpanded && group.invoices.map(inv => (
+              <tr key={inv.id} className="border-b border-border last:border-0 bg-background">
+                <td className="py-2.5 px-4 pl-10">
+                  <div className="flex items-center gap-2 border-l-2 border-muted-foreground/20 pl-3">
+                    <span className="text-muted-foreground text-sm">
+                      {formatDateBR(inv.dueDate)}
+                    </span>
+                  </div>
+                </td>
+                <td className="text-center py-2.5 px-4">{inv.totalSessions}</td>
+                <td className="text-right py-2.5 px-4">{formatCurrencyBRL(Number(inv.totalAmount))}</td>
+                <td className="text-center py-2.5 px-4">
+                  <StatusBadge status={inv.status} />
+                </td>
+                <td className="text-center py-2.5 px-4">
+                  {inv.notaFiscalEmitida ? (
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" title="NF emitida">&#x2713;</span>
+                  ) : (
+                    <span className="text-muted-foreground">&mdash;</span>
+                  )}
+                </td>
+                <td className="text-center py-2.5 px-4">{formatDateBR(inv.dueDate)}</td>
+                <td className="text-center py-2.5 px-4">
+                  <PaymentCell invoice={inv} onMarkPaid={onMarkPaid} />
+                </td>
+                <td className="text-right py-2.5 px-4">
+                  <ActionButtons
+                    invoice={inv}
+                    recalculatingId={recalculatingId}
+                    onRecalcular={onRecalcular}
+                    onViewDetail={onViewDetail}
+                  />
+                </td>
+              </tr>
+            ))}
+          </React.Fragment>
+        )
+      })}
+    </>
+  )
+}
+
+export { STATUS_LABELS, STATUS_COLORS }

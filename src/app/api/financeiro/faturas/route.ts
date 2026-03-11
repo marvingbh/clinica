@@ -45,8 +45,9 @@ export const GET = withFeatureAuth(
       orderBy: [{ patient: { name: "asc" } }, { referenceYear: "desc" }, { referenceMonth: "desc" }],
     })
 
-    let result = invoices.map(({ notaFiscalPdf, reconciliationLinks, ...inv }) => ({
+    let result = invoices.map(({ notaFiscalPdf, reconciliationLinks, invoiceType, ...inv }) => ({
       ...inv,
+      invoiceType: invoiceType ?? "MONTHLY",
       hasNotaFiscalPdf: !!notaFiscalPdf,
       paidViaBank: reconciliationLinks.length > 0,
       bankPayerName: reconciliationLinks[0]?.transaction.payerName || null,
