@@ -37,6 +37,7 @@ const updatePatientSchema = z.object({
   consentEmail: z.boolean().optional(),
   showAppointmentDaysOnInvoice: z.boolean().optional(),
   invoiceDueDay: z.number().int().min(1).max(28).nullable().optional(),
+  invoiceGrouping: z.enum(["MONTHLY", "PER_SESSION"]).nullable().optional(),
   invoiceMessageTemplate: z.string().nullable().optional(),
   additionalPhones: z.array(additionalPhoneSchema).max(4, "Máximo de 4 telefones adicionais").optional(),
 })
@@ -91,6 +92,7 @@ export const GET = withFeatureAuth(
           consentEmailAt: true,
           showAppointmentDaysOnInvoice: true,
           invoiceDueDay: true,
+          invoiceGrouping: true,
           invoiceMessageTemplate: true,
           createdAt: true,
           updatedAt: true,
@@ -226,6 +228,22 @@ export const PATCH = withFeatureAuth(
     if (data.isActive !== undefined) updateData.isActive = data.isActive
     if (data.showAppointmentDaysOnInvoice !== undefined) updateData.showAppointmentDaysOnInvoice = data.showAppointmentDaysOnInvoice
     if (data.invoiceDueDay !== undefined) updateData.invoiceDueDay = data.invoiceDueDay
+    if (data.invoiceGrouping !== undefined) {
+      // Validate: PER_SESSION grouping requires the clinic to have PER_SESSION billingMode
+      if (data.invoiceGrouping === "PER_SESSION") {
+        const clinic = await prisma.clinic.findUnique({
+          where: { id: user.clinicId },
+          select: { billingMode: true },
+        })
+        if (clinic?.billingMode !== "PER_SESSION") {
+          return NextResponse.json(
+            { error: "Agrupamento 'Por Sessão' requer modo de cobrança 'Por Sessão' na clínica" },
+            { status: 400 }
+          )
+        }
+      }
+      updateData.invoiceGrouping = data.invoiceGrouping
+    }
     if (data.invoiceMessageTemplate !== undefined) updateData.invoiceMessageTemplate = data.invoiceMessageTemplate || null
 
     // Handle phone update with duplicate check
@@ -350,6 +368,8 @@ export const PATCH = withFeatureAuth(
         consentEmail: true,
         consentEmailAt: true,
         showAppointmentDaysOnInvoice: true,
+        invoiceDueDay: true,
+        invoiceGrouping: true,
         invoiceMessageTemplate: true,
         createdAt: true,
         updatedAt: true,

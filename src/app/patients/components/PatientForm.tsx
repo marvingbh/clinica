@@ -17,6 +17,7 @@ export interface PatientFormData {
   sessionFee?: string | undefined
   lastFeeAdjustmentDate?: string | undefined
   invoiceDueDay?: string | undefined
+  invoiceGrouping?: string | undefined
   therapeuticProject?: string | undefined
   notes?: string | undefined
   referenceProfessionalId?: string | undefined
@@ -312,6 +313,24 @@ export function PatientForm({
             placeholder="Usar padrão da clínica"
             className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
           />
+          <p className="text-xs text-muted-foreground mt-1">
+            Opcional. Se vazio, usa o padrão da clínica.
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor="invoiceGrouping" className="block text-sm font-medium text-foreground mb-2">
+            Agrupamento de Faturas
+          </label>
+          <select
+            id="invoiceGrouping"
+            {...register("invoiceGrouping")}
+            className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+          >
+            <option value="">Padrão da clínica</option>
+            <option value="MONTHLY">Mensal</option>
+            <option value="PER_SESSION">Por Sessão</option>
+          </select>
           <p className="text-xs text-muted-foreground mt-1">
             Opcional. Se vazio, usa o padrão da clínica.
           </p>
