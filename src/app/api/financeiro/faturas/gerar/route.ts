@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
-import { classifyAppointments, buildInvoiceItems, buildMonthlyInvoiceItems, calculateInvoiceTotals } from "@/lib/financeiro/invoice-generator"
-import { renderInvoiceTemplate, buildDetailBlock, DEFAULT_INVOICE_TEMPLATE } from "@/lib/financeiro/invoice-template"
-import { getMonthName, formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
-import { recalculateInvoice } from "@/lib/financeiro/recalculate-invoice"
-import { shouldSkipInvoice, separateManualItems } from "@/lib/financeiro/invoice-generation"
+import { generateMonthlyInvoice } from "@/lib/financeiro/generate-monthly-invoice"
 
 const schema = z.object({
   month: z.number().int().min(1).max(12),
@@ -133,191 +129,39 @@ export const POST = withFeatureAuth(
 
       try {
         await prisma.$transaction(async (tx) => {
-          // Step 5: Check existing MONTHLY invoice
-          const existing = await tx.invoice.findFirst({
-            where: {
-              clinicId: user.clinicId, patientId, professionalProfileId: profId,
-              referenceMonth: month, referenceYear: year, invoiceType: "MONTHLY",
+          const result = await generateMonthlyInvoice(tx, {
+            clinicId: user.clinicId,
+            patientId,
+            professionalProfileId: profId,
+            month,
+            year,
+            dueDate,
+            sessionFee: Number(patient.sessionFee),
+            showAppointmentDays: patient.showAppointmentDaysOnInvoice,
+            profName: profMap.get(profId)?.user?.name || "",
+            billingMode: clinic?.billingMode ?? null,
+            patient: {
+              name: patient.name,
+              motherName: patient.motherName,
+              fatherName: patient.fatherName,
+              invoiceMessageTemplate: patient.invoiceMessageTemplate,
             },
-            include: { items: true },
+            clinicInvoiceMessageTemplate: clinic?.invoiceMessageTemplate ?? null,
+            appointments: patientApts.map(a => ({
+              id: a.id,
+              scheduledAt: a.scheduledAt,
+              status: a.status,
+              type: a.type,
+              title: a.title,
+              recurrenceId: a.recurrenceId,
+              groupId: a.groupId,
+              price: a.price ? Number(a.price) : null,
+            })),
           })
 
-          if (existing && shouldSkipInvoice(existing.status)) {
-            skipped++
-            return
-          }
-
-          // Filter out appointments already invoiced in OTHER invoices (prevents double-billing)
-          const existingItemAptIds = new Set(
-            (existing?.items ?? []).map(i => i.appointmentId).filter(Boolean)
-          )
-          const alreadyInvoiced = await tx.invoiceItem.findMany({
-            where: {
-              appointmentId: { in: patientApts.map(a => a.id) },
-              invoice: { id: { not: existing?.id ?? "" } },
-            },
-            select: { appointmentId: true },
-          })
-          const invoicedElsewhereIds = new Set(alreadyInvoiced.map(i => i.appointmentId))
-          const availableApts = patientApts.filter(a =>
-            !invoicedElsewhereIds.has(a.id) || existingItemAptIds.has(a.id)
-          )
-
-          const sessionFee = Number(patient.sessionFee)
-          const showDays = patient.showAppointmentDaysOnInvoice
-          const profName = profMap.get(profId)?.user?.name || ""
-
-          const classified = classifyAppointments(
-            availableApts.map(a => ({ ...a, price: a.price ? Number(a.price) : null }))
-          )
-
-          // SessionCredits: query by clinicId + patientId (cross-professional)
-          const availableCredits = await tx.sessionCredit.findMany({
-            where: { clinicId: user.clinicId, patientId, consumedByInvoiceId: null },
-            orderBy: { createdAt: "asc" },
-          })
-
-          let items
-          if (clinic?.billingMode === "MONTHLY_FIXED") {
-            const totalSessionCount = classified.regular.length + classified.extra.length
-              + classified.group.length + classified.schoolMeeting.length
-            items = buildMonthlyInvoiceItems(
-              sessionFee, totalSessionCount, getMonthName(month), String(year), availableCredits, sessionFee
-            )
-          } else {
-            items = buildInvoiceItems(classified, sessionFee, availableCredits, showDays)
-          }
-
-          if (existing) {
-            // UPDATE in place: preserve manual items, notes, NF info, status
-            const consumedCredits = await tx.sessionCredit.findMany({
-              where: { consumedByInvoiceId: existing.id },
-              select: { id: true, reason: true },
-            })
-
-            await tx.sessionCredit.updateMany({
-              where: { consumedByInvoiceId: existing.id },
-              data: { consumedByInvoiceId: null, consumedAt: null },
-            })
-
-            const { autoItems } = separateManualItems(existing.items, consumedCredits)
-            if (autoItems.length > 0) {
-              await tx.invoiceItem.deleteMany({
-                where: { id: { in: autoItems.map(i => i.id) } },
-              })
-            }
-
-            // Create new auto items
-            for (const item of items) {
-              await tx.invoiceItem.create({
-                data: {
-                  invoiceId: existing.id,
-                  appointmentId: item.appointmentId,
-                  type: item.type,
-                  description: item.description,
-                  quantity: item.quantity,
-                  unitPrice: item.unitPrice,
-                  total: item.total,
-                },
-              })
-            }
-
-            // Consume credits
-            const creditItems = items.filter(i => i.type === "CREDITO" && i.creditId)
-            for (const ci of creditItems) {
-              await tx.sessionCredit.update({
-                where: { id: ci.creditId! },
-                data: { consumedByInvoiceId: existing.id, consumedAt: new Date() },
-              })
-            }
-
-            // Update due date from clinic settings
-            await tx.invoice.update({
-              where: { id: existing.id },
-              data: { dueDate },
-            })
-
-            // Recalculate totals (includes kept manual items)
-            await recalculateInvoice(
-              tx, existing.id, { ...existing, dueDate }, patient,
-              clinic?.invoiceMessageTemplate ?? null, profName,
-            )
-
-            updated++
-          } else {
-            // CREATE new invoice
-            const totals = calculateInvoiceTotals(items)
-            const detailItems = clinic?.billingMode === "MONTHLY_FIXED"
-              ? items
-              : buildInvoiceItems(classified, sessionFee, availableCredits, true)
-            const detalhes = buildDetailBlock(
-              detailItems.map(i => ({
-                description: i.description,
-                total: formatCurrencyBRL(i.total),
-                type: i.type,
-              })),
-              { grouped: true }
-            )
-
-            const template = patient.invoiceMessageTemplate
-              || clinic?.invoiceMessageTemplate
-              || DEFAULT_INVOICE_TEMPLATE
-            const messageBody = renderInvoiceTemplate(template, {
-              paciente: patient.name,
-              mae: patient.motherName || "",
-              pai: patient.fatherName || "",
-              valor: formatCurrencyBRL(totals.totalAmount),
-              mes: getMonthName(month),
-              ano: String(year),
-              vencimento: formatDateBR(dueDate.toISOString()),
-              sessoes: String(totals.totalSessions),
-              profissional: profName,
-              sessoes_regulares: String(classified.regular.length),
-              sessoes_extras: String(classified.extra.length),
-              sessoes_grupo: String(classified.group.length),
-              reunioes_escola: String(classified.schoolMeeting.length),
-              creditos: String(totals.creditsApplied),
-              valor_sessao: formatCurrencyBRL(sessionFee),
-              detalhes,
-            })
-
-            const invoice = await tx.invoice.create({
-              data: {
-                clinicId: user.clinicId,
-                professionalProfileId: profId,
-                patientId,
-                referenceMonth: month,
-                referenceYear: year,
-                totalSessions: totals.totalSessions,
-                creditsApplied: totals.creditsApplied,
-                extrasAdded: totals.extrasAdded,
-                totalAmount: totals.totalAmount,
-                dueDate,
-                showAppointmentDays: showDays,
-                messageBody,
-                items: {
-                  create: items.map(item => ({
-                    appointmentId: item.appointmentId,
-                    type: item.type,
-                    description: item.description,
-                    quantity: item.quantity,
-                    unitPrice: item.unitPrice,
-                    total: item.total,
-                  })),
-                },
-              },
-            })
-
-            const creditItems = items.filter(i => i.type === "CREDITO" && i.creditId)
-            for (const ci of creditItems) {
-              await tx.sessionCredit.update({
-                where: { id: ci.creditId! },
-                data: { consumedByInvoiceId: invoice.id, consumedAt: new Date() },
-              })
-            }
-
-            generated++
-          }
+          if (result === "generated") generated++
+          else if (result === "updated") updated++
+          else if (result === "skipped") skipped++
         }, { timeout: 15000 })
       } catch (error) {
         console.error(`[invoice-gen] Error processing patient ${patient.name}:`, error)
