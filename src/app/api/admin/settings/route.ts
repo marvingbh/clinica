@@ -29,6 +29,7 @@ const updateSettingsSchema = z.object({
   invoiceMessageTemplate: z.string().nullable().optional(),
   paymentInfo: z.string().nullable().optional(),
   billingMode: z.enum(["PER_SESSION", "MONTHLY_FIXED"]).optional(),
+  invoiceGrouping: z.enum(["MONTHLY", "PER_SESSION"]).optional(),
   taxPercentage: z.number().min(0).max(100).optional(),
 })
 
@@ -55,6 +56,7 @@ export const GET = withFeatureAuth(
         invoiceMessageTemplate: true,
         paymentInfo: true,
         billingMode: true,
+        invoiceGrouping: true,
         taxPercentage: true,
       },
     })
@@ -98,7 +100,7 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, billingMode, taxPercentage } =
+    const { name, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, billingMode, invoiceGrouping, taxPercentage } =
       parsed.data
 
     // Build update object with only provided fields
@@ -116,6 +118,7 @@ export const PATCH = withFeatureAuth(
     if (invoiceMessageTemplate !== undefined) updateData.invoiceMessageTemplate = invoiceMessageTemplate || null
     if (paymentInfo !== undefined) updateData.paymentInfo = paymentInfo || null
     if (billingMode !== undefined) updateData.billingMode = billingMode
+    if (invoiceGrouping !== undefined) updateData.invoiceGrouping = invoiceGrouping
     if (taxPercentage !== undefined) updateData.taxPercentage = taxPercentage
 
     if (Object.keys(updateData).length === 0) {
@@ -125,26 +128,49 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const updatedClinic = await prisma.clinic.update({
-      where: { id: user.clinicId },
-      data: updateData,
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        email: true,
-        address: true,
-        timezone: true,
-        defaultSessionDuration: true,
-        minAdvanceBooking: true,
-        reminderHours: true,
-        invoiceDueDay: true,
-        invoiceMessageTemplate: true,
-        paymentInfo: true,
-        billingMode: true,
-        taxPercentage: true,
-      },
-    })
+    // When switching to MONTHLY_FIXED, force invoiceGrouping to MONTHLY
+    // and clear patient-level PER_SESSION overrides
+    if (billingMode === "MONTHLY_FIXED") {
+      updateData.invoiceGrouping = "MONTHLY"
+    }
+
+    const clinicSelect = {
+      id: true,
+      name: true,
+      phone: true,
+      email: true,
+      address: true,
+      timezone: true,
+      defaultSessionDuration: true,
+      minAdvanceBooking: true,
+      reminderHours: true,
+      invoiceDueDay: true,
+      invoiceMessageTemplate: true,
+      paymentInfo: true,
+      billingMode: true,
+      invoiceGrouping: true,
+      taxPercentage: true,
+    } as const
+
+    const updatedClinic = billingMode === "MONTHLY_FIXED"
+      ? await prisma.$transaction(async (tx) => {
+          const clinic = await tx.clinic.update({
+            where: { id: user.clinicId },
+            data: updateData,
+            select: clinicSelect,
+          })
+          // Clear patient-level PER_SESSION overrides
+          await tx.patient.updateMany({
+            where: { clinicId: user.clinicId, invoiceGrouping: "PER_SESSION" },
+            data: { invoiceGrouping: null },
+          })
+          return clinic
+        })
+      : await prisma.clinic.update({
+          where: { id: user.clinicId },
+          data: updateData,
+          select: clinicSelect,
+        })
 
     return NextResponse.json({ settings: updatedClinic })
   }

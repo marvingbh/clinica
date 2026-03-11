@@ -57,6 +57,7 @@ interface ClinicSettings {
   invoiceMessageTemplate: string | null
   paymentInfo: string | null
   billingMode: "PER_SESSION" | "MONTHLY_FIXED"
+  invoiceGrouping: "MONTHLY" | "PER_SESSION"
   taxPercentage: number
 }
 
@@ -73,6 +74,8 @@ export default function AdminSettingsPage() {
   const [isSavingPaymentInfo, setIsSavingPaymentInfo] = useState(false)
   const [billingMode, setBillingMode] = useState<"PER_SESSION" | "MONTHLY_FIXED">("PER_SESSION")
   const [isSavingBillingMode, setIsSavingBillingMode] = useState(false)
+  const [invoiceGrouping, setInvoiceGrouping] = useState<"MONTHLY" | "PER_SESSION">("MONTHLY")
+  const [isSavingInvoiceGrouping, setIsSavingInvoiceGrouping] = useState(false)
   const [taxPercentage, setTaxPercentage] = useState<number>(0)
   const [isSavingTax, setIsSavingTax] = useState(false)
 
@@ -101,6 +104,7 @@ export default function AdminSettingsPage() {
       setInvoiceTemplate(data.settings.invoiceMessageTemplate || "")
       setPaymentInfo(data.settings.paymentInfo || "")
       setBillingMode(data.settings.billingMode || "PER_SESSION")
+      setInvoiceGrouping(data.settings.invoiceGrouping || "MONTHLY")
       setTaxPercentage(Number(data.settings.taxPercentage ?? 0))
       reset({
         name: data.settings.name,
@@ -232,23 +236,56 @@ export default function AdminSettingsPage() {
   }
 
   async function saveBillingMode(mode: "PER_SESSION" | "MONTHLY_FIXED") {
+    const prevBillingMode = billingMode
+    const prevInvoiceGrouping = invoiceGrouping
     setBillingMode(mode)
+    if (mode === "MONTHLY_FIXED") {
+      setInvoiceGrouping("MONTHLY")
+    }
     setIsSavingBillingMode(true)
     try {
+      const payload: Record<string, unknown> = { billingMode: mode }
+      if (mode === "MONTHLY_FIXED") {
+        payload.invoiceGrouping = "MONTHLY"
+      }
       const response = await fetch("/api/admin/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ billingMode: mode }),
+        body: JSON.stringify(payload),
       })
       if (!response.ok) throw new Error("Failed to save")
       const result = await response.json()
       setSettings(result.settings)
+      setInvoiceGrouping(result.settings.invoiceGrouping || "MONTHLY")
       toast.success("Modo de cobrança salvo com sucesso")
     } catch {
       toast.error("Erro ao salvar modo de cobrança")
-      setBillingMode(billingMode) // revert on error
+      setBillingMode(prevBillingMode)
+      setInvoiceGrouping(prevInvoiceGrouping)
     } finally {
       setIsSavingBillingMode(false)
+    }
+  }
+
+  async function saveInvoiceGrouping(grouping: "MONTHLY" | "PER_SESSION") {
+    const prevGrouping = invoiceGrouping
+    setInvoiceGrouping(grouping)
+    setIsSavingInvoiceGrouping(true)
+    try {
+      const response = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoiceGrouping: grouping }),
+      })
+      if (!response.ok) throw new Error("Failed to save")
+      const result = await response.json()
+      setSettings(result.settings)
+      toast.success("Agrupamento de faturas salvo com sucesso")
+    } catch {
+      toast.error("Erro ao salvar agrupamento de faturas")
+      setInvoiceGrouping(prevGrouping)
+    } finally {
+      setIsSavingInvoiceGrouping(false)
     }
   }
 
@@ -599,6 +636,55 @@ export default function AdminSettingsPage() {
                 </div>
               </label>
             </div>
+          </div>
+
+          {/* Invoice Grouping */}
+          <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Agrupamento de Faturas</h2>
+            <p className="text-sm text-muted-foreground">
+              Define como as faturas são agrupadas ao serem geradas.
+            </p>
+            <div className="flex flex-col gap-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="invoiceGrouping"
+                  value="MONTHLY"
+                  checked={invoiceGrouping === "MONTHLY"}
+                  onChange={() => saveInvoiceGrouping("MONTHLY")}
+                  disabled={isSavingInvoiceGrouping}
+                  className="mt-1"
+                />
+                <div>
+                  <span className="text-sm font-medium text-foreground">Mensal (uma fatura por mês)</span>
+                  <p className="text-xs text-muted-foreground">
+                    Todas as sessões do mês são agrupadas em uma única fatura.
+                  </p>
+                </div>
+              </label>
+              <label className={`flex items-start gap-3 ${billingMode === "MONTHLY_FIXED" ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                <input
+                  type="radio"
+                  name="invoiceGrouping"
+                  value="PER_SESSION"
+                  checked={invoiceGrouping === "PER_SESSION"}
+                  onChange={() => saveInvoiceGrouping("PER_SESSION")}
+                  disabled={isSavingInvoiceGrouping || billingMode === "MONTHLY_FIXED"}
+                  className="mt-1"
+                />
+                <div>
+                  <span className="text-sm font-medium text-foreground">Por Sessão (uma fatura por sessão)</span>
+                  <p className="text-xs text-muted-foreground">
+                    Cada sessão realizada gera uma fatura individual.
+                  </p>
+                </div>
+              </label>
+            </div>
+            {billingMode === "MONTHLY_FIXED" && (
+              <p className="text-xs text-muted-foreground">
+                Agrupamento por sessão requer modo de cobrança por sessão.
+              </p>
+            )}
           </div>
 
           {/* Tax Percentage for Repasse */}
