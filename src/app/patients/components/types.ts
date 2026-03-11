@@ -60,6 +60,7 @@ export interface Patient {
   cpf?: string | null
   showAppointmentDaysOnInvoice?: boolean
   invoiceDueDay?: number | null
+  invoiceGrouping?: string | null
   invoiceMessageTemplate?: string | null
   referenceProfessionalId: string | null
   referenceProfessional: ReferenceProfessional | null

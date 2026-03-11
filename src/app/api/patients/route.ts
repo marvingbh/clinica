@@ -31,6 +31,7 @@ const createPatientSchema = z.object({
   sessionFee: z.number().min(0).optional().nullable(),
   therapeuticProject: z.string().max(5000).optional().nullable().or(z.literal("")),
   referenceProfessionalId: z.string().optional().nullable().or(z.literal("")),
+  invoiceGrouping: z.enum(["MONTHLY", "PER_SESSION"]).nullable().optional(),
   consentWhatsApp: z.boolean().default(false),
   consentEmail: z.boolean().default(false),
   additionalPhones: z.array(additionalPhoneSchema).max(4, "Máximo de 4 telefones adicionais").optional(),
@@ -89,7 +90,7 @@ export const GET = withFeatureAuth(
           p."motherName", p."fatherName", p."birthDate",
           p."notes", p."schoolName", p."cpf",
           p."firstAppointmentDate", p."lastFeeAdjustmentDate",
-          p."sessionFee", p."invoiceDueDay", p."therapeuticProject",
+          p."sessionFee", p."invoiceDueDay", p."invoiceGrouping", p."therapeuticProject",
           p."isActive", p."lastVisitAt",
           p."consentWhatsApp", p."consentWhatsAppAt",
           p."consentEmail", p."consentEmailAt",
@@ -168,6 +169,7 @@ export const GET = withFeatureAuth(
           lastFeeAdjustmentDate: true,
           sessionFee: true,
           invoiceDueDay: true,
+          invoiceGrouping: true,
           therapeuticProject: true,
           isActive: true,
           lastVisitAt: true,
@@ -231,8 +233,22 @@ export const POST = withFeatureAuth(
       )
     }
 
-    const { name, email, phone, birthDate, cpf, fatherName, motherName, notes, schoolName, firstAppointmentDate, lastFeeAdjustmentDate, sessionFee, therapeuticProject, referenceProfessionalId, consentWhatsApp, consentEmail, additionalPhones } =
+    const { name, email, phone, birthDate, cpf, fatherName, motherName, notes, schoolName, firstAppointmentDate, lastFeeAdjustmentDate, sessionFee, therapeuticProject, referenceProfessionalId, invoiceGrouping, consentWhatsApp, consentEmail, additionalPhones } =
       validation.data
+
+    // Validate: PER_SESSION grouping requires the clinic to have PER_SESSION billingMode
+    if (invoiceGrouping === "PER_SESSION") {
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: user.clinicId },
+        select: { billingMode: true },
+      })
+      if (clinic?.billingMode !== "PER_SESSION") {
+        return NextResponse.json(
+          { error: "Agrupamento 'Por Sessão' requer modo de cobrança 'Por Sessão' na clínica" },
+          { status: 400 }
+        )
+      }
+    }
 
     // Normalize phone number (remove non-digits, ensure country code)
     const normalizedPhone = phone.replace(/\D/g, "")
@@ -292,6 +308,7 @@ export const POST = withFeatureAuth(
         sessionFee: sessionFee ?? null,
         therapeuticProject: therapeuticProject || null,
         referenceProfessionalId: referenceProfessionalId || null,
+        invoiceGrouping: invoiceGrouping || null,
         consentWhatsApp,
         consentWhatsAppAt: consentWhatsApp ? now : null,
         consentEmail,
