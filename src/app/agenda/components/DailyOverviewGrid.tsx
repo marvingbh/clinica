@@ -5,7 +5,7 @@ import { UsersIcon, RefreshCwIcon, PhoneIcon, VideoIcon, BuildingIcon, PlusIcon,
 import { ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import type { Appointment, GroupSession, AppointmentStatus, TimeSlot } from "../lib/types"
 import { STATUS_LABELS, STATUS_COLORS, STATUS_BORDER_COLORS, CANCELLED_STATUSES, TERMINAL_STATUSES, ENTRY_TYPE_LABELS } from "../lib/constants"
-import { formatPhone, isBirthdayToday, isRecurrenceModified, isSlotInPast } from "../lib/utils"
+import { formatPhone, isBirthdayToday, isRecurrenceModified } from "../lib/utils"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../lib/professional-colors"
 
 const PIXELS_PER_MINUTE = 2.4
@@ -286,8 +286,6 @@ export function DailyOverviewGrid({
               )
             }
             if (!slot.isAvailable) return null
-            const isPast = isSlotInPast(selectedDate, slot.time)
-            if (isPast && !slot.biweeklyHint) return null
             const [sh, sm] = slot.time.split(":").map(Number)
             const rawTop = ((sh - startHour) * 60 + sm) * PIXELS_PER_MINUTE
             const rawHeight = appointmentDuration * PIXELS_PER_MINUTE

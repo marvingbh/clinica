@@ -515,19 +515,6 @@ async function handleCreateCalendarEntry(
   const entryDuration = duration || DEFAULT_DURATIONS[type] || professional.appointmentDuration || 60
   const blocksTime = getBlocksTime(type as AppointmentType)
 
-  // Validate date is not in the past
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const appointmentDate = new Date(date + "T00:00:00")
-  appointmentDate.setHours(0, 0, 0, 0)
-
-  if (appointmentDate < today) {
-    return NextResponse.json(
-      { error: "Não é possível criar entradas no passado" },
-      { status: 400 }
-    )
-  }
-
   // Calculate dates
   const appointmentDates = recurrence
     ? calculateRecurrenceDates(date, startTime, entryDuration, {
@@ -905,20 +892,6 @@ async function handleCreateAppointment(
 
   // Calculate appointment times
   const appointmentDuration = duration || professional.appointmentDuration
-
-  // Validate appointment date is not in the past
-  // Parse date as local time by appending T00:00:00 (otherwise "YYYY-MM-DD" is parsed as UTC)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const appointmentDate = new Date(date + "T00:00:00")
-  appointmentDate.setHours(0, 0, 0, 0)
-
-  if (appointmentDate < today) {
-    return NextResponse.json(
-      { error: "Não é possível agendar consultas no passado" },
-      { status: 400 }
-    )
-  }
 
   // Validate recurrence options if provided
   if (recurrence) {
