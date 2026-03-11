@@ -60,6 +60,9 @@ export function buildInvoiceRows(invoices: Invoice[]): InvoiceRow[] {
   for (const [key, groupInvoices] of perSessionMap) {
     const first = groupInvoices[0]
     const statuses = groupInvoices.map(i => i.status) as Parameters<typeof deriveGroupStatus>[0]
+    const sorted = [...groupInvoices].sort(
+      (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+    )
     groups.push({
       key,
       patientName: first.patient.name,
@@ -69,7 +72,7 @@ export function buildInvoiceRows(invoices: Invoice[]): InvoiceRow[] {
       sessionCount: groupInvoices.length,
       totalAmount: groupInvoices.reduce((sum, i) => sum + Number(i.totalAmount), 0),
       derivedStatus: deriveGroupStatus(statuses),
-      invoices: groupInvoices,
+      invoices: sorted,
     })
   }
 
