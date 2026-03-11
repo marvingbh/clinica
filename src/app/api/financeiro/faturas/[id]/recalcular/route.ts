@@ -50,7 +50,12 @@ export const POST = withFeatureAuth(
       )
     }
 
-    // Fetch appointments for this patient+professional in this month
+    // PER_SESSION: simplified recalculation for single-appointment invoices
+    if (invoice.invoiceType === "PER_SESSION") {
+      return recalculatePerSession(invoice, patient, user)
+    }
+
+    // MONTHLY path: fetch appointments for this patient+professional in this month
     const startDate = new Date(invoice.referenceYear, invoice.referenceMonth - 1, 1)
     const endDate = new Date(invoice.referenceYear, invoice.referenceMonth, 1)
 
@@ -177,3 +182,77 @@ export const POST = withFeatureAuth(
     return NextResponse.json({ success: true, message: "Fatura recalculada com sucesso" })
   }
 )
+
+const PER_SESSION_BILLABLE_STATUSES = ["AGENDADO", "CONFIRMADO", "FINALIZADO", "CANCELADO_FALTA"]
+
+/**
+ * Simplified recalculation for PER_SESSION invoices.
+ * Each per-session invoice has a single appointment. We update the price
+ * to the current sessionFee (or appointment override) and recalculate totals.
+ * If the appointment is gone or no longer billable, the invoice is cancelled.
+ */
+async function recalculatePerSession(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  invoice: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  patient: any,
+  user: { clinicId: string },
+) {
+  // Find the single appointment item (skip manual/credit items)
+  const appointmentItem = invoice.items.find(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (i: any) => i.appointmentId != null && i.type !== "CREDITO"
+  )
+
+  if (!appointmentItem) {
+    return NextResponse.json({ success: true, message: "Fatura recalculada (sem item de sessão)" })
+  }
+
+  // Fetch the linked appointment
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentItem.appointmentId },
+    select: { id: true, status: true, price: true },
+  })
+
+  const isBillable = appointment && PER_SESSION_BILLABLE_STATUSES.includes(appointment.status)
+
+  if (!isBillable) {
+    // Appointment deleted or no longer billable — cancel the invoice
+    await prisma.invoice.update({
+      where: { id: invoice.id },
+      data: { status: "CANCELADO" },
+    })
+    return NextResponse.json({ success: true, message: "Fatura cancelada (sessão não faturável)" })
+  }
+
+  const sessionFee = Number(patient.sessionFee)
+  const newPrice = appointment.price ? Number(appointment.price) : sessionFee
+
+  const [clinic, professional] = await Promise.all([
+    prisma.clinic.findUnique({
+      where: { id: user.clinicId },
+      select: { invoiceMessageTemplate: true },
+    }),
+    prisma.professionalProfile.findUnique({
+      where: { id: invoice.professionalProfileId },
+      select: { user: { select: { name: true } } },
+    }),
+  ])
+  const profName = professional?.user?.name || ""
+
+  await prisma.$transaction(async (tx) => {
+    // Update the appointment item's price
+    await tx.invoiceItem.update({
+      where: { id: appointmentItem.id },
+      data: { unitPrice: newPrice, total: newPrice },
+    })
+
+    // Recalculate totals and message body
+    await recalculateInvoice(
+      tx, invoice.id, invoice, patient,
+      clinic?.invoiceMessageTemplate ?? null, profName,
+    )
+  })
+
+  return NextResponse.json({ success: true, message: "Fatura recalculada com sucesso" })
+}
