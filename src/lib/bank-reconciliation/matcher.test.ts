@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { matchTransactions, normalizeForComparison, nameSimilarity, surnameMatches, nameContainedIn, findGroupCandidates } from "./matcher"
+import { matchTransactions, normalizeForComparison, nameSimilarity, surnameMatches, nameContainedIn, findGroupCandidates, findSamePatientGroups } from "./matcher"
 import type { InvoiceWithParent } from "./matcher"
 import { extractPayerName } from "./inter-client"
 import { TransactionForMatching, InvoiceForMatching } from "./types"
@@ -358,6 +358,104 @@ describe("findGroupCandidates", () => {
     ]
     const groups = findGroupCandidates(500, null, invoices)
     expect(groups).toHaveLength(1)
+  })
+})
+
+describe("findSamePatientGroups", () => {
+  it("matches 4 invoices of same patient summing to transaction amount", () => {
+    const invoices = [
+      makeInvoiceWithParent({ id: "inv1", patientId: "p1", remainingAmount: 200, totalAmount: 200 }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p1", remainingAmount: 200, totalAmount: 200 }),
+      makeInvoiceWithParent({ id: "inv3", patientId: "p1", remainingAmount: 200, totalAmount: 200 }),
+      makeInvoiceWithParent({ id: "inv4", patientId: "p1", remainingAmount: 200, totalAmount: 200 }),
+    ]
+    const groups = findSamePatientGroups(800, "Maria Silva", invoices)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].invoices).toHaveLength(4)
+    expect(groups[0].invoices.map(i => i.id).sort()).toEqual(["inv1", "inv2", "inv3", "inv4"])
+    expect(groups[0].sharedParent).toBe("Maria Silva")
+  })
+
+  it("returns no match when sum does not equal transaction amount", () => {
+    const invoices = [
+      makeInvoiceWithParent({ id: "inv1", patientId: "p1", remainingAmount: 200, totalAmount: 200 }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p1", remainingAmount: 200, totalAmount: 200 }),
+      makeInvoiceWithParent({ id: "inv3", patientId: "p1", remainingAmount: 200, totalAmount: 200 }),
+    ]
+    // 3 x 200 = 600, but txAmount is 800
+    const groups = findSamePatientGroups(800, "Maria Silva", invoices)
+    expect(groups).toHaveLength(0)
+  })
+
+  it("does not group invoices from different patients", () => {
+    const invoices = [
+      makeInvoiceWithParent({ id: "inv1", patientId: "p1", remainingAmount: 200, totalAmount: 200 }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p2", remainingAmount: 200, totalAmount: 200 }),
+      makeInvoiceWithParent({ id: "inv3", patientId: "p3", remainingAmount: 200, totalAmount: 200 }),
+      makeInvoiceWithParent({ id: "inv4", patientId: "p4", remainingAmount: 200, totalAmount: 200 }),
+    ]
+    const groups = findSamePatientGroups(800, null, invoices)
+    expect(groups).toHaveLength(0)
+  })
+
+  it("skips groups when payer name doesn't overlap with parent", () => {
+    const invoices = [
+      makeInvoiceWithParent({ id: "inv1", patientId: "p1", remainingAmount: 200, totalAmount: 200 }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p1", remainingAmount: 200, totalAmount: 200 }),
+    ]
+    const groups = findSamePatientGroups(400, "Unknown Person", invoices)
+    expect(groups).toHaveLength(0)
+  })
+
+  it("works without payer name (no payer filtering)", () => {
+    const invoices = [
+      makeInvoiceWithParent({ id: "inv1", patientId: "p1", remainingAmount: 200, totalAmount: 200 }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p1", remainingAmount: 200, totalAmount: 200 }),
+    ]
+    const groups = findSamePatientGroups(400, null, invoices)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].invoices).toHaveLength(2)
+  })
+
+  it("matches a greedy subset when not all invoices sum to the amount", () => {
+    const invoices = [
+      makeInvoiceWithParent({ id: "inv1", patientId: "p1", remainingAmount: 300, totalAmount: 300 }),
+      makeInvoiceWithParent({ id: "inv2", patientId: "p1", remainingAmount: 200, totalAmount: 200 }),
+      makeInvoiceWithParent({ id: "inv3", patientId: "p1", remainingAmount: 200, totalAmount: 200 }),
+      makeInvoiceWithParent({ id: "inv4", patientId: "p1", remainingAmount: 100, totalAmount: 100 }),
+    ]
+    // Total is 800, but tx is 500 → greedy: 300 + 200 = 500
+    const groups = findSamePatientGroups(500, null, invoices)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].invoices).toHaveLength(2)
+    const sum = groups[0].invoices.reduce((s, inv) => s + inv.remainingAmount, 0)
+    expect(sum).toBeCloseTo(500)
+  })
+
+  it("requires at least 2 invoices for a group (ignores single-invoice patients)", () => {
+    const invoices = [
+      makeInvoiceWithParent({ id: "inv1", patientId: "p1", remainingAmount: 800, totalAmount: 800 }),
+    ]
+    const groups = findSamePatientGroups(800, null, invoices)
+    expect(groups).toHaveLength(0)
+  })
+
+  it("uses fatherName as sharedParent when motherName is empty", () => {
+    const invoices = [
+      makeInvoiceWithParent({
+        id: "inv1", patientId: "p1", remainingAmount: 200, totalAmount: 200,
+        normalizedMother: "", motherName: null,
+        normalizedFather: "carlos silva", fatherName: "Carlos Silva",
+      }),
+      makeInvoiceWithParent({
+        id: "inv2", patientId: "p1", remainingAmount: 200, totalAmount: 200,
+        normalizedMother: "", motherName: null,
+        normalizedFather: "carlos silva", fatherName: "Carlos Silva",
+      }),
+    ]
+    const groups = findSamePatientGroups(400, "Carlos Silva", invoices)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].sharedParent).toBe("Carlos Silva")
   })
 })
 

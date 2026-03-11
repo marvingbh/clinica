@@ -5,6 +5,7 @@ import {
   matchTransactions,
   normalizeForComparison,
   findGroupCandidates,
+  findSamePatientGroups,
 } from "@/lib/bank-reconciliation"
 import type {
   TransactionForMatching,
@@ -146,13 +147,21 @@ export const GET = withFeatureAuth(
         (inv) =>
           inv.referenceMonth === txMonth && inv.referenceYear === txYear
       )
-      const groups = !isFullyReconciled
+      const siblingGroups = !isFullyReconciled
         ? findGroupCandidates(
             remainingAmount,
             tx.payerName,
             sameMonthInvWithParent
           )
         : []
+      const patientGroups = !isFullyReconciled
+        ? findSamePatientGroups(
+            remainingAmount,
+            tx.payerName,
+            sameMonthInvWithParent
+          )
+        : []
+      const groups = [...siblingGroups, ...patientGroups]
 
       return {
         id: tx.id,

@@ -127,6 +127,79 @@ export function findGroupCandidates(
   return groups
 }
 
+/**
+ * Find groups of per-session invoices from the same patient that sum to the transaction amount.
+ * Only groups invoices that share the same patientId.
+ */
+export function findSamePatientGroups(
+  txAmount: number,
+  txPayerName: string | null,
+  invoices: InvoiceWithParent[]
+): Array<{ invoices: InvoiceWithParent[]; sharedParent: string | null }> {
+  const groups: Array<{ invoices: InvoiceWithParent[]; sharedParent: string | null }> = []
+
+  const payerWords = txPayerName
+    ? normalizeForComparison(txPayerName).split(" ").filter(w => w.length > 2)
+    : []
+
+  // Group invoices by patientId
+  const byPatient = new Map<string, InvoiceWithParent[]>()
+  for (const inv of invoices) {
+    const existing = byPatient.get(inv.patientId) ?? []
+    existing.push(inv)
+    byPatient.set(inv.patientId, existing)
+  }
+
+  for (const [, patientInvoices] of byPatient) {
+    if (patientInvoices.length < 2) continue
+
+    const matchingGroups: InvoiceWithParent[][] = []
+
+    // Check if ALL invoices for this patient sum to txAmount
+    const totalSum = patientInvoices.reduce((s, inv) => s + inv.remainingAmount, 0)
+    if (Math.abs(totalSum - txAmount) < 0.01) {
+      matchingGroups.push(patientInvoices)
+    } else {
+      // Try greedy subset: sort by remainingAmount desc, accumulate until match
+      const sorted = [...patientInvoices].sort((a, b) => b.remainingAmount - a.remainingAmount)
+      const subset: InvoiceWithParent[] = []
+      let runningSum = 0
+      for (const inv of sorted) {
+        if (runningSum + inv.remainingAmount > txAmount + 0.01) continue
+        subset.push(inv)
+        runningSum += inv.remainingAmount
+        if (Math.abs(runningSum - txAmount) < 0.01) break
+      }
+      if (subset.length >= 2 && Math.abs(runningSum - txAmount) < 0.01) {
+        matchingGroups.push(subset)
+      }
+    }
+
+    for (const group of matchingGroups) {
+      // Determine shared parent from first invoice (all same patient, so same parents)
+      const first = group[0]
+      const sharedParent = first.normalizedMother
+        ? first.motherName
+        : first.normalizedFather
+          ? first.fatherName
+          : null
+
+      // If payer name provided, verify overlap with a parent name
+      if (payerWords.length > 0 && sharedParent) {
+        const parentWords = normalizeForComparison(sharedParent).split(" ").filter(w => w.length > 2)
+        const hasOverlap = parentWords.some(w => payerWords.includes(w))
+        if (!hasOverlap) continue
+      } else if (payerWords.length > 0 && !sharedParent) {
+        continue
+      }
+
+      groups.push({ invoices: group, sharedParent })
+    }
+  }
+
+  return groups
+}
+
 function getConfidence(nameScore: number): MatchConfidence {
   if (nameScore >= 1) return "HIGH"
   if (nameScore >= 0.5) return "MEDIUM"

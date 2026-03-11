@@ -6,6 +6,7 @@ export {
   surnameMatches,
   nameContainedIn,
   findGroupCandidates,
+  findSamePatientGroups,
   getSharedParent,
 } from "./matcher"
 export type { InvoiceWithParent } from "./matcher"
