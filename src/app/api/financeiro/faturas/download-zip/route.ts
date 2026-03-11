@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { renderToBuffer } from "@react-pdf/renderer"
 import archiver from "archiver"
 import { PassThrough } from "stream"
-import { createInvoiceDocument } from "@/lib/financeiro/invoice-pdf"
+import { createInvoiceDocument, createGroupedInvoiceDocument } from "@/lib/financeiro/invoice-pdf"
 import { buildInvoicePDFData } from "@/lib/financeiro/build-invoice-pdf-data"
 import { INVOICE_INCLUDE } from "./query"
 
@@ -53,19 +53,47 @@ export const GET = withFeatureAuth(
     const archive = archiver("zip", { zlib: { level: 1 } }) // low compression — PDFs don't compress much
     archive.pipe(passthrough)
 
+    // Group PER_SESSION invoices by patient; MONTHLY/MANUAL stay individual
+    const individualInvoices: typeof invoices = []
+    const perSessionGroups = new Map<string, typeof invoices>()
+
+    for (const invoice of invoices) {
+      if (invoice.invoiceType === "PER_SESSION") {
+        const key = `${invoice.patient.id}-${invoice.professionalProfile.id}`
+        const group = perSessionGroups.get(key) || []
+        group.push(invoice)
+        perSessionGroups.set(key, group)
+      } else {
+        individualInvoices.push(invoice)
+      }
+    }
+
     // Generate PDFs sequentially to control memory usage
     const pdfGeneration = (async () => {
-      for (const invoice of invoices) {
+      // Individual invoices (MONTHLY/MANUAL): one PDF each
+      for (const invoice of individualInvoices) {
         const pdfData = buildInvoicePDFData(invoice)
         const buffer = await renderToBuffer(createInvoiceDocument(pdfData))
         const mm = MONTH_ABBR[invoice.referenceMonth - 1]
         const prof = invoice.professionalProfile.user.name.split(" ")[0]
         const patient = invoice.patient.name.replace(/\s*\(.*?\)\s*/g, "").trim().replace(/\s+/g, "-")
-        const dateSuffix = invoice.invoiceType === "PER_SESSION" && invoice.items[0]?.appointment
-          ? `-${new Date(invoice.items[0].appointment.scheduledAt).toLocaleDateString("pt-BR").replace(/\//g, "-")}`
-          : ""
-        archive.append(Buffer.from(buffer), { name: `${mm}-${prof}-${patient}${dateSuffix}.pdf` })
+        archive.append(Buffer.from(buffer), { name: `${mm}-${prof}-${patient}.pdf` })
       }
+
+      // PER_SESSION groups: one multi-page PDF per patient
+      for (const [, groupInvoices] of perSessionGroups) {
+        const sorted = [...groupInvoices].sort(
+          (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+        )
+        const dataArray = sorted.map(buildInvoicePDFData)
+        const buffer = await renderToBuffer(createGroupedInvoiceDocument(dataArray))
+        const first = sorted[0]
+        const mm = MONTH_ABBR[first.referenceMonth - 1]
+        const prof = first.professionalProfile.user.name.split(" ")[0]
+        const patient = first.patient.name.replace(/\s*\(.*?\)\s*/g, "").trim().replace(/\s+/g, "-")
+        archive.append(Buffer.from(buffer), { name: `${mm}-${prof}-${patient}.pdf` })
+      }
+
       await archive.finalize()
     })()
 

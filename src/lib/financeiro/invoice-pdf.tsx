@@ -131,114 +131,138 @@ export function createInvoiceDocument(data: InvoicePDFData): any {
   return React.createElement(InvoicePDF, { data })
 }
 
-export function InvoicePDF({ data }: { data: InvoicePDFData }) {
+/**
+ * Creates a multi-page Document with one page per invoice (for grouped PER_SESSION downloads).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createGroupedInvoiceDocument(dataArray: InvoicePDFData[]): any {
+  return React.createElement(GroupedInvoicePDF, { dataArray })
+}
+
+function InvoicePage({ data }: { data: InvoicePDFData }) {
   const period = `${MONTH_NAMES[data.referenceMonth - 1]}/${data.referenceYear}`
 
   return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <View style={styles.clinicInfo}>
-            {/* eslint-disable-next-line jsx-a11y/alt-text */}
-            <Image style={styles.logo} src={path.join(process.cwd(), "public/img/logo-elena-horizontal.png")} />
-            {data.clinicPhone && <Text style={styles.clinicDetail}>{data.clinicPhone}</Text>}
-            {data.clinicEmail && <Text style={styles.clinicDetail}>{data.clinicEmail}</Text>}
-            {data.clinicAddress && <Text style={styles.clinicDetail}>{data.clinicAddress}</Text>}
+    <Page size="A4" style={styles.page}>
+      {/* Header */}
+      <View style={styles.headerRow}>
+        <View style={styles.clinicInfo}>
+          {/* eslint-disable-next-line jsx-a11y/alt-text */}
+          <Image style={styles.logo} src={path.join(process.cwd(), "public/img/logo-elena-horizontal.png")} />
+          {data.clinicPhone && <Text style={styles.clinicDetail}>{data.clinicPhone}</Text>}
+          {data.clinicEmail && <Text style={styles.clinicDetail}>{data.clinicEmail}</Text>}
+          {data.clinicAddress && <Text style={styles.clinicDetail}>{data.clinicAddress}</Text>}
+        </View>
+        <View>
+          <Text style={styles.reportLabel}>RELATÓRIO FINANCEIRO</Text>
+          <Text style={styles.reportDate}>{period}</Text>
+        </View>
+      </View>
+
+      <View style={styles.dividerBold} />
+
+      {/* Invoice Info Grid */}
+      <View style={styles.infoGrid}>
+        <View style={styles.infoCol}>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Paciente</Text>
+            <Text style={styles.infoValue}>{data.patientName}</Text>
           </View>
-          <View>
-            <Text style={styles.reportLabel}>RELATÓRIO FINANCEIRO</Text>
-            <Text style={styles.reportDate}>{period}</Text>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Profissional</Text>
+            <Text style={styles.infoValue}>{data.professionalName}</Text>
           </View>
         </View>
-
-        <View style={styles.dividerBold} />
-
-        {/* Invoice Info Grid */}
-        <View style={styles.infoGrid}>
-          <View style={styles.infoCol}>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Paciente</Text>
-              <Text style={styles.infoValue}>{data.patientName}</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Profissional</Text>
-              <Text style={styles.infoValue}>{data.professionalName}</Text>
-            </View>
+        <View style={styles.infoCol}>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Período</Text>
+            <Text style={styles.infoValue}>{period}</Text>
           </View>
-          <View style={styles.infoCol}>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Período</Text>
-              <Text style={styles.infoValue}>{period}</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Vencimento</Text>
-              <Text style={styles.infoValue}>{data.dueDate}</Text>
-            </View>
-          </View>
-          <View style={styles.infoCol}>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Status</Text>
-              <Text style={styles.infoValue}>{STATUS_LABELS[data.status] || data.status}</Text>
-            </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Vencimento</Text>
+            <Text style={styles.infoValue}>{data.dueDate}</Text>
           </View>
         </View>
-
-        <View style={styles.divider} />
-
-        {/* Items Table */}
-        <View style={styles.table}>
-          <View style={styles.tableHeader}>
-            <Text style={styles.colDate}>Data</Text>
-            <Text style={styles.colDesc}>Descrição</Text>
-            <Text style={styles.colPrice}>Valor Unit.</Text>
-            <Text style={styles.colTotal}>Total</Text>
+        <View style={styles.infoCol}>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Status</Text>
+            <Text style={styles.infoValue}>{STATUS_LABELS[data.status] || data.status}</Text>
           </View>
-          {data.items.map((item, idx) => (
-            <View key={idx} style={styles.tableRow}>
-              <Text style={styles.colDate}>{item.date || "—"}</Text>
-              <Text style={styles.colDesc}>{item.description}</Text>
-              <Text style={styles.colPrice}>{item.unitPrice}</Text>
-              <Text style={styles.colTotal}>{item.total}</Text>
-            </View>
-          ))}
         </View>
+      </View>
 
-        {/* Summary */}
-        <View style={styles.summaryBox}>
-          <View style={styles.summaryInner}>
+      <View style={styles.divider} />
+
+      {/* Items Table */}
+      <View style={styles.table}>
+        <View style={styles.tableHeader}>
+          <Text style={styles.colDate}>Data</Text>
+          <Text style={styles.colDesc}>Descrição</Text>
+          <Text style={styles.colPrice}>Valor Unit.</Text>
+          <Text style={styles.colTotal}>Total</Text>
+        </View>
+        {data.items.map((item, idx) => (
+          <View key={idx} style={styles.tableRow}>
+            <Text style={styles.colDate}>{item.date || "—"}</Text>
+            <Text style={styles.colDesc}>{item.description}</Text>
+            <Text style={styles.colPrice}>{item.unitPrice}</Text>
+            <Text style={styles.colTotal}>{item.total}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Summary */}
+      <View style={styles.summaryBox}>
+        <View style={styles.summaryInner}>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Total de sessões</Text>
+            <Text style={styles.summaryValue}>{data.totalSessions}</Text>
+          </View>
+          {data.creditsApplied > 0 && (
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total de sessões</Text>
-              <Text style={styles.summaryValue}>{data.totalSessions}</Text>
+              <Text style={styles.summaryLabel}>Créditos aplicados</Text>
+              <Text style={styles.summaryValue}>{data.creditsApplied}</Text>
             </View>
-            {data.creditsApplied > 0 && (
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Créditos aplicados</Text>
-                <Text style={styles.summaryValue}>{data.creditsApplied}</Text>
-              </View>
-            )}
-            <View style={styles.summaryTotalRow}>
-              <Text style={styles.summaryTotalLabel}>Total</Text>
-              <Text style={styles.summaryTotalValue}>{data.totalAmount}</Text>
-            </View>
+          )}
+          <View style={styles.summaryTotalRow}>
+            <Text style={styles.summaryTotalLabel}>Total</Text>
+            <Text style={styles.summaryTotalValue}>{data.totalAmount}</Text>
           </View>
         </View>
+      </View>
 
-        {/* Payment Info */}
-        {data.paymentInfo && (
-          <View style={styles.paymentBox}>
-            <Text style={styles.paymentTitle}>Dados para Pagamento</Text>
-            <Text style={styles.paymentText}>{data.paymentInfo}</Text>
-          </View>
-        )}
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Documento gerado automaticamente pelo sistema.
-          </Text>
+      {/* Payment Info */}
+      {data.paymentInfo && (
+        <View style={styles.paymentBox}>
+          <Text style={styles.paymentTitle}>Dados para Pagamento</Text>
+          <Text style={styles.paymentText}>{data.paymentInfo}</Text>
         </View>
-      </Page>
+      )}
+
+      {/* Footer */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          Documento gerado automaticamente pelo sistema.
+        </Text>
+      </View>
+    </Page>
+  )
+}
+
+export function InvoicePDF({ data }: { data: InvoicePDFData }) {
+  return (
+    <Document>
+      <InvoicePage data={data} />
+    </Document>
+  )
+}
+
+function GroupedInvoicePDF({ dataArray }: { dataArray: InvoicePDFData[] }) {
+  return (
+    <Document>
+      {dataArray.map((data, idx) => (
+        <InvoicePage key={idx} data={data} />
+      ))}
     </Document>
   )
 }

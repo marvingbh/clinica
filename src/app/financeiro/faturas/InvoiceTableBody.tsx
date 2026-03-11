@@ -202,14 +202,26 @@ function GroupHeaderRow({
         <span className="text-muted-foreground">&mdash;</span>
       </td>
       <td className="text-right py-3 px-4">
-        <button
-          onClick={(e) => { e.stopPropagation(); onRecalcularGrupo() }}
-          disabled={isRecalculating}
-          className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
-          title="Recalcular todas as sessões"
-        >
-          <RefreshCwIcon className={`w-4 h-4 ${isRecalculating ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex items-center justify-end gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onRecalcularGrupo() }}
+            disabled={isRecalculating}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+            title="Recalcular todas as sessões"
+          >
+            <RefreshCwIcon className={`w-4 h-4 ${isRecalculating ? "animate-spin" : ""}`} />
+          </button>
+          <a
+            href={`/api/financeiro/faturas/download-group-pdf?ids=${group.invoices.map(i => i.id).join(",")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Baixar PDF do grupo"
+          >
+            <DownloadIcon className="w-4 h-4" />
+          </a>
+        </div>
       </td>
     </tr>
   )
