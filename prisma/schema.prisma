@@ -211,6 +211,7 @@ model Clinic {
   bankIntegrations       BankIntegration[]
   bankTransactions       BankTransaction[]
   reconciliationLinks    ReconciliationLink[]
+  patientUsualPayers     PatientUsualPayer[]
 
   @@index([slug])
   @@index([isActive])
@@ -370,6 +371,7 @@ model Patient {
   additionalPhones       PatientPhone[]
   invoices               Invoice[]
   sessionCredits         SessionCredit[]
+  usualPayers            PatientUsualPayer[]
 
   @@unique([clinicId, cpf])
   @@index([clinicId])
@@ -398,6 +400,21 @@ model PatientPhone {
   @@index([clinicId, phone])
   @@index([patientId])
   @@index([clinicId])
+}
+
+/// Learned payer names for bank reconciliation auto-matching
+model PatientUsualPayer {
+  id        String   @id @default(cuid())
+  patientId String
+  clinicId  String
+  payerName String   // Normalized (lowercase, no accents, collapsed whitespace)
+  createdAt DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  clinic  Clinic  @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, payerName])
+  @@index([clinicId, payerName])
 }
 
 /// Individual appointment or calendar entry
