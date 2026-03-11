@@ -113,6 +113,12 @@ enum BillingMode {
 enum InvoiceType {
   MONTHLY
   MANUAL
+  PER_SESSION
+}
+
+enum InvoiceGrouping {
+  MONTHLY
+  PER_SESSION
 }
 
 enum BankProvider {
@@ -175,7 +181,8 @@ model Clinic {
   invoiceDueDay          Int         @default(15) // Day of the month for invoice due date (1-28)
   invoiceMessageTemplate String? // Default invoice message template with {{variables}}
   paymentInfo            String? // Free-text payment info (PIX, bank details) shown on invoice PDFs
-  billingMode            BillingMode @default(PER_SESSION)
+  billingMode            BillingMode      @default(PER_SESSION)
+  invoiceGrouping        InvoiceGrouping  @default(MONTHLY)
   taxPercentage          Decimal     @default(0) @db.Decimal(5, 2) // Clinic tax % deducted before repasse
 
   // SaaS subscription fields
@@ -335,6 +342,7 @@ model Patient {
   sessionFee                   Decimal?  @db.Decimal(10, 2) // Session fee in BRL
   showAppointmentDaysOnInvoice Boolean   @default(false)
   invoiceDueDay                Int? // Day of the month for due date (overrides clinic default)
+  invoiceGrouping              InvoiceGrouping? // null = inherit from clinic
   invoiceMessageTemplate       String? // Overrides clinic default for invoice text
   therapeuticProject           String? // Therapeutic project (free text)
   isActive                     Boolean   @default(true)
@@ -733,6 +741,7 @@ model Invoice {
   @@index([status])
   @@index([clinicId, referenceYear, referenceMonth])
   @@index([professionalProfileId, referenceYear, referenceMonth])
+  @@index([clinicId, patientId, professionalProfileId, referenceYear, referenceMonth])
 }
 
 /// Line item on an invoice
