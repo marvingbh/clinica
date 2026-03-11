@@ -53,15 +53,27 @@ export async function generateMonthlyInvoice(
 
   // Cancel existing PER_SESSION invoices that are still PENDENTE for this patient+month.
   // This handles the transition when a patient switches from PER_SESSION back to MONTHLY.
-  await tx.invoice.updateMany({
+  const conflictingInvoices = await tx.invoice.findMany({
     where: {
       clinicId, patientId, professionalProfileId,
       referenceMonth: month, referenceYear: year,
       invoiceType: "PER_SESSION",
       status: "PENDENTE",
     },
-    data: { status: "CANCELADO" },
+    select: { id: true },
   })
+  if (conflictingInvoices.length > 0) {
+    const conflictingIds = conflictingInvoices.map((i: { id: string }) => i.id)
+    // Release credits consumed by these invoices so they can be reused
+    await tx.sessionCredit.updateMany({
+      where: { consumedByInvoiceId: { in: conflictingIds } },
+      data: { consumedByInvoiceId: null, consumedAt: null },
+    })
+    await tx.invoice.updateMany({
+      where: { id: { in: conflictingIds } },
+      data: { status: "CANCELADO" },
+    })
+  }
 
   // Check existing MONTHLY invoice
   const existing = await tx.invoice.findFirst({
