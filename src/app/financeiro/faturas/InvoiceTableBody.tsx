@@ -178,10 +178,14 @@ function GroupHeaderRow({
   group,
   isExpanded,
   onToggle,
+  isRecalculating,
+  onRecalcularGrupo,
 }: {
-  group: { key: string; patientName: string; sessionCount: number; totalAmount: number; derivedStatus: string }
+  group: { key: string; patientName: string; patientId: string; sessionCount: number; totalAmount: number; derivedStatus: string; invoices: Invoice[] }
   isExpanded: boolean
   onToggle: () => void
+  isRecalculating: boolean
+  onRecalcularGrupo: () => void
 }) {
   const ChevronIcon = isExpanded ? ChevronDownIcon : ChevronRightIcon
   return (
@@ -212,7 +216,16 @@ function GroupHeaderRow({
       <td className="text-center py-3 px-4">
         <span className="text-muted-foreground">&mdash;</span>
       </td>
-      <td className="text-right py-3 px-4"></td>
+      <td className="text-right py-3 px-4">
+        <button
+          onClick={(e) => { e.stopPropagation(); onRecalcularGrupo() }}
+          disabled={isRecalculating}
+          className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+          title="Recalcular todas as sessões"
+        >
+          <RefreshCwIcon className={`w-4 h-4 ${isRecalculating ? "animate-spin" : ""}`} />
+        </button>
+      </td>
     </tr>
   )
 }
@@ -222,8 +235,10 @@ interface InvoiceTableBodyProps {
   expandedGroups: Set<string>
   onToggleGroup: (key: string) => void
   recalculatingId: string | null
+  recalculatingGroupKey: string | null
   onMarkPaid: (id: string) => void
   onRecalcular: (id: string) => void
+  onRecalcularGrupo: (group: { patientId: string; professionalProfileId: string; referenceMonth: number; referenceYear: number; key: string }) => void
   onViewDetail: (id: string) => void
 }
 
@@ -232,8 +247,10 @@ export function InvoiceTableBody({
   expandedGroups,
   onToggleGroup,
   recalculatingId,
+  recalculatingGroupKey,
   onMarkPaid,
   onRecalcular,
+  onRecalcularGrupo,
   onViewDetail,
 }: InvoiceTableBodyProps) {
   return (
@@ -260,6 +277,14 @@ export function InvoiceTableBody({
               group={group}
               isExpanded={isExpanded}
               onToggle={() => onToggleGroup(group.key)}
+              isRecalculating={recalculatingGroupKey === group.key}
+              onRecalcularGrupo={() => onRecalcularGrupo({
+                patientId: group.patientId,
+                professionalProfileId: group.invoices[0].professionalProfile.id,
+                referenceMonth: group.referenceMonth,
+                referenceYear: group.referenceYear,
+                key: group.key,
+              })}
             />
             {isExpanded && group.invoices.map(inv => (
               <tr key={inv.id} className="border-b border-border last:border-0 bg-background">
