@@ -11,6 +11,8 @@ import {
   computeStatusUpdateData,
   shouldUpdateLastVisitAt,
 } from "@/lib/appointments/status-transitions"
+import { resolveGrouping } from "@/lib/financeiro/invoice-grouping"
+import { handlePerSessionCancellation } from "@/lib/financeiro/per-session-cancellation"
 
 /**
  * PATCH /api/appointments/:id/status
@@ -334,6 +336,25 @@ export const PATCH = withFeatureAuth(
         where: { id: existing.id },
         data: { creditGenerated: false },
       })
+    }
+
+    // For PER_SESSION invoices: auto-cancel the invoice if it's unpaid
+    if (isCancelStatus && existing.patientId) {
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: user.clinicId },
+        select: { invoiceGrouping: true },
+      })
+      const patient = await prisma.patient.findUnique({
+        where: { id: existing.patientId },
+        select: { invoiceGrouping: true },
+      })
+      const grouping = resolveGrouping(
+        clinic?.invoiceGrouping ?? "MONTHLY",
+        patient?.invoiceGrouping ?? null
+      )
+      if (grouping === "PER_SESSION") {
+        await handlePerSessionCancellation(prisma, existing.id, user.clinicId)
+      }
     }
 
     // Create AuditLog entry
