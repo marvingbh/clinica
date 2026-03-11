@@ -1,6 +1,6 @@
 import { AppointmentForInvoice, classifyAppointments, calculateInvoiceTotals, InvoiceItemData } from "./invoice-generator"
 import { renderInvoiceTemplate, buildDetailBlock, DEFAULT_INVOICE_TEMPLATE } from "./invoice-template"
-import { getMonthName, formatCurrencyBRL, formatDateBR } from "./format"
+import { getMonthName, formatCurrencyBRL, formatDateBR, formatDateShort } from "./format"
 import { shouldSkipInvoice } from "./invoice-generation"
 import { recalculateInvoice } from "./recalculate-invoice"
 
@@ -349,13 +349,6 @@ function getItemType(
   if (classified.schoolMeeting.length > 0) return "REUNIAO_ESCOLA"
   if (classified.extra.length > 0) return "SESSAO_EXTRA"
   return "SESSAO_REGULAR"
-}
-
-function formatDateShort(date: Date): string {
-  const d = new Date(date)
-  const day = String(d.getDate()).padStart(2, "0")
-  const month = String(d.getMonth() + 1).padStart(2, "0")
-  return `${day}/${month}`
 }
 
 function buildItemDescription(

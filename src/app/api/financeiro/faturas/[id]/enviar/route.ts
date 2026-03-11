@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
-import { createAuditLog, AuditAction } from "@/lib/rbac/audit"
+import { audit, AuditAction } from "@/lib/rbac/audit"
 
 export const POST = withFeatureAuth(
   { feature: "finances", minAccess: "WRITE" },
@@ -52,11 +52,10 @@ export const POST = withFeatureAuth(
       },
     })
 
-    createAuditLog({
+    audit.log({
       user, action: AuditAction.INVOICE_SENT, entityType: "Invoice", entityId: params.id,
       newValues: { channel: "WHATSAPP", recipient: invoice.patient.phone },
-      ipAddress: req.headers.get("x-forwarded-for") ?? undefined,
-      userAgent: req.headers.get("user-agent") ?? undefined,
+      request: req,
     }).catch(() => {})
 
     return NextResponse.json({ success: true, message: "Fatura enviada via WhatsApp" })

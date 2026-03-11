@@ -3,7 +3,7 @@ import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { recalculateInvoice } from "@/lib/financeiro/recalculate-invoice"
-import { createAuditLog, AuditAction } from "@/lib/rbac/audit"
+import { audit, AuditAction } from "@/lib/rbac/audit"
 
 const updateItemSchema = z.object({
   description: z.string().min(1).optional(),
@@ -81,12 +81,11 @@ export const PATCH = withFeatureAuth(
       return result
     })
 
-    createAuditLog({
+    audit.log({
       user, action: AuditAction.INVOICE_ITEM_UPDATED, entityType: "Invoice", entityId: params.id,
       oldValues: { description: item.description, quantity: item.quantity, unitPrice: Number(item.unitPrice) },
       newValues: { description: updated.description, quantity: updated.quantity, unitPrice: Number(updated.unitPrice) },
-      ipAddress: req.headers.get("x-forwarded-for") ?? undefined,
-      userAgent: req.headers.get("user-agent") ?? undefined,
+      request: req,
     }).catch(() => {})
 
     return NextResponse.json(updated)
@@ -125,11 +124,10 @@ export const DELETE = withFeatureAuth(
       )
     })
 
-    createAuditLog({
+    audit.log({
       user, action: AuditAction.INVOICE_ITEM_DELETED, entityType: "Invoice", entityId: params.id,
       oldValues: { description: item.description, type: item.type, unitPrice: Number(item.unitPrice) },
-      ipAddress: req.headers.get("x-forwarded-for") ?? undefined,
-      userAgent: req.headers.get("user-agent") ?? undefined,
+      request: req,
     }).catch(() => {})
 
     return NextResponse.json({ success: true })

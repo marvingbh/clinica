@@ -3,7 +3,7 @@ import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { generatePerSessionInvoices } from "@/lib/financeiro/generate-per-session-invoices"
-import { createAuditLog, AuditAction } from "@/lib/rbac/audit"
+import { audit, AuditAction } from "@/lib/rbac/audit"
 
 const schema = z.object({
   patientId: z.string(),
@@ -96,12 +96,11 @@ export const POST = withFeatureAuth(
       })
     }, { timeout: 15000 })
 
-    createAuditLog({
+    audit.log({
       user, action: AuditAction.INVOICE_RECALCULATED, entityType: "Invoice",
       entityId: `group:${patientId}:${month}:${year}`,
       newValues: { patientName: patient.name, month, year, type: "PER_SESSION_GROUP" },
-      ipAddress: req.headers.get("x-forwarded-for") ?? undefined,
-      userAgent: req.headers.get("user-agent") ?? undefined,
+      request: req,
     }).catch(() => {})
 
     return NextResponse.json({ success: true, message: "Grupo recalculado com sucesso" })

@@ -3,7 +3,7 @@ import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { recalculateInvoice } from "@/lib/financeiro/recalculate-invoice"
-import { createAuditLog, AuditAction } from "@/lib/rbac/audit"
+import { audit, AuditAction } from "@/lib/rbac/audit"
 
 const addItemSchema = z.object({
   type: z.enum(["SESSAO_EXTRA", "REUNIAO_ESCOLA", "CREDITO"]),
@@ -70,11 +70,10 @@ export const POST = withFeatureAuth(
       return created
     })
 
-    createAuditLog({
+    audit.log({
       user, action: AuditAction.INVOICE_ITEM_ADDED, entityType: "Invoice", entityId: params.id,
       newValues: { type, description, quantity, unitPrice, total },
-      ipAddress: req.headers.get("x-forwarded-for") ?? undefined,
-      userAgent: req.headers.get("user-agent") ?? undefined,
+      request: req,
     }).catch(() => {})
 
     return NextResponse.json(item, { status: 201 })

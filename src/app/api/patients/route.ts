@@ -3,6 +3,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac"
+import { isGroupingAllowed } from "@/lib/financeiro/invoice-grouping"
 
 // WhatsApp format validation: Brazilian format with country code
 // Accepts: +5511999999999, 5511999999999, 11999999999
@@ -236,13 +237,12 @@ export const POST = withFeatureAuth(
     const { name, email, phone, birthDate, cpf, fatherName, motherName, notes, schoolName, firstAppointmentDate, lastFeeAdjustmentDate, sessionFee, therapeuticProject, referenceProfessionalId, invoiceGrouping, consentWhatsApp, consentEmail, additionalPhones } =
       validation.data
 
-    // Validate: PER_SESSION grouping requires the clinic to have PER_SESSION billingMode
     if (invoiceGrouping === "PER_SESSION") {
       const clinic = await prisma.clinic.findUnique({
         where: { id: user.clinicId },
         select: { billingMode: true },
       })
-      if (clinic?.billingMode !== "PER_SESSION") {
+      if (!isGroupingAllowed((clinic?.billingMode ?? "PER_SESSION") as "PER_SESSION" | "MONTHLY_FIXED", "PER_SESSION")) {
         return NextResponse.json(
           { error: "Agrupamento 'Por Sessão' requer modo de cobrança 'Por Sessão' na clínica" },
           { status: 400 }

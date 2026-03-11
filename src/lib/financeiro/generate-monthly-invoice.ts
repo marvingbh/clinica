@@ -285,6 +285,7 @@ async function createNewInvoice(
       patientId,
       referenceMonth: month,
       referenceYear: year,
+      invoiceType: "MONTHLY",
       totalSessions: totals.totalSessions,
       creditsApplied: totals.creditsApplied,
       extrasAdded: totals.extrasAdded,

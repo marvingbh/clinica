@@ -340,20 +340,24 @@ export const PATCH = withFeatureAuth(
 
     // For PER_SESSION invoices: auto-cancel the invoice if it's unpaid
     if (isCancelStatus && existing.patientId) {
-      const clinic = await prisma.clinic.findUnique({
-        where: { id: user.clinicId },
-        select: { invoiceGrouping: true },
-      })
-      const patient = await prisma.patient.findUnique({
-        where: { id: existing.patientId },
-        select: { invoiceGrouping: true },
-      })
+      const [clinic, patient] = await Promise.all([
+        prisma.clinic.findUnique({
+          where: { id: user.clinicId },
+          select: { invoiceGrouping: true },
+        }),
+        prisma.patient.findUnique({
+          where: { id: existing.patientId },
+          select: { invoiceGrouping: true },
+        }),
+      ])
       const grouping = resolveGrouping(
         clinic?.invoiceGrouping ?? "MONTHLY",
         patient?.invoiceGrouping ?? null
       )
       if (grouping === "PER_SESSION") {
-        await handlePerSessionCancellation(prisma, existing.id, user.clinicId)
+        await prisma.$transaction(async (tx) => {
+          await handlePerSessionCancellation(tx, existing.id, user.clinicId)
+        })
       }
     }
 
