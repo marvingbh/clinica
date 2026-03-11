@@ -6,10 +6,13 @@ const APPOINTMENT_ID = "clxyz123abc"
 const BASE_URL = "https://clinica.example.com"
 
 beforeEach(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date("2026-03-10T10:00:00Z"))
   vi.stubEnv("AUTH_SECRET", TEST_SECRET)
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllEnvs()
 })
 
