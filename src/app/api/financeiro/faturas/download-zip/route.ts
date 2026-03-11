@@ -61,7 +61,10 @@ export const GET = withFeatureAuth(
         const mm = MONTH_ABBR[invoice.referenceMonth - 1]
         const prof = invoice.professionalProfile.user.name.split(" ")[0]
         const patient = invoice.patient.name.replace(/\s*\(.*?\)\s*/g, "").trim().replace(/\s+/g, "-")
-        archive.append(Buffer.from(buffer), { name: `${mm}-${prof}-${patient}.pdf` })
+        const dateSuffix = invoice.invoiceType === "PER_SESSION" && invoice.items[0]?.appointment
+          ? `-${new Date(invoice.items[0].appointment.scheduledAt).toLocaleDateString("pt-BR").replace(/\//g, "-")}`
+          : ""
+        archive.append(Buffer.from(buffer), { name: `${mm}-${prof}-${patient}${dateSuffix}.pdf` })
       }
       await archive.finalize()
     })()
