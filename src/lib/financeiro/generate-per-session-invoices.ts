@@ -48,6 +48,21 @@ export async function generatePerSessionInvoices(
     (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
   )
 
+  // Cancel existing MONTHLY/MANUAL invoices that are still PENDENTE for this patient+month.
+  // This handles the transition when a patient switches from MONTHLY to PER_SESSION grouping.
+  await tx.invoice.updateMany({
+    where: {
+      clinicId,
+      patientId,
+      professionalProfileId: profId,
+      referenceMonth: month,
+      referenceYear: year,
+      invoiceType: { not: "PER_SESSION" },
+      status: "PENDENTE",
+    },
+    data: { status: "CANCELADO" },
+  })
+
   // Find all appointments already invoiced (any invoice type, any status except CANCELADO)
   const alreadyInvoiced = await tx.invoiceItem.findMany({
     where: {
