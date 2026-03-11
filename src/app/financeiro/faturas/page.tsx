@@ -41,6 +41,7 @@ export default function FaturasPage() {
   const [patientSearchInput, setPatientSearchInput] = useState("")
   const [sortBy, setSortBy] = useState<"name" | "recurrence">("name")
   const [recalculatingId, setRecalculatingId] = useState<string | null>(null)
+  const [recalculatingGroupKey, setRecalculatingGroupKey] = useState<string | null>(null)
   const [downloadingZip, setDownloadingZip] = useState(false)
   const [detailInvoiceId, setDetailInvoiceId] = useState<string | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
@@ -176,6 +177,33 @@ export default function FaturasPage() {
       toast.error("Erro ao recalcular fatura")
     } finally {
       setRecalculatingId(null)
+    }
+  }
+
+  async function handleRecalcularGrupo(group: { patientId: string; professionalProfileId: string; referenceMonth: number; referenceYear: number; key: string }) {
+    setRecalculatingGroupKey(group.key)
+    try {
+      const res = await fetch("/api/financeiro/faturas/recalcular-grupo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientId: group.patientId,
+          professionalProfileId: group.professionalProfileId,
+          month: group.referenceMonth,
+          year: group.referenceYear,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || "Erro ao recalcular grupo")
+        return
+      }
+      toast.success(data.message || "Grupo recalculado")
+      fetchInvoices()
+    } catch {
+      toast.error("Erro ao recalcular grupo")
+    } finally {
+      setRecalculatingGroupKey(null)
     }
   }
 
@@ -341,8 +369,10 @@ export default function FaturasPage() {
                 expandedGroups={expandedGroups}
                 onToggleGroup={handleToggleGroup}
                 recalculatingId={recalculatingId}
+                recalculatingGroupKey={recalculatingGroupKey}
                 onMarkPaid={handleMarkPaid}
                 onRecalcular={handleRecalcular}
+                onRecalcularGrupo={handleRecalcularGrupo}
                 onViewDetail={setDetailInvoiceId}
               />
             </tbody>

@@ -275,6 +275,33 @@ async function recalculatePerSession(
       data: { unitPrice: newPrice, total: newPrice },
     })
 
+    // Apply an available credit if this invoice doesn't already have one
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const hasCredit = invoice.items.some((i: any) => i.type === "CREDITO")
+    if (!hasCredit) {
+      const credit = await tx.sessionCredit.findFirst({
+        where: { clinicId: user.clinicId, patientId: invoice.patientId, consumedByInvoiceId: null },
+        orderBy: { createdAt: "asc" },
+      })
+      if (credit) {
+        await tx.invoiceItem.create({
+          data: {
+            invoiceId: invoice.id,
+            appointmentId: null,
+            type: "CREDITO",
+            description: `Crédito: ${credit.reason}`,
+            quantity: -1,
+            unitPrice: sessionFee,
+            total: -sessionFee,
+          },
+        })
+        await tx.sessionCredit.update({
+          where: { id: credit.id },
+          data: { consumedByInvoiceId: invoice.id, consumedAt: new Date() },
+        })
+      }
+    }
+
     // Recalculate totals and message body
     await recalculateInvoice(
       tx, invoice.id, invoice, patient,
