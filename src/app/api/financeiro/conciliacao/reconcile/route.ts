@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
-import { computeInvoiceStatus } from "@/lib/bank-reconciliation"
+import { computeInvoiceStatus, normalizeForComparison } from "@/lib/bank-reconciliation"
 
 const TX_TIMEOUT = 30000
 
@@ -150,6 +150,36 @@ export const POST = withFeatureAuth(
               status: newStatus,
               paidAt: newStatus === "PAGO" ? now : null,
             },
+          })
+        }
+        // Auto-save usual payers for future matching
+        const seenPayers = new Set<string>()
+        for (const link of links) {
+          const bankTx = txMap.get(link.transactionId)!
+          if (!bankTx.payerName) continue
+          const invoice = invoiceMap.get(link.invoiceId)!
+          if (!invoice.patientId) continue
+
+          const normalizedPayer = normalizeForComparison(bankTx.payerName)
+          if (!normalizedPayer) continue
+
+          const key = `${invoice.patientId}:${normalizedPayer}`
+          if (seenPayers.has(key)) continue
+          seenPayers.add(key)
+
+          await tx.patientUsualPayer.upsert({
+            where: {
+              patientId_payerName: {
+                patientId: invoice.patientId,
+                payerName: normalizedPayer,
+              },
+            },
+            create: {
+              clinicId: user.clinicId,
+              patientId: invoice.patientId,
+              payerName: normalizedPayer,
+            },
+            update: {},
           })
         }
       }, { timeout: TX_TIMEOUT })
