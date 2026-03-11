@@ -3,6 +3,8 @@ import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { generateMonthlyInvoice } from "@/lib/financeiro/generate-monthly-invoice"
+import { generatePerSessionInvoices } from "@/lib/financeiro/generate-per-session-invoices"
+import { resolveGrouping } from "@/lib/financeiro/invoice-grouping"
 
 const schema = z.object({
   month: z.number().int().min(1).max(12),
@@ -97,11 +99,12 @@ export const POST = withFeatureAuth(
           id: true, name: true, motherName: true, fatherName: true,
           sessionFee: true, showAppointmentDaysOnInvoice: true,
           invoiceDueDay: true, invoiceMessageTemplate: true, referenceProfessionalId: true,
+          invoiceGrouping: true,
         },
       }),
       prisma.clinic.findUnique({
         where: { id: user.clinicId },
-        select: { invoiceDueDay: true, invoiceMessageTemplate: true, billingMode: true },
+        select: { invoiceDueDay: true, invoiceMessageTemplate: true, billingMode: true, invoiceGrouping: true },
       }),
       prisma.professionalProfile.findMany({
         where: { id: { in: Array.from(profIds) } },
@@ -125,44 +128,75 @@ export const POST = withFeatureAuth(
       const patient = patientMap.get(patientId)
       if (!patient || !patient.sessionFee) continue
 
-      const dueDate = new Date(Date.UTC(year, month - 1, patient.invoiceDueDay ?? clinicDueDay, 12))
+      const grouping = resolveGrouping(
+        clinic?.invoiceGrouping ?? "MONTHLY",
+        patient.invoiceGrouping
+      )
+
+      const mappedApts = patientApts.map(a => ({
+        id: a.id,
+        scheduledAt: a.scheduledAt,
+        status: a.status,
+        type: a.type,
+        title: a.title,
+        recurrenceId: a.recurrenceId,
+        groupId: a.groupId,
+        price: a.price ? Number(a.price) : null,
+      }))
 
       try {
-        await prisma.$transaction(async (tx) => {
-          const result = await generateMonthlyInvoice(tx, {
-            clinicId: user.clinicId,
-            patientId,
-            professionalProfileId: profId,
-            month,
-            year,
-            dueDate,
-            sessionFee: Number(patient.sessionFee),
-            showAppointmentDays: patient.showAppointmentDaysOnInvoice,
-            profName: profMap.get(profId)?.user?.name || "",
-            billingMode: clinic?.billingMode ?? null,
-            patient: {
-              name: patient.name,
+        if (grouping === "PER_SESSION") {
+          await prisma.$transaction(async (tx) => {
+            const result = await generatePerSessionInvoices(tx, {
+              clinicId: user.clinicId,
+              patientId,
+              profId,
+              month,
+              year,
+              appointments: mappedApts,
+              sessionFee: Number(patient.sessionFee),
+              patientTemplate: patient.invoiceMessageTemplate,
+              clinicTemplate: clinic?.invoiceMessageTemplate ?? null,
+              clinicPaymentInfo: null,
+              profName: profMap.get(profId)?.user?.name || "",
+              patientName: patient.name,
               motherName: patient.motherName,
               fatherName: patient.fatherName,
-              invoiceMessageTemplate: patient.invoiceMessageTemplate,
-            },
-            clinicInvoiceMessageTemplate: clinic?.invoiceMessageTemplate ?? null,
-            appointments: patientApts.map(a => ({
-              id: a.id,
-              scheduledAt: a.scheduledAt,
-              status: a.status,
-              type: a.type,
-              title: a.title,
-              recurrenceId: a.recurrenceId,
-              groupId: a.groupId,
-              price: a.price ? Number(a.price) : null,
-            })),
-          })
+              showAppointmentDays: patient.showAppointmentDaysOnInvoice,
+            })
+            generated += result.generated
+            updated += result.updated
+            skipped += result.skipped
+          }, { timeout: 15000 })
+        } else {
+          const dueDate = new Date(Date.UTC(year, month - 1, patient.invoiceDueDay ?? clinicDueDay, 12))
+          await prisma.$transaction(async (tx) => {
+            const result = await generateMonthlyInvoice(tx, {
+              clinicId: user.clinicId,
+              patientId,
+              professionalProfileId: profId,
+              month,
+              year,
+              dueDate,
+              sessionFee: Number(patient.sessionFee),
+              showAppointmentDays: patient.showAppointmentDaysOnInvoice,
+              profName: profMap.get(profId)?.user?.name || "",
+              billingMode: clinic?.billingMode ?? null,
+              patient: {
+                name: patient.name,
+                motherName: patient.motherName,
+                fatherName: patient.fatherName,
+                invoiceMessageTemplate: patient.invoiceMessageTemplate,
+              },
+              clinicInvoiceMessageTemplate: clinic?.invoiceMessageTemplate ?? null,
+              appointments: mappedApts,
+            })
 
-          if (result === "generated") generated++
-          else if (result === "updated") updated++
-          else if (result === "skipped") skipped++
-        }, { timeout: 15000 })
+            if (result === "generated") generated++
+            else if (result === "updated") updated++
+            else if (result === "skipped") skipped++
+          }, { timeout: 15000 })
+        }
       } catch (error) {
         console.error(`[invoice-gen] Error processing patient ${patient.name}:`, error)
       }
