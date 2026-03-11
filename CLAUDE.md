@@ -49,6 +49,30 @@ This starts Docker, dumps the Neon production database, and restores it locally.
 
 **Note:** When schema has drifted from migration history, use `npx prisma db push` instead of `npx prisma migrate dev`.
 
+### Feature Branch Workflow (Standard)
+
+**Every new feature MUST use an isolated worktree + database.** This is the standard for all feature development:
+
+```bash
+bash scripts/new-feature.sh <branch-name>    # Create everything
+cd ../clinica-<branch-name>                   # Work in the worktree
+```
+
+This script automates:
+1. Creates a git worktree at `../clinica-<branch-name>` on a new branch from `main`
+2. Creates a new Postgres database `clinica_<branch_name>` in the existing Docker container
+3. Restores the latest production data into it
+4. Updates `.env` in the worktree to point to the new database
+5. Runs `prisma generate`
+
+After the feature is merged, clean up:
+
+```bash
+bash scripts/cleanup-feature.sh <branch-name>  # Remove worktree + database
+```
+
+**Why:** Each feature gets its own database so schema changes (migrations, `prisma db push`) never affect other branches or the main dev database. The shared Docker container runs all databases — no extra containers needed.
+
 ### Vercel Build
 
 The `vercel-build` script runs: `prisma generate && vitest run && prisma migrate deploy && next build`. Tests must pass before deploy.
