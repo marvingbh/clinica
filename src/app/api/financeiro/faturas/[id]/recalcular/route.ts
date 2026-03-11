@@ -322,11 +322,24 @@ async function handleGroupingTransition(
   }))
 
   await prisma.$transaction(async (tx) => {
-    // Release any credits consumed by the old invoice
+    // Release any SessionCredits consumed by the old invoice
     await tx.sessionCredit.updateMany({
       where: { consumedByInvoiceId: invoice.id },
       data: { consumedByInvoiceId: null, consumedAt: null },
     })
+
+    // Collect manual CREDITO items (not backed by SessionCredit) to carry forward
+    const consumedCredits = await tx.sessionCredit.findMany({
+      where: { consumedByInvoiceId: invoice.id },
+      select: { id: true, reason: true },
+    })
+    const autoCreditDescs = new Set(
+      consumedCredits.map((c: { reason: string | null }) => `Crédito: ${c.reason || ""}`)
+    )
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const manualCredits = invoice.items.filter((i: any) =>
+      i.type === "CREDITO" && !autoCreditDescs.has(i.description)
+    )
 
     // Cancel the old invoice
     await tx.invoice.update({
@@ -352,6 +365,17 @@ async function handleGroupingTransition(
         fatherName: patient.fatherName,
         showAppointmentDays: patient.showAppointmentDaysOnInvoice,
       })
+
+      // Carry manual credits to the first new per-session invoice
+      if (manualCredits.length > 0) {
+        await carryManualCredits(tx, manualCredits, {
+          clinicId: user.clinicId,
+          patientId: invoice.patientId,
+          profId: invoice.professionalProfileId,
+          month: invoice.referenceMonth,
+          year: invoice.referenceYear,
+        })
+      }
     } else {
       const clinicDueDay = clinic?.invoiceDueDay ?? 15
       const dueDate = new Date(Date.UTC(
@@ -378,6 +402,17 @@ async function handleGroupingTransition(
         clinicInvoiceMessageTemplate: clinic?.invoiceMessageTemplate ?? null,
         appointments: mappedApts,
       })
+
+      // Carry manual credits to the new monthly invoice
+      if (manualCredits.length > 0) {
+        await carryManualCredits(tx, manualCredits, {
+          clinicId: user.clinicId,
+          patientId: invoice.patientId,
+          profId: invoice.professionalProfileId,
+          month: invoice.referenceMonth,
+          year: invoice.referenceYear,
+        })
+      }
     }
   }, { timeout: 15000 })
 
@@ -386,5 +421,68 @@ async function handleGroupingTransition(
     success: true,
     message: `Fatura convertida para modo ${label}`,
     groupingChanged: true,
+  })
+}
+
+/**
+ * Carries manual CREDITO items from a cancelled invoice to the first
+ * newly generated invoice for the same patient+month. Recalculates
+ * the target invoice totals after adding the credit items.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function carryManualCredits(
+  tx: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  manualCredits: any[],
+  ctx: { clinicId: string; patientId: string; profId: string; month: number; year: number },
+) {
+  // Find the first new invoice (earliest dueDate) for this patient+month
+  const targetInvoice = await tx.invoice.findFirst({
+    where: {
+      clinicId: ctx.clinicId,
+      patientId: ctx.patientId,
+      professionalProfileId: ctx.profId,
+      referenceMonth: ctx.month,
+      referenceYear: ctx.year,
+      status: { not: "CANCELADO" },
+    },
+    orderBy: { dueDate: "asc" },
+    select: { id: true },
+  })
+
+  if (!targetInvoice) return
+
+  // Add manual credit items to the target invoice
+  for (const credit of manualCredits) {
+    await tx.invoiceItem.create({
+      data: {
+        invoiceId: targetInvoice.id,
+        appointmentId: null,
+        type: "CREDITO",
+        description: credit.description,
+        quantity: credit.quantity,
+        unitPrice: credit.unitPrice,
+        total: credit.total,
+      },
+    })
+  }
+
+  // Recalculate totals on the target invoice
+  const allItems = await tx.invoiceItem.findMany({
+    where: { invoiceId: targetInvoice.id },
+  })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const totalAmount = allItems.reduce((sum: number, i: any) => sum + Number(i.total), 0)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const creditsApplied = allItems.filter((i: any) => i.type === "CREDITO").length
+
+  const isAutoPaid = totalAmount <= 0
+  await tx.invoice.update({
+    where: { id: targetInvoice.id },
+    data: {
+      totalAmount,
+      creditsApplied,
+      ...(isAutoPaid ? { status: "PAGO", paidAt: new Date() } : {}),
+    },
   })
 }
