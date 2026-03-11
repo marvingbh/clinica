@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { createAuditLog, AuditAction } from "@/lib/rbac/audit"
 
 export const GET = withFeatureAuth(
   { feature: "finances", minAccess: "READ" },
@@ -68,7 +69,7 @@ export const PATCH = withFeatureAuth(
     })
 
     if (!invoice) {
-      return NextResponse.json({ error: "Fatura n\u00e3o encontrada" }, { status: 404 })
+      return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 })
     }
 
     const updateData: Record<string, unknown> = {}
@@ -94,6 +95,23 @@ export const PATCH = withFeatureAuth(
       data: updateData,
     })
 
+    // Audit log
+    const ipAddress = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? undefined
+    const userAgent = req.headers.get("user-agent") ?? undefined
+
+    if (parsed.data.status && parsed.data.status !== invoice.status) {
+      createAuditLog({ user, action: AuditAction.INVOICE_STATUS_CHANGED, entityType: "Invoice", entityId: params.id, oldValues: { status: invoice.status }, newValues: { status: parsed.data.status }, ipAddress, userAgent }).catch(() => {})
+    }
+    if (parsed.data.dueDate) {
+      createAuditLog({ user, action: AuditAction.INVOICE_DUE_DATE_CHANGED, entityType: "Invoice", entityId: params.id, oldValues: { dueDate: invoice.dueDate?.toISOString() }, newValues: { dueDate: parsed.data.dueDate }, ipAddress, userAgent }).catch(() => {})
+    }
+    if (parsed.data.notaFiscalEmitida !== undefined) {
+      createAuditLog({ user, action: AuditAction.INVOICE_NF_CHANGED, entityType: "Invoice", entityId: params.id, oldValues: { notaFiscalEmitida: invoice.notaFiscalEmitida }, newValues: { notaFiscalEmitida: parsed.data.notaFiscalEmitida }, ipAddress, userAgent }).catch(() => {})
+    }
+    if (parsed.data.notes !== undefined && parsed.data.notes !== invoice.notes) {
+      createAuditLog({ user, action: AuditAction.INVOICE_NOTES_UPDATED, entityType: "Invoice", entityId: params.id, oldValues: { notes: invoice.notes }, newValues: { notes: parsed.data.notes }, ipAddress, userAgent }).catch(() => {})
+    }
+
     return NextResponse.json(updated)
   }
 )
@@ -113,7 +131,7 @@ export const DELETE = withFeatureAuth(
     })
 
     if (!invoice) {
-      return NextResponse.json({ error: "Fatura n\u00e3o encontrada" }, { status: 404 })
+      return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 })
     }
 
     await prisma.$transaction(async (tx) => {
@@ -123,6 +141,10 @@ export const DELETE = withFeatureAuth(
       })
       await tx.invoice.delete({ where: { id: params.id } })
     })
+
+    const ipAddress = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? undefined
+    const userAgent = req.headers.get("user-agent") ?? undefined
+    createAuditLog({ user, action: AuditAction.INVOICE_DELETED, entityType: "Invoice", entityId: params.id, oldValues: { status: invoice.status, totalAmount: Number(invoice.totalAmount) }, ipAddress, userAgent }).catch(() => {})
 
     return NextResponse.json({ success: true })
   }
