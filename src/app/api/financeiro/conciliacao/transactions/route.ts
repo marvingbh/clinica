@@ -31,7 +31,7 @@ export const GET = withFeatureAuth(
     const { searchParams } = new URL(req.url)
     const showReconciled = searchParams.get("showReconciled") === "true"
 
-    const [transactions, invoices] = await Promise.all([
+    const [transactions, invoices, usualPayers] = await Promise.all([
       prisma.bankTransaction.findMany({
         where: {
           clinicId: user.clinicId,
@@ -79,6 +79,10 @@ export const GET = withFeatureAuth(
           },
         },
       }),
+      prisma.patientUsualPayer.findMany({
+        where: { clinicId: user.clinicId },
+        select: { payerName: true, patientId: true },
+      }),
     ])
 
     // Pre-compute allocated amounts per transaction (used for matching and response)
@@ -123,7 +127,18 @@ export const GET = withFeatureAuth(
       normalizedFather: normalizeForComparison(inv.fatherName),
     }))
 
-    const matchResults = matchTransactions(txForMatching, invForMatching)
+    // Build usual payers lookup: normalizedPayerName → Set<patientId>
+    const usualPayersMap = new Map<string, Set<string>>()
+    for (const up of usualPayers) {
+      const existing = usualPayersMap.get(up.payerName)
+      if (existing) {
+        existing.add(up.patientId)
+      } else {
+        usualPayersMap.set(up.payerName, new Set([up.patientId]))
+      }
+    }
+
+    const matchResults = matchTransactions(txForMatching, invForMatching, usualPayersMap)
 
     const response = transactions.map((tx) => {
       const allocatedAmount = txAllocatedMap.get(tx.id)!
