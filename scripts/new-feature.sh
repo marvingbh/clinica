@@ -62,7 +62,7 @@ docker compose -f "$REPO_ROOT/docker-compose.yml" up -d --wait
 
 # 3. Create new database
 echo "[3/6] Creating database '$DB_NAME'..."
-docker exec "$CONTAINER" psql -U "$LOCAL_USER" -tc \
+docker exec "$CONTAINER" psql -U "$LOCAL_USER" -d postgres -tc \
   "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1 && {
   echo "  Database already exists, dropping and recreating..."
   docker exec "$CONTAINER" dropdb -U "$LOCAL_USER" "$DB_NAME"
@@ -88,9 +88,10 @@ else
   sed -i "s|^DATABASE_URL=.*|DATABASE_URL=postgresql://${LOCAL_USER}:clinica_dev@localhost:5432/${DB_NAME}|" "$WORKTREE_DIR/.env"
 fi
 
-# 6. Generate Prisma client
-echo "[6/6] Generating Prisma client..."
+# 6. Install dependencies and generate Prisma client
+echo "[6/6] Installing dependencies and generating Prisma client..."
 cd "$WORKTREE_DIR"
+npm install --force 2>/dev/null
 npx prisma generate
 
 echo ""
