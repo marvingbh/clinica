@@ -8,6 +8,7 @@ import { separateManualItems } from "@/lib/financeiro/invoice-generation"
 import { resolveGrouping } from "@/lib/financeiro/invoice-grouping"
 import { generatePerSessionInvoices } from "@/lib/financeiro/generate-per-session-invoices"
 import { generateMonthlyInvoice } from "@/lib/financeiro/generate-monthly-invoice"
+import { createAuditLog, AuditAction } from "@/lib/rbac/audit"
 
 export const POST = withFeatureAuth(
   { feature: "finances", minAccess: "WRITE" },
@@ -198,6 +199,13 @@ export const POST = withFeatureAuth(
         clinic?.invoiceMessageTemplate ?? null, profName,
       )
     }, { timeout: 15000 })
+
+    createAuditLog({
+      user, action: AuditAction.INVOICE_RECALCULATED, entityType: "Invoice", entityId: invoice.id,
+      newValues: { invoiceType: invoice.invoiceType },
+      ipAddress: req.headers.get("x-forwarded-for") ?? undefined,
+      userAgent: req.headers.get("user-agent") ?? undefined,
+    }).catch(() => {})
 
     return NextResponse.json({ success: true, message: "Fatura recalculada com sucesso" })
   }
