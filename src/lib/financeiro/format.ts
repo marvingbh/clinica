@@ -33,3 +33,11 @@ export function formatDateBR(dateStr: string): string {
   const [y, m, d] = date.split("-")
   return `${d}/${m}/${y}`
 }
+
+/** Format a Date as DD/MM (short form for invoice item descriptions). */
+export function formatDateShort(date: Date): string {
+  const d = new Date(date)
+  const day = String(d.getDate()).padStart(2, "0")
+  const month = String(d.getMonth() + 1).padStart(2, "0")
+  return `${day}/${month}`
+}

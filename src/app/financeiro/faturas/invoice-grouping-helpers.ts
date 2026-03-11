@@ -44,7 +44,7 @@ export function buildInvoiceRows(invoices: Invoice[]): InvoiceRow[] {
 
   for (const inv of invoices) {
     if (inv.invoiceType === "PER_SESSION") {
-      const key = `${inv.patient.id}-${inv.referenceMonth}-${inv.referenceYear}`
+      const key = `${inv.patient.id}-${inv.professionalProfile.id}-${inv.referenceMonth}-${inv.referenceYear}`
       const list = perSessionMap.get(key) || []
       list.push(inv)
       perSessionMap.set(key, list)

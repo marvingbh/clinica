@@ -329,7 +329,7 @@ export function PatientForm({
           >
             <option value="">Padrão da clínica</option>
             <option value="MONTHLY">Mensal</option>
-            <option value="PER_SESSION">Por Sessão</option>
+            <option value="PER_SESSION" disabled={billingMode === "MONTHLY_FIXED"}>Por Sessão</option>
           </select>
           <p className="text-xs text-muted-foreground mt-1">
             Opcional. Se vazio, usa o padrão da clínica.
