@@ -294,6 +294,71 @@ export default function FinanceiroDashboard() {
         </div>
       )}
 
+      {/* Received vs Total pie charts (month view) */}
+      {month && data.totalFaturado > 0 && (
+        <div className={`grid grid-cols-1 ${data.byProfessional.length > 1 ? "lg:grid-cols-2" : ""} gap-6`}>
+          {/* Overall received donut */}
+          <div className="p-4 rounded-lg border border-border">
+            <h3 className="text-sm font-semibold mb-4">Recebido vs Total</h3>
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: "Recebido", value: data.totalPago },
+                    { name: "A receber", value: Math.max(0, data.totalFaturado - data.totalPago) },
+                  ].filter(d => d.value > 0)}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={90}
+                  paddingAngle={2}
+                  dataKey="value"
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  labelLine={false}
+                >
+                  <Cell fill="#22c55e" />
+                  <Cell fill="#e5e7eb" />
+                </Pie>
+                <Tooltip formatter={(value) => [formatCurrencyBRL(Number(value)), ""]} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Per-professional received donut */}
+          {data.byProfessional.length > 1 && (
+            <div className="p-4 rounded-lg border border-border">
+              <h3 className="text-sm font-semibold mb-4">Recebido por Profissional</h3>
+              <ResponsiveContainer width="100%" height={240}>
+                <PieChart>
+                  <Pie
+                    data={data.byProfessional.filter(p => p.pago > 0).map(p => ({
+                      name: p.name.split(" ")[0],
+                      value: p.pago,
+                    }))}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={2}
+                    dataKey="value"
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {data.byProfessional.filter(p => p.pago > 0).map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => [formatCurrencyBRL(Number(value)), ""]} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* By Professional table */}
       {data.byProfessional.length > 1 && (
         <div>
@@ -310,29 +375,41 @@ export default function FinanceiroDashboard() {
                   <th className="text-right py-3 px-4 font-medium">Enviado</th>
                   <th className="text-right py-3 px-4 font-medium">Parcial</th>
                   <th className="text-right py-3 px-4 font-medium">Recebido</th>
+                  <th className="text-right py-3 px-4 font-medium">% Recebido</th>
                 </tr>
               </thead>
               <tbody>
-                {data.byProfessional.map(prof => (
-                  <tr key={prof.id} className="border-b border-border last:border-0">
-                    <td className="py-3 px-4 font-medium">{prof.name}</td>
-                    <td className="text-center py-3 px-4">{prof.patientCount}</td>
-                    <td className="text-center py-3 px-4">{prof.sessions}</td>
-                    <td className="text-right py-3 px-4">{formatCurrencyBRL(prof.faturado)}</td>
-                    <td className="text-right py-3 px-4 text-yellow-600 dark:text-yellow-400">
-                      {formatCurrencyBRL(prof.pendente)}
-                    </td>
-                    <td className="text-right py-3 px-4 text-blue-600 dark:text-blue-400">
-                      {formatCurrencyBRL(prof.enviado)}
-                    </td>
-                    <td className="text-right py-3 px-4 text-orange-600 dark:text-orange-400">
-                      {formatCurrencyBRL(prof.parcial)}
-                    </td>
-                    <td className="text-right py-3 px-4 text-green-600 dark:text-green-400">
-                      {formatCurrencyBRL(prof.pago)}
-                    </td>
-                  </tr>
-                ))}
+                {data.byProfessional.map(prof => {
+                  const profPercent = prof.faturado > 0 ? Math.round((prof.pago / prof.faturado) * 100) : 0
+                  return (
+                    <tr key={prof.id} className="border-b border-border last:border-0">
+                      <td className="py-3 px-4 font-medium">{prof.name}</td>
+                      <td className="text-center py-3 px-4">{prof.patientCount}</td>
+                      <td className="text-center py-3 px-4">{prof.sessions}</td>
+                      <td className="text-right py-3 px-4">{formatCurrencyBRL(prof.faturado)}</td>
+                      <td className="text-right py-3 px-4 text-yellow-600 dark:text-yellow-400">
+                        {formatCurrencyBRL(prof.pendente)}
+                      </td>
+                      <td className="text-right py-3 px-4 text-blue-600 dark:text-blue-400">
+                        {formatCurrencyBRL(prof.enviado)}
+                      </td>
+                      <td className="text-right py-3 px-4 text-orange-600 dark:text-orange-400">
+                        {formatCurrencyBRL(prof.parcial)}
+                      </td>
+                      <td className="text-right py-3 px-4 text-green-600 dark:text-green-400">
+                        {formatCurrencyBRL(prof.pago)}
+                      </td>
+                      <td className="text-right py-3 px-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <div className="w-16 h-2 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full bg-green-500 rounded-full" style={{ width: `${profPercent}%` }} />
+                          </div>
+                          <span className="text-xs font-medium w-8 text-right">{profPercent}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
