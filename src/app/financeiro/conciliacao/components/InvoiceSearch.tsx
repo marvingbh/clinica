@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react"
 import { CheckIcon, SearchIcon, Loader2Icon } from "lucide-react"
-import { formatCurrencyBRL, getMonthNameShort } from "@/lib/financeiro/format"
+import { formatCurrencyBRL, formatDateBR, getMonthNameShort } from "@/lib/financeiro/format"
 import { INVOICE_STATUS_CONFIG } from "./types"
 
 interface SearchResult {
@@ -15,6 +15,7 @@ interface SearchResult {
   remainingAmount?: number
   referenceMonth: number
   referenceYear: number
+  dueDate: string | null
 }
 
 interface InvoiceSearchProps {
@@ -134,6 +135,11 @@ export function InvoiceSearch({ selectedInvoiceId, selectedIds, onSelect }: Invo
                       <span className="text-xs text-muted-foreground">
                         {getMonthNameShort(inv.referenceMonth)}/{inv.referenceYear}
                       </span>
+                      {inv.dueDate && (
+                        <span className="text-xs text-muted-foreground">
+                          venc. {formatDateBR(inv.dueDate)}
+                        </span>
+                      )}
                       <span className="text-xs font-medium tabular-nums">
                         {formatCurrencyBRL(inv.totalAmount)}
                       </span>

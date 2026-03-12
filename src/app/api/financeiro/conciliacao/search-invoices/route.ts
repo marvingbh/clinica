@@ -41,6 +41,7 @@ export const GET = withFeatureAuth(
         totalAmount: true,
         referenceMonth: true,
         referenceYear: true,
+        dueDate: true,
         status: true,
         patient: {
           select: {
@@ -74,6 +75,7 @@ export const GET = withFeatureAuth(
           remainingAmount: total - paid,
           referenceMonth: inv.referenceMonth,
           referenceYear: inv.referenceYear,
+          dueDate: inv.dueDate?.toISOString() ?? null,
         }
       }),
     })

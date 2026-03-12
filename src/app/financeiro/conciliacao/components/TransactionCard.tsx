@@ -197,6 +197,11 @@ export function TransactionCard({
                     <span className="text-xs text-muted-foreground">
                       {getMonthName(c.referenceMonth)}/{c.referenceYear}
                     </span>
+                    {c.dueDate && (
+                      <span className="text-xs text-muted-foreground">
+                        venc. {formatDateBR(c.dueDate)}
+                      </span>
+                    )}
                     <span className="text-xs font-medium tabular-nums">
                       {formatCurrencyBRL(c.totalAmount)}
                     </span>

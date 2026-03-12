@@ -22,6 +22,7 @@ const mapInvoice = (inv: InvoiceForMatching) => ({
   remainingAmount: inv.remainingAmount,
   referenceMonth: inv.referenceMonth,
   referenceYear: inv.referenceYear,
+  dueDate: inv.dueDate,
   status: inv.status,
 })
 
@@ -72,6 +73,7 @@ export const GET = withFeatureAuth(
           totalAmount: true,
           referenceMonth: true,
           referenceYear: true,
+          dueDate: true,
           status: true,
           patient: {
             select: { name: true, motherName: true, fatherName: true },
@@ -119,6 +121,7 @@ export const GET = withFeatureAuth(
         remainingAmount: Number(inv.totalAmount) - paidAmount,
         referenceMonth: inv.referenceMonth,
         referenceYear: inv.referenceYear,
+        dueDate: inv.dueDate?.toISOString() ?? null,
         status: inv.status,
       }
     })

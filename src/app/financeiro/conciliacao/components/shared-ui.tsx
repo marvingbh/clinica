@@ -1,7 +1,7 @@
 "use client"
 
 import { CheckIcon, Loader2Icon } from "lucide-react"
-import { formatCurrencyBRL, getMonthName } from "@/lib/financeiro/format"
+import { formatCurrencyBRL, formatDateBR, getMonthName } from "@/lib/financeiro/format"
 import { INVOICE_STATUS_CONFIG, CONFIDENCE_CONFIG, hasWordOverlap } from "./types"
 import type { CreatedInvoiceInfo } from "./types"
 
@@ -78,7 +78,7 @@ export function ParentNames({ motherName, fatherName, payerName }: { motherName:
 }
 
 export function InvoiceRow({ inv, payerName }: {
-  inv: { invoiceId: string; patientName: string; motherName: string | null; fatherName: string | null; totalAmount: number; referenceMonth: number; referenceYear: number; status?: string }
+  inv: { invoiceId: string; patientName: string; motherName: string | null; fatherName: string | null; totalAmount: number; referenceMonth: number; referenceYear: number; dueDate?: string | null; status?: string }
   payerName: string | null
 }) {
   return (
@@ -89,6 +89,11 @@ export function InvoiceRow({ inv, payerName }: {
         <span className="text-xs text-muted-foreground">
           {getMonthName(inv.referenceMonth)}/{inv.referenceYear}
         </span>
+        {inv.dueDate && (
+          <span className="text-xs text-muted-foreground">
+            venc. {formatDateBR(inv.dueDate)}
+          </span>
+        )}
         <span className="text-xs font-medium tabular-nums">
           {formatCurrencyBRL(inv.totalAmount)}
         </span>

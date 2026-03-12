@@ -23,6 +23,7 @@ const makeInvoice = (overrides: Partial<InvoiceForMatching> = {}): InvoiceForMat
   remainingAmount: 500,
   referenceMonth: 3,
   referenceYear: 2026,
+  dueDate: null,
   status: "PENDENTE",
   ...overrides,
 })
@@ -376,6 +377,7 @@ const makeInvoiceWithParent = (overrides: Partial<InvoiceWithParent> = {}): Invo
   remainingAmount: 250,
   referenceMonth: 3,
   referenceYear: 2026,
+  dueDate: null,
   status: "PENDENTE",
   normalizedMother: "maria silva",
   normalizedFather: "carlos silva",

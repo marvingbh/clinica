@@ -16,6 +16,7 @@ export interface InvoiceForMatching {
   remainingAmount: number  // totalAmount - sum(linked payments)
   referenceMonth: number
   referenceYear: number
+  dueDate: string | null
   status: string
 }
 

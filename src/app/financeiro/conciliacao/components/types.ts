@@ -16,6 +16,7 @@ export interface CandidateInvoice {
   remainingAmount: number
   referenceMonth: number
   referenceYear: number
+  dueDate: string | null
   status?: string
 }
 
