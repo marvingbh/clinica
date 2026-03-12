@@ -1,521 +1,98 @@
 "use client"
 
-import React, { useEffect, useState, useCallback } from "react"
-import { formatCurrencyBRL } from "@/lib/financeiro/format"
+import React, { useEffect, useState, useRef } from "react"
 import { useFinanceiroContext } from "./context/FinanceiroContext"
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line,
-} from "recharts"
+import { DashboardData, InsightsData, MONTH_NAMES } from "./components/dashboard-shared"
+import { DashboardResumo } from "./components/DashboardResumo"
+import { InsightsCobranca } from "./components/InsightsCobranca"
+import { InsightsAtendimento } from "./components/InsightsAtendimento"
+import { InsightsAnalise } from "./components/InsightsAnalise"
 
-interface ProfessionalSummary {
-  id: string
-  name: string
-  faturado: number
-  pendente: number
-  enviado: number
-  parcial: number
-  pago: number
-  sessions: number
-  invoiceCount: number
-  patientCount: number
-}
+type Tab = "resumo" | "cobranca" | "atendimento" | "analise"
 
-interface MonthSummary {
-  faturado: number; pendente: number; enviado: number; parcial: number; pago: number
-  sessions: number; credits: number; extras: number
-  invoiceCount: number; pendingCount: number; enviadoCount: number; parcialCount: number; paidCount: number
-}
-
-interface DashboardData {
-  year: number
-  month: number | null
-  totalFaturado: number
-  totalPendente: number
-  totalEnviado: number
-  totalParcial: number
-  totalPago: number
-  totalSessions: number
-  totalCredits: number
-  totalExtras: number
-  invoiceCount: number
-  pendingCount: number
-  enviadoCount: number
-  parcialCount: number
-  paidCount: number
-  availableCredits: number
-  byMonth: Record<number, MonthSummary>
-  byProfessional: ProfessionalSummary[]
-}
-
-const MONTH_NAMES = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+const TABS: { key: Tab; label: string }[] = [
+  { key: "resumo", label: "Resumo" },
+  { key: "cobranca", label: "Cobrança" },
+  { key: "atendimento", label: "Atendimento" },
+  { key: "analise", label: "Análise" },
 ]
 
-const SHORT_MONTHS = [
-  "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-  "Jul", "Ago", "Set", "Out", "Nov", "Dez",
-]
-
-const CHART_COLORS = {
-  faturado: "#6366f1",
-  pago: "#22c55e",
-  parcial: "#f97316",
-  enviado: "#3b82f6",
-  pendente: "#eab308",
-  sessions: "#3b82f6",
-  credits: "#ef4444",
-  extras: "#f97316",
-}
-
-const PIE_COLORS = ["#22c55e", "#f97316", "#3b82f6", "#eab308", "#ef4444"]
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function CustomTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="bg-card border border-border rounded-lg shadow-lg p-3 text-sm">
-      <p className="font-medium mb-1">{label}</p>
-      {payload.map((entry: { name: string; value: number; color: string }, i: number) => (
-        <p key={i} className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-          <span className="text-muted-foreground">{entry.name}:</span>
-          <span className="font-medium">{formatCurrencyBRL(entry.value)}</span>
-        </p>
-      ))}
-    </div>
-  )
+function buildParams(year: number, month: number | null) {
+  const params = new URLSearchParams({ year: String(year) })
+  if (month) params.set("month", String(month))
+  return params
 }
 
 export default function FinanceiroDashboard() {
   const { year, month, setMonth } = useFinanceiroContext()
+  const [tab, setTab] = useState<Tab>("resumo")
   const [data, setData] = useState<DashboardData | null>(null)
+  const [insights, setInsights] = useState<InsightsData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [insightsLoading, setInsightsLoading] = useState(false)
+  const insightsFetched = useRef<string | null>(null)
 
-  const fetchData = useCallback(() => {
-    setLoading(true)
-    const params = new URLSearchParams({ year: String(year) })
-    if (month) params.set("month", String(month))
-    fetch(`/api/financeiro/dashboard?${params}`)
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/financeiro/dashboard?${buildParams(year, month)}`)
       .then(r => r.json())
-      .then(setData)
-      .finally(() => setLoading(false))
+      .then(d => { if (!cancelled) setData(d) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [year, month])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  // Fetch insights lazily on first non-resumo tab visit, or when period changes
+  useEffect(() => {
+    if (tab === "resumo") return
+    const key = `${year}-${month}`
+    if (insightsFetched.current === key) return
+    insightsFetched.current = key
+    let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading indicator for async fetch
+    setInsightsLoading(true)
+    fetch(`/api/financeiro/dashboard/insights?${buildParams(year, month)}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setInsights(d) })
+      .finally(() => { if (!cancelled) setInsightsLoading(false) })
+    return () => { cancelled = true }
+  }, [tab, year, month])
 
   if (loading) return <div className="animate-pulse text-muted-foreground">Carregando...</div>
   if (!data) return <div className="text-destructive">Erro ao carregar dados</div>
 
-  const paidPercent = data.totalFaturado > 0
-    ? Math.round((data.totalPago / data.totalFaturado) * 100)
-    : 0
-
-  // Prepare chart data
-  const monthlyChartData = Array.from({ length: 12 }, (_, i) => {
-    const m = i + 1
-    const md = data.byMonth[m]
-    return {
-      name: SHORT_MONTHS[i],
-      Faturado: md?.faturado || 0,
-      Recebido: md?.pago || 0,
-      Parcial: md?.parcial || 0,
-      Enviado: md?.enviado || 0,
-      Pendente: md?.pendente || 0,
-    }
-  })
-
-  const monthlySessionsData = Array.from({ length: 12 }, (_, i) => {
-    const m = i + 1
-    const md = data.byMonth[m]
-    return {
-      name: SHORT_MONTHS[i],
-      Sessões: md?.sessions || 0,
-      Créditos: md?.credits || 0,
-      Extras: md?.extras || 0,
-    }
-  })
-
-  const statusPieData = [
-    { name: "Pago", value: data.paidCount },
-    { name: "Parcial", value: data.parcialCount },
-    { name: "Enviado", value: data.enviadoCount },
-    { name: "Pendente", value: data.pendingCount },
-    { name: "Cancelado", value: data.invoiceCount - data.paidCount - data.parcialCount - data.enviadoCount - data.pendingCount },
-  ].filter(d => d.value > 0)
-
-  const profChartData = data.byProfessional.map(p => ({
-    name: p.name.split(" ")[0],
-    Faturado: p.faturado,
-    Recebido: p.pago,
-    Parcial: p.parcial,
-    Enviado: p.enviado,
-    Pendente: p.pendente,
-  }))
-
   return (
     <div className="space-y-6">
-      {/* Title */}
       <h2 className="text-lg font-semibold">
         {month ? `${MONTH_NAMES[month - 1]} ${year}` : `Consolidado ${year}`}
       </h2>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <SummaryCard label="Total Faturado" value={formatCurrencyBRL(data.totalFaturado)} sub={`${data.invoiceCount} faturas`} />
-        <SummaryCard label="Pendente" value={formatCurrencyBRL(data.totalPendente)} sub={`${data.pendingCount} faturas`} variant="warning" />
-        <SummaryCard label="Enviado" value={formatCurrencyBRL(data.totalEnviado)} sub={`${data.enviadoCount} faturas`} variant="info" />
-        <SummaryCard label="Parcial" value={formatCurrencyBRL(data.totalParcial)} sub={`${data.parcialCount} faturas`} variant="orange" />
-        <SummaryCard label="Recebido" value={formatCurrencyBRL(data.totalPago)} sub={`${paidPercent}% do total`} variant="success" />
-        <SummaryCard label="Créditos Disponíveis" value={String(data.availableCredits)} sub="não consumidos" />
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-border overflow-x-auto">
+        {TABS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
+              tab === t.key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {/* Secondary stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="p-3 rounded-lg border border-border text-center">
-          <div className="text-2xl font-bold">{data.totalSessions}</div>
-          <div className="text-xs text-muted-foreground">Sessões</div>
-        </div>
-        <div className="p-3 rounded-lg border border-border text-center">
-          <div className="text-2xl font-bold">{data.totalCredits}</div>
-          <div className="text-xs text-muted-foreground">Créditos Aplicados</div>
-        </div>
-        <div className="p-3 rounded-lg border border-border text-center">
-          <div className="text-2xl font-bold">{data.totalExtras}</div>
-          <div className="text-xs text-muted-foreground">Sessões Extras</div>
-        </div>
-      </div>
+      {/* Tab content */}
+      {tab === "resumo" && <DashboardResumo data={data} month={month} onMonthClick={setMonth} />}
 
-      {/* Charts row — Revenue bar chart + Status pie chart */}
-      {!month && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Monthly revenue bar chart */}
-          <div className="lg:col-span-2 p-4 rounded-lg border border-border">
-            <h3 className="text-sm font-semibold mb-4">Faturamento Mensal</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={monthlyChartData} barGap={2}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} className="fill-muted-foreground" />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="Recebido" fill={CHART_COLORS.pago} radius={[3, 3, 0, 0]} />
-                <Bar dataKey="Parcial" fill={CHART_COLORS.parcial} radius={[3, 3, 0, 0]} />
-                <Bar dataKey="Enviado" fill={CHART_COLORS.enviado} radius={[3, 3, 0, 0]} />
-                <Bar dataKey="Pendente" fill={CHART_COLORS.pendente} radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Payment status pie chart */}
-          {statusPieData.length > 0 && (
-            <div className="p-4 rounded-lg border border-border">
-              <h3 className="text-sm font-semibold mb-4">Status das Faturas</h3>
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie
-                    data={statusPieData}
-                    cx="50%"
-                    cy="45%"
-                    innerRadius={50}
-                    outerRadius={85}
-                    paddingAngle={3}
-                    dataKey="value"
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    labelLine={false}
-                  >
-                    {statusPieData.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => [String(value), "Faturas"]} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
+      {tab !== "resumo" && insightsLoading && (
+        <div className="animate-pulse text-muted-foreground py-8 text-center">Carregando insights...</div>
       )}
 
-      {/* Sessions trend line chart (year view) */}
-      {!month && (
-        <div className="p-4 rounded-lg border border-border">
-          <h3 className="text-sm font-semibold mb-4">Sessões por Mês</h3>
-          <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={monthlySessionsData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
-              <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-              <Tooltip />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Line type="monotone" dataKey="Sessões" stroke={CHART_COLORS.sessions} strokeWidth={2} dot={{ r: 4 }} />
-              <Line type="monotone" dataKey="Créditos" stroke={CHART_COLORS.credits} strokeWidth={2} dot={{ r: 4 }} />
-              <Line type="monotone" dataKey="Extras" stroke={CHART_COLORS.extras} strokeWidth={2} dot={{ r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Professional comparison bar chart */}
-      {data.byProfessional.length > 1 && (
-        <div className="p-4 rounded-lg border border-border">
-          <h3 className="text-sm font-semibold mb-4">Faturamento por Profissional</h3>
-          <ResponsiveContainer width="100%" height={Math.max(200, data.byProfessional.length * 60)}>
-            <BarChart data={profChartData} layout="vertical" barGap={2}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} className="fill-muted-foreground" />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={80} className="fill-muted-foreground" />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="Recebido" fill={CHART_COLORS.pago} radius={[0, 3, 3, 0]} />
-              <Bar dataKey="Parcial" fill={CHART_COLORS.parcial} radius={[0, 3, 3, 0]} />
-              <Bar dataKey="Enviado" fill={CHART_COLORS.enviado} radius={[0, 3, 3, 0]} />
-              <Bar dataKey="Pendente" fill={CHART_COLORS.pendente} radius={[0, 3, 3, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Payment progress bar */}
-      {data.totalFaturado > 0 && (
-        <div>
-          <div className="flex justify-between text-xs text-muted-foreground mb-1">
-            <span>Recebido vs Faturado</span>
-            <span>{formatCurrencyBRL(data.totalPago)} / {formatCurrencyBRL(data.totalFaturado)} ({paidPercent}%)</span>
-          </div>
-          <div className="h-3 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full bg-green-500 rounded-full transition-all duration-500"
-              style={{ width: `${paidPercent}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Received vs Total pie charts (month view) */}
-      {month && data.totalFaturado > 0 && (
-        <div className={`grid grid-cols-1 ${data.byProfessional.length > 1 ? "lg:grid-cols-2" : ""} gap-6`}>
-          {/* Overall received donut */}
-          <div className="p-4 rounded-lg border border-border">
-            <h3 className="text-sm font-semibold mb-4">Recebido vs Total</h3>
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie
-                  data={[
-                    { name: "Recebido", value: data.totalPago },
-                    { name: "A receber", value: Math.max(0, data.totalFaturado - data.totalPago) },
-                  ].filter(d => d.value > 0)}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
-                  paddingAngle={2}
-                  dataKey="value"
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  labelLine={false}
-                >
-                  <Cell fill="#22c55e" />
-                  <Cell fill="#e5e7eb" />
-                </Pie>
-                <Tooltip formatter={(value) => [formatCurrencyBRL(Number(value)), ""]} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Per-professional received donut */}
-          {data.byProfessional.length > 1 && (
-            <div className="p-4 rounded-lg border border-border">
-              <h3 className="text-sm font-semibold mb-4">Recebido por Profissional</h3>
-              <ResponsiveContainer width="100%" height={240}>
-                <PieChart>
-                  <Pie
-                    data={data.byProfessional.filter(p => p.pago > 0).map(p => ({
-                      name: p.name.split(" ")[0],
-                      value: p.pago,
-                    }))}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={2}
-                    dataKey="value"
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    labelLine={false}
-                  >
-                    {data.byProfessional.filter(p => p.pago > 0).map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => [formatCurrencyBRL(Number(value)), ""]} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* By Professional table */}
-      {data.byProfessional.length > 1 && (
-        <div>
-          <h3 className="text-sm font-semibold mb-3">Detalhes por Profissional</h3>
-          <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left py-3 px-4 font-medium">Profissional</th>
-                  <th className="text-center py-3 px-4 font-medium">Pacientes</th>
-                  <th className="text-center py-3 px-4 font-medium">Sessões</th>
-                  <th className="text-right py-3 px-4 font-medium">Faturado</th>
-                  <th className="text-right py-3 px-4 font-medium">Pendente</th>
-                  <th className="text-right py-3 px-4 font-medium">Enviado</th>
-                  <th className="text-right py-3 px-4 font-medium">Parcial</th>
-                  <th className="text-right py-3 px-4 font-medium">Recebido</th>
-                  <th className="text-right py-3 px-4 font-medium">% Recebido</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.byProfessional.map(prof => {
-                  const profPercent = prof.faturado > 0 ? Math.round((prof.pago / prof.faturado) * 100) : 0
-                  return (
-                    <tr key={prof.id} className="border-b border-border last:border-0">
-                      <td className="py-3 px-4 font-medium">{prof.name}</td>
-                      <td className="text-center py-3 px-4">{prof.patientCount}</td>
-                      <td className="text-center py-3 px-4">{prof.sessions}</td>
-                      <td className="text-right py-3 px-4">{formatCurrencyBRL(prof.faturado)}</td>
-                      <td className="text-right py-3 px-4 text-yellow-600 dark:text-yellow-400">
-                        {formatCurrencyBRL(prof.pendente)}
-                      </td>
-                      <td className="text-right py-3 px-4 text-blue-600 dark:text-blue-400">
-                        {formatCurrencyBRL(prof.enviado)}
-                      </td>
-                      <td className="text-right py-3 px-4 text-orange-600 dark:text-orange-400">
-                        {formatCurrencyBRL(prof.parcial)}
-                      </td>
-                      <td className="text-right py-3 px-4 text-green-600 dark:text-green-400">
-                        {formatCurrencyBRL(prof.pago)}
-                      </td>
-                      <td className="text-right py-3 px-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-16 h-2 rounded-full bg-muted overflow-hidden">
-                            <div className="h-full bg-green-500 rounded-full" style={{ width: `${profPercent}%` }} />
-                          </div>
-                          <span className="text-xs font-medium w-8 text-right">{profPercent}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* By Month table (only when viewing full year) */}
-      {!month && (
-        <div>
-          <h3 className="text-sm font-semibold mb-3">Detalhes por Mês</h3>
-          <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left py-3 px-4 font-medium">Mês</th>
-                  <th className="text-center py-3 px-4 font-medium">Faturas</th>
-                  <th className="text-center py-3 px-4 font-medium">Sessões</th>
-                  <th className="text-right py-3 px-4 font-medium">Faturado</th>
-                  <th className="text-right py-3 px-4 font-medium">Pendente</th>
-                  <th className="text-right py-3 px-4 font-medium">Enviado</th>
-                  <th className="text-right py-3 px-4 font-medium">Parcial</th>
-                  <th className="text-right py-3 px-4 font-medium">Recebido</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
-                  const md = data.byMonth[m]
-                  if (!md) return null
-                  return (
-                    <tr
-                      key={m}
-                      className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer"
-                      onClick={() => setMonth(m)}
-                    >
-                      <td className="py-3 px-4 font-medium text-primary">{MONTH_NAMES[m - 1]}</td>
-                      <td className="text-center py-3 px-4">
-                        {md.invoiceCount}
-                        {md.pendingCount > 0 && (
-                          <span className="text-yellow-600 dark:text-yellow-400 text-xs ml-1">
-                            ({md.pendingCount} pend.)
-                          </span>
-                        )}
-                      </td>
-                      <td className="text-center py-3 px-4">{md.sessions}</td>
-                      <td className="text-right py-3 px-4">{formatCurrencyBRL(md.faturado)}</td>
-                      <td className="text-right py-3 px-4 text-yellow-600 dark:text-yellow-400">
-                        {md.pendente > 0 ? formatCurrencyBRL(md.pendente) : "—"}
-                      </td>
-                      <td className="text-right py-3 px-4 text-blue-600 dark:text-blue-400">
-                        {md.enviado > 0 ? formatCurrencyBRL(md.enviado) : "—"}
-                      </td>
-                      <td className="text-right py-3 px-4 text-orange-600 dark:text-orange-400">
-                        {md.parcial > 0 ? formatCurrencyBRL(md.parcial) : "—"}
-                      </td>
-                      <td className="text-right py-3 px-4 text-green-600 dark:text-green-400">
-                        {md.pago > 0 ? formatCurrencyBRL(md.pago) : "—"}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="border-t-2 border-border font-bold">
-                  <td className="py-3 px-4">Total</td>
-                  <td className="text-center py-3 px-4">{data.invoiceCount}</td>
-                  <td className="text-center py-3 px-4">{data.totalSessions}</td>
-                  <td className="text-right py-3 px-4">{formatCurrencyBRL(data.totalFaturado)}</td>
-                  <td className="text-right py-3 px-4 text-yellow-600 dark:text-yellow-400">
-                    {formatCurrencyBRL(data.totalPendente)}
-                  </td>
-                  <td className="text-right py-3 px-4 text-blue-600 dark:text-blue-400">
-                    {formatCurrencyBRL(data.totalEnviado)}
-                  </td>
-                  <td className="text-right py-3 px-4 text-orange-600 dark:text-orange-400">
-                    {formatCurrencyBRL(data.totalParcial)}
-                  </td>
-                  <td className="text-right py-3 px-4 text-green-600 dark:text-green-400">
-                    {formatCurrencyBRL(data.totalPago)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function SummaryCard({ label, value, sub, variant }: {
-  label: string; value: string; sub?: string
-  variant?: "warning" | "success" | "info" | "orange"
-}) {
-  const variantClasses = {
-    warning: "border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20",
-    success: "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20",
-    info: "border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20",
-    orange: "border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20",
-  }
-  const cls = variant ? variantClasses[variant] : "border-border bg-card"
-
-  return (
-    <div className={`p-4 rounded-lg border ${cls}`}>
-      <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
-      <div className="text-xl font-bold mt-1">{value}</div>
-      {sub && <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>}
+      {tab === "cobranca" && insights && !insightsLoading && <InsightsCobranca data={insights} />}
+      {tab === "atendimento" && insights && !insightsLoading && <InsightsAtendimento data={insights} />}
+      {tab === "analise" && insights && !insightsLoading && <InsightsAnalise data={insights} />}
     </div>
   )
 }
