@@ -174,6 +174,22 @@ export const PATCH = withFeatureAuth(
       }
     }
 
+    // Pre-check: block FINALIZADO revert if credit was already consumed by an invoice
+    if (currentStatus === AppointmentStatus.FINALIZADO && existing.creditGenerated) {
+      const unconsumedCredit = await prisma.sessionCredit.findFirst({
+        where: {
+          originAppointmentId: existing.id,
+          consumedByInvoiceId: null,
+        },
+      })
+      if (!unconsumedCredit) {
+        return NextResponse.json(
+          { error: "Crédito já foi utilizado em uma fatura. Não é possível reverter o status." },
+          { status: 400 }
+        )
+      }
+    }
+
     // Prepare update data with appropriate timestamps
     const now = new Date()
     const updateData = computeStatusUpdateData(targetStatus, now)
@@ -336,6 +352,23 @@ export const PATCH = withFeatureAuth(
         where: { id: existing.id },
         data: { creditGenerated: false },
       })
+    }
+
+    // Reverting from FINALIZADO: delete unconsumed credit if any
+    if (currentStatus === AppointmentStatus.FINALIZADO && existing.creditGenerated) {
+      const credit = await prisma.sessionCredit.findFirst({
+        where: {
+          originAppointmentId: existing.id,
+          consumedByInvoiceId: null,
+        },
+      })
+      if (credit) {
+        await prisma.sessionCredit.delete({ where: { id: credit.id } })
+        await prisma.appointment.update({
+          where: { id: existing.id },
+          data: { creditGenerated: false },
+        })
+      }
     }
 
     // For PER_SESSION invoices: auto-cancel the invoice if it's unpaid

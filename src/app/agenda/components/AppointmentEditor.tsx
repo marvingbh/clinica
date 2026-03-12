@@ -529,7 +529,7 @@ function OccurrenceTabContent({
           </div>
           <div className="flex-1">
             {isFinished && "Esta consulta foi finalizada."}
-            {isNoShow && "Paciente não compareceu a esta consulta."}
+            {isNoShow && "Paciente não compareceu à esta consulta."}
             {appointment.status === "CANCELADO_ACORDADO" && (
               <>
                 Paciente desmarcou — crédito gerado.
@@ -551,12 +551,26 @@ function OccurrenceTabContent({
               </>
             )}
 
+            {/* Revert FINALIZADO */}
+            {canMarkStatus && isFinished && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button"
+                  onClick={() => onUpdateStatus("AGENDADO", "Agendamento restaurado")}
+                  disabled={isUpdatingStatus}
+                  className="h-8 px-3 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                  {isUpdatingStatus ? "..." : "Reagendar"}
+                </button>
+                <button type="button"
+                  onClick={() => onUpdateStatus("CONFIRMADO", "Status alterado para confirmado")}
+                  disabled={isUpdatingStatus}
+                  className="h-8 px-3 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                  {isUpdatingStatus ? "..." : "Alterar para Confirmado"}
+                </button>
+              </div>
+            )}
+
             {/* Switch between cancel statuses */}
-            {canMarkStatus && isConsulta && (
-              appointment.status === "CANCELADO_ACORDADO" ||
-              appointment.status === "CANCELADO_FALTA" ||
-              appointment.status === "CANCELADO_PROFISSIONAL"
-            ) && (
+            {canMarkStatus && isConsulta && isCancelled && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {appointment.status !== "CANCELADO_FALTA" && (
                   <button type="button"

@@ -32,7 +32,10 @@ export const VALID_TRANSITIONS: Record<AppointmentStatusType, AppointmentStatusT
     AppointmentStatus.CANCELADO_PROFISSIONAL,
     AppointmentStatus.CANCELADO_ACORDADO,
   ],
-  FINALIZADO: [],
+  FINALIZADO: [
+    AppointmentStatus.AGENDADO,
+    AppointmentStatus.CONFIRMADO,
+  ],
   CANCELADO_ACORDADO: [AppointmentStatus.CANCELADO_FALTA, AppointmentStatus.CANCELADO_PROFISSIONAL, AppointmentStatus.AGENDADO],
   CANCELADO_FALTA: [AppointmentStatus.CANCELADO_ACORDADO, AppointmentStatus.CANCELADO_PROFISSIONAL, AppointmentStatus.AGENDADO],
   CANCELADO_PROFISSIONAL: [AppointmentStatus.CANCELADO_FALTA, AppointmentStatus.CANCELADO_ACORDADO, AppointmentStatus.AGENDADO],

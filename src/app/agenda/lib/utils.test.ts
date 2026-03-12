@@ -209,8 +209,8 @@ describe("canMarkStatus", () => {
     expect(canMarkStatus(makeAppointment({ status: "AGENDADO" }))).toBe(true)
   })
 
-  it("returns false for FINALIZADO", () => {
-    expect(canMarkStatus(makeAppointment({ status: "FINALIZADO" }))).toBe(false)
+  it("returns true for FINALIZADO", () => {
+    expect(canMarkStatus(makeAppointment({ status: "FINALIZADO" }))).toBe(true)
   })
 })
 

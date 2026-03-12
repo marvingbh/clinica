@@ -102,11 +102,11 @@ export function hasNotificationConsent(appointment: Appointment | null): boolean
 }
 
 /**
- * Checks if appointment can be marked as finalized or no-show
+ * Checks if appointment status can be changed
  */
 export function canMarkStatus(appointment: Appointment | null): boolean {
   if (!appointment) return false
-  return ["AGENDADO", "CONFIRMADO"].includes(appointment.status)
+  return true
 }
 
 /**

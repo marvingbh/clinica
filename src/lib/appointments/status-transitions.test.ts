@@ -34,10 +34,12 @@ describe("isValidTransition", () => {
     expect(isValidTransition("CONFIRMADO", "CANCELADO_ACORDADO")).toBe(true)
   })
 
-  it("blocks transitions from FINALIZADO (terminal)", () => {
-    expect(isValidTransition("FINALIZADO", "AGENDADO")).toBe(false)
-    expect(isValidTransition("FINALIZADO", "CONFIRMADO")).toBe(false)
+  it("allows FINALIZADO → AGENDADO or CONFIRMADO only", () => {
+    expect(isValidTransition("FINALIZADO", "AGENDADO")).toBe(true)
+    expect(isValidTransition("FINALIZADO", "CONFIRMADO")).toBe(true)
     expect(isValidTransition("FINALIZADO", "CANCELADO_FALTA")).toBe(false)
+    expect(isValidTransition("FINALIZADO", "CANCELADO_PROFISSIONAL")).toBe(false)
+    expect(isValidTransition("FINALIZADO", "CANCELADO_ACORDADO")).toBe(false)
   })
 
   it("allows CANCELADO_PROFISSIONAL → other cancel statuses", () => {
@@ -142,8 +144,10 @@ describe("shouldUpdateLastVisitAt", () => {
 })
 
 describe("VALID_TRANSITIONS", () => {
-  it("FINALIZADO is a terminal state with no transitions", () => {
-    expect(VALID_TRANSITIONS.FINALIZADO).toEqual([])
+  it("FINALIZADO allows reverting to AGENDADO or CONFIRMADO", () => {
+    expect(VALID_TRANSITIONS.FINALIZADO).toHaveLength(2)
+    expect(VALID_TRANSITIONS.FINALIZADO).toContain("AGENDADO")
+    expect(VALID_TRANSITIONS.FINALIZADO).toContain("CONFIRMADO")
   })
 
   it("CANCELADO_PROFISSIONAL allows switching to other cancel types or AGENDADO", () => {
