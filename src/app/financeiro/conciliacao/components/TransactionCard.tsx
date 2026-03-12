@@ -191,22 +191,25 @@ export function TransactionCard({
               <div className="flex items-center gap-3">
                 <Checkbox checked={isSelected} />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
                     <span className="font-medium text-sm">{c.patientName}</span>
                     <StatusBadge status={c.status} />
-                    <span className="text-xs text-muted-foreground">
-                      {getMonthName(c.referenceMonth)}/{c.referenceYear}
-                    </span>
-                    {c.dueDate && (
-                      <span className="text-xs text-muted-foreground">
-                        venc. {formatDateBR(c.dueDate)}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs">
+                    {c.dueDate ? (
+                      <span className="text-muted-foreground">
+                        {formatDateBR(c.dueDate)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {getMonthName(c.referenceMonth)}/{c.referenceYear}
                       </span>
                     )}
-                    <span className="text-xs font-medium tabular-nums">
+                    <span className="font-medium tabular-nums">
                       {formatCurrencyBRL(c.totalAmount)}
                     </span>
                     {c.remainingAmount !== undefined && c.remainingAmount < c.totalAmount && (
-                      <span className="text-xs text-orange-600 tabular-nums">
+                      <span className="text-orange-600 tabular-nums">
                         (falta {formatCurrencyBRL(c.remainingAmount)})
                       </span>
                     )}

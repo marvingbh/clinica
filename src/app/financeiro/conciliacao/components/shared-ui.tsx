@@ -83,18 +83,21 @@ export function InvoiceRow({ inv, payerName }: {
 }) {
   return (
     <div className="mt-1.5">
-      <div className="flex items-center gap-2 flex-wrap text-sm">
+      <div className="flex items-center gap-2 text-sm">
         <span className="font-medium">{inv.patientName}</span>
         <StatusBadge status={inv.status} />
-        <span className="text-xs text-muted-foreground">
-          {getMonthName(inv.referenceMonth)}/{inv.referenceYear}
-        </span>
-        {inv.dueDate && (
-          <span className="text-xs text-muted-foreground">
-            venc. {formatDateBR(inv.dueDate)}
+      </div>
+      <div className="flex items-center gap-2 mt-0.5 text-xs">
+        {inv.dueDate ? (
+          <span className="text-muted-foreground">
+            {formatDateBR(inv.dueDate)}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">
+            {getMonthName(inv.referenceMonth)}/{inv.referenceYear}
           </span>
         )}
-        <span className="text-xs font-medium tabular-nums">
+        <span className="font-medium tabular-nums">
           {formatCurrencyBRL(inv.totalAmount)}
         </span>
       </div>

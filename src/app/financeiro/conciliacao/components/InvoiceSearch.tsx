@@ -120,29 +120,32 @@ export function InvoiceSearch({ selectedInvoiceId, selectedIds, onSelect }: Invo
                     {isSelected && <CheckIcon className="w-3 h-3" />}
                   </div>
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
                       <span className="font-medium">{inv.patientName}</span>
                       {inv.status && INVOICE_STATUS_CONFIG[inv.status] && (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${INVOICE_STATUS_CONFIG[inv.status].bg}`}>
                           {INVOICE_STATUS_CONFIG[inv.status].label}
                         </span>
                       )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5 text-xs">
+                      {inv.dueDate ? (
+                        <span className="text-muted-foreground">
+                          {formatDateBR(inv.dueDate)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          {getMonthNameShort(inv.referenceMonth)}/{inv.referenceYear}
+                        </span>
+                      )}
+                      <span className="font-medium tabular-nums">
+                        {formatCurrencyBRL(inv.totalAmount)}
+                      </span>
                       {inv.status === "PARCIAL" && inv.remainingAmount !== undefined && (
-                        <span className="text-xs text-orange-600 dark:text-orange-400 tabular-nums">
+                        <span className="text-orange-600 dark:text-orange-400 tabular-nums">
                           Falta: {formatCurrencyBRL(inv.remainingAmount)}
                         </span>
                       )}
-                      <span className="text-xs text-muted-foreground">
-                        {getMonthNameShort(inv.referenceMonth)}/{inv.referenceYear}
-                      </span>
-                      {inv.dueDate && (
-                        <span className="text-xs text-muted-foreground">
-                          venc. {formatDateBR(inv.dueDate)}
-                        </span>
-                      )}
-                      <span className="text-xs font-medium tabular-nums">
-                        {formatCurrencyBRL(inv.totalAmount)}
-                      </span>
                     </div>
                     <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
                       {inv.motherName && <span>Mãe: {inv.motherName}</span>}
