@@ -235,7 +235,8 @@ model User {
   professionalProfile ProfessionalProfile?
   auditLogs           AuditLog[]
   permissions         UserPermission[]
-  reconciliationLinks ReconciliationLink[]
+  reconciliationLinks    ReconciliationLink[]
+  dismissedTransactions  BankTransaction[]    @relation("DismissedTransactions")
 
   @@unique([clinicId, email])
   @@index([clinicId])
@@ -832,6 +833,11 @@ model BankIntegration {
   @@index([clinicId])
 }
 
+enum TransactionDismissReason {
+  DUPLICATE
+  NOT_PATIENT
+}
+
 /// Bank transaction fetched from bank API
 model BankTransaction {
   id                String   @id @default(cuid())
@@ -843,10 +849,14 @@ model BankTransaction {
   description       String
   payerName         String?
   type              String // CREDIT or DEBIT
+  dismissReason     TransactionDismissReason?
+  dismissedAt       DateTime?
+  dismissedByUserId String?
   createdAt         DateTime @default(now())
 
   clinic              Clinic               @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   bankIntegration     BankIntegration      @relation(fields: [bankIntegrationId], references: [id], onDelete: Cascade)
+  dismissedByUser     User?                @relation("DismissedTransactions", fields: [dismissedByUserId], references: [id], onDelete: SetNull)
   reconciliationLinks ReconciliationLink[]
 
   @@unique([clinicId, externalId])
