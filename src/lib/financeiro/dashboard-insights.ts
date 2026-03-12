@@ -220,14 +220,12 @@ function buildCancelamento(appointments: ApptSlim[]) {
   )
   const falta = appointments.filter((a) => a.status === "CANCELADO_FALTA")
   const cancellationRate = total > 0 ? Math.round((cancelled.length / total) * 1000) / 1000 : 0
-  const estimatedLostRevenue = falta.reduce((s, a) => s + Number(a.price || 0), 0)
 
   return {
     totalAppointments: total,
     cancelledCount: cancelled.length,
     faltaCount: falta.length,
     cancellationRate,
-    estimatedLostRevenue,
   }
 }
 

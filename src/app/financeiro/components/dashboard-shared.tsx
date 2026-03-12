@@ -46,7 +46,7 @@ export interface InsightsData {
   }
   cancelamento: {
     totalAppointments: number; cancelledCount: number; faltaCount: number
-    cancellationRate: number; estimatedLostRevenue: number
+    cancellationRate: number
   }
   concentracao: {
     topPatients: Array<{ patientId: string; patientName: string; amount: number; percentOfTotal: number }>
