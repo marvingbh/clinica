@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { AppointmentType } from "@prisma/client"
+import { deriveGroupStatus } from "@/lib/financeiro/invoice-grouping"
 
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const
 
@@ -66,6 +67,7 @@ export async function fetchInsights(params: InsightsParams) {
       select: {
         status: true, totalAmount: true, totalSessions: true,
         dueDate: true, paidAt: true, createdAt: true,
+        invoiceType: true, referenceMonth: true, referenceYear: true,
         patientId: true, professionalProfileId: true,
         patient: { select: { name: true } },
         professionalProfile: { select: { user: { select: { name: true } } } },
@@ -94,17 +96,40 @@ export async function fetchInsights(params: InsightsParams) {
     select: { createdAt: true, paidAt: true },
   })
 
-  const paidCurrent = invoices.filter(i => i.status === "PAGO" && i.paidAt)
+  // Apply derived group status for PER_SESSION invoices (matches faturas page)
+  const perSessionGroups = new Map<string, typeof invoices>()
+  for (const inv of invoices) {
+    if (inv.invoiceType === "PER_SESSION") {
+      const key = `${inv.patientId}-${inv.professionalProfileId}-${inv.referenceMonth}-${inv.referenceYear}`
+      const list = perSessionGroups.get(key) || []
+      list.push(inv)
+      perSessionGroups.set(key, list)
+    }
+  }
+  const groupStatusMap = new Map<string, string>()
+  for (const [key, group] of perSessionGroups) {
+    const statuses = group.map(i => i.status) as Parameters<typeof deriveGroupStatus>[0]
+    groupStatusMap.set(key, deriveGroupStatus(statuses))
+  }
+  const effectiveInvoices = invoices.map(inv => {
+    if (inv.invoiceType === "PER_SESSION") {
+      const key = `${inv.patientId}-${inv.professionalProfileId}-${inv.referenceMonth}-${inv.referenceYear}`
+      return { ...inv, status: groupStatusMap.get(key) || inv.status }
+    }
+    return inv
+  })
+
+  const paidCurrent = effectiveInvoices.filter(i => i.status === "PAGO" && i.paidAt)
 
   return {
-    inadimplencia: buildInadimplencia(invoices),
-    pagamentoAtraso: buildPagamentoAtraso(invoices),
+    inadimplencia: buildInadimplencia(effectiveInvoices),
+    pagamentoAtraso: buildPagamentoAtraso(effectiveInvoices),
     tempoRecebimento: buildCollectionTime(paidCurrent, prevPaidInvoices),
-    ticketMedio: buildTicketMedio(invoices),
+    ticketMedio: buildTicketMedio(effectiveInvoices),
     cancelamento: buildCancelamento(appointments),
-    concentracao: buildConcentracao(invoices),
+    concentracao: buildConcentracao(effectiveInvoices),
     creditosAging: buildCreditsAging(pendingCredits, now),
-    comparativo: buildComparativo(invoices, prevInvoices),
+    comparativo: buildComparativo(effectiveInvoices, prevInvoices),
     receitaPorDia: buildRevenueByWeekday(appointments),
   }
 }
