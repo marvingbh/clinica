@@ -1,14 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { toast } from "sonner"
 import { CheckIcon, Loader2Icon, EyeIcon, EyeOffIcon } from "lucide-react"
 import { TransactionCard } from "./TransactionCard"
 import { UnmatchedTransactionCard } from "./UnmatchedTransactionCard"
 import { ReconciledTransactionCard } from "./ReconciledTransactionCard"
+import { DismissedTransactionCard } from "./DismissedTransactionCard"
 import { CreateInvoiceSheet } from "./CreateInvoiceSheet"
-import type { Transaction, CreatedInvoiceInfo } from "./types"
+import type { Transaction, CreatedInvoiceInfo, DismissedTransaction } from "./types"
 
 interface TransactionListProps {
   transactions: Transaction[]
@@ -45,6 +46,8 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
   const [reconcilingTxId, setReconcilingTxId] = useState<string | null>(null)
   const [createSheetTxId, setCreateSheetTxId] = useState<string | null>(null)
   const [addedInvoices, setAddedInvoices] = useState<Record<string, CreatedInvoiceInfo[]>>({})
+  const [showDismissed, setShowDismissed] = useState(false)
+  const [dismissedTransactions, setDismissedTransactions] = useState<DismissedTransaction[]>([])
 
   const unreconciledTx = transactions.filter(tx => !tx.isFullyReconciled)
   const reconciledTx = transactions.filter(tx => tx.isFullyReconciled)
@@ -55,6 +58,25 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
     tx.candidates.length === 0 && (!tx.groupCandidates || tx.groupCandidates.length === 0)
   )
   const selectedCount = Object.values(selections).reduce((sum, entries) => sum + entries.length, 0)
+
+  const fetchDismissed = useCallback(async () => {
+    if (!showDismissed) return
+    try {
+      const res = await fetch("/api/financeiro/conciliacao/transactions?showDismissed=true")
+      const data = await res.json()
+      setDismissedTransactions(data.dismissedTransactions || [])
+    } catch {
+      toast.error("Erro ao carregar transações descartadas")
+    }
+  }, [showDismissed])
+
+  useEffect(() => {
+    if (showDismissed) {
+      fetchDismissed()
+    } else {
+      setDismissedTransactions([])
+    }
+  }, [showDismissed, fetchDismissed])
 
   const toggleInvoice = (txId: string, invoiceId: string, amount?: number) => {
     setSelections(prev => {
@@ -209,6 +231,46 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
     }
   }
 
+  const handleDismiss = async (transactionId: string, reason: "DUPLICATE" | "NOT_PATIENT") => {
+    try {
+      const res = await fetch("/api/financeiro/conciliacao/dismiss", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactionId, reason }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        toast.error(data.error || "Erro ao descartar transação")
+        return
+      }
+      toast.success(reason === "DUPLICATE" ? "Marcada como duplicada" : "Marcada sem relação")
+      onReconciled()
+      fetchDismissed()
+    } catch {
+      toast.error("Erro ao descartar transação")
+    }
+  }
+
+  const handleUndismiss = async (transactionId: string) => {
+    try {
+      const res = await fetch("/api/financeiro/conciliacao/dismiss", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactionId }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        toast.error(data.error || "Erro ao restaurar transação")
+        return
+      }
+      toast.success("Transação restaurada")
+      onReconciled()
+      fetchDismissed()
+    } catch {
+      toast.error("Erro ao restaurar transação")
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -223,17 +285,28 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
         ) : (
           <span>Nenhuma transação pendente</span>
         )}
-        <button
-          onClick={onToggleReconciled}
-          className={`ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-all ${
-            showReconciled
-              ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-950/20 dark:border-green-800 dark:text-green-400"
-              : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
-          }`}
-        >
-          {showReconciled ? <EyeOffIcon className="w-3 h-3" /> : <EyeIcon className="w-3 h-3" />}
-          {reconciledTx.length} conciliada(s)
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showDismissed}
+              onChange={(e) => setShowDismissed(e.target.checked)}
+              className="rounded border-input"
+            />
+            Mostrar descartados
+          </label>
+          <button
+            onClick={onToggleReconciled}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-all ${
+              showReconciled
+                ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-950/20 dark:border-green-800 dark:text-green-400"
+                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+            }`}
+          >
+            {showReconciled ? <EyeOffIcon className="w-3 h-3" /> : <EyeIcon className="w-3 h-3" />}
+            {reconciledTx.length} conciliada(s)
+          </button>
+        </div>
       </div>
 
       {selectedCount > 0 && (
@@ -260,6 +333,7 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
               isConfirming={reconcilingTxId === tx.id}
               onCreateInvoice={() => setCreateSheetTxId(tx.id)}
               onUpdateAmount={(invoiceId, amount) => updateAmount(tx.id, invoiceId, amount)}
+              onDismiss={handleDismiss}
             />
           ))}
         </div>
@@ -279,6 +353,7 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
               isConfirming={reconcilingTxId === tx.id}
               onCreateInvoice={() => setCreateSheetTxId(tx.id)}
               onUpdateAmount={(invoiceId, amount) => updateAmount(tx.id, invoiceId, amount)}
+              onDismiss={handleDismiss}
             />
           ))}
         </div>
@@ -293,6 +368,21 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
               tx={tx}
               onUndo={() => handleUndo(tx.id)}
               onUndoLink={handleUndoLink}
+            />
+          ))}
+        </div>
+      )}
+
+      {showDismissed && dismissedTransactions.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Descartados ({dismissedTransactions.length})
+          </h3>
+          {dismissedTransactions.map((tx) => (
+            <DismissedTransactionCard
+              key={tx.id}
+              transaction={tx}
+              onUndismiss={handleUndismiss}
             />
           ))}
         </div>

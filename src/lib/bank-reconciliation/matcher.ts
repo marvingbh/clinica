@@ -213,7 +213,8 @@ function getConfidence(nameScore: number): MatchConfidence {
  */
 export function matchTransactions(
   transactions: TransactionForMatching[],
-  invoices: InvoiceForMatching[]
+  invoices: InvoiceForMatching[],
+  usualPayersMap?: Map<string, Set<string>>
 ): MatchResult[] {
   const eligibleInvoices = invoices.filter(inv => VALID_STATUSES.includes(inv.status))
 
@@ -223,6 +224,20 @@ export function matchTransactions(
     )
 
     const candidates: MatchCandidate[] = amountMatches.map(invoice => {
+      // Check usual payers first (highest priority)
+      if (transaction.payerName && usualPayersMap) {
+        const normalizedPayer = normalizeForComparison(transaction.payerName)
+        const patientIds = usualPayersMap.get(normalizedPayer)
+        if (patientIds?.has(invoice.patientId)) {
+          return {
+            invoice,
+            confidence: "KNOWN" as MatchConfidence,
+            nameScore: 2,
+            matchedField: "usualPayer",
+          }
+        }
+      }
+
       if (!transaction.payerName) {
         return {
           invoice,
@@ -293,7 +308,7 @@ export function matchTransactions(
       }
     })
 
-    const order: Record<MatchConfidence, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 }
+    const order: Record<MatchConfidence, number> = { KNOWN: -1, HIGH: 0, MEDIUM: 1, LOW: 2 }
     candidates.sort((a, b) => {
       const diff = order[a.confidence] - order[b.confidence]
       if (diff !== 0) return diff

@@ -296,6 +296,76 @@ describe("matchTransactions", () => {
   })
 })
 
+describe("matchTransactions with usual payers", () => {
+  it("assigns KNOWN confidence when payer matches a patient's usual payer", () => {
+    const transactions = [makeTransaction({ payerName: "EMPRESA XYZ LTDA" })]
+    const invoices = [makeInvoice({ id: "inv1", patientId: "p1" })]
+    const usualPayersMap = new Map([["empresa xyz ltda", new Set(["p1"])]])
+    const results = matchTransactions(transactions, invoices, usualPayersMap)
+    expect(results[0].candidates).toHaveLength(1)
+    expect(results[0].candidates[0].confidence).toBe("KNOWN")
+    expect(results[0].candidates[0].nameScore).toBe(2)
+    expect(results[0].candidates[0].matchedField).toBe("usualPayer")
+  })
+
+  it("KNOWN sorts above HIGH", () => {
+    const transactions = [makeTransaction({ payerName: "EMPRESA XYZ LTDA", amount: 500 })]
+    const invoices = [
+      makeInvoice({ id: "inv1", patientId: "p1", motherName: "Empresa Xyz Ltda" }),
+      makeInvoice({ id: "inv2", patientId: "p2", patientName: "Ana", motherName: "Julia" }),
+    ]
+    const usualPayersMap = new Map([["empresa xyz ltda", new Set(["p2"])]])
+    const results = matchTransactions(transactions, invoices, usualPayersMap)
+    expect(results[0].candidates[0].invoice.id).toBe("inv2") // KNOWN
+    expect(results[0].candidates[0].confidence).toBe("KNOWN")
+    expect(results[0].candidates[1].invoice.id).toBe("inv1") // HIGH (name match)
+  })
+
+  it("does not assign KNOWN when payer matches but patient does not", () => {
+    const transactions = [makeTransaction({ payerName: "EMPRESA XYZ LTDA" })]
+    const invoices = [makeInvoice({ id: "inv1", patientId: "p1" })]
+    const usualPayersMap = new Map([["empresa xyz ltda", new Set(["p999"])]])
+    const results = matchTransactions(transactions, invoices, usualPayersMap)
+    expect(results[0].candidates[0].confidence).not.toBe("KNOWN")
+  })
+
+  it("normalizes payer name before lookup", () => {
+    const transactions = [makeTransaction({ payerName: "Émpresa  XYZ  Ltda" })]
+    const invoices = [makeInvoice({ id: "inv1", patientId: "p1" })]
+    const usualPayersMap = new Map([["empresa xyz ltda", new Set(["p1"])]])
+    const results = matchTransactions(transactions, invoices, usualPayersMap)
+    expect(results[0].candidates[0].confidence).toBe("KNOWN")
+  })
+
+  it("works without usualPayersMap (backward compatible)", () => {
+    const transactions = [makeTransaction()]
+    const invoices = [makeInvoice()]
+    const results = matchTransactions(transactions, invoices)
+    expect(results[0].candidates).toHaveLength(1)
+    expect(results[0].candidates[0].confidence).toBe("HIGH")
+  })
+
+  it("handles multiple patients with same usual payer", () => {
+    const transactions = [makeTransaction({ payerName: "EMPRESA XYZ", amount: 500 })]
+    const invoices = [
+      makeInvoice({ id: "inv1", patientId: "p1" }),
+      makeInvoice({ id: "inv2", patientId: "p2" }),
+    ]
+    const usualPayersMap = new Map([["empresa xyz", new Set(["p1", "p2"])]])
+    const results = matchTransactions(transactions, invoices, usualPayersMap)
+    expect(results[0].candidates).toHaveLength(2)
+    expect(results[0].candidates.every(c => c.confidence === "KNOWN")).toBe(true)
+  })
+
+  it("skips KNOWN check when transaction payerName is null", () => {
+    const transactions = [makeTransaction({ payerName: null })]
+    const invoices = [makeInvoice()]
+    const usualPayersMap = new Map([["something", new Set(["p1"])]])
+    const results = matchTransactions(transactions, invoices, usualPayersMap)
+    expect(results[0].candidates[0].confidence).toBe("LOW")
+  })
+})
+
 const makeInvoiceWithParent = (overrides: Partial<InvoiceWithParent> = {}): InvoiceWithParent => ({
   id: "inv1",
   patientId: "p1",

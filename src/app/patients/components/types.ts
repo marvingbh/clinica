@@ -35,6 +35,11 @@ export interface AdditionalPhone {
   notify: boolean
 }
 
+export interface UsualPayer {
+  id: string
+  payerName: string
+}
+
 export interface Patient {
   id: string
   name: string
@@ -66,6 +71,7 @@ export interface Patient {
   referenceProfessional: ReferenceProfessional | null
   additionalPhones?: AdditionalPhone[]
   appointments?: Appointment[]
+  usualPayers?: UsualPayer[]
 }
 
 export interface Pagination {

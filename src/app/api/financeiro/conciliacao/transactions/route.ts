@@ -30,12 +30,14 @@ export const GET = withFeatureAuth(
   async (req, { user }) => {
     const { searchParams } = new URL(req.url)
     const showReconciled = searchParams.get("showReconciled") === "true"
+    const showDismissed = searchParams.get("showDismissed") === "true"
 
-    const [transactions, invoices] = await Promise.all([
+    const [transactions, invoices, usualPayers] = await Promise.all([
       prisma.bankTransaction.findMany({
         where: {
           clinicId: user.clinicId,
           type: "CREDIT",
+          dismissReason: null,
         },
         orderBy: { date: "desc" },
         take: 200,
@@ -78,6 +80,10 @@ export const GET = withFeatureAuth(
             select: { amount: true },
           },
         },
+      }),
+      prisma.patientUsualPayer.findMany({
+        where: { clinicId: user.clinicId },
+        select: { payerName: true, patientId: true },
       }),
     ])
 
@@ -123,7 +129,18 @@ export const GET = withFeatureAuth(
       normalizedFather: normalizeForComparison(inv.fatherName),
     }))
 
-    const matchResults = matchTransactions(txForMatching, invForMatching)
+    // Build usual payers lookup: normalizedPayerName → Set<patientId>
+    const usualPayersMap = new Map<string, Set<string>>()
+    for (const up of usualPayers) {
+      const existing = usualPayersMap.get(up.payerName)
+      if (existing) {
+        existing.add(up.patientId)
+      } else {
+        usualPayersMap.set(up.payerName, new Set([up.patientId]))
+      }
+    }
+
+    const matchResults = matchTransactions(txForMatching, invForMatching, usualPayersMap)
 
     const response = transactions.map((tx) => {
       const allocatedAmount = txAllocatedMap.get(tx.id)!
@@ -204,6 +221,35 @@ export const GET = withFeatureAuth(
       ? response
       : response.filter((tx) => !tx.isFullyReconciled)
 
-    return NextResponse.json({ transactions: filteredResponse })
+    const dismissedTransactions = showDismissed
+      ? await prisma.bankTransaction.findMany({
+          where: {
+            clinicId: user.clinicId,
+            type: "CREDIT",
+            dismissReason: { not: null },
+          },
+          orderBy: { date: "desc" },
+          select: {
+            id: true,
+            externalId: true,
+            date: true,
+            amount: true,
+            description: true,
+            payerName: true,
+            dismissReason: true,
+            dismissedAt: true,
+          },
+        })
+      : []
+
+    return NextResponse.json({
+      transactions: filteredResponse,
+      ...(showDismissed && dismissedTransactions.length > 0
+        ? { dismissedTransactions: dismissedTransactions.map((t) => ({
+            ...t,
+            amount: Number(t.amount),
+          })) }
+        : {}),
+    })
   }
 )

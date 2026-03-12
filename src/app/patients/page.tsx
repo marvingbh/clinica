@@ -23,7 +23,7 @@ import {
   PatientDetailsView,
   PatientForm,
 } from "./components"
-import type { Patient, Professional, AdditionalPhone, Pagination, PatientFormData } from "./components"
+import type { Patient, Professional, AdditionalPhone, UsualPayer, Pagination, PatientFormData } from "./components"
 
 // WhatsApp format validation
 const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
@@ -97,6 +97,7 @@ export default function PatientsPage() {
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [isLoadingProfessionals, setIsLoadingProfessionals] = useState(false)
   const [additionalPhones, setAdditionalPhones] = useState<AdditionalPhone[]>([])
+  const [usualPayers, setUsualPayers] = useState<UsualPayer[]>([])
   // Appointment history pagination
   const [appointmentsTotal, setAppointmentsTotal] = useState(0)
   const [appointmentsStatusFilter, setAppointmentsStatusFilter] = useState("")
@@ -236,6 +237,7 @@ export default function PatientsPage() {
     setEditingPatient(null)
     setViewingPatient(null)
     setAdditionalPhones([])
+    setUsualPayers([])
     reset({
       name: "",
       phone: "",
@@ -261,6 +263,16 @@ export default function PatientsPage() {
     setEditingPatient(patient)
     setViewingPatient(null)
     setAdditionalPhones(patient.additionalPhones || [])
+    setUsualPayers(patient.usualPayers || [])
+    // Fetch usual payers if not already loaded (list endpoint doesn't include them)
+    if (!patient.usualPayers) {
+      fetch(`/api/patients/${patient.id}?appointmentsLimit=0`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data?.patient?.usualPayers) setUsualPayers(data.patient.usualPayers)
+        })
+        .catch(() => {})
+    }
     reset({
       name: patient.name,
       phone: patient.phone,
@@ -296,6 +308,7 @@ export default function PatientsPage() {
     setEditingPatient(null)
     setViewingPatient(null)
     setAdditionalPhones([])
+    setUsualPayers([])
     setAppointmentsStatusFilter("")
     setAppointmentsTotal(0)
   }
@@ -357,6 +370,24 @@ export default function PatientsPage() {
       toast.error(error instanceof Error ? error.message : "Erro ao salvar paciente")
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  async function handleRemoveUsualPayer(id: string) {
+    try {
+      const response = await fetch("/api/patients/usual-payers", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Erro ao remover pagador usual")
+      }
+      setUsualPayers(prev => prev.filter(p => p.id !== id))
+      toast.success("Pagador usual removido")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao remover pagador usual")
     }
   }
 
@@ -625,6 +656,8 @@ export default function PatientsPage() {
                   onClose={closeSheet}
                   onSubmit={handleSubmit(onSubmit)}
                   billingMode={billingMode}
+                  usualPayers={usualPayers}
+                  onRemoveUsualPayer={handleRemoveUsualPayer}
                 />
               )}
               </div>

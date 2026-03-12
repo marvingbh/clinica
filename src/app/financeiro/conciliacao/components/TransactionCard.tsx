@@ -22,6 +22,7 @@ import {
   ParentNames,
   InvoiceRow,
   AddedInvoiceRow,
+  DismissButtons,
 } from "./shared-ui"
 
 interface TransactionCardProps {
@@ -34,6 +35,7 @@ interface TransactionCardProps {
   onConfirm: () => void
   isConfirming: boolean
   onCreateInvoice: () => void
+  onDismiss: (transactionId: string, reason: "DUPLICATE" | "NOT_PATIENT") => void
 }
 
 export function TransactionCard({
@@ -46,6 +48,7 @@ export function TransactionCard({
   onConfirm,
   isConfirming,
   onCreateInvoice,
+  onDismiss,
 }: TransactionCardProps) {
   const [showSearch, setShowSearch] = useState(false)
   const [expanded, setExpanded] = useState(true)
@@ -83,6 +86,9 @@ export function TransactionCard({
           <div className="flex items-center gap-1.5 shrink-0">
             {selectedIds.length > 0 && (
               <ConfirmButton onClick={onConfirm} isConfirming={isConfirming} />
+            )}
+            {tx.links.length === 0 && selectedIds.length === 0 && (
+              <DismissButtons onDismiss={(reason) => onDismiss(tx.id, reason)} />
             )}
             <button
               onClick={() => setShowSearch(!showSearch)}

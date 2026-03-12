@@ -117,6 +117,13 @@ export const GET = withFeatureAuth(
             },
             orderBy: { createdAt: "asc" },
           },
+          usualPayers: {
+            select: {
+              id: true,
+              payerName: true,
+            },
+            orderBy: { createdAt: "asc" },
+          },
           appointments: {
             where: appointmentWhere,
             orderBy: { scheduledAt: "asc" },

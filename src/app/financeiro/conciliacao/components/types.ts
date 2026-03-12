@@ -20,7 +20,7 @@ export interface CandidateInvoice {
 }
 
 export interface Candidate extends CandidateInvoice {
-  confidence: "HIGH" | "MEDIUM" | "LOW"
+  confidence: "KNOWN" | "HIGH" | "MEDIUM" | "LOW"
   nameScore: number
   matchedField: string | null
 }
@@ -64,6 +64,11 @@ export const INVOICE_STATUS_CONFIG: Record<string, { bg: string; label: string }
 }
 
 export const CONFIDENCE_CONFIG: Record<string, { bg: string; dot: string; label: string }> = {
+  KNOWN: {
+    bg: "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800",
+    dot: "bg-blue-500",
+    label: "Pagador usual",
+  },
   HIGH: {
     bg: "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800",
     dot: "bg-green-500",
@@ -79,6 +84,24 @@ export const CONFIDENCE_CONFIG: Record<string, { bg: string; dot: string; label:
     dot: "bg-red-400",
     label: "Baixa",
   },
+}
+
+export type DismissReason = "DUPLICATE" | "NOT_PATIENT"
+
+export const DISMISS_REASON_CONFIG: Record<DismissReason, { label: string; badgeClassName: string }> = {
+  DUPLICATE: { label: "Duplicado", badgeClassName: "bg-amber-50 text-amber-700 border-amber-200" },
+  NOT_PATIENT: { label: "Sem relação", badgeClassName: "bg-gray-50 text-gray-600 border-gray-200" },
+}
+
+export interface DismissedTransaction {
+  id: string
+  externalId: string
+  date: string
+  amount: number
+  description: string
+  payerName: string | null
+  dismissReason: DismissReason
+  dismissedAt: string
 }
 
 function stripAccents(s: string): string {
