@@ -70,6 +70,7 @@ export const POST = withFeatureAuth(
       where: {
         clinicId: user.clinicId,
         reconciliationLinks: { none: {} },
+        dismissReason: null,
       },
     })
 
