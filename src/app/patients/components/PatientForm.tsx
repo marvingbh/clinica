@@ -2,7 +2,7 @@
 
 import { Controller, UseFormRegister, Control, FieldErrors } from "react-hook-form"
 import { DatePickerInput } from "@/shared/components/ui"
-import { Professional, AdditionalPhone } from "./types"
+import { Professional, AdditionalPhone, UsualPayer } from "./types"
 import { getFeeLabel } from "@/lib/financeiro/billing-labels"
 
 export interface PatientFormData {
@@ -40,6 +40,8 @@ interface PatientFormProps {
   onClose: () => void
   onSubmit: () => void
   billingMode?: string
+  usualPayers?: UsualPayer[]
+  onRemoveUsualPayer?: (id: string) => void
 }
 
 export function PatientForm({
@@ -57,6 +59,8 @@ export function PatientForm({
   onClose,
   onSubmit,
   billingMode = "PER_SESSION",
+  usualPayers = [],
+  onRemoveUsualPayer,
 }: PatientFormProps) {
   return (
     <>
@@ -266,6 +270,38 @@ export function PatientForm({
             className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
           />
         </div>
+
+        {/* Usual Payers Section — only shown when editing and has entries */}
+        {isEditing && usualPayers.length > 0 && (
+          <div className="border border-border rounded-lg p-4">
+            <label className="text-sm font-medium text-foreground">
+              Pagadores usuais
+            </label>
+            <p className="text-xs text-muted-foreground mt-1 mb-3">
+              Nomes aprendidos automaticamente pela conciliacao bancaria. Remova caso estejam incorretos.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {usualPayers.map((payer) => (
+                <span
+                  key={payer.id}
+                  className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-800"
+                >
+                  {payer.payerName}
+                  {onRemoveUsualPayer && (
+                    <button
+                      type="button"
+                      onClick={() => onRemoveUsualPayer(payer.id)}
+                      className="ml-0.5 text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                      title="Remover pagador usual"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
