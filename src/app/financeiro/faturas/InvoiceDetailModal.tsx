@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useCallback, useRef } from "react"
+import { createPortal } from "react-dom"
 import { XIcon, PencilIcon, TrashIcon } from "@/shared/components/ui/icons"
 import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
 import { toast } from "sonner"
@@ -129,7 +130,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, onUpdate }: InvoiceDeta
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [handleKeyDown])
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
         className="bg-background border border-border rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col mx-4"
@@ -269,6 +270,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, onUpdate }: InvoiceDeta
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
