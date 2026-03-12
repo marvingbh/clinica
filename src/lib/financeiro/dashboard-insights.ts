@@ -56,38 +56,27 @@ export async function fetchInsights(params: InsightsParams) {
 
   const [
     invoices,
-    overdueInvoices,
-    paidInvoices,
     prevInvoices,
     appointments,
     pendingCredits,
   ] = await Promise.all([
-    // Current period invoices (for revenue concentration, ticket medio)
+    // Current period invoices (all metrics derived from this)
     prisma.invoice.findMany({
       where: invoiceWhere,
       select: {
         status: true, totalAmount: true, totalSessions: true,
+        dueDate: true, paidAt: true, createdAt: true,
         patientId: true, professionalProfileId: true,
         patient: { select: { name: true } },
         professionalProfile: { select: { user: { select: { name: true } } } },
       },
-    }),
-    // Overdue invoices (ENVIADO + past due, any period)
-    prisma.invoice.findMany({
-      where: { clinicId, ...scope, status: "ENVIADO", dueDate: { lt: now } },
-      select: { totalAmount: true },
-    }),
-    // Paid invoices for collection time (current period)
-    prisma.invoice.findMany({
-      where: { ...invoiceWhere, status: "PAGO", paidAt: { not: null } },
-      select: { createdAt: true, paidAt: true },
     }),
     // Previous period invoices (for comparison)
     prisma.invoice.findMany({
       where: prevInvoiceWhere,
       select: { status: true, totalAmount: true, totalSessions: true },
     }),
-    // Appointments for cancellation + weekday revenue
+    // Appointments for cancellation + weekday sessions
     prisma.appointment.findMany({
       where: apptWhere,
       select: { status: true, price: true, scheduledAt: true },
@@ -105,9 +94,12 @@ export async function fetchInsights(params: InsightsParams) {
     select: { createdAt: true, paidAt: true },
   })
 
+  const paidCurrent = invoices.filter(i => i.status === "PAGO" && i.paidAt)
+
   return {
-    inadimplencia: buildInadimplencia(invoices, overdueInvoices),
-    tempoRecebimento: buildCollectionTime(paidInvoices, prevPaidInvoices),
+    inadimplencia: buildInadimplencia(invoices),
+    pagamentoAtraso: buildPagamentoAtraso(invoices),
+    tempoRecebimento: buildCollectionTime(paidCurrent, prevPaidInvoices),
     ticketMedio: buildTicketMedio(invoices),
     cancelamento: buildCancelamento(appointments),
     concentracao: buildConcentracao(invoices),
@@ -119,21 +111,41 @@ export async function fetchInsights(params: InsightsParams) {
 
 type InvoiceSlim = { status: string; totalAmount: unknown }
 type InvoiceFull = InvoiceSlim & {
-  totalSessions: number; patientId: string
-  professionalProfileId: string
+  totalSessions: number; patientId: string; professionalProfileId: string
+  dueDate: Date | null; paidAt: Date | null; createdAt: Date
   patient: { name: string }
   professionalProfile: { user: { name: string } }
 }
 
-function buildInadimplencia(
-  invoices: InvoiceSlim[],
-  overdue: { totalAmount: unknown }[],
-) {
+function buildInadimplencia(invoices: InvoiceFull[]) {
   const nonCancelled = invoices.filter((i) => i.status !== "CANCELADO")
-  const overdueCount = overdue.length
-  const overdueAmount = overdue.reduce((s, i) => s + Number(i.totalAmount), 0)
-  const overdueRate = nonCancelled.length > 0 ? overdueCount / nonCancelled.length : 0
-  return { overdueCount, overdueAmount, overdueRate: Math.round(overdueRate * 1000) / 1000 }
+  const unpaid = nonCancelled.filter((i) => i.status !== "PAGO")
+  const unpaidAmount = unpaid.reduce((s, i) => s + Number(i.totalAmount), 0)
+  const unpaidRate = nonCancelled.length > 0 ? unpaid.length / nonCancelled.length : 0
+  return {
+    unpaidCount: unpaid.length,
+    unpaidAmount,
+    unpaidRate: Math.round(unpaidRate * 1000) / 1000,
+  }
+}
+
+function buildPagamentoAtraso(invoices: InvoiceFull[]) {
+  const paid = invoices.filter((i) => i.status === "PAGO" && i.paidAt && i.dueDate)
+  const late = paid.filter((i) => i.paidAt!.getTime() > i.dueDate!.getTime())
+  const lateAmount = late.reduce((s, i) => s + Number(i.totalAmount), 0)
+  const lateRate = paid.length > 0 ? late.length / paid.length : 0
+  const avgDaysLate = late.length > 0
+    ? Math.round(late.reduce((s, i) =>
+        s + (i.paidAt!.getTime() - i.dueDate!.getTime()) / 86_400_000, 0,
+      ) / late.length * 10) / 10
+    : 0
+  return {
+    lateCount: late.length,
+    totalPaid: paid.length,
+    lateAmount,
+    lateRate: Math.round(lateRate * 1000) / 1000,
+    avgDaysLate,
+  }
 }
 
 function avgDays(invoices: { createdAt: Date; paidAt: Date | null }[]) {
