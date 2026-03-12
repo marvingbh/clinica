@@ -32,9 +32,9 @@ export function InsightsAtendimento({ data }: Props) {
           }
         />
         <MetricCard
-          label="Receita Perdida (Faltas)"
-          value={formatCurrencyBRL(cancel.estimatedLostRevenue)}
-          sub={`${cancel.faltaCount} faltas no período`}
+          label="Faltas"
+          value={String(cancel.faltaCount)}
+          sub={`de ${cancel.totalAppointments} consultas no período`}
         />
       </div>
 
