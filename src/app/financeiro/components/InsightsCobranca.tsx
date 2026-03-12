@@ -8,8 +8,9 @@ interface Props {
 }
 
 export function InsightsCobranca({ data }: Props) {
-  const { inadimplencia: inad, tempoRecebimento: tempo, comparativo: comp } = data
-  const overdueRatePct = (inad.overdueRate * 100).toFixed(1)
+  const { inadimplencia: inad, pagamentoAtraso: atraso, tempoRecebimento: tempo, comparativo: comp } = data
+  const unpaidRatePct = (inad.unpaidRate * 100).toFixed(1)
+  const lateRatePct = (atraso.lateRate * 100).toFixed(1)
 
   const collectionDelta = tempo.avgCollectionDays !== null && tempo.prevAvgCollectionDays !== null
     ? tempo.avgCollectionDays - tempo.prevAvgCollectionDays
@@ -19,27 +20,32 @@ export function InsightsCobranca({ data }: Props) {
     <div className="space-y-6">
       {/* Inadimplência */}
       <div>
-        <h3 className="text-sm font-semibold mb-3">Inadimplência</h3>
+        <h3 className="text-sm font-semibold mb-3">Inadimplência no Período</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <MetricCard
-            label="Taxa de Inadimplência"
-            value={`${overdueRatePct}%`}
-            sub={`${inad.overdueCount} faturas vencidas`}
+            label="Faturas Não Pagas"
+            value={`${unpaidRatePct}%`}
+            sub={`${inad.unpaidCount} faturas em aberto`}
             detail={
-              Number(overdueRatePct) > 10
-                ? <span className="text-xs text-red-600 dark:text-red-400">Acima do ideal (&lt;10%)</span>
+              Number(unpaidRatePct) > 20
+                ? <span className="text-xs text-red-600 dark:text-red-400">Acima do ideal (&lt;20%)</span>
                 : <span className="text-xs text-green-600 dark:text-green-400">Dentro do esperado</span>
             }
           />
           <MetricCard
-            label="Valor em Atraso"
-            value={formatCurrencyBRL(inad.overdueAmount)}
-            sub="total de faturas vencidas não pagas"
+            label="Valor em Aberto"
+            value={formatCurrencyBRL(inad.unpaidAmount)}
+            sub="total de faturas não recebidas no período"
           />
           <MetricCard
-            label="Faturas Vencidas"
-            value={String(inad.overdueCount)}
-            sub="com status 'Enviado' e data vencida"
+            label="Pagamento em Atraso"
+            value={`${lateRatePct}%`}
+            sub={`${atraso.lateCount} de ${atraso.totalPaid} pagas após o vencimento`}
+            detail={atraso.avgDaysLate > 0 && (
+              <span className="text-xs text-orange-600 dark:text-orange-400">
+                Média de {atraso.avgDaysLate} dias de atraso
+              </span>
+            )}
           />
         </div>
       </div>
@@ -77,25 +83,19 @@ export function InsightsCobranca({ data }: Props) {
             <div className="text-xs text-muted-foreground uppercase tracking-wide">Faturado</div>
             <div className="text-lg font-bold mt-1">{formatCurrencyBRL(comp.prevFaturado)}</div>
             <div className="text-xs text-muted-foreground">período anterior</div>
-            <div className="mt-2">
-              <DeltaIndicator value={comp.deltaFaturado} />
-            </div>
+            <div className="mt-2"><DeltaIndicator value={comp.deltaFaturado} /></div>
           </div>
           <div className="p-4 rounded-lg border border-border">
             <div className="text-xs text-muted-foreground uppercase tracking-wide">Recebido</div>
             <div className="text-lg font-bold mt-1">{formatCurrencyBRL(comp.prevPago)}</div>
             <div className="text-xs text-muted-foreground">período anterior</div>
-            <div className="mt-2">
-              <DeltaIndicator value={comp.deltaPago} />
-            </div>
+            <div className="mt-2"><DeltaIndicator value={comp.deltaPago} /></div>
           </div>
           <div className="p-4 rounded-lg border border-border">
             <div className="text-xs text-muted-foreground uppercase tracking-wide">Sessões</div>
             <div className="text-lg font-bold mt-1">{comp.prevSessions}</div>
             <div className="text-xs text-muted-foreground">período anterior</div>
-            <div className="mt-2">
-              <DeltaIndicator value={comp.deltaSessions} />
-            </div>
+            <div className="mt-2"><DeltaIndicator value={comp.deltaSessions} /></div>
           </div>
         </div>
       </div>

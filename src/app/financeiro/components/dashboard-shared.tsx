@@ -34,7 +34,11 @@ export interface ProfessionalSummary {
 }
 
 export interface InsightsData {
-  inadimplencia: { overdueCount: number; overdueAmount: number; overdueRate: number }
+  inadimplencia: { unpaidCount: number; unpaidAmount: number; unpaidRate: number }
+  pagamentoAtraso: {
+    lateCount: number; totalPaid: number; lateAmount: number
+    lateRate: number; avgDaysLate: number
+  }
   tempoRecebimento: { avgCollectionDays: number | null; prevAvgCollectionDays: number | null }
   ticketMedio: {
     avgTicket: number

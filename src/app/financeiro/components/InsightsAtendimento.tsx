@@ -2,7 +2,7 @@
 
 import { formatCurrencyBRL } from "@/lib/financeiro/format"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-import { InsightsData, MetricCard, CustomTooltip } from "./dashboard-shared"
+import { InsightsData, MetricCard } from "./dashboard-shared"
 
 interface Props {
   data: InsightsData
@@ -77,24 +77,19 @@ export function InsightsAtendimento({ data }: Props) {
         </div>
       )}
 
-      {/* Receita por Dia da Semana */}
+      {/* Sessões por Dia da Semana */}
       {weekday.some(d => d.sessions > 0) && (
         <div className="p-4 rounded-lg border border-border">
-          <h3 className="text-sm font-semibold mb-4">Receita por Dia da Semana</h3>
+          <h3 className="text-sm font-semibold mb-4">Sessões por Dia da Semana</h3>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={weekday.filter(d => d.sessions > 0)} barGap={2}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="day" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} className="fill-muted-foreground" />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="revenue" name="Receita" fill="#6366f1" radius={[4, 4, 0, 0]} />
+              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} className="fill-muted-foreground" />
+              <Tooltip formatter={(value) => [`${value} sessões`, "Sessões"]} />
+              <Bar dataKey="sessions" name="Sessões" fill="#6366f1" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-          <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
-            {weekday.filter(d => d.sessions > 0).map(d => (
-              <span key={d.day}>{d.day}: {d.sessions} sessões</span>
-            ))}
-          </div>
         </div>
       )}
     </div>
