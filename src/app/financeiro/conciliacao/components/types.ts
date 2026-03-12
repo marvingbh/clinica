@@ -86,6 +86,24 @@ export const CONFIDENCE_CONFIG: Record<string, { bg: string; dot: string; label:
   },
 }
 
+export type DismissReason = "DUPLICATE" | "NOT_PATIENT"
+
+export const DISMISS_REASON_CONFIG: Record<DismissReason, { label: string; badgeClassName: string }> = {
+  DUPLICATE: { label: "Duplicado", badgeClassName: "bg-amber-50 text-amber-700 border-amber-200" },
+  NOT_PATIENT: { label: "Sem relação", badgeClassName: "bg-gray-50 text-gray-600 border-gray-200" },
+}
+
+export interface DismissedTransaction {
+  id: string
+  externalId: string
+  date: string
+  amount: number
+  description: string
+  payerName: string | null
+  dismissReason: DismissReason
+  dismissedAt: string
+}
+
 function stripAccents(s: string): string {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
 }
