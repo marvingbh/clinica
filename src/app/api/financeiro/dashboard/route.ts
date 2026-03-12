@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
+import { deriveGroupStatus } from "@/lib/financeiro/invoice-grouping"
 
 export const GET = withFeatureAuth(
   { feature: "finances", minAccess: "READ" },
@@ -19,19 +20,44 @@ export const GET = withFeatureAuth(
       where.professionalProfileId = user.professionalProfileId
     }
 
-    const invoices = await prisma.invoice.findMany({
+    const rawInvoices = await prisma.invoice.findMany({
       where,
       select: {
         referenceMonth: true,
+        referenceYear: true,
         status: true,
         totalAmount: true,
         totalSessions: true,
         creditsApplied: true,
         extrasAdded: true,
+        invoiceType: true,
         professionalProfileId: true,
         professionalProfile: { select: { user: { select: { name: true } } } },
         patientId: true,
       },
+    })
+
+    // Apply derived group status for PER_SESSION invoices (matches faturas page grouping)
+    const perSessionGroups = new Map<string, typeof rawInvoices>()
+    for (const inv of rawInvoices) {
+      if (inv.invoiceType === "PER_SESSION") {
+        const key = `${inv.patientId}-${inv.professionalProfileId}-${inv.referenceMonth}-${inv.referenceYear}`
+        const list = perSessionGroups.get(key) || []
+        list.push(inv)
+        perSessionGroups.set(key, list)
+      }
+    }
+    const groupStatusMap = new Map<string, string>()
+    for (const [key, group] of perSessionGroups) {
+      const statuses = group.map(i => i.status) as Parameters<typeof deriveGroupStatus>[0]
+      groupStatusMap.set(key, deriveGroupStatus(statuses))
+    }
+    const invoices = rawInvoices.map(inv => {
+      if (inv.invoiceType === "PER_SESSION") {
+        const key = `${inv.patientId}-${inv.professionalProfileId}-${inv.referenceMonth}-${inv.referenceYear}`
+        return { ...inv, status: groupStatusMap.get(key) || inv.status }
+      }
+      return inv
     })
 
     // Year totals
