@@ -127,3 +127,26 @@ export function AddedInvoiceRow({ inv, isSelected, onToggle }: { inv: CreatedInv
     </button>
   )
 }
+
+export function DismissButtons({ onDismiss }: { onDismiss: (reason: "DUPLICATE" | "NOT_PATIENT") => void }) {
+  return (
+    <div className="flex gap-1">
+      <button
+        type="button"
+        onClick={() => onDismiss("DUPLICATE")}
+        className="text-xs px-2 py-1 rounded border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors"
+        title="Marcar como duplicado"
+      >
+        Duplicado
+      </button>
+      <button
+        type="button"
+        onClick={() => onDismiss("NOT_PATIENT")}
+        className="text-xs px-2 py-1 rounded border border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100 transition-colors"
+        title="Sem relação com paciente"
+      >
+        Sem relação
+      </button>
+    </div>
+  )
+}
