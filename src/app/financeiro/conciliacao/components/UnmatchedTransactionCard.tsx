@@ -5,7 +5,7 @@ import { CheckIcon, CircleAlertIcon, PlusIcon, SearchIcon } from "lucide-react"
 import { formatCurrencyBRL, formatDateBR, getMonthName } from "@/lib/financeiro/format"
 import { InvoiceSearch } from "./InvoiceSearch"
 import type { Transaction, CreatedInvoiceInfo } from "./types"
-import { Checkbox, ConfirmButton, AddedInvoiceRow } from "./shared-ui"
+import { Checkbox, ConfirmButton, AddedInvoiceRow, DismissButtons } from "./shared-ui"
 
 interface UnmatchedTransactionCardProps {
   tx: Transaction
@@ -16,6 +16,7 @@ interface UnmatchedTransactionCardProps {
   onConfirm: () => void
   isConfirming: boolean
   onCreateInvoice: () => void
+  onDismiss: (transactionId: string, reason: "DUPLICATE" | "NOT_PATIENT") => void
 }
 
 export function UnmatchedTransactionCard({
@@ -27,6 +28,7 @@ export function UnmatchedTransactionCard({
   onConfirm,
   isConfirming,
   onCreateInvoice,
+  onDismiss,
 }: UnmatchedTransactionCardProps) {
   const [expanded, setExpanded] = useState(false)
 
@@ -56,6 +58,7 @@ export function UnmatchedTransactionCard({
           {selectedIds.length > 0 && (
             <ConfirmButton onClick={onConfirm} isConfirming={isConfirming} />
           )}
+          <DismissButtons onDismiss={(reason) => onDismiss(tx.id, reason)} />
           <button
             onClick={() => setExpanded(!expanded)}
             className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border transition-all ${
