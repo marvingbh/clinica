@@ -96,10 +96,22 @@ export const POST = withFeatureAuth(
       const existingReconciledId = reconciledLookup.get(contentKey)
 
       if (existingReconciledId) {
-        await prisma.bankTransaction.update({
-          where: { id: existingReconciledId },
-          data: { externalId: tx.externalId },
+        // Only migrate externalId if no other record already has it
+        const conflict = await prisma.bankTransaction.findUnique({
+          where: {
+            clinicId_externalId: {
+              clinicId: user.clinicId,
+              externalId: tx.externalId,
+            },
+          },
+          select: { id: true },
         })
+        if (!conflict) {
+          await prisma.bankTransaction.update({
+            where: { id: existingReconciledId },
+            data: { externalId: tx.externalId },
+          })
+        }
         reconciledLookup.delete(contentKey)
         continue
       }
