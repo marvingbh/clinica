@@ -8,12 +8,10 @@ import { AppointmentBlock } from "./AppointmentBlock"
 import { GroupSessionBlock } from "./GroupSessionBlock"
 import { AvailabilitySlotBlock } from "./AvailabilitySlotBlock"
 import { createProfessionalColorMap } from "../../lib/professional-colors"
+import { WEEKLY_GRID } from "../../lib/grid-config"
 
-const START_HOUR = 7
-const END_HOUR = 21
+const { startHour: START_HOUR, endHour: END_HOUR, pixelsPerMinute: PIXELS_PER_MINUTE, hourHeight: HOUR_HEIGHT } = WEEKLY_GRID
 const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i)
-const PIXELS_PER_MINUTE = 1.6 // 48px per 30 minutes = 96px per hour
-const HOUR_HEIGHT = 60 * PIXELS_PER_MINUTE // 96px per hour
 
 interface BirthdayPatient {
   id: string

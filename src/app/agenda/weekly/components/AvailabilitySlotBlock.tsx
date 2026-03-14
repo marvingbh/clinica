@@ -2,9 +2,9 @@
 
 import { PlusIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import type { TimeSlot } from "../../lib/types"
+import { WEEKLY_GRID } from "../../lib/grid-config"
 
-const PIXELS_PER_MINUTE = 1.6
-const START_HOUR = 7
+const { pixelsPerMinute: PIXELS_PER_MINUTE, startHour: START_HOUR } = WEEKLY_GRID
 
 interface AvailabilitySlotBlockProps {
   slot: TimeSlot

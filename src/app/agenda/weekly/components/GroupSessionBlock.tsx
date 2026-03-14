@@ -3,9 +3,9 @@
 import { UsersIcon } from "@/shared/components/ui/icons"
 import { GroupSession } from "../../lib/types"
 import { CANCELLED_STATUSES, TERMINAL_STATUSES } from "../../lib/constants"
+import { WEEKLY_GRID } from "../../lib/grid-config"
 
-const PIXELS_PER_MINUTE = 1.6 // 48px per 30 minutes = 96px per hour
-const START_HOUR = 7
+const { pixelsPerMinute: PIXELS_PER_MINUTE, startHour: START_HOUR } = WEEKLY_GRID
 
 interface GroupSessionBlockProps {
   session: GroupSession
