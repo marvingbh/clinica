@@ -6,8 +6,9 @@ import type { Appointment, AppointmentStatus } from "../lib/types"
 import { STATUS_LABELS, STATUS_COLORS, STATUS_BORDER_COLORS, CANCELLED_STATUSES, ENTRY_TYPE_LABELS } from "../lib/constants"
 import { formatPhone, isBirthdayToday, isRecurrenceModified } from "../lib/utils"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../lib/professional-colors"
+import { DAILY_GRID_BASE } from "../lib/grid-config"
 
-const PIXELS_PER_MINUTE = 2.4
+const { pixelsPerMinute: PIXELS_PER_MINUTE } = DAILY_GRID_BASE
 const SLOT_LEFT_MARGIN = 12
 const BLOCK_VERTICAL_GAP = 3
 

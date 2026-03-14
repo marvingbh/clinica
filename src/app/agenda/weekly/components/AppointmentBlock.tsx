@@ -8,10 +8,11 @@ import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from 
 import { STATUS_LABELS, ENTRY_TYPE_COLORS, ENTRY_TYPE_LABELS, CANCELLED_STATUSES } from "../../lib/constants"
 import type { AppointmentStatus, CalendarEntryType } from "../../lib/types"
 
+import { WEEKLY_GRID } from "../../lib/grid-config"
+
 const URL_REGEX = /https?:\/\/[^\s]+/
 
-const PIXELS_PER_MINUTE = 1.6 // 48px per 30 minutes = 96px per hour
-const START_HOUR = 7
+const { pixelsPerMinute: PIXELS_PER_MINUTE, startHour: START_HOUR } = WEEKLY_GRID
 
 interface AppointmentBlockProps {
   appointment: Appointment

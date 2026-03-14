@@ -7,9 +7,9 @@ import type { Appointment, GroupSession, AppointmentStatus, TimeSlot } from "../
 import { CANCELLED_STATUSES, TERMINAL_STATUSES } from "../lib/constants"
 import { getProfessionalColor, ProfessionalColorMap } from "../lib/professional-colors"
 import { DailyAppointmentBlock } from "./DailyAppointmentBlock"
+import { DAILY_GRID_BASE } from "../lib/grid-config"
 
-const PIXELS_PER_MINUTE = 2.4
-const HOUR_HEIGHT = 60 * PIXELS_PER_MINUTE // 144px
+const { pixelsPerMinute: PIXELS_PER_MINUTE, hourHeight: HOUR_HEIGHT } = DAILY_GRID_BASE
 const TIME_COL_WIDTH = 64 // w-16 = 4rem = 64px to match slot-based TimeLabel
 const CONNECTOR_WIDTH = 1
 const SLOT_LEFT_MARGIN = 12 // px gap between timeline connector and appointment blocks
