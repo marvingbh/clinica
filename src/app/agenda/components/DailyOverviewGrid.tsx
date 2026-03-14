@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useCallback, useState, useEffect } from "react"
+import { useDroppable } from "@dnd-kit/core"
 import { UsersIcon, PlusIcon, BanIcon } from "@/shared/components/ui/icons"
 import { ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import type { Appointment, GroupSession, AppointmentStatus, TimeSlot } from "../lib/types"
@@ -128,6 +129,11 @@ export interface DailyOverviewGridProps {
   appointmentDuration?: number
   onBiweeklyHintClick?: (time: string) => void
   canWriteAgenda?: boolean
+  // Drag-and-drop state (passed from page)
+  isDragging?: boolean
+  projectedMinutes?: number | null
+  overlappingIds?: string[]
+  activeAppointmentId?: string | null
 }
 
 export function DailyOverviewGrid({
@@ -143,6 +149,10 @@ export function DailyOverviewGrid({
   appointmentDuration = 50,
   onBiweeklyHintClick,
   canWriteAgenda = false,
+  isDragging = false,
+  projectedMinutes,
+  overlappingIds = [],
+  activeAppointmentId,
 }: DailyOverviewGridProps) {
   const individualAppointments = useMemo(() => {
     return appointments.filter(apt => !apt.groupId)
@@ -235,8 +245,8 @@ export function DailyOverviewGrid({
         ))}
       </div>
 
-      {/* Content area */}
-      <div className="flex-1 relative pl-6">
+      {/* Content area — droppable for DnD */}
+      <DroppableContentArea selectedDate={selectedDate}>
         {/* Subtle hour separator lines */}
         {hours.map((hour) => (
           <div
@@ -334,6 +344,31 @@ export function DailyOverviewGrid({
               </button>
             )
           })}
+
+          {/* Drop zone indicator */}
+          {isDragging && projectedMinutes != null && activeAppointmentId && (() => {
+            const activeApt = individualAppointments.find(a => a.id === activeAppointmentId)
+            const dropDuration = activeApt
+              ? Math.round((new Date(activeApt.endAt).getTime() - new Date(activeApt.scheduledAt).getTime()) / 60000)
+              : appointmentDuration
+            const hasOverlap = overlappingIds.length > 0
+            return (
+              <div
+                className={`absolute rounded-xl border-2 border-dashed pointer-events-none z-10 transition-colors ${
+                  hasOverlap
+                    ? "bg-destructive/10 border-destructive/40"
+                    : "bg-primary/10 border-primary/40"
+                }`}
+                style={{
+                  top: `${(projectedMinutes - startHour * 60) * PIXELS_PER_MINUTE}px`,
+                  height: `${Math.max(dropDuration * PIXELS_PER_MINUTE, 96)}px`,
+                  left: `${SLOT_LEFT_MARGIN}px`,
+                  right: "2px",
+                  maxWidth: "400px",
+                }}
+              />
+            )
+          })()}
 
           {/* Appointment blocks */}
           {individualAppointments.map((appointment) => {
@@ -441,7 +476,28 @@ export function DailyOverviewGrid({
             )
           })}
         </div>
-      </div>
+      </DroppableContentArea>
+    </div>
+  )
+}
+
+/** Droppable wrapper for the daily grid content area */
+function DroppableContentArea({
+  selectedDate,
+  children,
+}: {
+  selectedDate: string
+  children: React.ReactNode
+}) {
+  const droppableData = useMemo(() => ({ date: selectedDate }), [selectedDate])
+  const { setNodeRef } = useDroppable({
+    id: `day-${selectedDate}`,
+    data: droppableData,
+  })
+
+  return (
+    <div ref={setNodeRef} data-date={selectedDate} className="flex-1 relative pl-6">
+      {children}
     </div>
   )
 }

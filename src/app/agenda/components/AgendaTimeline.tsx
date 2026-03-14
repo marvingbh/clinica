@@ -28,6 +28,10 @@ export interface AgendaTimelineProps {
   onSwipeRight: () => void
   professionalColorMap?: ProfessionalColorMap
   canWriteAgenda?: boolean
+  isDragging?: boolean
+  projectedMinutes?: number | null
+  overlappingIds?: string[]
+  activeAppointmentId?: string | null
 }
 
 export function AgendaTimeline({
@@ -49,6 +53,10 @@ export function AgendaTimeline({
   onSwipeRight,
   professionalColorMap,
   canWriteAgenda = false,
+  isDragging = false,
+  projectedMinutes,
+  overlappingIds = [],
+  activeAppointmentId,
 }: AgendaTimelineProps) {
   // "Now" indicator — update every minute (must be before any early returns)
   const [now, setNow] = useState(new Date())
@@ -153,6 +161,10 @@ export function AgendaTimeline({
           appointmentDuration={computedDuration}
           onBiweeklyHintClick={onBiweeklyHintClick}
           canWriteAgenda={canWriteAgenda}
+          isDragging={isDragging}
+          projectedMinutes={projectedMinutes}
+          overlappingIds={overlappingIds}
+          activeAppointmentId={activeAppointmentId}
         />
       )}
     </SwipeContainer>

@@ -370,6 +370,10 @@ export default function AgendaPage() {
             onSwipeRight={goToPreviousDay}
             professionalColorMap={professionalColorMap}
             canWriteAgenda={isDndEnabled}
+            isDragging={drag.isDragging}
+            projectedMinutes={drag.projectedMinutes}
+            overlappingIds={drag.overlappingIds}
+            activeAppointmentId={drag.activeAppointment?.id}
           />
         </div>
 
