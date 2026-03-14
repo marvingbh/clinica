@@ -304,11 +304,14 @@ export const PATCH = withFeatureAuth(
       const isAlsoTimeChange = updateData.startTime !== undefined || updateData.endTime !== undefined
 
       // Pre-calculate all new dates
+      // Use each appointment's ACTUAL day (not the recurrence's stored dayOfWeek)
+      // to handle cases where individual appointments were previously moved
       const shiftedDates = recurrence.appointments.map(apt => {
+        const actualDayOfWeek = apt.scheduledAt.getDay()
         let { scheduledAt: newScheduledAt, endAt: newEndAt } = calculateDayShiftedDates(
           apt.scheduledAt,
           apt.endAt,
-          currentDayOfWeek,
+          actualDayOfWeek,
           newDayOfWeek
         )
 
