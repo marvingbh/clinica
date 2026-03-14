@@ -13,7 +13,7 @@ import {
 import { toast } from "sonner"
 import type { Appointment } from "../lib/types"
 import type { GridConfig } from "../lib/grid-config"
-import { pixelToMinutes, minutesToTime, formatTimeFromMinutes, findVisualOverlaps } from "../lib/grid-geometry"
+import { minutesToTime, formatTimeFromMinutes, findVisualOverlaps } from "../lib/grid-geometry"
 import { isDraggable, computeNewTimeRange } from "@/lib/appointments/drag-constraints"
 import { updateAppointment } from "../services/appointmentService"
 
@@ -78,7 +78,7 @@ export function useAppointmentDrag({
   const [isUpdating, setIsUpdating] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
 
-  const gridRectRef = useRef<DOMRect | null>(null)
+  const originalMinutesRef = useRef(0)
   const lastConflictCheckRef = useRef(0)
 
   const sensors = useSensors(
@@ -103,7 +103,7 @@ export function useAppointmentDrag({
     setProjectedMinutes(null)
     setProjectedDate(null)
     setOverlappingIds([])
-    gridRectRef.current = null
+    originalMinutesRef.current = 0
     setDndState(DND_IDLE)
     setDragActive?.(false)
     document.body.classList.remove("dnd-dragging")
@@ -115,13 +115,9 @@ export function useAppointmentDrag({
     const appointment = event.active.data.current?.appointment as Appointment | undefined
     if (!appointment || !isDraggable(appointment, canWriteAgenda)) return
 
-    // Cache grid body rect for the entire drag operation.
-    // Use a day column (data-date) as reference since it shares the same
-    // coordinate system as appointment blocks. Falls back to the wrapper.
-    const dayColumn = gridRef.current?.querySelector("[data-date]") as HTMLElement | null
-    gridRectRef.current = dayColumn
-      ? dayColumn.getBoundingClientRect()
-      : gridRef.current?.getBoundingClientRect() ?? null
+    // Store original appointment time in minutes for delta-based calculation
+    const start = new Date(appointment.scheduledAt)
+    originalMinutesRef.current = start.getHours() * 60 + start.getMinutes()
 
     // Use flushSync to avoid 1-frame ghost delay
     flushSync(() => {
@@ -130,19 +126,22 @@ export function useAppointmentDrag({
     })
     setDragActive?.(true)
     document.body.classList.add("dnd-dragging")
-  }, [dndState, canWriteAgenda, gridRef, setDragActive])
+  }, [dndState, canWriteAgenda, setDragActive])
 
   const handleDragMove = useCallback((event: DragMoveEvent) => {
-    if (dndState !== DND_DRAGGING || !activeAppointment || !gridRectRef.current) return
+    if (dndState !== DND_DRAGGING || !activeAppointment) return
 
     // Throttle to ~15fps
     const now = performance.now()
     if (now - lastConflictCheckRef.current < 66) return
     lastConflictCheckRef.current = now
 
-    const gridRect = gridRectRef.current
-    const pointerY = (event.activatorEvent as MouseEvent).clientY + event.delta.y - gridRect.top
-    const minutes = pixelToMinutes(pointerY, gridConfig)
+    // Compute new time from original position + pixel delta
+    // This avoids needing a grid rect reference entirely
+    const deltaMinutes = event.delta.y / gridConfig.pixelsPerMinute
+    const rawMinutes = originalMinutesRef.current + deltaMinutes
+    const snapped = Math.round(rawMinutes / gridConfig.snapIntervalMinutes) * gridConfig.snapIntervalMinutes
+    const minutes = Math.max(0, Math.min(snapped, 24 * 60 - 1))
     setProjectedMinutes(minutes)
 
     // Detect day column from droppable (weekly view)
