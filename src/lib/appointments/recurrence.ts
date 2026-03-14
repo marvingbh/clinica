@@ -350,12 +350,21 @@ export function calculateDayShiftedDates(
   currentDayOfWeek: number,
   newDayOfWeek: number
 ): { scheduledAt: Date; endAt: Date } {
-  // Calculate day difference (always shift forward)
+  // Calculate day difference — shift to the nearest occurrence of newDayOfWeek
+  // (within the same week when possible, not always forward)
   let dayDiff = newDayOfWeek - currentDayOfWeek
-  if (dayDiff <= 0) {
-    // If new day is same or earlier in week, move to next week
+  if (dayDiff === 0) {
+    // Same day, no shift needed
+    dayDiff = 0
+  } else if (dayDiff > 3) {
+    // More than half a week forward → go backward instead (e.g., Sat→Mon = -5 not +2... wait)
+    // Actually: shift to same week. If diff > 3, going back is shorter.
+    dayDiff -= 7
+  } else if (dayDiff < -3) {
+    // More than half a week backward → go forward instead
     dayDiff += 7
   }
+  // For exactly +/-3, keep the sign as-is (forward or backward)
 
   const msPerDay = 24 * 60 * 60 * 1000
 
