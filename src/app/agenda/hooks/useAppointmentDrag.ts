@@ -15,7 +15,7 @@ import type { Appointment } from "../lib/types"
 import type { GridConfig } from "../lib/grid-config"
 import { minutesToTime, formatTimeFromMinutes, findVisualOverlaps } from "../lib/grid-geometry"
 import { isDraggable, computeNewTimeRange } from "@/lib/appointments/drag-constraints"
-import { updateAppointment } from "../services/appointmentService"
+import { updateAppointment, moveRecurrenceFuture } from "../services/appointmentService"
 
 // --- State machine ---
 const DND_IDLE = "IDLE" as const
@@ -26,14 +26,10 @@ type DndState = typeof DND_IDLE | typeof DND_DRAGGING | typeof DND_DIALOG | type
 
 export interface UseAppointmentDragParams {
   appointments: Appointment[]
-  gridConfig: GridConfig
-  gridRef: React.RefObject<HTMLElement | null>
+  gridConfig: Pick<GridConfig, "pixelsPerMinute" | "snapIntervalMinutes">
   canWriteAgenda: boolean
   onAppointmentMoved: (updated: Appointment) => void
-  /** Called after bulk operations (move all future) that need a full data refresh */
   onBulkChange?: () => void
-  /** Called to suppress/resume data refetches during drag */
-  setDragActive?: (active: boolean) => void
 }
 
 export interface RecurrenceMoveRequest {
@@ -54,23 +50,19 @@ export interface UseAppointmentDragReturn {
   handleDragEnd: (event: DragEndEvent) => void
   handleDragCancel: () => void
   isDragging: boolean
-  // Recurrence dialog
   recurrenceMoveRequest: RecurrenceMoveRequest | null
   handleRecurrenceMoveThis: () => Promise<void>
   handleRecurrenceMoveAllFuture: () => Promise<void>
   handleRecurrenceCancel: () => void
   isUpdating: boolean
-  apiError: string | null
 }
 
 export function useAppointmentDrag({
   appointments,
   gridConfig,
-  gridRef,
   canWriteAgenda,
   onAppointmentMoved,
   onBulkChange,
-  setDragActive,
 }: UseAppointmentDragParams): UseAppointmentDragReturn {
   const [dndState, setDndState] = useState<DndState>(DND_IDLE)
   const [activeAppointment, setActiveAppointment] = useState<Appointment | null>(null)
@@ -79,10 +71,13 @@ export function useAppointmentDrag({
   const [overlappingIds, setOverlappingIds] = useState<string[]>([])
   const [recurrenceMoveRequest, setRecurrenceMoveRequest] = useState<RecurrenceMoveRequest | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
-  const [apiError, setApiError] = useState<string | null>(null)
 
+  // Refs for deduplicating state updates during drag (avoid unnecessary re-renders)
   const originalMinutesRef = useRef(0)
+  const dragDurationMsRef = useRef(0)
   const lastConflictCheckRef = useRef(0)
+  const projectedMinutesRef = useRef<number | null>(null)
+  const overlappingIdsRef = useRef<string[]>([])
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -107,10 +102,12 @@ export function useAppointmentDrag({
     setProjectedDate(null)
     setOverlappingIds([])
     originalMinutesRef.current = 0
+    dragDurationMsRef.current = 0
+    projectedMinutesRef.current = null
+    overlappingIdsRef.current = []
     setDndState(DND_IDLE)
-    setDragActive?.(false)
     document.body.classList.remove("dnd-dragging")
-  }, [setDragActive])
+  }, [])
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     if (dndState !== DND_IDLE) return
@@ -118,18 +115,18 @@ export function useAppointmentDrag({
     const appointment = event.active.data.current?.appointment as Appointment | undefined
     if (!appointment || !isDraggable(appointment, canWriteAgenda)) return
 
-    // Store original appointment time in minutes for delta-based calculation
+    // Cache original time + duration for delta-based calculation
     const start = new Date(appointment.scheduledAt)
+    const end = new Date(appointment.endAt)
     originalMinutesRef.current = start.getHours() * 60 + start.getMinutes()
+    dragDurationMsRef.current = end.getTime() - start.getTime()
 
-    // Use flushSync to avoid 1-frame ghost delay
     flushSync(() => {
       setActiveAppointment(appointment)
       setDndState(DND_DRAGGING)
     })
-    setDragActive?.(true)
     document.body.classList.add("dnd-dragging")
-  }, [dndState, canWriteAgenda, setDragActive])
+  }, [dndState, canWriteAgenda])
 
   const handleDragMove = useCallback((event: DragMoveEvent) => {
     if (dndState !== DND_DRAGGING || !activeAppointment) return
@@ -140,12 +137,16 @@ export function useAppointmentDrag({
     lastConflictCheckRef.current = now
 
     // Compute new time from original position + pixel delta
-    // This avoids needing a grid rect reference entirely
     const deltaMinutes = event.delta.y / gridConfig.pixelsPerMinute
     const rawMinutes = originalMinutesRef.current + deltaMinutes
     const snapped = Math.round(rawMinutes / gridConfig.snapIntervalMinutes) * gridConfig.snapIntervalMinutes
     const minutes = Math.max(0, Math.min(snapped, 24 * 60 - 1))
-    setProjectedMinutes(minutes)
+
+    // Only update state if value changed (skip re-render for same snap zone)
+    if (minutes !== projectedMinutesRef.current) {
+      projectedMinutesRef.current = minutes
+      setProjectedMinutes(minutes)
+    }
 
     // Detect day column from droppable (weekly view)
     const overId = event.over?.id
@@ -153,24 +154,21 @@ export function useAppointmentDrag({
       setProjectedDate(overId.replace("day-", ""))
     }
 
-    // Check visual overlaps (presentation hint)
+    // Check visual overlaps using cached duration (no Date allocations)
     if (activeAppointment.blocksTime) {
       const { hours, minutes: mins } = minutesToTime(minutes)
-      const originalStart = new Date(activeAppointment.scheduledAt)
-      const originalEnd = new Date(activeAppointment.endAt)
-      const durationMs = originalEnd.getTime() - originalStart.getTime()
+      const baseDateMs = new Date(activeAppointment.scheduledAt).setHours(hours, mins, 0, 0)
+      const proposedEndMs = baseDateMs + dragDurationMsRef.current
 
-      const proposedStart = new Date(originalStart)
-      proposedStart.setHours(hours, mins, 0, 0)
-      const proposedEnd = proposedStart.getTime() + durationMs
+      const overlaps = findVisualOverlaps(baseDateMs, proposedEndMs, processedIntervals, activeAppointment.id)
 
-      const overlaps = findVisualOverlaps(
-        proposedStart.getTime(),
-        proposedEnd,
-        processedIntervals,
-        activeAppointment.id
-      )
-      setOverlappingIds(overlaps)
+      // Only update if overlaps actually changed
+      const prev = overlappingIdsRef.current
+      const changed = overlaps.length !== prev.length || overlaps.some((id, i) => id !== prev[i])
+      if (changed) {
+        overlappingIdsRef.current = overlaps
+        setOverlappingIds(overlaps)
+      }
     }
   }, [dndState, activeAppointment, gridConfig, processedIntervals])
 
@@ -179,7 +177,6 @@ export function useAppointmentDrag({
     newTime: { scheduledAt: string; endAt: string }
   ) => {
     setIsUpdating(true)
-    setApiError(null)
     setDndState(DND_PERSISTING)
 
     const result = await updateAppointment(appointmentId, {
@@ -191,7 +188,6 @@ export function useAppointmentDrag({
 
     if (result.error) {
       toast.error(result.error)
-      setApiError(result.error)
       resetDragState()
       return
     }
@@ -227,15 +223,10 @@ export function useAppointmentDrag({
     // Recurring appointment → open dialog
     if (activeAppointment.recurrence) {
       setDndState(DND_DIALOG)
-      setRecurrenceMoveRequest({
-        appointment: activeAppointment,
-        newTime,
-        newDayDate: projectedDate ?? undefined,
-      })
+      setRecurrenceMoveRequest({ appointment: activeAppointment, newTime, newDayDate: projectedDate ?? undefined })
       return
     }
 
-    // Non-recurring → move directly
     performMove(activeAppointment.id, newTime)
   }, [dndState, activeAppointment, projectedMinutes, projectedDate, performMove, resetDragState])
 
@@ -256,50 +247,26 @@ export function useAppointmentDrag({
     const { appointment, newTime, newDayDate } = recurrenceMoveRequest
 
     setIsUpdating(true)
-    setApiError(null)
     setDndState(DND_PERSISTING)
     setRecurrenceMoveRequest(null)
 
     const newStart = new Date(newTime.scheduledAt)
     const newEnd = new Date(newTime.endAt)
-    const startTimeStr = `${newStart.getHours().toString().padStart(2, "0")}:${newStart.getMinutes().toString().padStart(2, "0")}`
-    const endTimeStr = `${newEnd.getHours().toString().padStart(2, "0")}:${newEnd.getMinutes().toString().padStart(2, "0")}`
+    const startTimeStr = formatTimeFromMinutes(newStart.getHours() * 60 + newStart.getMinutes())
+    const endTimeStr = formatTimeFromMinutes(newEnd.getHours() * 60 + newEnd.getMinutes())
 
-    const body: Record<string, unknown> = {
+    const result = await moveRecurrenceFuture(appointment.recurrence!.id, {
       startTime: startTimeStr,
       endTime: endTimeStr,
-      applyTo: "future",
-    }
+      dayOfWeek: newDayDate ? new Date(newDayDate + "T12:00:00").getDay() : undefined,
+    })
 
-    // If day changed (weekly cross-day drag), update dayOfWeek
-    if (newDayDate) {
-      const newDay = new Date(newDayDate + "T12:00:00")
-      body.dayOfWeek = newDay.getDay()
-    }
-
-    try {
-      const response = await fetch(`/api/appointments/recurrences/${appointment.recurrence!.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        const conflictMsg = result.conflicts
-          ? `Conflitos encontrados em ${result.conflicts.length} data(s)`
-          : result.error || "Erro ao atualizar recorrência"
-        toast.error(conflictMsg)
-        setApiError(conflictMsg)
-      } else {
-        const count = result.updatedAppointmentsCount || 0
-        toast.success(`Recorrência e ${count} agendamento(s) atualizados para ${startTimeStr}`)
-        // Bulk change — need full refetch, not single-appointment patch
-        onBulkChange?.()
-      }
-    } catch {
-      toast.error("Erro de conexão ao atualizar recorrência")
+    if (result.error) {
+      toast.error(result.error)
+    } else {
+      const count = result.updatedAppointmentsCount || 0
+      toast.success(`Recorrência e ${count} agendamento(s) atualizados para ${startTimeStr}`)
+      onBulkChange?.()
     }
 
     setIsUpdating(false)
@@ -328,6 +295,5 @@ export function useAppointmentDrag({
     handleRecurrenceMoveAllFuture,
     handleRecurrenceCancel,
     isUpdating,
-    apiError,
   }
 }

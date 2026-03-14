@@ -1,15 +1,5 @@
 import type { GridConfig } from "./grid-config"
 
-/** Convert pixel Y offset to total minutes since midnight, snapped to grid */
-export function pixelToMinutes(
-  pixelY: number,
-  config: Pick<GridConfig, "pixelsPerMinute" | "startHour" | "snapIntervalMinutes">
-): number {
-  const rawMinutes = config.startHour * 60 + pixelY / config.pixelsPerMinute
-  const snapped = Math.round(rawMinutes / config.snapIntervalMinutes) * config.snapIntervalMinutes
-  return Math.max(0, Math.min(snapped, 24 * 60 - 1))
-}
-
 /** Convert total minutes since midnight to pixel Y offset */
 export function minutesToPixel(
   totalMinutes: number,

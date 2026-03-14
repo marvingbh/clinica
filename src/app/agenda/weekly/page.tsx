@@ -130,8 +130,6 @@ function WeeklyAgendaPageContent() {
 
   // Drag-and-drop: only enabled for single professional view (not "Todos")
   const isDndEnabled = canWriteAgenda && !!selectedProfessionalId
-  const weeklyGridRef = useRef<HTMLDivElement>(null)
-
   const [refetchTrigger, setRefetchTrigger] = useState(0)
 
   const handleAppointmentMoved = useCallback((updated: Appointment) => {
@@ -149,7 +147,6 @@ function WeeklyAgendaPageContent() {
   const drag = useAppointmentDrag({
     appointments,
     gridConfig: WEEKLY_GRID,
-    gridRef: weeklyGridRef,
     canWriteAgenda: isDndEnabled,
     onAppointmentMoved: handleAppointmentMoved,
     onBulkChange: handleBulkChange,
@@ -798,7 +795,7 @@ function WeeklyAgendaPageContent() {
           onDragCancel={drag.handleDragCancel}
           autoScroll={{ threshold: { x: 0.15, y: 0.15 } }}
         >
-          <div ref={weeklyGridRef}>
+          <div>
             <WeeklyGrid
               weekStart={weekStart}
               appointments={appointments}

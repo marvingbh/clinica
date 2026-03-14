@@ -152,6 +152,23 @@ export const PATCH = withFeatureAuth(
     }
     const { scheduledAt, endAt, status, modality, notes, price, cancellationReason, title, additionalProfessionalIds } = parsed.data
 
+    // Reject time changes for non-reschedulable appointments
+    const isReschedule = scheduledAt !== undefined || endAt !== undefined
+    if (isReschedule) {
+      if (!["AGENDADO", "CONFIRMADO"].includes(existing.status)) {
+        return NextResponse.json(
+          { error: "Somente agendamentos pendentes ou confirmados podem ser remarcados" },
+          { status: 400 }
+        )
+      }
+      if (existing.groupId) {
+        return NextResponse.json(
+          { error: "Agendamentos de grupo devem ser movidos pela sessão de grupo" },
+          { status: 400 }
+        )
+      }
+    }
+
     // Store old values for audit log (only fields being updated)
     const oldValues: Prisma.JsonObject = {}
     const newValues: Prisma.JsonObject = {}
