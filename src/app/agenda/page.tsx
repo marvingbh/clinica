@@ -37,6 +37,7 @@ import { fetchAppointmentById } from "./services"
 import { createProfessionalColorMap } from "./lib/professional-colors"
 import { usePermission } from "@/shared/hooks/usePermission"
 import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core"
+import { snapCenterToCursor } from "@dnd-kit/modifiers"
 import { useAppointmentDrag } from "./hooks/useAppointmentDrag"
 import { RecurrenceMoveDialog } from "./components/RecurrenceMoveDialog"
 import { DragGhostCard } from "./components/DragGhostCard"
@@ -373,6 +374,7 @@ export default function AgendaPage() {
         </div>
 
         <DragOverlay
+          modifiers={[snapCenterToCursor]}
           dropAnimation={{ duration: 200, easing: "cubic-bezier(0.25, 1, 0.5, 1)" }}
           zIndex={50}
         >
