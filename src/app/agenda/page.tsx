@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo, useCallback, useRef } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 
@@ -42,7 +42,6 @@ import { useAppointmentDrag } from "./hooks/useAppointmentDrag"
 import { RecurrenceMoveDialog } from "./components/RecurrenceMoveDialog"
 import { DragGhostCard } from "./components/DragGhostCard"
 import { DAILY_GRID_BASE } from "./lib/grid-config"
-import type { GridConfig } from "./lib/grid-config"
 
 export default function AgendaPage() {
   const router = useRouter()
@@ -122,24 +121,15 @@ export default function AgendaPage() {
 
   // Drag-and-drop: only in single-professional view with write permission
   const isDndEnabled = canWriteAgenda && !!selectedProfessionalId
-  const dailyGridRef = useRef<HTMLDivElement>(null)
-
-  // Dynamic grid config for daily view (startHour is computed from content)
-  const dailyGridConfig: GridConfig = useMemo(() => ({
-    ...DAILY_GRID_BASE,
-    startHour: 8, // Will be overridden by grid content but provides a reasonable default
-    endHour: 18,
-  }), [])
 
   const handleDailyAppointmentMoved = useCallback((updated: Appointment) => {
-    // Trigger refetch since useAgendaData manages the state
+    // Apply PATCH response locally, then defer full refetch for consistency
     refetchAppointments()
   }, [refetchAppointments])
 
   const drag = useAppointmentDrag({
     appointments,
-    gridConfig: dailyGridConfig,
-    gridRef: dailyGridRef,
+    gridConfig: DAILY_GRID_BASE,
     canWriteAgenda: isDndEnabled,
     onAppointmentMoved: handleDailyAppointmentMoved,
     onBulkChange: refetchAppointments,
@@ -351,7 +341,7 @@ export default function AgendaPage() {
         onDragEnd={drag.handleDragEnd}
         onDragCancel={drag.handleDragCancel}
       >
-        <div ref={dailyGridRef}>
+        <div>
           <AgendaTimeline
             appointments={appointments}
             timeSlots={timeSlots}

@@ -680,9 +680,3 @@ body.dnd-dragging,
 body.dnd-dragging * {
   cursor: grabbing !important;
 }
-
-/* Conflict highlight on appointment blocks during drag */
-[data-drag-conflict="true"] {
-  outline: 2px solid rgb(239 68 68 / 0.7);
-  outline-offset: -1px;
-}

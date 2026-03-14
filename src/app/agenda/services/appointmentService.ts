@@ -93,6 +93,53 @@ export interface DeleteAppointmentResponse {
   error?: string
 }
 
+export interface MoveRecurrenceFutureData {
+  startTime: string
+  endTime: string
+  dayOfWeek?: number
+}
+
+export interface MoveRecurrenceFutureResponse {
+  success?: boolean
+  message?: string
+  updatedAppointmentsCount?: number
+  error?: string
+  conflicts?: Array<{ date: string; conflictsWith: string }>
+}
+
+export async function moveRecurrenceFuture(
+  recurrenceId: string,
+  data: MoveRecurrenceFutureData
+): Promise<MoveRecurrenceFutureResponse> {
+  const body: Record<string, unknown> = {
+    startTime: data.startTime,
+    endTime: data.endTime,
+    applyTo: "future",
+  }
+  if (data.dayOfWeek !== undefined) {
+    body.dayOfWeek = data.dayOfWeek
+  }
+
+  const response = await fetch(`/api/appointments/recurrences/${recurrenceId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+
+  const result = await response.json()
+
+  if (!response.ok) {
+    return {
+      error: result.conflicts
+        ? `Conflitos encontrados em ${result.conflicts.length} data(s)`
+        : result.error || "Erro ao atualizar recorrência",
+      conflicts: result.conflicts,
+    }
+  }
+
+  return result
+}
+
 export async function fetchAppointmentById(id: string): Promise<Appointment | null> {
   const response = await fetch(`/api/appointments/${id}`)
   if (!response.ok) return null
