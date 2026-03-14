@@ -114,10 +114,13 @@ export function useAppointmentDrag({
     const appointment = event.active.data.current?.appointment as Appointment | undefined
     if (!appointment || !isDraggable(appointment, canWriteAgenda)) return
 
-    // Cache grid rect for the entire drag operation
-    if (gridRef.current) {
-      gridRectRef.current = gridRef.current.getBoundingClientRect()
-    }
+    // Cache grid body rect for the entire drag operation.
+    // Use a day column (data-date) as reference since it shares the same
+    // coordinate system as appointment blocks. Falls back to the wrapper.
+    const dayColumn = gridRef.current?.querySelector("[data-date]") as HTMLElement | null
+    gridRectRef.current = dayColumn
+      ? dayColumn.getBoundingClientRect()
+      : gridRef.current?.getBoundingClientRect() ?? null
 
     // Use flushSync to avoid 1-frame ghost delay
     flushSync(() => {
