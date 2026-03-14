@@ -1,12 +1,14 @@
 "use client"
 
-import React from "react"
+import React, { memo, useMemo } from "react"
+import { useDraggable } from "@dnd-kit/core"
 import { RefreshCwIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { Appointment } from "../../lib/types"
 import { isBirthdayOnDate } from "../../lib/utils"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../../lib/professional-colors"
 import { STATUS_LABELS, ENTRY_TYPE_COLORS, ENTRY_TYPE_LABELS, CANCELLED_STATUSES } from "../../lib/constants"
 import type { AppointmentStatus, CalendarEntryType } from "../../lib/types"
+import { isDraggable } from "@/lib/appointments/drag-constraints"
 
 import { WEEKLY_GRID } from "../../lib/grid-config"
 
@@ -22,9 +24,10 @@ interface AppointmentBlockProps {
   columnIndex?: number
   totalColumns?: number
   professionalColorMap?: ProfessionalColorMap
+  canWriteAgenda?: boolean
 }
 
-export function AppointmentBlock({
+export const AppointmentBlock = memo(function AppointmentBlock({
   appointment,
   onClick,
   onAlternateWeekClick,
@@ -32,7 +35,18 @@ export function AppointmentBlock({
   columnIndex = 0,
   totalColumns = 1,
   professionalColorMap,
+  canWriteAgenda = false,
 }: AppointmentBlockProps) {
+  const canDrag = isDraggable(appointment, canWriteAgenda)
+  const draggableData = useMemo(
+    () => ({ appointment }),
+    [appointment]
+  )
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: appointment.id,
+    data: draggableData,
+    disabled: !canDrag,
+  })
   const scheduledAt = new Date(appointment.scheduledAt)
   const endAt = new Date(appointment.endAt)
 
@@ -68,19 +82,25 @@ export function AppointmentBlock({
 
   return (
     <button
+      ref={setNodeRef}
       type="button"
+      data-appointment-id={appointment.id}
       onClick={() => onClick(appointment)}
+      {...attributes}
+      {...listeners}
       style={{
         position: "absolute",
         top: `${top}px`,
         height: `${height}px`,
         left: `calc(${leftPercent}% + 1px)`,
         width: `calc(${widthPercent}% - 2px)`,
+        opacity: isDragging ? 0.3 : undefined,
       }}
       className={`
         border border-border rounded px-1 py-0.5 text-left
-        border-l-[3px] overflow-hidden cursor-pointer
-        hover:shadow-md hover:z-10 transition-all
+        border-l-[3px] overflow-hidden transition-all
+        ${canDrag ? "cursor-grab hover:shadow-md hover:z-10" : "cursor-pointer hover:shadow-md hover:z-10"}
+        ${isDragging ? "border-dashed" : ""}
         ${showProfessional ? profColors.bg : entryColors.bg}
         ${showProfessional ? profColors.border : entryColors.borderLeft}
         ${isCancelled ? "opacity-50" : isFinalized ? "opacity-60" : ""}
@@ -179,4 +199,4 @@ export function AppointmentBlock({
       </div>
     </button>
   )
-}
+})
