@@ -334,22 +334,41 @@ describe("calculateDayShiftedDates", () => {
     expect(endAt.getDate()).toBe(4)
   })
 
-  it("shifts to next week when new day is same as current", () => {
+  it("no shift when new day is same as current", () => {
     const monday = new Date(2026, 2, 2, 9, 0)
     const mondayEnd = new Date(2026, 2, 2, 9, 45)
 
     const { scheduledAt } = calculateDayShiftedDates(monday, mondayEnd, 1, 1)
-    expect(scheduledAt.getDate()).toBe(9)
+    expect(scheduledAt.getDate()).toBe(2) // same day, no shift
   })
 
-  it("shifts to next week when new day is earlier in week", () => {
-    // Wednesday -> Monday = +5 days (not -2)
+  it("shifts backward when new day is earlier in the same week", () => {
+    // Wednesday Mar 4 -> Monday Mar 2 (-2 days, same week)
     const wednesday = new Date(2026, 2, 4, 9, 0)
     const wednesdayEnd = new Date(2026, 2, 4, 9, 45)
 
     const { scheduledAt } = calculateDayShiftedDates(wednesday, wednesdayEnd, 3, 1)
     expect(scheduledAt.getDay()).toBe(1)
-    expect(scheduledAt.getDate()).toBe(9)
+    expect(scheduledAt.getDate()).toBe(2) // same week Monday
+  })
+
+  it("shifts backward for Friday -> Tuesday (nearest = -3 days)", () => {
+    // Friday Mar 20 -> Tuesday Mar 17 (-3 days, same week)
+    const friday = new Date(2026, 2, 20, 12, 30)
+    const fridayEnd = new Date(2026, 2, 20, 13, 15)
+
+    const { scheduledAt } = calculateDayShiftedDates(friday, fridayEnd, 5, 2)
+    expect(scheduledAt.getDay()).toBe(2)
+    expect(scheduledAt.getDate()).toBe(17) // same week Tuesday
+  })
+
+  it("shifts forward for Monday -> Thursday (+3 days)", () => {
+    const monday = new Date(2026, 2, 2, 9, 0)
+    const mondayEnd = new Date(2026, 2, 2, 9, 45)
+
+    const { scheduledAt } = calculateDayShiftedDates(monday, mondayEnd, 1, 4)
+    expect(scheduledAt.getDay()).toBe(4)
+    expect(scheduledAt.getDate()).toBe(5) // same week Thursday
   })
 
   it("preserves time across the shift", () => {
