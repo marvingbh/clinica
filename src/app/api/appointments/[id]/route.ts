@@ -1,10 +1,28 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
+import { z } from "zod"
 import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
 import { checkConflict, formatConflictError } from "@/lib/appointments"
 import { createAuditLog, audit, AuditAction } from "@/lib/rbac/audit"
+
+const updateAppointmentSchema = z.object({
+  scheduledAt: z.string().datetime().optional(),
+  endAt: z.string().datetime().optional(),
+  status: z.enum(["AGENDADO", "CONFIRMADO", "FINALIZADO", "CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"]).optional(),
+  modality: z.enum(["ONLINE", "PRESENCIAL"]).nullable().optional(),
+  notes: z.string().max(5000).nullable().optional(),
+  price: z.union([z.number().nonnegative(), z.string(), z.null()]).optional(),
+  cancellationReason: z.string().max(1000).nullable().optional(),
+  title: z.string().max(500).nullable().optional(),
+  additionalProfessionalIds: z.array(z.string()).optional(),
+}).refine(data => {
+  if (data.scheduledAt && data.endAt) {
+    return new Date(data.endAt) > new Date(data.scheduledAt)
+  }
+  return true
+}, { message: "endAt must be after scheduledAt" })
 
 /**
  * GET /api/appointments/:id
@@ -127,8 +145,12 @@ export const PATCH = withFeatureAuth(
       return forbiddenResponse("You can only update your own appointments")
     }
 
-    const body = await req.json()
-    const { scheduledAt, endAt, status, modality, notes, price, cancellationReason, title, additionalProfessionalIds } = body
+    const rawBody = await req.json()
+    const parsed = updateAppointmentSchema.safeParse(rawBody)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Dados inválidos" }, { status: 400 })
+    }
+    const { scheduledAt, endAt, status, modality, notes, price, cancellationReason, title, additionalProfessionalIds } = parsed.data
 
     // Store old values for audit log (only fields being updated)
     const oldValues: Prisma.JsonObject = {}
