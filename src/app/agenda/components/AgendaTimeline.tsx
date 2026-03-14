@@ -27,6 +27,7 @@ export interface AgendaTimelineProps {
   onSwipeLeft: () => void
   onSwipeRight: () => void
   professionalColorMap?: ProfessionalColorMap
+  canWriteAgenda?: boolean
 }
 
 export function AgendaTimeline({
@@ -47,6 +48,7 @@ export function AgendaTimeline({
   onSwipeLeft,
   onSwipeRight,
   professionalColorMap,
+  canWriteAgenda = false,
 }: AgendaTimelineProps) {
   // "Now" indicator — update every minute (must be before any early returns)
   const [now, setNow] = useState(new Date())
@@ -150,6 +152,7 @@ export function AgendaTimeline({
           timeSlots={timeSlots}
           appointmentDuration={computedDuration}
           onBiweeklyHintClick={onBiweeklyHintClick}
+          canWriteAgenda={canWriteAgenda}
         />
       )}
     </SwipeContainer>

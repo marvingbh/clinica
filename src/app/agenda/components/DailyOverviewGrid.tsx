@@ -127,6 +127,7 @@ export interface DailyOverviewGridProps {
   timeSlots?: TimeSlot[]
   appointmentDuration?: number
   onBiweeklyHintClick?: (time: string) => void
+  canWriteAgenda?: boolean
 }
 
 export function DailyOverviewGrid({
@@ -141,6 +142,7 @@ export function DailyOverviewGrid({
   timeSlots,
   appointmentDuration = 50,
   onBiweeklyHintClick,
+  canWriteAgenda = false,
 }: DailyOverviewGridProps) {
   const individualAppointments = useMemo(() => {
     return appointments.filter(apt => !apt.groupId)
@@ -347,6 +349,7 @@ export function DailyOverviewGrid({
                 showProfessional={showProfessional}
                 professionalColorMap={professionalColorMap}
                 onClick={onAppointmentClick}
+                canWriteAgenda={canWriteAgenda}
               />
             )
           })}

@@ -1,12 +1,14 @@
 "use client"
 
-import { memo } from "react"
+import { memo, useMemo } from "react"
+import { useDraggable } from "@dnd-kit/core"
 import { RefreshCwIcon, PhoneIcon, VideoIcon, BuildingIcon } from "@/shared/components/ui/icons"
 import type { Appointment, AppointmentStatus } from "../lib/types"
 import { STATUS_LABELS, STATUS_COLORS, STATUS_BORDER_COLORS, CANCELLED_STATUSES, ENTRY_TYPE_LABELS } from "../lib/constants"
 import { formatPhone, isBirthdayToday, isRecurrenceModified } from "../lib/utils"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../lib/professional-colors"
 import { DAILY_GRID_BASE } from "../lib/grid-config"
+import { isDraggable } from "@/lib/appointments/drag-constraints"
 
 const { pixelsPerMinute: PIXELS_PER_MINUTE } = DAILY_GRID_BASE
 const SLOT_LEFT_MARGIN = 12
@@ -24,6 +26,7 @@ export interface DailyAppointmentBlockProps {
   showProfessional: boolean
   professionalColorMap?: ProfessionalColorMap
   onClick: (appointment: Appointment) => void
+  canWriteAgenda?: boolean
 }
 
 export const DailyAppointmentBlock = memo(function DailyAppointmentBlock({
@@ -33,7 +36,15 @@ export const DailyAppointmentBlock = memo(function DailyAppointmentBlock({
   showProfessional,
   professionalColorMap,
   onClick,
+  canWriteAgenda = false,
 }: DailyAppointmentBlockProps) {
+  const canDrag = isDraggable(appointment, canWriteAgenda)
+  const draggableData = useMemo(() => ({ appointment }), [appointment])
+  const { attributes, listeners, setNodeRef, isDragging: isDraggingThis } = useDraggable({
+    id: appointment.id,
+    data: draggableData,
+    disabled: !canDrag,
+  })
   const scheduledAt = new Date(appointment.scheduledAt)
   const endAt = new Date(appointment.endAt)
   const hour = scheduledAt.getHours()
@@ -64,13 +75,15 @@ export const DailyAppointmentBlock = memo(function DailyAppointmentBlock({
 
   return (
     <button
-      key={appointment.id}
+      ref={setNodeRef}
       type="button"
       data-appointment-id={appointment.id}
       onClick={(e) => {
         e.stopPropagation()
         onClick(appointment)
       }}
+      {...attributes}
+      {...listeners}
       style={{
         position: "absolute",
         top: `${top}px`,
@@ -78,11 +91,14 @@ export const DailyAppointmentBlock = memo(function DailyAppointmentBlock({
         left: `calc(${leftPercent}% + ${SLOT_LEFT_MARGIN}px + 2px)`,
         width: `calc(${columnWidth}% - ${SLOT_LEFT_MARGIN}px - 4px)`,
         maxWidth: layout.totalColumns === 1 ? "400px" : undefined,
+        opacity: isDraggingThis ? 0.3 : undefined,
       }}
       className={`
-        group rounded-xl text-left overflow-hidden cursor-pointer
+        group rounded-xl text-left overflow-hidden
         border border-border border-l-[3px] shadow-sm
         hover:shadow-md hover:z-30 active:scale-[0.98] transition-all
+        ${canDrag ? "cursor-grab" : "cursor-pointer"}
+        ${isDraggingThis ? "border-dashed" : ""}
         border-t-[3px] ${showProfessional ? profColors.accent.replace("bg-", "border-t-") : getStatusBorderTop(appointment.status as AppointmentStatus)}
         ${bgClass} ${borderClass}
         ${isCancelled ? "opacity-40" : isFinalized ? "opacity-50" : ""}
