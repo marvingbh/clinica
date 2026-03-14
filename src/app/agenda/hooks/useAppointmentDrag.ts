@@ -30,6 +30,8 @@ export interface UseAppointmentDragParams {
   gridRef: React.RefObject<HTMLElement | null>
   canWriteAgenda: boolean
   onAppointmentMoved: (updated: Appointment) => void
+  /** Called after bulk operations (move all future) that need a full data refresh */
+  onBulkChange?: () => void
   /** Called to suppress/resume data refetches during drag */
   setDragActive?: (active: boolean) => void
 }
@@ -67,6 +69,7 @@ export function useAppointmentDrag({
   gridRef,
   canWriteAgenda,
   onAppointmentMoved,
+  onBulkChange,
   setDragActive,
 }: UseAppointmentDragParams): UseAppointmentDragReturn {
   const [dndState, setDndState] = useState<DndState>(DND_IDLE)
@@ -265,6 +268,7 @@ export function useAppointmentDrag({
     const body: Record<string, unknown> = {
       startTime: startTimeStr,
       endTime: endTimeStr,
+      applyTo: "future",
     }
 
     // If day changed (weekly cross-day drag), update dayOfWeek
@@ -283,12 +287,16 @@ export function useAppointmentDrag({
       const result = await response.json()
 
       if (!response.ok) {
-        toast.error(result.error || "Erro ao atualizar recorrência")
-        setApiError(result.error || "Erro ao atualizar recorrência")
+        const conflictMsg = result.conflicts
+          ? `Conflitos encontrados em ${result.conflicts.length} data(s)`
+          : result.error || "Erro ao atualizar recorrência"
+        toast.error(conflictMsg)
+        setApiError(conflictMsg)
       } else {
-        toast.success(`Recorrência atualizada para ${startTimeStr}`)
-        // Trigger a full refetch since bulk appointments changed
-        onAppointmentMoved(appointment)
+        const count = result.updatedAppointmentsCount || 0
+        toast.success(`Recorrência e ${count} agendamento(s) atualizados para ${startTimeStr}`)
+        // Bulk change — need full refetch, not single-appointment patch
+        onBulkChange?.()
       }
     } catch {
       toast.error("Erro de conexão ao atualizar recorrência")
@@ -296,7 +304,7 @@ export function useAppointmentDrag({
 
     setIsUpdating(false)
     resetDragState()
-  }, [recurrenceMoveRequest, onAppointmentMoved, resetDragState])
+  }, [recurrenceMoveRequest, onBulkChange, resetDragState])
 
   const handleRecurrenceCancel = useCallback(() => {
     setRecurrenceMoveRequest(null)

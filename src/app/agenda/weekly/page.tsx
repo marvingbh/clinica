@@ -132,11 +132,18 @@ function WeeklyAgendaPageContent() {
   const isDndEnabled = canWriteAgenda && !!selectedProfessionalId
   const weeklyGridRef = useRef<HTMLDivElement>(null)
 
+  const [refetchTrigger, setRefetchTrigger] = useState(0)
+
   const handleAppointmentMoved = useCallback((updated: Appointment) => {
     // Apply PATCH response locally to avoid full refetch latency
     setAppointments(prev => prev.map(apt =>
       apt.id === updated.id ? updated : apt
     ))
+  }, [])
+
+  const handleBulkChange = useCallback(() => {
+    // Trigger full data refetch for bulk recurrence updates
+    setRefetchTrigger(prev => prev + 1)
   }, [])
 
   const drag = useAppointmentDrag({
@@ -145,6 +152,7 @@ function WeeklyAgendaPageContent() {
     gridRef: weeklyGridRef,
     canWriteAgenda: isDndEnabled,
     onAppointmentMoved: handleAppointmentMoved,
+    onBulkChange: handleBulkChange,
   })
 
   // ============================================================================
@@ -689,7 +697,7 @@ function WeeklyAgendaPageContent() {
     return () => {
       abortController.abort()
     }
-  }, [status, weekStart, activeProfessionalProfileId, isAdmin, selectedProfessionalId, router])
+  }, [status, weekStart, activeProfessionalProfileId, isAdmin, selectedProfessionalId, router, refetchTrigger])
 
   // Update appointment duration from session for non-admins
   useEffect(() => {

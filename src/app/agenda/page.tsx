@@ -142,6 +142,7 @@ export default function AgendaPage() {
     gridRef: dailyGridRef,
     canWriteAgenda: isDndEnabled,
     onAppointmentMoved: handleDailyAppointmentMoved,
+    onBulkChange: refetchAppointments,
   })
 
   // Time slots
