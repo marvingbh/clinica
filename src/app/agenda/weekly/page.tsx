@@ -54,11 +54,10 @@ import { usePermission } from "@/shared/hooks/usePermission"
 
 import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core"
 import { WeeklyGrid, WeeklyHeader } from "./components"
-import { AppointmentBlock } from "./components/AppointmentBlock"
 import { useAppointmentDrag } from "../hooks/useAppointmentDrag"
 import { RecurrenceMoveDialog } from "../components/RecurrenceMoveDialog"
+import { DragGhostCard } from "../components/DragGhostCard"
 import { WEEKLY_GRID } from "../lib/grid-config"
-import { formatTimeFromMinutes } from "../lib/grid-geometry"
 
 function WeeklyAgendaPageContent() {
   const router = useRouter()
@@ -813,23 +812,16 @@ function WeeklyAgendaPageContent() {
             />
           </div>
 
-          {/* Drag overlay — ghost preview */}
+          {/* Drag overlay — ghost preview (simple card, no absolute positioning) */}
           <DragOverlay
             dropAnimation={{ duration: 200, easing: "cubic-bezier(0.25, 1, 0.5, 1)" }}
             zIndex={50}
           >
             {drag.activeAppointment ? (
-              <div className="opacity-90 shadow-lg ring-2 ring-primary/30 pointer-events-none rounded relative">
-                {drag.projectedMinutes != null && (
-                  <span className="absolute -top-5 left-0 text-xs font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded z-10">
-                    {formatTimeFromMinutes(drag.projectedMinutes)}
-                  </span>
-                )}
-                <AppointmentBlock
-                  appointment={drag.activeAppointment}
-                  onClick={() => {}}
-                />
-              </div>
+              <DragGhostCard
+                appointment={drag.activeAppointment}
+                projectedMinutes={drag.projectedMinutes}
+              />
             ) : null}
           </DragOverlay>
         </DndContext>

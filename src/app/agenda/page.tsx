@@ -39,9 +39,9 @@ import { usePermission } from "@/shared/hooks/usePermission"
 import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core"
 import { useAppointmentDrag } from "./hooks/useAppointmentDrag"
 import { RecurrenceMoveDialog } from "./components/RecurrenceMoveDialog"
+import { DragGhostCard } from "./components/DragGhostCard"
 import { DAILY_GRID_BASE } from "./lib/grid-config"
 import type { GridConfig } from "./lib/grid-config"
-import { formatTimeFromMinutes } from "./lib/grid-geometry"
 
 export default function AgendaPage() {
   const router = useRouter()
@@ -377,16 +377,10 @@ export default function AgendaPage() {
           zIndex={50}
         >
           {drag.activeAppointment ? (
-            <div className="opacity-90 shadow-lg ring-2 ring-primary/30 pointer-events-none rounded-xl relative">
-              {drag.projectedMinutes != null && (
-                <span className="absolute -top-5 left-0 text-xs font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded z-10">
-                  {formatTimeFromMinutes(drag.projectedMinutes)}
-                </span>
-              )}
-              <div className="bg-card border border-border rounded-xl px-3 py-2 text-sm font-medium">
-                {drag.activeAppointment.patient?.name || drag.activeAppointment.title || "Agendamento"}
-              </div>
-            </div>
+            <DragGhostCard
+              appointment={drag.activeAppointment}
+              projectedMinutes={drag.projectedMinutes}
+            />
           ) : null}
         </DragOverlay>
       </DndContext>
