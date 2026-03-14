@@ -55,3 +55,8 @@ export {
   type AppointmentStatusType,
   type StatusUpdateFields,
 } from "./status-transitions"
+
+export {
+  isDraggable,
+  computeNewTimeRange,
+} from "./drag-constraints"
