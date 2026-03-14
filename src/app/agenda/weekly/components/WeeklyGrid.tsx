@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useRef, useEffect, useState } from "react"
+import { useDroppable } from "@dnd-kit/core"
 import { Appointment, GroupSession, TimeSlot } from "../../lib/types"
 import { getWeekDays, toDateString, isSameDay, isWeekend } from "../../lib/utils"
 import { DayHeader } from "./DayHeader"
@@ -9,6 +10,7 @@ import { GroupSessionBlock } from "./GroupSessionBlock"
 import { AvailabilitySlotBlock } from "./AvailabilitySlotBlock"
 import { createProfessionalColorMap } from "../../lib/professional-colors"
 import { WEEKLY_GRID } from "../../lib/grid-config"
+import { minutesToPixel } from "../../lib/grid-geometry"
 
 const { startHour: START_HOUR, endHour: END_HOUR, pixelsPerMinute: PIXELS_PER_MINUTE, hourHeight: HOUR_HEIGHT } = WEEKLY_GRID
 const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i)
@@ -32,6 +34,13 @@ interface WeeklyGridProps {
   onAvailabilitySlotClick?: (date: string, time: string) => void
   onBiweeklyHintClick?: (date: string, time: string) => void
   showProfessional?: boolean
+  // Drag-and-drop
+  canWriteAgenda?: boolean
+  isDragging?: boolean
+  projectedMinutes?: number | null
+  projectedDate?: string | null
+  overlappingIds?: string[]
+  activeAppointmentId?: string | null
 }
 
 interface AppointmentWithLayout extends Appointment {
@@ -128,7 +137,7 @@ function calculateDayLayout(
   return { appointments: appointmentsWithLayout, groupSessions: groupSessionsWithLayout }
 }
 
-export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availabilitySlots, appointmentDuration, birthdayPatients = [], onAppointmentClick, onGroupSessionClick, onAlternateWeekClick, onAvailabilitySlotClick, onBiweeklyHintClick, showProfessional = false }: WeeklyGridProps) {
+export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availabilitySlots, appointmentDuration, birthdayPatients = [], onAppointmentClick, onGroupSessionClick, onAlternateWeekClick, onAvailabilitySlotClick, onBiweeklyHintClick, showProfessional = false, canWriteAgenda = false, isDragging = false, projectedMinutes, projectedDate, overlappingIds = [], activeAppointmentId }: WeeklyGridProps) {
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart])
   const today = new Date()
 
@@ -272,16 +281,21 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                 }
               }
 
+              // Compute drop zone indicator for this column
+              const showDropZone = isDragging && projectedMinutes != null && projectedDate === dateStr && activeAppointmentId
+              const activeApt = showDropZone ? individualAppointments.find(a => a.id === activeAppointmentId) : null
+              const dropDurationMin = activeApt
+                ? Math.round((new Date(activeApt.endAt).getTime() - new Date(activeApt.scheduledAt).getTime()) / 60000)
+                : 50
+              const hasOverlap = overlappingIds.length > 0
+
               return (
-                <div
+                <DroppableDayColumn
                   key={dayIndex}
-                  {...(isCurrentDay ? { "data-today": true } : {})}
-                  className={`
-                    flex-1 min-w-[120px] border-r border-border last:border-r-0 relative
-                    ${isCurrentDay ? "bg-primary/5" : ""}
-                    ${weekend ? "bg-muted/30" : ""}
-                  `}
-                  style={{ height: `${gridHeight}px` }}
+                  dateStr={dateStr}
+                  isCurrentDay={isCurrentDay}
+                  weekend={weekend}
+                  gridHeight={gridHeight}
                 >
                   {/* Hour grid lines */}
                   {HOURS.map((hour) => (
@@ -309,6 +323,21 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                     </div>
                   )}
 
+                  {/* Drop zone indicator */}
+                  {showDropZone && (
+                    <div
+                      className={`absolute left-1 right-1 rounded border-2 border-dashed pointer-events-none z-10 transition-colors ${
+                        hasOverlap
+                          ? "bg-destructive/10 border-destructive/40"
+                          : "bg-primary/10 border-primary/40"
+                      }`}
+                      style={{
+                        top: `${minutesToPixel(projectedMinutes!, WEEKLY_GRID)}px`,
+                        height: `${Math.max(dropDurationMin * PIXELS_PER_MINUTE, 32)}px`,
+                      }}
+                    />
+                  )}
+
                   {/* Appointments */}
                   {dayAppointments.map((appointment) => {
                     const isCancelled = cancelledStatuses.includes(appointment.status)
@@ -326,6 +355,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                         columnIndex={appointment.columnIndex}
                         totalColumns={isSplit ? appointment.totalColumns + 1 : appointment.totalColumns}
                         professionalColorMap={professionalColorMap}
+                        canWriteAgenda={canWriteAgenda}
                       />
                     )
                   })}
@@ -359,12 +389,50 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                       }}
                     />
                   ))}
-                </div>
+                </DroppableDayColumn>
               )
             })}
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/** Droppable wrapper for each day column */
+function DroppableDayColumn({
+  dateStr,
+  isCurrentDay,
+  weekend,
+  gridHeight,
+  children,
+}: {
+  dateStr: string
+  isCurrentDay: boolean
+  weekend: boolean
+  gridHeight: number
+  children: React.ReactNode
+}) {
+  const droppableData = useMemo(() => ({ date: dateStr }), [dateStr])
+  const { setNodeRef, isOver } = useDroppable({
+    id: `day-${dateStr}`,
+    data: droppableData,
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-date={dateStr}
+      {...(isCurrentDay ? { "data-today": true } : {})}
+      className={`
+        flex-1 min-w-[120px] border-r border-border last:border-r-0 relative
+        ${isCurrentDay ? "bg-primary/5" : ""}
+        ${weekend ? "bg-muted/30" : ""}
+        ${isOver ? "bg-primary/[0.03]" : ""}
+      `}
+      style={{ height: `${gridHeight}px` }}
+    >
+      {children}
     </div>
   )
 }

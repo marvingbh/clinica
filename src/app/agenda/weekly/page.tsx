@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
@@ -52,7 +52,13 @@ import { useWeeklyAvailability } from "./hooks/useWeeklyAvailability"
 import { useAgendaContext } from "../context/AgendaContext"
 import { usePermission } from "@/shared/hooks/usePermission"
 
+import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core"
 import { WeeklyGrid, WeeklyHeader } from "./components"
+import { AppointmentBlock } from "./components/AppointmentBlock"
+import { useAppointmentDrag } from "../hooks/useAppointmentDrag"
+import { RecurrenceMoveDialog } from "../components/RecurrenceMoveDialog"
+import { WEEKLY_GRID } from "../lib/grid-config"
+import { formatTimeFromMinutes } from "../lib/grid-geometry"
 
 function WeeklyAgendaPageContent() {
   const router = useRouter()
@@ -115,11 +121,31 @@ function WeeklyAgendaPageContent() {
   })
 
   const { canRead: canReadOthersAgenda } = usePermission("agenda_others")
+  const { canWrite: canWriteAgenda } = usePermission("agenda_own")
   const isAdmin = canReadOthersAgenda
   const currentProfessionalProfileId = session?.user?.professionalProfileId
   const activeProfessionalProfileId = isAdmin && selectedProfessionalId
     ? selectedProfessionalId
     : currentProfessionalProfileId
+
+  // Drag-and-drop: only enabled for single professional view (not "Todos")
+  const isDndEnabled = canWriteAgenda && !!selectedProfessionalId
+  const weeklyGridRef = useRef<HTMLDivElement>(null)
+
+  const handleAppointmentMoved = useCallback((updated: Appointment) => {
+    // Apply PATCH response locally to avoid full refetch latency
+    setAppointments(prev => prev.map(apt =>
+      apt.id === updated.id ? updated : apt
+    ))
+  }, [])
+
+  const drag = useAppointmentDrag({
+    appointments,
+    gridConfig: WEEKLY_GRID,
+    gridRef: weeklyGridRef,
+    canWriteAgenda: isDndEnabled,
+    onAppointmentMoved: handleAppointmentMoved,
+  })
 
   // ============================================================================
   // Week Navigation
@@ -755,19 +781,66 @@ function WeeklyAgendaPageContent() {
             </div>
           </div>
         )}
-        <WeeklyGrid
-          weekStart={weekStart}
-          appointments={appointments}
-          groupSessions={groupSessions}
-          availabilitySlots={weeklyAvailabilitySlots}
-          appointmentDuration={appointmentDuration}
-          birthdayPatients={birthdayPatients}
-          onAppointmentClick={openEditSheet}
-          onGroupSessionClick={openGroupSessionSheet}
-          onAlternateWeekClick={handleAlternateWeekClick}
-          onAvailabilitySlotClick={handleAvailabilitySlotClick}
-          onBiweeklyHintClick={handleBiweeklyHintClick}
-          showProfessional={!selectedProfessionalId && isAdmin}
+        <DndContext
+          sensors={drag.sensors}
+          collisionDetection={closestCenter}
+          onDragStart={drag.handleDragStart}
+          onDragMove={drag.handleDragMove}
+          onDragEnd={drag.handleDragEnd}
+          onDragCancel={drag.handleDragCancel}
+          autoScroll={{ threshold: { x: 0.15, y: 0.15 } }}
+        >
+          <div ref={weeklyGridRef}>
+            <WeeklyGrid
+              weekStart={weekStart}
+              appointments={appointments}
+              groupSessions={groupSessions}
+              availabilitySlots={weeklyAvailabilitySlots}
+              appointmentDuration={appointmentDuration}
+              birthdayPatients={birthdayPatients}
+              onAppointmentClick={openEditSheet}
+              onGroupSessionClick={openGroupSessionSheet}
+              onAlternateWeekClick={handleAlternateWeekClick}
+              onAvailabilitySlotClick={handleAvailabilitySlotClick}
+              onBiweeklyHintClick={handleBiweeklyHintClick}
+              showProfessional={!selectedProfessionalId && isAdmin}
+              canWriteAgenda={isDndEnabled}
+              isDragging={drag.isDragging}
+              projectedMinutes={drag.projectedMinutes}
+              projectedDate={drag.projectedDate}
+              overlappingIds={drag.overlappingIds}
+              activeAppointmentId={drag.activeAppointment?.id}
+            />
+          </div>
+
+          {/* Drag overlay — ghost preview */}
+          <DragOverlay
+            dropAnimation={{ duration: 200, easing: "cubic-bezier(0.25, 1, 0.5, 1)" }}
+            zIndex={50}
+          >
+            {drag.activeAppointment ? (
+              <div className="opacity-90 shadow-lg ring-2 ring-primary/30 pointer-events-none rounded relative">
+                {drag.projectedMinutes != null && (
+                  <span className="absolute -top-5 left-0 text-xs font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded z-10">
+                    {formatTimeFromMinutes(drag.projectedMinutes)}
+                  </span>
+                )}
+                <AppointmentBlock
+                  appointment={drag.activeAppointment}
+                  onClick={() => {}}
+                />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+
+        {/* Recurrence move dialog */}
+        <RecurrenceMoveDialog
+          request={drag.recurrenceMoveRequest}
+          onMoveThis={drag.handleRecurrenceMoveThis}
+          onMoveAllFuture={drag.handleRecurrenceMoveAllFuture}
+          onCancel={drag.handleRecurrenceCancel}
+          isSubmitting={drag.isUpdating}
         />
       </div>
 
