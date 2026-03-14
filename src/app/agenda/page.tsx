@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo, useCallback } from "react"
+import { useEffect, useState, useMemo, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 
@@ -36,6 +36,12 @@ import {
 import { fetchAppointmentById } from "./services"
 import { createProfessionalColorMap } from "./lib/professional-colors"
 import { usePermission } from "@/shared/hooks/usePermission"
+import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core"
+import { useAppointmentDrag } from "./hooks/useAppointmentDrag"
+import { RecurrenceMoveDialog } from "./components/RecurrenceMoveDialog"
+import { DAILY_GRID_BASE } from "./lib/grid-config"
+import type { GridConfig } from "./lib/grid-config"
+import { formatTimeFromMinutes } from "./lib/grid-geometry"
 
 export default function AgendaPage() {
   const router = useRouter()
@@ -43,6 +49,7 @@ export default function AgendaPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   const { canRead: canReadOthersAgenda } = usePermission("agenda_others")
+  const { canWrite: canWriteAgenda } = usePermission("agenda_own")
   const isAdmin = canReadOthersAgenda
   const currentProfessionalProfileId = session?.user?.professionalProfileId
 
@@ -111,6 +118,30 @@ export default function AgendaPage() {
     ]
     return createProfessionalColorMap(professionalIds)
   }, [appointments, groupSessions])
+
+  // Drag-and-drop: only in single-professional view with write permission
+  const isDndEnabled = canWriteAgenda && !!selectedProfessionalId
+  const dailyGridRef = useRef<HTMLDivElement>(null)
+
+  // Dynamic grid config for daily view (startHour is computed from content)
+  const dailyGridConfig: GridConfig = useMemo(() => ({
+    ...DAILY_GRID_BASE,
+    startHour: 8, // Will be overridden by grid content but provides a reasonable default
+    endHour: 18,
+  }), [])
+
+  const handleDailyAppointmentMoved = useCallback((updated: Appointment) => {
+    // Trigger refetch since useAgendaData manages the state
+    refetchAppointments()
+  }, [refetchAppointments])
+
+  const drag = useAppointmentDrag({
+    appointments,
+    gridConfig: dailyGridConfig,
+    gridRef: dailyGridRef,
+    canWriteAgenda: isDndEnabled,
+    onAppointmentMoved: handleDailyAppointmentMoved,
+  })
 
   // Time slots
   const { slots: timeSlots, fullDayBlock } = useTimeSlots({
@@ -310,24 +341,62 @@ export default function AgendaPage() {
         onGoToToday={goToToday}
       />
 
-      <AgendaTimeline
-        appointments={appointments}
-        timeSlots={timeSlots}
-        groupSessions={groupSessions}
-        birthdayPatients={birthdayPatients}
-        fullDayBlock={fullDayBlock}
-        selectedDate={toDateString(selectedDate)}
-        selectedProfessionalId={selectedProfessionalId}
-        isAdmin={isAdmin}
-        isLoading={isLoadingData}
-        onSlotClick={openCreateSheet}
-        onAppointmentClick={openEditSheet}
-        onGroupSessionClick={openGroupSessionSheet}
-        onAlternateWeekClick={handleAlternateWeekClick}
-        onBiweeklyHintClick={handleBiweeklyHintClick}
-        onSwipeLeft={goToNextDay}
-        onSwipeRight={goToPreviousDay}
-        professionalColorMap={professionalColorMap}
+      <DndContext
+        sensors={drag.sensors}
+        collisionDetection={closestCenter}
+        onDragStart={drag.handleDragStart}
+        onDragMove={drag.handleDragMove}
+        onDragEnd={drag.handleDragEnd}
+        onDragCancel={drag.handleDragCancel}
+      >
+        <div ref={dailyGridRef}>
+          <AgendaTimeline
+            appointments={appointments}
+            timeSlots={timeSlots}
+            groupSessions={groupSessions}
+            birthdayPatients={birthdayPatients}
+            fullDayBlock={fullDayBlock}
+            selectedDate={toDateString(selectedDate)}
+            selectedProfessionalId={selectedProfessionalId}
+            isAdmin={isAdmin}
+            isLoading={isLoadingData}
+            onSlotClick={openCreateSheet}
+            onAppointmentClick={openEditSheet}
+            onGroupSessionClick={openGroupSessionSheet}
+            onAlternateWeekClick={handleAlternateWeekClick}
+            onBiweeklyHintClick={handleBiweeklyHintClick}
+            onSwipeLeft={goToNextDay}
+            onSwipeRight={goToPreviousDay}
+            professionalColorMap={professionalColorMap}
+            canWriteAgenda={isDndEnabled}
+          />
+        </div>
+
+        <DragOverlay
+          dropAnimation={{ duration: 200, easing: "cubic-bezier(0.25, 1, 0.5, 1)" }}
+          zIndex={50}
+        >
+          {drag.activeAppointment ? (
+            <div className="opacity-90 shadow-lg ring-2 ring-primary/30 pointer-events-none rounded-xl relative">
+              {drag.projectedMinutes != null && (
+                <span className="absolute -top-5 left-0 text-xs font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded z-10">
+                  {formatTimeFromMinutes(drag.projectedMinutes)}
+                </span>
+              )}
+              <div className="bg-card border border-border rounded-xl px-3 py-2 text-sm font-medium">
+                {drag.activeAppointment.patient?.name || drag.activeAppointment.title || "Agendamento"}
+              </div>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      <RecurrenceMoveDialog
+        request={drag.recurrenceMoveRequest}
+        onMoveThis={drag.handleRecurrenceMoveThis}
+        onMoveAllFuture={drag.handleRecurrenceMoveAllFuture}
+        onCancel={drag.handleRecurrenceCancel}
+        isSubmitting={drag.isUpdating}
       />
 
       <AgendaFabMenu
