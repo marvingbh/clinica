@@ -106,6 +106,7 @@ export function useAppointmentDrag({
     gridRectRef.current = null
     setDndState(DND_IDLE)
     setDragActive?.(false)
+    document.body.classList.remove("dnd-dragging")
   }, [setDragActive])
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -128,6 +129,7 @@ export function useAppointmentDrag({
       setDndState(DND_DRAGGING)
     })
     setDragActive?.(true)
+    document.body.classList.add("dnd-dragging")
   }, [dndState, canWriteAgenda, gridRef, setDragActive])
 
   const handleDragMove = useCallback((event: DragMoveEvent) => {
