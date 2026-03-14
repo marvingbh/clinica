@@ -58,6 +58,7 @@ export const GET = withFeatureAuth(
         billingMode: true,
         invoiceGrouping: true,
         taxPercentage: true,
+        logoData: true,
       },
     })
 
@@ -68,7 +69,8 @@ export const GET = withFeatureAuth(
       )
     }
 
-    return NextResponse.json({ settings: clinic })
+    const { logoData, ...rest } = clinic
+    return NextResponse.json({ settings: { ...rest, hasLogo: !!logoData } })
   }
 )
 

@@ -90,6 +90,7 @@ export interface InvoicePDFData {
   clinicPhone?: string
   clinicEmail?: string
   clinicAddress?: string
+  logoSrc?: string
   patientName: string
   professionalName: string
   referenceMonth: number
@@ -148,7 +149,7 @@ function InvoicePage({ data }: { data: InvoicePDFData }) {
       <View style={styles.headerRow}>
         <View style={styles.clinicInfo}>
           {/* eslint-disable-next-line jsx-a11y/alt-text */}
-          <Image style={styles.logo} src={path.join(process.cwd(), "public/img/logo-elena-horizontal.png")} />
+          <Image style={styles.logo} src={data.logoSrc || path.join(process.cwd(), "public/img/logo-elena-horizontal.png")} />
           {data.clinicPhone && <Text style={styles.clinicDetail}>{data.clinicPhone}</Text>}
           {data.clinicEmail && <Text style={styles.clinicDetail}>{data.clinicEmail}</Text>}
           {data.clinicAddress && <Text style={styles.clinicDetail}>{data.clinicAddress}</Text>}

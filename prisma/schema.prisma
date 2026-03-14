@@ -169,6 +169,8 @@ model Clinic {
   phone     String?
   address   String?
   logoUrl   String?
+  logoData  Bytes?   // PNG/JPG logo stored as binary for invoice PDFs
+  logoMime  String?  // MIME type (image/png, image/jpeg)
   timezone  String   @default("America/Sao_Paulo")
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())

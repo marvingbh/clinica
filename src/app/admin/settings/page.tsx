@@ -59,6 +59,7 @@ interface ClinicSettings {
   billingMode: "PER_SESSION" | "MONTHLY_FIXED"
   invoiceGrouping: "MONTHLY" | "PER_SESSION"
   taxPercentage: number
+  hasLogo: boolean
 }
 
 export default function AdminSettingsPage() {
@@ -78,6 +79,9 @@ export default function AdminSettingsPage() {
   const [isSavingInvoiceGrouping, setIsSavingInvoiceGrouping] = useState(false)
   const [taxPercentage, setTaxPercentage] = useState<number>(0)
   const [isSavingTax, setIsSavingTax] = useState(false)
+  const [hasLogo, setHasLogo] = useState(false)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [isSavingLogo, setIsSavingLogo] = useState(false)
 
   const {
     register,
@@ -106,6 +110,10 @@ export default function AdminSettingsPage() {
       setBillingMode(data.settings.billingMode || "PER_SESSION")
       setInvoiceGrouping(data.settings.invoiceGrouping || "MONTHLY")
       setTaxPercentage(Number(data.settings.taxPercentage ?? 0))
+      setHasLogo(data.settings.hasLogo ?? false)
+      if (data.settings.hasLogo) {
+        setLogoPreview("/api/admin/settings/logo")
+      }
       reset({
         name: data.settings.name,
         phone: data.settings.phone || "",
@@ -305,6 +313,44 @@ export default function AdminSettingsPage() {
       toast.error("Erro ao salvar percentual de imposto")
     } finally {
       setIsSavingTax(false)
+    }
+  }
+
+  async function uploadLogo(file: File) {
+    setIsSavingLogo(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      const response = await fetch("/api/admin/settings/logo", {
+        method: "POST",
+        body: formData,
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to upload")
+      }
+      setHasLogo(true)
+      setLogoPreview(URL.createObjectURL(file))
+      toast.success("Logo salvo com sucesso")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar logo")
+    } finally {
+      setIsSavingLogo(false)
+    }
+  }
+
+  async function removeLogo() {
+    setIsSavingLogo(true)
+    try {
+      const response = await fetch("/api/admin/settings/logo", { method: "DELETE" })
+      if (!response.ok) throw new Error("Failed to delete")
+      setHasLogo(false)
+      setLogoPreview(null)
+      toast.success("Logo removido com sucesso")
+    } catch {
+      toast.error("Erro ao remover logo")
+    } finally {
+      setIsSavingLogo(false)
     }
   }
 
@@ -591,6 +637,44 @@ export default function AdminSettingsPage() {
               >
                 {isSavingPaymentInfo ? "Salvando..." : "Salvar"}
               </button>
+            </div>
+          </div>
+
+          {/* Invoice Logo */}
+          <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Logo da Fatura</h2>
+            <p className="text-sm text-muted-foreground">
+              Imagem exibida no cabeçalho do PDF da fatura. PNG ou JPG, máximo 512KB.
+            </p>
+            {logoPreview && (
+              <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-md">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoPreview} alt="Logo atual" className="h-12 w-auto max-w-[200px] object-contain" />
+                <button
+                  type="button"
+                  onClick={removeLogo}
+                  disabled={isSavingLogo}
+                  className="text-sm text-destructive hover:underline disabled:opacity-50"
+                >
+                  Remover
+                </button>
+              </div>
+            )}
+            <div>
+              <label className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 cursor-pointer transition-opacity">
+                {isSavingLogo ? "Enviando..." : hasLogo ? "Trocar logo" : "Enviar logo"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg"
+                  className="hidden"
+                  disabled={isSavingLogo}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) uploadLogo(file)
+                    e.target.value = ""
+                  }}
+                />
+              </label>
             </div>
           </div>
 

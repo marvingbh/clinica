@@ -16,6 +16,8 @@ export interface InvoiceWithRelations {
     email: string | null
     address: string | null
     paymentInfo: string | null
+    logoData: Uint8Array | null
+    logoMime: string | null
   }
   patient: { name: string }
   professionalProfile: { user: { name: string } }
@@ -35,6 +37,9 @@ export function buildInvoicePDFData(invoice: InvoiceWithRelations): InvoicePDFDa
     clinicPhone: invoice.clinic.phone || undefined,
     clinicEmail: invoice.clinic.email || undefined,
     clinicAddress: invoice.clinic.address || undefined,
+    logoSrc: invoice.clinic.logoData && (invoice.clinic.logoMime === "image/png" || invoice.clinic.logoMime === "image/jpeg")
+      ? `data:${invoice.clinic.logoMime};base64,${Buffer.from(invoice.clinic.logoData).toString("base64")}`
+      : undefined,
     patientName: invoice.patient.name.replace(/\s*\(.*?\)\s*/g, "").trim(),
     professionalName: invoice.professionalProfile.user.name,
     referenceMonth: invoice.referenceMonth,
