@@ -74,6 +74,14 @@ export const POST = withFeatureAuth(
       )
     }
 
+    // Validate patient has address (required for NFS-e tomador)
+    if (!invoice.patient.addressZip || !invoice.patient.addressStreet) {
+      return NextResponse.json(
+        { error: "Paciente precisa ter endereco cadastrado (rua e CEP) para emitir NFS-e. Edite o cadastro do paciente." },
+        { status: 400 }
+      )
+    }
+
     // Save billing info back to patient if provided from the dialog
     const patientUpdates: Record<string, string | null> = {}
     if (billingCpfFromBody && billingCpfFromBody !== (invoice.patient.billingCpf || "")) {
