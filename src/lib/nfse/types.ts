@@ -30,6 +30,7 @@ export interface NfseEmissionData {
   tomadorCep?: string
   // Service
   codigoServico: string
+  codigoServicoMunicipal?: string // cTribMun - 3 digit municipal code (required by some municipalities like BH)
   descricao: string
   valor: number
   aliquotaIss: number

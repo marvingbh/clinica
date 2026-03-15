@@ -11,6 +11,7 @@ export interface NfseConfigSummaryData {
   codigoMunicipio: string
   regimeTributario: string
   codigoServico: string
+  codigoServicoMunicipal?: string | null
   cnae?: string | null
   codigoNbs?: string | null
   aliquotaIss: number

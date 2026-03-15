@@ -109,6 +109,7 @@ export const POST = withFeatureAuth(
     }
 
     const codigoServico = (overrides.codigoServico as string | undefined) || nfseConfig.codigoServico
+    const codigoServicoMunicipal = nfseConfig.codigoServicoMunicipal || undefined
     const descricao = (overrides.descricao as string | undefined) || nfseConfig.descricaoServico || "Servicos de saude"
     const aliquotaIss = (overrides.aliquotaIss as number | undefined) ?? Number(nfseConfig.aliquotaIss)
 
@@ -140,6 +141,7 @@ export const POST = withFeatureAuth(
         tomadorBairro: addressFromBody?.neighborhood || invoice.patient.addressNeighborhood || undefined,
         tomadorCep: addressFromBody?.zip || invoice.patient.addressZip || undefined,
         codigoServico,
+        codigoServicoMunicipal,
         descricao,
         valor: Number(invoice.totalAmount),
         aliquotaIss,
