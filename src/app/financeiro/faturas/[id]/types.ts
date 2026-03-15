@@ -36,7 +36,13 @@ export interface InvoiceDetail {
   nfseCodigoServico: string | null
   nfseDescricao: string | null
   nfseAliquotaIss: number | null
-  patient: { id: string; name: string; phone: string; cpf: string | null; billingCpf: string | null; billingResponsibleName: string | null; motherName: string | null; sessionFee: string | null }
+  patient: {
+    id: string; name: string; phone: string; cpf: string | null
+    billingCpf: string | null; billingResponsibleName: string | null
+    addressStreet: string | null; addressNumber: string | null; addressNeighborhood: string | null
+    addressCity: string | null; addressState: string | null; addressZip: string | null
+    motherName: string | null; sessionFee: string | null
+  }
   professionalProfile: { id: string; user: { name: string } }
   items: InvoiceItem[]
   consumedCredits: Array<{ id: string; reason: string; createdAt: string }>
