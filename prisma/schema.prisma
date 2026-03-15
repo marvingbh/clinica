@@ -929,6 +929,7 @@ model NfseConfig {
   inscricaoMunicipal  String
   codigoMunicipio     String   // IBGE 7-digit code
   regimeTributario    String   @default("1") // 1=MEI, 2=Simples Nacional, 3=Lucro Presumido, 4=Lucro Real
+  opSimpNac           Int      @default(2)   // 1=optante SN, 2=nao optante. Must match Receita Federal cadastro.
 
   // Service defaults (overridable per invoice at emission time)
   codigoServico       String   // cTribNac - 6 digit national code e.g. "041601"
