@@ -1,33 +1,28 @@
 "use client"
 
-import { Suspense, useCallback, useMemo, useState } from "react"
+import { Suspense, useCallback, useMemo } from "react"
 import { useSession } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
-import { toast } from "sonner"
 import { SwipeContainer } from "@/shared/components/ui"
 
-import type { Appointment, GroupSession, CalendarEntryType } from "../lib"
-import { fetchAppointmentById } from "../services/appointmentService"
-import { toDateString, canMarkStatus, canResendConfirmation, getWeekStart } from "../lib/utils"
+import type { Appointment } from "../lib"
+import { canMarkStatus, canResendConfirmation, getWeekStart } from "../lib/utils"
 import {
-  AppointmentEditor,
-  GroupSessionSheet,
-  CalendarEntrySheet,
-  CreateAppointmentSheet,
-  AgendaFabMenu,
+  AppointmentEditor, GroupSessionSheet, CalendarEntrySheet,
+  CreateAppointmentSheet, AgendaFabMenu,
 } from "../components"
+import { AgendaDndWrapper } from "../components/AgendaDndWrapper"
 
-import { useCalendarEntryCreate, useAppointmentCreate, useAppointmentEdit, useAppointmentActions } from "../hooks"
+import {
+  useCalendarEntryCreate, useAppointmentCreate, useAppointmentEdit,
+  useAppointmentActions, useGroupSessionSheet, useFabMenu, useBiweeklyHandlers,
+} from "../hooks"
 import { useWeeklyAvailability } from "./hooks/useWeeklyAvailability"
 import { useWeeklyData } from "./hooks/useWeeklyData"
 import { useAgendaContext } from "../context/AgendaContext"
 
-import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core"
-import { snapCenterToCursor } from "@dnd-kit/modifiers"
 import { WeeklyGrid, WeeklyHeader } from "./components"
 import { useAppointmentDrag } from "../hooks/useAppointmentDrag"
-import { RecurrenceMoveDialog } from "../components/RecurrenceMoveDialog"
-import { DragGhostCard } from "../components/DragGhostCard"
 import { WEEKLY_GRID } from "../lib/grid-config"
 
 function WeeklyAgendaPageContent() {
@@ -134,47 +129,10 @@ function WeeklyAgendaPageContent() {
     onSuccess: refetchAppointments,
   })
 
-  // ============================================================================
-  // Group Session Sheet
-  // ============================================================================
-
-  const [isGroupSessionSheetOpen, setIsGroupSessionSheetOpen] = useState(false)
-  const [selectedGroupSession, setSelectedGroupSession] = useState<GroupSession | null>(null)
-
-  const openGroupSessionSheet = (gs: GroupSession) => {
-    setSelectedGroupSession(gs)
-    setIsGroupSessionSheetOpen(true)
-  }
-  const closeGroupSessionSheet = () => {
-    setIsGroupSessionSheetOpen(false)
-    setSelectedGroupSession(null)
-  }
-
-  // ============================================================================
-  // FAB Menu + Biweekly Handlers
-  // ============================================================================
-
-  const [isFabMenuOpen, setIsFabMenuOpen] = useState(false)
-
-  const handleFabMenuSelect = useCallback((type: CalendarEntryType | "CONSULTA") => {
-    setIsFabMenuOpen(false)
-    if (type === "CONSULTA") { create.openCreateSheet() }
-    else { entry.openSheet(type as Exclude<CalendarEntryType, "CONSULTA">) }
-  }, [create.openCreateSheet, entry.openSheet])
-
-  const handleAlternateWeekClick = useCallback(async (appointment: Appointment) => {
-    const scheduledAt = new Date(appointment.scheduledAt)
-    const startTime = `${scheduledAt.getHours().toString().padStart(2, "0")}:${scheduledAt.getMinutes().toString().padStart(2, "0")}`
-
-    if (appointment.alternateWeekInfo?.isAvailable) {
-      const alternateDate = new Date(scheduledAt)
-      alternateDate.setDate(alternateDate.getDate() + 7)
-      create.openCreateSheet(startTime, { date: alternateDate, appointmentType: "BIWEEKLY" })
-    } else if (appointment.alternateWeekInfo?.pairedAppointmentId) {
-      const paired = await fetchAppointmentById(appointment.alternateWeekInfo.pairedAppointmentId)
-      if (paired) edit.openEditSheet(paired)
-    }
-  }, [create.openCreateSheet, edit.openEditSheet])
+  // Shared hooks
+  const groupSheet = useGroupSessionSheet(groupSessions)
+  const fabMenu = useFabMenu(create.openCreateSheet, entry.openSheet)
+  const { handleAlternateWeekClick } = useBiweeklyHandlers(create.openCreateSheet, edit.openEditSheet)
 
   const handleAvailabilitySlotClick = useCallback((date: string, time: string) => {
     create.openCreateSheet(time, { date: new Date(date + "T12:00:00") })
@@ -246,64 +204,35 @@ function WeeklyAgendaPageContent() {
             </div>
           </div>
         )}
-        <DndContext
-          sensors={drag.sensors}
-          collisionDetection={closestCenter}
-          onDragStart={drag.handleDragStart}
-          onDragMove={drag.handleDragMove}
-          onDragEnd={drag.handleDragEnd}
-          onDragCancel={drag.handleDragCancel}
-          autoScroll={{ threshold: { x: 0.15, y: 0.15 } }}
-        >
-          <div>
-            <WeeklyGrid
-              weekStart={weekStart}
-              appointments={appointments}
-              groupSessions={groupSessions}
-              availabilitySlots={weeklyAvailabilitySlots}
-              availabilitySlots={weeklyAvailabilitySlots}
-              appointmentDuration={appointmentDuration}
-              birthdayPatients={birthdayPatients}
-              onAppointmentClick={edit.openEditSheet}
-              onGroupSessionClick={openGroupSessionSheet}
-              onAlternateWeekClick={handleAlternateWeekClick}
-              onAvailabilitySlotClick={handleAvailabilitySlotClick}
-              onBiweeklyHintClick={handleBiweeklyHintClick}
-              showProfessional={!selectedProfessionalId && isAdmin}
-              canWriteAgenda={isDndEnabled}
-              isDragging={drag.isDragging}
-              projectedMinutes={drag.projectedMinutes}
-              projectedDate={drag.projectedDate}
-              overlappingIds={drag.overlappingIds}
-              activeAppointmentId={drag.activeAppointment?.id}
-            />
-          </div>
-
-          <DragOverlay
-            modifiers={[snapCenterToCursor]}
-            dropAnimation={{ duration: 200, easing: "cubic-bezier(0.25, 1, 0.5, 1)" }}
-            zIndex={50}
-          >
-            {drag.activeAppointment ? (
-              <DragGhostCard appointment={drag.activeAppointment} projectedMinutes={drag.projectedMinutes} />
-            ) : null}
-          </DragOverlay>
-        </DndContext>
-
-        <RecurrenceMoveDialog
-          request={drag.recurrenceMoveRequest}
-          onMoveThis={drag.handleRecurrenceMoveThis}
-          onMoveAllFuture={drag.handleRecurrenceMoveAllFuture}
-          onCancel={drag.handleRecurrenceCancel}
-          isSubmitting={drag.isUpdating}
-        />
+        <AgendaDndWrapper drag={drag} autoScrollThreshold={{ x: 0.15, y: 0.15 }}>
+          <WeeklyGrid
+            weekStart={weekStart}
+            appointments={appointments}
+            groupSessions={groupSessions}
+            availabilitySlots={weeklyAvailabilitySlots}
+            appointmentDuration={appointmentDuration}
+            birthdayPatients={birthdayPatients}
+            onAppointmentClick={edit.openEditSheet}
+            onGroupSessionClick={groupSheet.open}
+            onAlternateWeekClick={handleAlternateWeekClick}
+            onAvailabilitySlotClick={handleAvailabilitySlotClick}
+            onBiweeklyHintClick={handleBiweeklyHintClick}
+            showProfessional={!selectedProfessionalId && isAdmin}
+            canWriteAgenda={isDndEnabled}
+            isDragging={drag.isDragging}
+            projectedMinutes={drag.projectedMinutes}
+            projectedDate={drag.projectedDate}
+            overlappingIds={drag.overlappingIds}
+            activeAppointmentId={drag.activeAppointment?.id}
+          />
+        </AgendaDndWrapper>
       </div>
 
       <AgendaFabMenu
-        isOpen={isFabMenuOpen}
-        onOpen={() => setIsFabMenuOpen(true)}
-        onClose={() => setIsFabMenuOpen(false)}
-        onSelect={handleFabMenuSelect}
+        isOpen={fabMenu.isOpen}
+        onOpen={fabMenu.open}
+        onClose={fabMenu.close}
+        onSelect={fabMenu.handleSelect}
       />
 
       <CreateAppointmentSheet
@@ -369,9 +298,9 @@ function WeeklyAgendaPageContent() {
       />
 
       <GroupSessionSheet
-        isOpen={isGroupSessionSheetOpen}
-        onClose={closeGroupSessionSheet}
-        session={selectedGroupSession}
+        isOpen={groupSheet.isOpen}
+        onClose={groupSheet.close}
+        session={groupSheet.selectedSession}
         onStatusUpdated={refetchAppointments}
         professionals={professionals}
         isAdmin={isAdmin}
