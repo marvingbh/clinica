@@ -17,7 +17,7 @@ export const GET = withFeatureAuth(
           : {}),
       },
       include: {
-        patient: { select: { id: true, name: true, phone: true, cpf: true, billingCpf: true, billingResponsibleName: true, motherName: true, sessionFee: true } },
+        patient: { select: { id: true, name: true, phone: true, cpf: true, billingCpf: true, billingResponsibleName: true, addressStreet: true, addressNumber: true, addressNeighborhood: true, addressCity: true, addressState: true, addressZip: true, motherName: true, sessionFee: true } },
         professionalProfile: { select: { id: true, user: { select: { name: true } } } },
         items: {
           include: {

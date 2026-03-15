@@ -191,6 +191,14 @@ export default function NfseSection({ invoice, nfseConfig, onRefresh }: NfseSect
           patientCpf={invoice.patient.cpf}
           patientCpfNota={invoice.patient.billingCpf ?? null}
           patientBillingName={invoice.patient.billingResponsibleName ?? null}
+          patientAddress={{
+            street: invoice.patient.addressStreet,
+            number: invoice.patient.addressNumber,
+            neighborhood: invoice.patient.addressNeighborhood,
+            city: invoice.patient.addressCity,
+            state: invoice.patient.addressState,
+            zip: invoice.patient.addressZip,
+          }}
           totalAmount={invoice.totalAmount}
           defaultCodigoServico={nfseConfig.codigoServico}
           defaultDescricao={nfseConfig.descricaoServico || "Servicos de saude"}

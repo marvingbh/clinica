@@ -53,10 +53,12 @@ export const POST = withFeatureAuth(
     let overrides: Record<string, unknown> = {}
     let billingCpfFromBody: string | undefined
     let billingNameFromBody: string | undefined
+    let addressFromBody: { street?: string; number?: string; neighborhood?: string; city?: string; state?: string; zip?: string } | undefined
     try {
       const body = await req.json().catch(() => ({}))
       billingCpfFromBody = typeof body.billingCpf === "string" ? body.billingCpf.replace(/\D/g, "") : undefined
       billingNameFromBody = typeof body.billingResponsibleName === "string" ? body.billingResponsibleName.trim() : undefined
+      if (body.address && typeof body.address === "object") addressFromBody = body.address
       const parsed = nfseEmissionOverrideSchema.safeParse(body)
       if (parsed.success) {
         overrides = parsed.data as Record<string, unknown>
@@ -74,21 +76,30 @@ export const POST = withFeatureAuth(
       )
     }
 
-    // Validate patient has address (required for NFS-e tomador)
-    if (!invoice.patient.addressZip || !invoice.patient.addressStreet) {
+    // Validate address is available (from patient record or from dialog body)
+    const hasAddress = addressFromBody?.street || invoice.patient.addressStreet
+    if (!hasAddress) {
       return NextResponse.json(
-        { error: "Paciente precisa ter endereco cadastrado (rua e CEP) para emitir NFS-e. Edite o cadastro do paciente." },
+        { error: "Endereco do tomador e obrigatorio para emissao de NFS-e." },
         { status: 400 }
       )
     }
 
-    // Save billing info back to patient if provided from the dialog
+    // Save billing info + address back to patient if provided from the dialog
     const patientUpdates: Record<string, string | null> = {}
     if (billingCpfFromBody && billingCpfFromBody !== (invoice.patient.billingCpf || "")) {
       patientUpdates.billingCpf = billingCpfFromBody
     }
     if (billingNameFromBody && billingNameFromBody !== (invoice.patient.billingResponsibleName || "")) {
       patientUpdates.billingResponsibleName = billingNameFromBody
+    }
+    if (addressFromBody) {
+      if (addressFromBody.street) patientUpdates.addressStreet = addressFromBody.street
+      if (addressFromBody.number) patientUpdates.addressNumber = addressFromBody.number
+      if (addressFromBody.neighborhood) patientUpdates.addressNeighborhood = addressFromBody.neighborhood
+      if (addressFromBody.city) patientUpdates.addressCity = addressFromBody.city
+      if (addressFromBody.state) patientUpdates.addressState = addressFromBody.state
+      if (addressFromBody.zip) patientUpdates.addressZip = addressFromBody.zip.replace(/\D/g, "")
     }
     if (Object.keys(patientUpdates).length > 0) {
       await prisma.patient.update({
@@ -124,10 +135,10 @@ export const POST = withFeatureAuth(
         prestadorFone: invoice.clinic.phone || undefined,
         tomadorCpf: effectiveCpf,
         tomadorNome: billingNameFromBody || invoice.patient.billingResponsibleName || invoice.patient.name,
-        tomadorLogradouro: invoice.patient.addressStreet || undefined,
-        tomadorNumero: invoice.patient.addressNumber || undefined,
-        tomadorBairro: invoice.patient.addressNeighborhood || undefined,
-        tomadorCep: invoice.patient.addressZip || undefined,
+        tomadorLogradouro: addressFromBody?.street || invoice.patient.addressStreet || undefined,
+        tomadorNumero: addressFromBody?.number || invoice.patient.addressNumber || undefined,
+        tomadorBairro: addressFromBody?.neighborhood || invoice.patient.addressNeighborhood || undefined,
+        tomadorCep: addressFromBody?.zip || invoice.patient.addressZip || undefined,
         codigoServico,
         descricao,
         valor: Number(invoice.totalAmount),
