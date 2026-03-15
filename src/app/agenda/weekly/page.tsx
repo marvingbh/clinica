@@ -261,6 +261,7 @@ function WeeklyAgendaPageContent() {
               appointments={appointments}
               groupSessions={groupSessions}
               availabilitySlots={weeklyAvailabilitySlots}
+              availabilitySlots={weeklyAvailabilitySlots}
               appointmentDuration={appointmentDuration}
               birthdayPatients={birthdayPatients}
               onAppointmentClick={edit.openEditSheet}
