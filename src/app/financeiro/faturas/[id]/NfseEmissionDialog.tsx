@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
+import { createPortal } from "react-dom"
 import { formatCurrencyBRL } from "@/lib/financeiro/format"
 import { AlertTriangleIcon } from "@/shared/components/ui/icons"
 
@@ -84,7 +85,7 @@ export default function NfseEmissionDialog({
 
   const inputCls = "w-full px-3 py-1.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
         className="bg-background rounded-xl border border-border shadow-lg w-full max-w-md mx-4 p-6 space-y-4"
@@ -162,6 +163,7 @@ export default function NfseEmissionDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
