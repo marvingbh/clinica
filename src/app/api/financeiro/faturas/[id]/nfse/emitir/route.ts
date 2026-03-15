@@ -132,6 +132,7 @@ export const POST = withFeatureAuth(
         prestadorIm: nfseConfig.inscricaoMunicipal,
         prestadorNome: invoice.clinic.name,
         prestadorRegimeTributario: nfseConfig.regimeTributario,
+        prestadorOpSimpNac: nfseConfig.opSimpNac,
         prestadorEmail: invoice.clinic.email || undefined,
         prestadorFone: invoice.clinic.phone || undefined,
         tomadorCpf: effectiveCpf,

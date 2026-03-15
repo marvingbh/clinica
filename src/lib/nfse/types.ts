@@ -19,6 +19,7 @@ export interface NfseEmissionData {
   prestadorIm: string
   prestadorNome: string
   prestadorRegimeTributario: string // 1=MEI, 2=SN, 3=LP, 4=LR
+  prestadorOpSimpNac: number // 1=optante SN, 2=nao optante. Must match Receita Federal.
   prestadorEmail?: string
   prestadorFone?: string
   // Tomador (from Patient)

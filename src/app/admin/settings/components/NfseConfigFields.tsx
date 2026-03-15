@@ -79,6 +79,16 @@ export default function NfseConfigFields({
             <p className="text-sm text-destructive mt-1">{errors.regimeTributario.message}</p>
           )}
         </div>
+        <div>
+          <label className={labelClass}>Optante Simples Nacional (ADN)</label>
+          <select {...register("opSimpNac", { valueAsNumber: true })} className={inputClass}>
+            <option value={1}>Sim (optante)</option>
+            <option value={2}>Nao (nao optante)</option>
+          </select>
+          <p className="text-xs text-muted-foreground mt-1">
+            Deve corresponder ao cadastro na Receita Federal. Se o ADN rejeitar, ajuste aqui.
+          </p>
+        </div>
       </div>
 
       {/* Service defaults */}

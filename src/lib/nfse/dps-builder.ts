@@ -108,7 +108,7 @@ export function buildDpsXml(
           ...(data.prestadorFone ? { fone: data.prestadorFone.replace(/\D/g, "") } : {}),
           ...(data.prestadorEmail ? { email: data.prestadorEmail } : {}),
           regTrib: {
-            opSimpNac: data.prestadorRegimeTributario === "1" || data.prestadorRegimeTributario === "2" ? 1 : 2, // 1=MEI/SN, 2=LP/LR. Your company is LP (regime 3) = opSimpNac 2
+            opSimpNac: data.prestadorOpSimpNac, // 1=optante SN, 2=nao optante. Configurable per clinic.
             regEspTrib: 0, // 0 = Nenhum regime especial
           },
         },

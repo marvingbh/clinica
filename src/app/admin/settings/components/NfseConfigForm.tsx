@@ -24,7 +24,7 @@ export default function NfseConfigForm() {
     formState: { errors },
   } = useForm<NfseConfigFormData>({
     resolver: zodResolver(nfseConfigSchema),
-    defaultValues: { useSandbox: true, aliquotaIss: 0, regimeTributario: "2" },
+    defaultValues: { useSandbox: true, aliquotaIss: 0, regimeTributario: "2", opSimpNac: 2 },
   })
 
   const fetchConfig = useCallback(async () => {
@@ -55,6 +55,7 @@ export default function NfseConfigForm() {
         inscricaoMunicipal: config.inscricaoMunicipal,
         codigoMunicipio: config.codigoMunicipio,
         regimeTributario: config.regimeTributario,
+        opSimpNac: config.opSimpNac ?? 2,
         codigoServico: config.codigoServico,
         codigoServicoMunicipal: config.codigoServicoMunicipal ?? "",
         cnae: config.cnae ?? undefined,
@@ -64,7 +65,7 @@ export default function NfseConfigForm() {
         useSandbox: config.useSandbox,
       })
     } else {
-      reset({ useSandbox: true, aliquotaIss: 0, regimeTributario: "2" })
+      reset({ useSandbox: true, aliquotaIss: 0, regimeTributario: "2", opSimpNac: 2 })
     }
     setCertFile(null)
     setCertPassword("")
