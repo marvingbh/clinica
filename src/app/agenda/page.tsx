@@ -4,43 +4,21 @@ import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 
+import { canMarkStatus, canResendConfirmation, toDateString } from "./lib/utils"
 import {
-  canMarkStatus,
-  canResendConfirmation,
-  toDateString,
-} from "./lib/utils"
-
-import {
-  AppointmentEditor,
-  AgendaHeader,
-  AgendaTimeline,
-  AgendaPageSkeleton,
-  GroupSessionSheet,
-  CalendarEntrySheet,
-  AgendaFabMenu,
-  CreateAppointmentSheet,
+  AppointmentEditor, AgendaHeader, AgendaTimeline, AgendaPageSkeleton,
+  GroupSessionSheet, CalendarEntrySheet, AgendaFabMenu, CreateAppointmentSheet,
 } from "./components"
-
-import type { Appointment, GroupSession, CalendarEntryType } from "./lib/types"
-
+import { AgendaDndWrapper } from "./components/AgendaDndWrapper"
+import type { Appointment } from "./lib/types"
 import {
-  useDateNavigation,
-  useAgendaData,
-  useTimeSlots,
-  useAppointmentCreate,
-  useAppointmentEdit,
-  useAppointmentActions,
-  useCalendarEntryCreate,
+  useDateNavigation, useAgendaData, useTimeSlots,
+  useAppointmentCreate, useAppointmentEdit, useAppointmentActions,
+  useCalendarEntryCreate, useGroupSessionSheet, useFabMenu, useBiweeklyHandlers,
 } from "./hooks"
-
-import { fetchAppointmentById } from "./services"
 import { createProfessionalColorMap } from "./lib/professional-colors"
 import { usePermission } from "@/shared/hooks/usePermission"
-import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core"
-import { snapCenterToCursor } from "@dnd-kit/modifiers"
 import { useAppointmentDrag } from "./hooks/useAppointmentDrag"
-import { RecurrenceMoveDialog } from "./components/RecurrenceMoveDialog"
-import { DragGhostCard } from "./components/DragGhostCard"
 import { DAILY_GRID_BASE } from "./lib/grid-config"
 
 export default function AgendaPage() {
@@ -84,31 +62,8 @@ export default function AgendaPage() {
     isAuthenticated: status === "authenticated",
   })
 
-  // Group session sheet state
-  const [isGroupSessionSheetOpen, setIsGroupSessionSheetOpen] = useState(false)
-  const [selectedGroupSession, setSelectedGroupSession] = useState<GroupSession | null>(null)
-
-  const openGroupSessionSheet = (gs: GroupSession) => {
-    setSelectedGroupSession(gs)
-    setIsGroupSessionSheetOpen(true)
-  }
-
-  const closeGroupSessionSheet = () => {
-    setIsGroupSessionSheetOpen(false)
-    setSelectedGroupSession(null)
-  }
-
-  // Update selectedGroupSession when groupSessions data refreshes
-  useEffect(() => {
-    if (selectedGroupSession && groupSessions.length > 0) {
-      const updatedSession = groupSessions.find(
-        s => s.groupId === selectedGroupSession.groupId && s.scheduledAt === selectedGroupSession.scheduledAt
-      )
-      if (updatedSession) {
-        setSelectedGroupSession(updatedSession)
-      }
-    }
-  }, [groupSessions, selectedGroupSession])
+  // Group session sheet (shared hook)
+  const groupSheet = useGroupSessionSheet(groupSessions)
 
   // Professional color map for consistent coloring
   const professionalColorMap = useMemo(() => {
@@ -267,42 +222,12 @@ export default function AgendaPage() {
     onSuccess: refetchAppointments,
   })
 
-  // Handle alternate week click (biweekly appointments)
-  const handleAlternateWeekClick = useCallback(async (appointment: Appointment) => {
-    const scheduledAt = new Date(appointment.scheduledAt)
-    const startTime = `${scheduledAt.getHours().toString().padStart(2, "0")}:${scheduledAt.getMinutes().toString().padStart(2, "0")}`
-
-    if (appointment.alternateWeekInfo?.isAvailable) {
-      const alternateDate = new Date(scheduledAt)
-      alternateDate.setDate(alternateDate.getDate() + 7)
-      setSelectedDate(alternateDate)
-      setTimeout(() => {
-        openCreateSheet(startTime, { date: alternateDate, appointmentType: "BIWEEKLY" })
-      }, 100)
-    } else if (appointment.alternateWeekInfo?.pairedAppointmentId) {
-      const paired = await fetchAppointmentById(appointment.alternateWeekInfo.pairedAppointmentId)
-      if (paired) {
-        openEditSheet(paired)
-      }
-    }
-  }, [setSelectedDate, openCreateSheet, openEditSheet])
-
-  // Handle biweekly hint click
+  // Shared hooks
+  const { handleAlternateWeekClick } = useBiweeklyHandlers(openCreateSheet, openEditSheet)
   const handleBiweeklyHintClick = useCallback((time: string) => {
     openCreateSheet(time, { appointmentType: "BIWEEKLY" })
   }, [openCreateSheet])
-
-  // FAB menu state
-  const [isFabMenuOpen, setIsFabMenuOpen] = useState(false)
-
-  const handleFabMenuSelect = useCallback((type: CalendarEntryType | "CONSULTA") => {
-    setIsFabMenuOpen(false)
-    if (type === "CONSULTA") {
-      openCreateSheet()
-    } else {
-      openEntrySheet(type as Exclude<CalendarEntryType, "CONSULTA">)
-    }
-  }, [openCreateSheet, openEntrySheet])
+  const fabMenu = useFabMenu(openCreateSheet, openEntrySheet)
 
   // Auth effect
   useEffect(() => {
@@ -333,68 +258,38 @@ export default function AgendaPage() {
         onGoToToday={goToToday}
       />
 
-      <DndContext
-        sensors={drag.sensors}
-        collisionDetection={closestCenter}
-        onDragStart={drag.handleDragStart}
-        onDragMove={drag.handleDragMove}
-        onDragEnd={drag.handleDragEnd}
-        onDragCancel={drag.handleDragCancel}
-      >
-        <div>
-          <AgendaTimeline
-            appointments={appointments}
-            timeSlots={timeSlots}
-            groupSessions={groupSessions}
-            birthdayPatients={birthdayPatients}
-            fullDayBlock={fullDayBlock}
-            selectedDate={toDateString(selectedDate)}
-            selectedProfessionalId={selectedProfessionalId}
-            isAdmin={isAdmin}
-            isLoading={isLoadingData}
-            onSlotClick={openCreateSheet}
-            onAppointmentClick={openEditSheet}
-            onGroupSessionClick={openGroupSessionSheet}
-            onAlternateWeekClick={handleAlternateWeekClick}
-            onBiweeklyHintClick={handleBiweeklyHintClick}
-            onSwipeLeft={goToNextDay}
-            onSwipeRight={goToPreviousDay}
-            professionalColorMap={professionalColorMap}
-            canWriteAgenda={isDndEnabled}
-            isDragging={drag.isDragging}
-            projectedMinutes={drag.projectedMinutes}
-            overlappingIds={drag.overlappingIds}
-            activeAppointmentId={drag.activeAppointment?.id}
-          />
-        </div>
-
-        <DragOverlay
-          modifiers={[snapCenterToCursor]}
-          dropAnimation={{ duration: 200, easing: "cubic-bezier(0.25, 1, 0.5, 1)" }}
-          zIndex={50}
-        >
-          {drag.activeAppointment ? (
-            <DragGhostCard
-              appointment={drag.activeAppointment}
-              projectedMinutes={drag.projectedMinutes}
-            />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
-
-      <RecurrenceMoveDialog
-        request={drag.recurrenceMoveRequest}
-        onMoveThis={drag.handleRecurrenceMoveThis}
-        onMoveAllFuture={drag.handleRecurrenceMoveAllFuture}
-        onCancel={drag.handleRecurrenceCancel}
-        isSubmitting={drag.isUpdating}
-      />
+      <AgendaDndWrapper drag={drag}>
+        <AgendaTimeline
+          appointments={appointments}
+          timeSlots={timeSlots}
+          groupSessions={groupSessions}
+          birthdayPatients={birthdayPatients}
+          fullDayBlock={fullDayBlock}
+          selectedDate={toDateString(selectedDate)}
+          selectedProfessionalId={selectedProfessionalId}
+          isAdmin={isAdmin}
+          isLoading={isLoadingData}
+          onSlotClick={openCreateSheet}
+          onAppointmentClick={openEditSheet}
+          onGroupSessionClick={groupSheet.open}
+          onAlternateWeekClick={handleAlternateWeekClick}
+          onBiweeklyHintClick={handleBiweeklyHintClick}
+          onSwipeLeft={goToNextDay}
+          onSwipeRight={goToPreviousDay}
+          professionalColorMap={professionalColorMap}
+          canWriteAgenda={isDndEnabled}
+          isDragging={drag.isDragging}
+          projectedMinutes={drag.projectedMinutes}
+          overlappingIds={drag.overlappingIds}
+          activeAppointmentId={drag.activeAppointment?.id}
+        />
+      </AgendaDndWrapper>
 
       <AgendaFabMenu
-        isOpen={isFabMenuOpen}
-        onOpen={() => setIsFabMenuOpen(true)}
-        onClose={() => setIsFabMenuOpen(false)}
-        onSelect={handleFabMenuSelect}
+        isOpen={fabMenu.isOpen}
+        onOpen={fabMenu.open}
+        onClose={fabMenu.close}
+        onSelect={fabMenu.handleSelect}
       />
 
       <CreateAppointmentSheet
@@ -460,9 +355,9 @@ export default function AgendaPage() {
       />
 
       <GroupSessionSheet
-        isOpen={isGroupSessionSheetOpen}
-        onClose={closeGroupSessionSheet}
-        session={selectedGroupSession}
+        isOpen={groupSheet.isOpen}
+        onClose={groupSheet.close}
+        session={groupSheet.selectedSession}
         onStatusUpdated={refetchAppointments}
         professionals={professionals}
         isAdmin={isAdmin}
