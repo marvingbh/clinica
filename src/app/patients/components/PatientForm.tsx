@@ -10,6 +10,15 @@ export interface PatientFormData {
   phone: string
   email?: string | undefined
   birthDate?: string | undefined
+  cpf?: string | undefined
+  billingCpf?: string | undefined
+  billingResponsibleName?: string | undefined
+  addressStreet?: string | undefined
+  addressNumber?: string | undefined
+  addressNeighborhood?: string | undefined
+  addressCity?: string | undefined
+  addressState?: string | undefined
+  addressZip?: string | undefined
   fatherName?: string | undefined
   motherName?: string | undefined
   schoolName?: string | undefined
@@ -144,6 +153,73 @@ export function PatientForm({
           onUpdate={onUpdatePhone}
           onRemove={onRemovePhone}
         />
+
+        {/* ─── Documentos ─── */}
+        <SectionHeader title="Documentos" />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="cpf" className="block text-sm font-medium text-foreground mb-2">
+              CPF do Paciente
+            </label>
+            <input id="cpf" type="text" {...register("cpf")} placeholder="000.000.000-00" className={inputClass} />
+            {errors.cpf && <p className="text-sm text-destructive mt-1">{errors.cpf.message}</p>}
+          </div>
+          <div>
+            <label htmlFor="billingCpf" className="block text-sm font-medium text-foreground mb-2">
+              CPF para Nota Fiscal
+            </label>
+            <input id="billingCpf" type="text" {...register("billingCpf")} placeholder="000.000.000-00" className={inputClass} />
+            <p className="text-xs text-muted-foreground mt-1">
+              CPF do responsavel financeiro (pai/mae). Se vazio, usa o CPF do paciente.
+            </p>
+            {errors.billingCpf && <p className="text-sm text-destructive mt-1">{errors.billingCpf.message}</p>}
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="billingResponsibleName" className="block text-sm font-medium text-foreground mb-2">
+            Nome do Responsavel Financeiro
+          </label>
+          <input id="billingResponsibleName" type="text" {...register("billingResponsibleName")} placeholder="Nome completo do responsavel (pai/mae)" className={inputClass} />
+          <p className="text-xs text-muted-foreground mt-1">
+            Nome que aparecera na Nota Fiscal. Se vazio, usa o nome do paciente.
+          </p>
+        </div>
+
+        {/* ─── Endereço ─── */}
+        <SectionHeader title="Endereco" />
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="sm:col-span-2">
+            <label htmlFor="addressStreet" className="block text-sm font-medium text-foreground mb-2">Rua</label>
+            <input id="addressStreet" type="text" {...register("addressStreet")} className={inputClass} />
+          </div>
+          <div>
+            <label htmlFor="addressNumber" className="block text-sm font-medium text-foreground mb-2">Numero</label>
+            <input id="addressNumber" type="text" {...register("addressNumber")} placeholder="SN" className={inputClass} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label htmlFor="addressNeighborhood" className="block text-sm font-medium text-foreground mb-2">Bairro</label>
+            <input id="addressNeighborhood" type="text" {...register("addressNeighborhood")} className={inputClass} />
+          </div>
+          <div>
+            <label htmlFor="addressCity" className="block text-sm font-medium text-foreground mb-2">Cidade</label>
+            <input id="addressCity" type="text" {...register("addressCity")} className={inputClass} />
+          </div>
+          <div>
+            <label htmlFor="addressState" className="block text-sm font-medium text-foreground mb-2">UF</label>
+            <input id="addressState" type="text" maxLength={2} {...register("addressState")} placeholder="MG" className={inputClass} />
+          </div>
+        </div>
+
+        <div className="w-48">
+          <label htmlFor="addressZip" className="block text-sm font-medium text-foreground mb-2">CEP</label>
+          <input id="addressZip" type="text" {...register("addressZip")} placeholder="00000-000" className={inputClass} />
+        </div>
 
         {/* ─── Família e Escola ─── */}
         <SectionHeader title="Família e Escola" />

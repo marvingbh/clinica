@@ -24,6 +24,14 @@ const updatePatientSchema = z.object({
   email: z.string().email("Email inválido").optional().nullable().or(z.literal("")),
   birthDate: z.string().optional().nullable(),
   cpf: z.string().max(14).optional().nullable().or(z.literal("")),
+  billingCpf: z.string().max(14).optional().nullable().or(z.literal("")),
+  billingResponsibleName: z.string().max(200).optional().nullable().or(z.literal("")),
+  addressStreet: z.string().max(200).optional().nullable().or(z.literal("")),
+  addressNumber: z.string().max(20).optional().nullable().or(z.literal("")),
+  addressNeighborhood: z.string().max(100).optional().nullable().or(z.literal("")),
+  addressCity: z.string().max(100).optional().nullable().or(z.literal("")),
+  addressState: z.string().max(2).optional().nullable().or(z.literal("")),
+  addressZip: z.string().max(9).optional().nullable().or(z.literal("")),
   fatherName: z.string().max(200).optional().nullable().or(z.literal("")),
   motherName: z.string().max(200).optional().nullable().or(z.literal("")),
   notes: z.string().max(2000).optional().nullable().or(z.literal("")),
@@ -297,6 +305,16 @@ export const PATCH = withFeatureAuth(
         }
         updateData.cpf = normalizedCpf
       }
+    }
+
+    // Handle billingCpf update
+    if (data.billingCpf !== undefined) {
+      const normalizedCpfNota = data.billingCpf ? data.billingCpf.replace(/\D/g, "") : null
+      updateData.billingCpf = normalizedCpfNota || null
+    }
+
+    if (data.billingResponsibleName !== undefined) {
+      updateData.billingResponsibleName = data.billingResponsibleName || null
     }
 
     // Handle consent fields with timestamp tracking

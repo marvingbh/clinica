@@ -42,6 +42,13 @@ export const PATCH = withFeatureAuth(
       return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 })
     }
 
+    if (invoice.nfseStatus === "EMITIDA") {
+      return NextResponse.json(
+        { error: "Nao e possivel alterar itens de fatura com NFS-e emitida. Cancele a NFS-e primeiro." },
+        { status: 400 }
+      )
+    }
+
     const item = await prisma.invoiceItem.findFirst({
       where: { id: params.itemId, invoiceId: params.id },
     })
@@ -100,6 +107,13 @@ export const DELETE = withFeatureAuth(
     const invoice = await getInvoiceWithContext(params.id, user.clinicId, scope, user.professionalProfileId ?? null)
     if (!invoice) {
       return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 })
+    }
+
+    if (invoice.nfseStatus === "EMITIDA") {
+      return NextResponse.json(
+        { error: "Nao e possivel remover itens de fatura com NFS-e emitida. Cancele a NFS-e primeiro." },
+        { status: 400 }
+      )
     }
 
     const item = await prisma.invoiceItem.findFirst({

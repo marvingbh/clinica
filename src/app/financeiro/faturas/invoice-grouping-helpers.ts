@@ -13,6 +13,10 @@ export interface Invoice {
   notaFiscalEmitida: boolean
   paidViaBank: boolean
   bankPayerName: string | null
+  // NFS-e fields
+  nfseStatus?: string | null
+  nfseNumero?: string | null
+  nfseErro?: string | null
   patient: { id: string; name: string }
   professionalProfile: { id: string; user: { name: string } }
   _count: { items: number }

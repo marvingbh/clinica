@@ -17,7 +17,7 @@ export const GET = withFeatureAuth(
           : {}),
       },
       include: {
-        patient: { select: { id: true, name: true, phone: true, motherName: true, sessionFee: true } },
+        patient: { select: { id: true, name: true, phone: true, cpf: true, billingCpf: true, billingResponsibleName: true, motherName: true, sessionFee: true } },
         professionalProfile: { select: { id: true, user: { select: { name: true } } } },
         items: {
           include: {
@@ -70,6 +70,17 @@ export const PATCH = withFeatureAuth(
 
     if (!invoice) {
       return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 })
+    }
+
+    // Guard: block status change to CANCELADO when NFS-e is emitted
+    if (
+      invoice.nfseStatus === "EMITIDA" &&
+      parsed.data.status === "CANCELADO"
+    ) {
+      return NextResponse.json(
+        { error: "Nao e possivel cancelar fatura com NFS-e emitida. Cancele a NFS-e primeiro." },
+        { status: 400 }
+      )
     }
 
     const updateData: Record<string, unknown> = {}
@@ -128,6 +139,13 @@ export const DELETE = withFeatureAuth(
 
     if (!invoice) {
       return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 })
+    }
+
+    if (invoice.nfseStatus === "EMITIDA") {
+      return NextResponse.json(
+        { error: "Nao e possivel excluir fatura com NFS-e emitida. Cancele a NFS-e primeiro." },
+        { status: 400 }
+      )
     }
 
     await prisma.$transaction(async (tx) => {

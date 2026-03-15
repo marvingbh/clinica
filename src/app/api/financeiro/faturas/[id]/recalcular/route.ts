@@ -33,6 +33,13 @@ export const POST = withFeatureAuth(
       return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 })
     }
 
+    if (invoice.nfseStatus === "EMITIDA") {
+      return NextResponse.json(
+        { error: "Nao e possivel recalcular fatura com NFS-e emitida. Cancele a NFS-e primeiro." },
+        { status: 400 }
+      )
+    }
+
     if (invoice.status !== "PENDENTE" && invoice.status !== "ENVIADO" && invoice.status !== "PARCIAL") {
       return NextResponse.json(
         { error: "Apenas faturas pendentes, enviadas ou parciais podem ser recalculadas" },

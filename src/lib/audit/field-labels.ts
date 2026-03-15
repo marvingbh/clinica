@@ -48,6 +48,23 @@ export const FIELD_LABELS: Record<string, string> = {
   endTime: "Hora Fim",
   endDate: "Data Final",
   occurrences: "Ocorrencias",
+
+  // NFS-e fields
+  nfseStatus: "Status NFS-e",
+  nfseNumero: "Numero NFS-e",
+  nfseChaveAcesso: "Chave de Acesso",
+  nfseCodigoVerificacao: "Codigo de Verificacao",
+  nfseEmitidaAt: "Emitida em",
+  nfseErro: "Erro NFS-e",
+  nfseCanceladaAt: "Cancelada em",
+  nfseCancelamentoMotivo: "Motivo Cancelamento",
+  nfseCodigoServico: "Codigo Servico",
+  nfseDescricao: "Descricao Servico",
+  nfseAliquotaIss: "Aliquota ISS",
+  cnpj: "CNPJ",
+  inscricaoMunicipal: "Inscricao Municipal",
+  codigoMunicipio: "Codigo Municipio",
+  useSandbox: "Ambiente de Teste",
 }
 
 // ---------------------------------------------------------------------------
@@ -82,6 +99,13 @@ const RECURRENCE_TYPE_LABELS: Record<string, string> = {
   MONTHLY: "Mensal",
 }
 
+const NFSE_STATUS_LABELS: Record<string, string> = {
+  PENDENTE: "Pendente",
+  EMITIDA: "Emitida",
+  CANCELADA: "Cancelada",
+  ERRO: "Erro",
+}
+
 const DAY_OF_WEEK_LABELS: Record<number, string> = {
   0: "Domingo",
   1: "Segunda-feira",
@@ -96,7 +120,7 @@ const DAY_OF_WEEK_LABELS: Record<number, string> = {
 const DATE_FIELDS = new Set(["birthDate", "endDate"])
 
 /** Fields that should be formatted as date-time (DD/MM/YYYY HH:mm) */
-const DATETIME_FIELDS = new Set(["scheduledAt", "endAt", "confirmedAt", "cancelledAt"])
+const DATETIME_FIELDS = new Set(["scheduledAt", "endAt", "confirmedAt", "cancelledAt", "nfseEmitidaAt", "nfseCanceladaAt"])
 
 /** Fields that should be formatted as currency (R$ X,XX) */
 const CURRENCY_FIELDS = new Set(["price", "sessionFee"])
@@ -157,6 +181,11 @@ export function formatFieldValue(field: string, value: unknown): string {
 
   if (field === "recurrenceType") {
     const label = RECURRENCE_TYPE_LABELS[String(value)]
+    if (label) return label
+  }
+
+  if (field === "nfseStatus") {
+    const label = NFSE_STATUS_LABELS[String(value)]
     if (label) return label
   }
 
