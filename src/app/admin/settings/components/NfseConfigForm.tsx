@@ -56,6 +56,7 @@ export default function NfseConfigForm() {
         codigoMunicipio: config.codigoMunicipio,
         regimeTributario: config.regimeTributario,
         codigoServico: config.codigoServico,
+        codigoServicoMunicipal: config.codigoServicoMunicipal ?? "",
         cnae: config.cnae ?? undefined,
         codigoNbs: config.codigoNbs ?? undefined,
         aliquotaIss: config.aliquotaIss,

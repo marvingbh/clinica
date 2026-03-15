@@ -52,6 +52,7 @@ export const nfseConfigSchema = z.object({
     .regex(codigoMunicipioRegex, "Código do município deve ter 7 dígitos"),
   regimeTributario: z.string().min(1, "Regime tributário obrigatório"),
   codigoServico: z.string().min(1, "Código de serviço obrigatório"),
+  codigoServicoMunicipal: z.string().max(3).optional().or(z.literal("")),
   cnae: z.string().optional(),
   codigoNbs: z.string().optional(),
   aliquotaIss: z.number().min(0).max(100),

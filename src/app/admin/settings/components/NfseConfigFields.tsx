@@ -86,11 +86,17 @@ export default function NfseConfigFields({
         <h3 className="text-sm font-semibold text-foreground">Servico Padrao</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className={labelClass}>Codigo do Servico (LC 116) *</label>
-            <input {...register("codigoServico")} className={inputClass} />
+            <label className={labelClass}>Codigo Nacional (cTribNac) *</label>
+            <input {...register("codigoServico")} placeholder="041601" className={inputClass} />
+            <p className="text-xs text-muted-foreground mt-1">6 digitos (ex: 041601 = Psicologia)</p>
             {errors.codigoServico && (
               <p className="text-sm text-destructive mt-1">{errors.codigoServico.message}</p>
             )}
+          </div>
+          <div>
+            <label className={labelClass}>Codigo Municipal (cTribMun)</label>
+            <input {...register("codigoServicoMunicipal")} placeholder="001" className={inputClass} />
+            <p className="text-xs text-muted-foreground mt-1">3 digitos. Obrigatorio para BH e outros municipios.</p>
           </div>
           <div>
             <label className={labelClass}>Aliquota ISS (%) *</label>

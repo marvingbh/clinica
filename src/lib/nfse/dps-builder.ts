@@ -108,7 +108,7 @@ export function buildDpsXml(
           ...(data.prestadorFone ? { fone: data.prestadorFone.replace(/\D/g, "") } : {}),
           ...(data.prestadorEmail ? { email: data.prestadorEmail } : {}),
           regTrib: {
-            opSimpNac: ["1", "2"].includes(data.prestadorRegimeTributario) ? 1 : 2, // 1=optante SN (MEI/SN), 2=nao optante (LP/LR)
+            opSimpNac: data.prestadorRegimeTributario === "1" || data.prestadorRegimeTributario === "2" ? 1 : 2, // 1=MEI/SN, 2=LP/LR. Your company is LP (regime 3) = opSimpNac 2
             regEspTrib: 0, // 0 = Nenhum regime especial
           },
         },
@@ -131,6 +131,7 @@ export function buildDpsXml(
           },
           cServ: {
             cTribNac: data.codigoServico.replace(/\D/g, "").slice(0, 6),
+            ...(data.codigoServicoMunicipal ? { cTribMun: data.codigoServicoMunicipal } : {}),
             xDescServ: truncate(data.descricao, XDESCSERV_MAX_LENGTH),
           },
         },

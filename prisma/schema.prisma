@@ -931,7 +931,8 @@ model NfseConfig {
   regimeTributario    String   @default("1") // 1=MEI, 2=Simples Nacional, 3=Lucro Presumido, 4=Lucro Real
 
   // Service defaults (overridable per invoice at emission time)
-  codigoServico       String   // LC 116/2003 code e.g. "01.01.01.001"
+  codigoServico       String   // cTribNac - 6 digit national code e.g. "041601"
+  codigoServicoMunicipal String? // cTribMun - 3 digit municipal code (required by some cities like BH)
   cnae                String?  // CNAE code
   codigoNbs           String?  // NBS code (mandatory since 01/2026)
   aliquotaIss         Decimal  @db.Decimal(5, 2) // ISS rate %
