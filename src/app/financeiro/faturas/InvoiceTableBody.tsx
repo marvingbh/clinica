@@ -23,6 +23,57 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+function NfBadgeCell({ invoice }: { invoice: Invoice }) {
+  // NFS-e automated statuses take priority
+  if (invoice.nfseStatus === "EMITIDA") {
+    return (
+      <span
+        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+        title={invoice.nfseNumero ? `NFS-e #${invoice.nfseNumero}` : "NFS-e emitida"}
+      >
+        NFS-e
+      </span>
+    )
+  }
+  if (invoice.nfseStatus === "PENDENTE") {
+    return (
+      <span
+        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+        title="NFS-e em processamento"
+      >
+        ...
+      </span>
+    )
+  }
+  if (invoice.nfseStatus === "ERRO") {
+    return (
+      <span
+        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+        title={invoice.nfseErro || "Erro na emissao"}
+      >
+        Erro
+      </span>
+    )
+  }
+  if (invoice.nfseStatus === "CANCELADA") {
+    return (
+      <span
+        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground line-through"
+        title="NFS-e cancelada"
+      >
+        NFS-e
+      </span>
+    )
+  }
+  // Manual NF fallback
+  if (invoice.notaFiscalEmitida) {
+    return (
+      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" title="NF emitida">&#x2713;</span>
+    )
+  }
+  return <span className="text-muted-foreground">&mdash;</span>
+}
+
 function PaymentCell({
   invoice,
   onMarkPaid,
@@ -137,11 +188,7 @@ function IndividualRow({
         <StatusBadge status={invoice.status} />
       </td>
       <td className="text-center py-3 px-4">
-        {invoice.notaFiscalEmitida ? (
-          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" title="NF emitida">&#x2713;</span>
-        ) : (
-          <span className="text-muted-foreground">&mdash;</span>
-        )}
+        <NfBadgeCell invoice={invoice} />
       </td>
       <td className="text-center py-3 px-4">{formatDateBR(invoice.dueDate)}</td>
       <td className="text-center py-3 px-4">
@@ -298,11 +345,7 @@ export function InvoiceTableBody({
                   <StatusBadge status={inv.status} />
                 </td>
                 <td className="text-center py-2.5 px-4">
-                  {inv.notaFiscalEmitida ? (
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" title="NF emitida">&#x2713;</span>
-                  ) : (
-                    <span className="text-muted-foreground">&mdash;</span>
-                  )}
+                  <NfBadgeCell invoice={inv} />
                 </td>
                 <td className="text-center py-2.5 px-4">{formatDateBR(inv.dueDate)}</td>
                 <td className="text-center py-2.5 px-4">

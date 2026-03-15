@@ -215,6 +215,7 @@ model Clinic {
   bankTransactions       BankTransaction[]
   reconciliationLinks    ReconciliationLink[]
   patientUsualPayers     PatientUsualPayer[]
+  nfseConfig             NfseConfig?
 
   @@index([slug])
   @@index([isActive])
@@ -337,7 +338,15 @@ model Patient {
   email                        String?
   phone                        String
   birthDate                    DateTime? @db.Date
-  cpf                          String? // Brazilian tax ID
+  cpf                          String? // Brazilian tax ID (patient's own)
+  billingCpf                      String? // CPF for NFS-e (responsible person, often a parent)
+  billingResponsibleName              String? // Name of the financial responsible (for NFS-e tomador)
+  addressStreet                String? // Logradouro
+  addressNumber                String? // Numero
+  addressNeighborhood          String? // Bairro
+  addressCity                  String? // Cidade
+  addressState                 String? // UF (2 chars)
+  addressZip                   String? // CEP (8 digits)
   fatherName                   String? // Father's name
   motherName                   String? // Mother's name
   notes                        String? // Administrative observations
@@ -749,6 +758,20 @@ model Invoice {
   notaFiscalEmitidaAt   DateTime?
   notaFiscalPdf         Bytes?
 
+  // NFS-e Nacional (ADN) fields
+  nfseStatus              String?   // null=not emitted, PENDENTE, EMITIDA, CANCELADA, ERRO
+  nfseNumero              String?   // NFS-e number from ADN
+  nfseChaveAcesso         String?   // 50-char access key
+  nfseCodigoVerificacao   String?   // verification code
+  nfseEmitidaAt           DateTime?
+  nfseErro                String?   // error message for retry
+  nfseCanceladaAt         DateTime?
+  nfseCancelamentoMotivo  String?
+  // Service data used at emission time (snapshot of overrides)
+  nfseCodigoServico       String?
+  nfseDescricao           String?
+  nfseAliquotaIss         Decimal?  @db.Decimal(5, 2)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -889,4 +912,39 @@ model ReconciliationLink {
   @@unique([transactionId, invoiceId])
   @@index([invoiceId])
   @@index([clinicId])
+}
+
+// ============================================================================
+// NFS-e (NOTA FISCAL DE SERVICO ELETRONICA) MODELS
+// ============================================================================
+
+/// NFS-e configuration per clinic (certificate, fiscal data, service defaults)
+model NfseConfig {
+  id                  String   @id @default(cuid())
+  clinicId            String   @unique
+  clinic              Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Fiscal data
+  cnpj                String   // 14 digits only
+  inscricaoMunicipal  String
+  codigoMunicipio     String   // IBGE 7-digit code
+  regimeTributario    String   @default("1") // 1=MEI, 2=Simples Nacional, 3=Lucro Presumido, 4=Lucro Real
+
+  // Service defaults (overridable per invoice at emission time)
+  codigoServico       String   // LC 116/2003 code e.g. "01.01.01.001"
+  cnae                String?  // CNAE code
+  codigoNbs           String?  // NBS code (mandatory since 01/2026)
+  aliquotaIss         Decimal  @db.Decimal(5, 2) // ISS rate %
+  descricaoServico    String?  // Default service description
+
+  // Encrypted A1 certificate (PEM extracted from PFX at upload)
+  certificatePem      String   // AES-256-GCM encrypted PEM
+  privateKeyPem       String   // AES-256-GCM encrypted PEM
+
+  // Environment toggle
+  useSandbox          Boolean  @default(true) // true=Producao Restrita, false=Production
+
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }

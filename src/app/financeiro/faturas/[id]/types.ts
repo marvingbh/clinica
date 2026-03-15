@@ -24,7 +24,19 @@ export interface InvoiceDetail {
   notaFiscalEmitida: boolean
   notaFiscalEmitidaAt: string | null
   hasNotaFiscalPdf: boolean
-  patient: { id: string; name: string; phone: string; motherName: string | null; sessionFee: string | null }
+  // NFS-e fields
+  nfseStatus: string | null
+  nfseNumero: string | null
+  nfseChaveAcesso: string | null
+  nfseCodigoVerificacao: string | null
+  nfseEmitidaAt: string | null
+  nfseErro: string | null
+  nfseCanceladaAt: string | null
+  nfseCancelamentoMotivo: string | null
+  nfseCodigoServico: string | null
+  nfseDescricao: string | null
+  nfseAliquotaIss: number | null
+  patient: { id: string; name: string; phone: string; cpf: string | null; billingCpf: string | null; billingResponsibleName: string | null; motherName: string | null; sessionFee: string | null }
   professionalProfile: { id: string; user: { name: string } }
   items: InvoiceItem[]
   consumedCredits: Array<{ id: string; reason: string; createdAt: string }>

@@ -1,15 +1,60 @@
 "use client"
 
-import React, { useState, useRef } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { toast } from "sonner"
 import type { InvoiceDetail } from "./types"
+import NfseSection from "./NfseSection"
 
 interface NfSectionProps {
   invoice: InvoiceDetail
   onRefresh: () => void
 }
 
+interface NfseConfigSummary {
+  codigoServico: string
+  descricaoServico: string | null
+  aliquotaIss: number
+}
+
 export default function NfSection({ invoice, onRefresh }: NfSectionProps) {
+  const [nfseConfig, setNfseConfig] = useState<NfseConfigSummary | null | undefined>(undefined)
+
+  useEffect(() => {
+    fetch("/api/admin/settings/nfse")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.config && data.config.isActive !== false) {
+          setNfseConfig({
+            codigoServico: data.config.codigoServico,
+            descricaoServico: data.config.descricaoServico,
+            aliquotaIss: data.config.aliquotaIss,
+          })
+        } else {
+          setNfseConfig(null)
+        }
+      })
+      .catch(() => setNfseConfig(null))
+  }, [])
+
+  // Loading state
+  if (nfseConfig === undefined) {
+    return (
+      <div className="p-4 rounded-lg border border-border">
+        <h3 className="text-sm font-semibold text-muted-foreground">Nota Fiscal</h3>
+      </div>
+    )
+  }
+
+  // Automated NFS-e mode
+  if (nfseConfig) {
+    return <NfseSection invoice={invoice} nfseConfig={nfseConfig} onRefresh={onRefresh} />
+  }
+
+  // Manual fallback
+  return <ManualNfSection invoice={invoice} onRefresh={onRefresh} />
+}
+
+function ManualNfSection({ invoice, onRefresh }: NfSectionProps) {
   const [togglingNf, setTogglingNf] = useState(false)
   const [uploadingPdf, setUploadingPdf] = useState(false)
   const [deletingPdf, setDeletingPdf] = useState(false)

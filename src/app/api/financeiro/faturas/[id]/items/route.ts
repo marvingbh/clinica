@@ -40,6 +40,13 @@ export const POST = withFeatureAuth(
       return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 })
     }
 
+    if (invoice.nfseStatus === "EMITIDA") {
+      return NextResponse.json(
+        { error: "Nao e possivel alterar itens de fatura com NFS-e emitida. Cancele a NFS-e primeiro." },
+        { status: 400 }
+      )
+    }
+
     const clinic = await prisma.clinic.findUnique({
       where: { id: user.clinicId },
       select: { invoiceMessageTemplate: true },

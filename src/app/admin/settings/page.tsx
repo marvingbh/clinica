@@ -9,6 +9,7 @@ import { z } from "zod"
 import { toast } from "sonner"
 import { usePermission } from "@/shared/hooks/usePermission"
 import { DEFAULT_INVOICE_TEMPLATE } from "@/lib/financeiro/invoice-template"
+import NfseConfigForm from "./components/NfseConfigForm"
 
 const TIMEZONES = [
   { value: "America/Sao_Paulo", label: "Brasília (GMT-3)" },
@@ -803,6 +804,9 @@ export default function AdminSettingsPage() {
               </button>
             </div>
           </div>
+
+          {/* NFS-e Configuration */}
+          <NfseConfigForm />
 
           {/* Current Settings Summary */}
           {settings && (

@@ -63,6 +63,14 @@ export interface Patient {
   createdAt: string
   updatedAt?: string
   cpf?: string | null
+  billingCpf?: string | null
+  billingResponsibleName?: string | null
+  addressStreet?: string | null
+  addressNumber?: string | null
+  addressNeighborhood?: string | null
+  addressCity?: string | null
+  addressState?: string | null
+  addressZip?: string | null
   showAppointmentDaysOnInvoice?: boolean
   invoiceDueDay?: number | null
   invoiceGrouping?: string | null

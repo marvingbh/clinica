@@ -23,6 +23,14 @@ const createPatientSchema = z.object({
   email: z.string().email("Email inválido").optional().nullable().or(z.literal("")),
   birthDate: z.string().optional().nullable(),
   cpf: z.string().max(14).optional().nullable().or(z.literal("")),
+  billingCpf: z.string().max(14).optional().nullable().or(z.literal("")),
+  billingResponsibleName: z.string().max(200).optional().nullable().or(z.literal("")),
+  addressStreet: z.string().max(200).optional().nullable().or(z.literal("")),
+  addressNumber: z.string().max(20).optional().nullable().or(z.literal("")),
+  addressNeighborhood: z.string().max(100).optional().nullable().or(z.literal("")),
+  addressCity: z.string().max(100).optional().nullable().or(z.literal("")),
+  addressState: z.string().max(2).optional().nullable().or(z.literal("")),
+  addressZip: z.string().max(9).optional().nullable().or(z.literal("")),
   fatherName: z.string().max(200).optional().nullable().or(z.literal("")),
   motherName: z.string().max(200).optional().nullable().or(z.literal("")),
   notes: z.string().max(2000).optional().nullable().or(z.literal("")),
@@ -234,7 +242,7 @@ export const POST = withFeatureAuth(
       )
     }
 
-    const { name, email, phone, birthDate, cpf, fatherName, motherName, notes, schoolName, firstAppointmentDate, lastFeeAdjustmentDate, sessionFee, therapeuticProject, referenceProfessionalId, invoiceGrouping, consentWhatsApp, consentEmail, additionalPhones } =
+    const { name, email, phone, birthDate, cpf, billingCpf, billingResponsibleName, addressStreet, addressNumber, addressNeighborhood, addressCity, addressState, addressZip, fatherName, motherName, notes, schoolName, firstAppointmentDate, lastFeeAdjustmentDate, sessionFee, therapeuticProject, referenceProfessionalId, invoiceGrouping, consentWhatsApp, consentEmail, additionalPhones } =
       validation.data
 
     if (invoiceGrouping === "PER_SESSION") {
@@ -299,6 +307,14 @@ export const POST = withFeatureAuth(
         phone: normalizedPhone,
         birthDate: birthDate ? new Date(birthDate + "T00:00:00") : null,
         cpf: normalizedCpf,
+        billingCpf: billingCpf ? billingCpf.replace(/\D/g, "") : null,
+        billingResponsibleName: billingResponsibleName || null,
+        addressStreet: addressStreet || null,
+        addressNumber: addressNumber || null,
+        addressNeighborhood: addressNeighborhood || null,
+        addressCity: addressCity || null,
+        addressState: addressState || null,
+        addressZip: addressZip?.replace(/\D/g, "") || null,
         fatherName: fatherName || null,
         motherName: motherName || null,
         notes: notes || null,
