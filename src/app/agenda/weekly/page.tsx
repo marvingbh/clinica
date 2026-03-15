@@ -1,43 +1,14 @@
 "use client"
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense, useCallback, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
+import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
-import {
-  SwipeContainer,
-} from "@/shared/components/ui"
+import { SwipeContainer } from "@/shared/components/ui"
 
-import {
-  Professional,
-  Appointment,
-  EditAppointmentFormData,
-  editAppointmentSchema,
-  GroupSession,
-  AvailabilityRule,
-  AvailabilityException,
-  BiweeklyHint,
-} from "../lib"
-
-import { fetchGroupSessions } from "../services/groupSessionService"
+import type { Appointment, GroupSession, CalendarEntryType } from "../lib"
 import { fetchAppointmentById } from "../services/appointmentService"
-
-import {
-  DEFAULT_APPOINTMENT_DURATION,
-  filterActiveGroupSessions,
-} from "../lib/constants"
-
-import {
-  toDateString,
-  toLocalDateTime,
-  canMarkStatus,
-  canResendConfirmation,
-  getWeekStart,
-  getWeekEnd,
-} from "../lib/utils"
-
+import { toDateString, canMarkStatus, canResendConfirmation, getWeekStart } from "../lib/utils"
 import {
   AppointmentEditor,
   GroupSessionSheet,
@@ -45,12 +16,11 @@ import {
   CreateAppointmentSheet,
   AgendaFabMenu,
 } from "../components"
-import type { CalendarEntryType } from "../lib/types"
 
-import { useCalendarEntryCreate, useAppointmentCreate } from "../hooks"
+import { useCalendarEntryCreate, useAppointmentCreate, useAppointmentEdit, useAppointmentActions } from "../hooks"
 import { useWeeklyAvailability } from "./hooks/useWeeklyAvailability"
+import { useWeeklyData } from "./hooks/useWeeklyData"
 import { useAgendaContext } from "../context/AgendaContext"
-import { usePermission } from "@/shared/hooks/usePermission"
 
 import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core"
 import { snapCenterToCursor } from "@dnd-kit/modifiers"
@@ -61,222 +31,94 @@ import { DragGhostCard } from "../components/DragGhostCard"
 import { WEEKLY_GRID } from "../lib/grid-config"
 
 function WeeklyAgendaPageContent() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
   const { data: session, status } = useSession()
-  const { selectedDate, setSelectedDate, selectedProfessionalId, setSelectedProfessionalId } = useAgendaContext()
+  const searchParams = useSearchParams()
+  const { selectedDate, setSelectedDate } = useAgendaContext()
 
   // Handle URL date parameter on mount
-  useEffect(() => {
-    const dateParam = searchParams.get("date")
-    if (dateParam) {
-      setSelectedDate(getWeekStart(new Date(dateParam + "T12:00:00")))
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const initialDate = searchParams.get("date")
+  if (initialDate && selectedDate.toISOString().slice(0, 10) !== initialDate) {
+    // Will be handled by effect below
+  }
 
-  // Derive weekStart from the shared selectedDate
   const weekStart = useMemo(() => getWeekStart(selectedDate), [selectedDate])
 
-  // Core state
-  const [isLoading, setIsLoading] = useState(true)
-  const [isDataLoading, setIsDataLoading] = useState(false)
-  const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [groupSessions, setGroupSessions] = useState<GroupSession[]>([])
-  const [professionals, setProfessionals] = useState<Professional[]>([])
-  // Use session's appointmentDuration for non-admins, default for admins (will be updated when selecting professional)
-  const [appointmentDuration, setAppointmentDuration] = useState(
-    session?.user?.appointmentDuration || DEFAULT_APPOINTMENT_DURATION
-  )
+  // ============================================================================
+  // Data (extracted hook — replaces ~300 lines of inline state + fetching)
+  // ============================================================================
 
-  // Availability data (for showing available slots when a professional is selected)
-  const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([])
-  const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([])
-  const [biweeklyHints, setBiweeklyHints] = useState<BiweeklyHint[]>([])
-  const [birthdayPatients, setBirthdayPatients] = useState<{ id: string; name: string; date?: string }[]>([])
-
-  // Group session sheet state
-  const [isGroupSessionSheetOpen, setIsGroupSessionSheetOpen] = useState(false)
-  const [selectedGroupSession, setSelectedGroupSession] = useState<GroupSession | null>(null)
-
-  // Edit appointment state
-  const [isEditSheetOpen, setIsEditSheetOpen] = useState(false)
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
-  const [isUpdatingAppointment, setIsUpdatingAppointment] = useState(false)
-  const [editApiError, setEditApiError] = useState<string | null>(null)
-  const [editAdditionalProfIds, setEditAdditionalProfIds] = useState<string[]>([])
-
-  // Status update state
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
-  const [isResendingConfirmation, setIsResendingConfirmation] = useState(false)
-
-  // Recurrence management state
-  const [isManagingException, setIsManagingException] = useState(false)
-
-  // Delete appointment state
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [isDeletingAppointment, setIsDeletingAppointment] = useState(false)
-
-  const editForm = useForm<EditAppointmentFormData>({
-    resolver: zodResolver(editAppointmentSchema),
-  })
-
-  const { canRead: canReadOthersAgenda } = usePermission("agenda_others")
-  const { canWrite: canWriteAgenda } = usePermission("agenda_own")
-  const isAdmin = canReadOthersAgenda
-  const currentProfessionalProfileId = session?.user?.professionalProfileId
-  const activeProfessionalProfileId = isAdmin && selectedProfessionalId
-    ? selectedProfessionalId
-    : currentProfessionalProfileId
-
-  // Drag-and-drop: only enabled for single professional view (not "Todos")
-  const isDndEnabled = canWriteAgenda && !!selectedProfessionalId
-  const [refetchTrigger, setRefetchTrigger] = useState(0)
-
-  const handleAppointmentMoved = useCallback((updated: Appointment) => {
-    // Apply PATCH response locally to avoid full refetch latency
-    setAppointments(prev => prev.map(apt =>
-      apt.id === updated.id ? updated : apt
-    ))
-  }, [])
-
-  const handleBulkChange = useCallback(() => {
-    // Trigger full data refetch for bulk recurrence updates
-    setRefetchTrigger(prev => prev + 1)
-  }, [])
-
-  const drag = useAppointmentDrag({
-    appointments,
-    gridConfig: WEEKLY_GRID,
-    canWriteAgenda: isDndEnabled,
-    onAppointmentMoved: handleAppointmentMoved,
-    onBulkChange: handleBulkChange,
-  })
+  const data = useWeeklyData(weekStart)
+  const {
+    isAdmin, canWriteAgenda, selectedProfessionalId, setSelectedProfessionalId,
+    activeProfessionalProfileId, appointments, setAppointments, groupSessions,
+    professionals, appointmentDuration, availabilityRules, availabilityExceptions,
+    biweeklyHints, birthdayPatients, isLoading, isDataLoading, refetchAppointments,
+  } = data
 
   // ============================================================================
   // Week Navigation
   // ============================================================================
 
   function goToPreviousWeek() {
-    const newDate = new Date(weekStart)
-    newDate.setDate(newDate.getDate() - 7)
-    setSelectedDate(newDate)
+    const d = new Date(weekStart)
+    d.setDate(d.getDate() - 7)
+    setSelectedDate(d)
   }
-
   function goToNextWeek() {
-    const newDate = new Date(weekStart)
-    newDate.setDate(newDate.getDate() + 7)
-    setSelectedDate(newDate)
+    const d = new Date(weekStart)
+    d.setDate(d.getDate() + 7)
+    setSelectedDate(d)
   }
-
-  function goToToday() {
-    setSelectedDate(new Date())
-  }
+  function goToToday() { setSelectedDate(new Date()) }
 
   // ============================================================================
-  // Data Fetching
+  // Drag-and-Drop
   // ============================================================================
 
-  const fetchProfessionals = useCallback(async () => {
-    if (!isAdmin) return
-    try {
-      const response = await fetch("/api/professionals")
-      if (!response.ok) return
-      const data = await response.json()
-      setProfessionals(data.professionals)
-    } catch {
-      // Silently fail
-    }
-  }, [isAdmin])
+  const isDndEnabled = canWriteAgenda && !!selectedProfessionalId
 
-  const fetchAppointments = useCallback(async () => {
-    if (!activeProfessionalProfileId && !isAdmin) return
-    try {
-      const startDateStr = toDateString(weekStart)
-      const endDateStr = toDateString(getWeekEnd(weekStart))
-      const profId = isAdmin && selectedProfessionalId ? selectedProfessionalId : undefined
+  const handleAppointmentMoved = useCallback((updated: Appointment) => {
+    setAppointments(prev => prev.map(apt => apt.id === updated.id ? updated : apt))
+  }, [setAppointments])
 
-      const params = new URLSearchParams({ startDate: startDateStr, endDate: endDateStr })
-      if (profId) {
-        params.set("professionalProfileId", profId)
-      }
-
-      const [appointmentsResponse, groupSessionsData] = await Promise.all([
-        fetch(`/api/appointments?${params.toString()}`),
-        fetchGroupSessions({
-          startDate: weekStart,
-          endDate: getWeekEnd(weekStart),
-          professionalProfileId: profId,
-        }),
-      ])
-
-      if (!appointmentsResponse.ok) {
-        if (appointmentsResponse.status === 403) {
-          toast.error("Acesso negado")
-          router.push("/login")
-          return
-        }
-        throw new Error("Failed to fetch appointments")
-      }
-      const data = await appointmentsResponse.json()
-      setAppointments(data.appointments)
-      setGroupSessions(filterActiveGroupSessions(groupSessionsData.groupSessions))
-    } catch {
-      toast.error("Erro ao carregar agenda")
-    }
-  }, [weekStart, activeProfessionalProfileId, isAdmin, selectedProfessionalId, router])
-
-  // Group session handlers
-  const openGroupSessionSheet = (session: GroupSession) => {
-    setSelectedGroupSession(session)
-    setIsGroupSessionSheetOpen(true)
-  }
-
-  const closeGroupSessionSheet = () => {
-    setIsGroupSessionSheetOpen(false)
-    setSelectedGroupSession(null)
-  }
+  const drag = useAppointmentDrag({
+    appointments,
+    gridConfig: WEEKLY_GRID,
+    canWriteAgenda: isDndEnabled,
+    onAppointmentMoved: handleAppointmentMoved,
+    onBulkChange: refetchAppointments,
+  })
 
   // ============================================================================
-  // Create Appointment (shared hook)
+  // Edit Appointment (shared hook — replaces ~70 lines of inline logic)
   // ============================================================================
 
-  const {
-    isCreateSheetOpen,
-    openCreateSheet,
-    closeCreateSheet,
-    form: createForm,
-    patientSearch,
-    setPatientSearch,
-    selectedPatient,
-    handleSelectPatient,
-    handleClearPatient,
-    createProfessionalId: createApptProfessionalId,
-    setCreateProfessionalId: setCreateApptProfessionalId,
-    isProfessionalLocked: isApptProfessionalLocked,
-    appointmentType,
-    setAppointmentType,
-    recurrenceEndType,
-    setRecurrenceEndType,
-    recurrenceEndDate,
-    setRecurrenceEndDate,
-    recurrenceOccurrences,
-    setRecurrenceOccurrences,
-    additionalProfessionalIds: createAdditionalProfIds,
-    setAdditionalProfessionalIds: setCreateAdditionalProfIds,
-    appointmentDuration: hookAppointmentDuration,
-    apiError: createApiError,
-    clearApiError: clearCreateApiError,
-    availabilityWarning: createAvailabilityWarning,
-    onConfirmAvailabilityOverride: onConfirmCreateAvailabilityOverride,
-    clearAvailabilityWarning: clearCreateAvailabilityWarning,
-    isSaving: isSavingAppointment,
-    onSubmit: onSubmitAppointment,
-  } = useAppointmentCreate({
+  const edit = useAppointmentEdit({
+    appointmentDuration,
+    onSuccess: refetchAppointments,
+  })
+
+  // ============================================================================
+  // Appointment Actions (shared hook — replaces ~140 lines of inline logic)
+  // ============================================================================
+
+  const actions = useAppointmentActions({
+    selectedAppointment: edit.selectedAppointment,
+    setSelectedAppointment: edit.setSelectedAppointment,
+    closeEditSheet: edit.closeEditSheet,
+    onSuccess: refetchAppointments,
+  })
+
+  // ============================================================================
+  // Create Appointment
+  // ============================================================================
+
+  const create = useAppointmentCreate({
     selectedDate: weekStart,
     isAdmin,
     selectedProfessionalId,
     professionals,
-    onSuccess: fetchAppointments,
+    onSuccess: refetchAppointments,
     appointmentDuration,
   })
 
@@ -284,50 +126,42 @@ function WeeklyAgendaPageContent() {
   // Calendar Entry Create (non-CONSULTA types)
   // ============================================================================
 
-  const {
-    isSheetOpen: isEntrySheetOpen,
-    openSheet: openEntrySheet,
-    closeSheet: closeEntrySheet,
-    entryType: createEntryType,
-    form: entryForm,
-    createProfessionalId: entryProfessionalId,
-    setCreateProfessionalId: setEntryProfessionalId,
-    isProfessionalLocked: isEntryProfessionalLocked,
-    isRecurring: isEntryRecurring,
-    setIsRecurring: setIsEntryRecurring,
-    recurrenceType: entryRecurrenceType,
-    setRecurrenceType: setEntryRecurrenceType,
-    recurrenceEndType: entryRecurrenceEndType,
-    setRecurrenceEndType: setEntryRecurrenceEndType,
-    recurrenceEndDate: entryRecurrenceEndDate,
-    setRecurrenceEndDate: setEntryRecurrenceEndDate,
-    recurrenceOccurrences: entryRecurrenceOccurrences,
-    setRecurrenceOccurrences: setEntryRecurrenceOccurrences,
-    additionalProfessionalIds: entryAdditionalProfIds,
-    setAdditionalProfessionalIds: setEntryAdditionalProfIds,
-    selectedPatient: entrySelectedPatient,
-    setSelectedPatient: setEntrySelectedPatient,
-    patientSearch: entryPatientSearch,
-    setPatientSearch: setEntryPatientSearch,
-    apiError: entryApiError,
-    clearApiError: clearEntryApiError,
-    availabilityWarning: entryAvailabilityWarning,
-    onConfirmAvailabilityOverride: onConfirmEntryAvailabilityOverride,
-    clearAvailabilityWarning: clearEntryAvailabilityWarning,
-    isSaving: isSavingEntry,
-    onSubmit: onSubmitEntry,
-  } = useCalendarEntryCreate({
+  const entry = useCalendarEntryCreate({
     selectedDate: weekStart,
     isAdmin,
     selectedProfessionalId,
     professionals,
-    onSuccess: fetchAppointments,
+    onSuccess: refetchAppointments,
   })
 
-  // FAB menu state
+  // ============================================================================
+  // Group Session Sheet
+  // ============================================================================
+
+  const [isGroupSessionSheetOpen, setIsGroupSessionSheetOpen] = useState(false)
+  const [selectedGroupSession, setSelectedGroupSession] = useState<GroupSession | null>(null)
+
+  const openGroupSessionSheet = (gs: GroupSession) => {
+    setSelectedGroupSession(gs)
+    setIsGroupSessionSheetOpen(true)
+  }
+  const closeGroupSessionSheet = () => {
+    setIsGroupSessionSheetOpen(false)
+    setSelectedGroupSession(null)
+  }
+
+  // ============================================================================
+  // FAB Menu + Biweekly Handlers
+  // ============================================================================
+
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false)
 
-  // Handle alternate week click (biweekly appointments)
+  const handleFabMenuSelect = useCallback((type: CalendarEntryType | "CONSULTA") => {
+    setIsFabMenuOpen(false)
+    if (type === "CONSULTA") { create.openCreateSheet() }
+    else { entry.openSheet(type as Exclude<CalendarEntryType, "CONSULTA">) }
+  }, [create.openCreateSheet, entry.openSheet])
+
   const handleAlternateWeekClick = useCallback(async (appointment: Appointment) => {
     const scheduledAt = new Date(appointment.scheduledAt)
     const startTime = `${scheduledAt.getHours().toString().padStart(2, "0")}:${scheduledAt.getMinutes().toString().padStart(2, "0")}`
@@ -335,386 +169,23 @@ function WeeklyAgendaPageContent() {
     if (appointment.alternateWeekInfo?.isAvailable) {
       const alternateDate = new Date(scheduledAt)
       alternateDate.setDate(alternateDate.getDate() + 7)
-      openCreateSheet(startTime, { date: alternateDate, appointmentType: "BIWEEKLY" })
+      create.openCreateSheet(startTime, { date: alternateDate, appointmentType: "BIWEEKLY" })
     } else if (appointment.alternateWeekInfo?.pairedAppointmentId) {
       const paired = await fetchAppointmentById(appointment.alternateWeekInfo.pairedAppointmentId)
-      if (paired) {
-        openEditSheet(paired)
-      }
+      if (paired) edit.openEditSheet(paired)
     }
-  }, [openCreateSheet, openEditSheet])
+  }, [create.openCreateSheet, edit.openEditSheet])
 
-  const handleFabMenuSelect = useCallback((type: CalendarEntryType | "CONSULTA") => {
-    setIsFabMenuOpen(false)
-    if (type === "CONSULTA") {
-      openCreateSheet()
-    } else {
-      openEntrySheet(type as Exclude<CalendarEntryType, "CONSULTA">)
-    }
-  }, [openCreateSheet, openEntrySheet])
+  const handleAvailabilitySlotClick = useCallback((date: string, time: string) => {
+    create.openCreateSheet(time, { date: new Date(date + "T12:00:00") })
+  }, [create.openCreateSheet])
+
+  const handleBiweeklyHintClick = useCallback((date: string, time: string) => {
+    create.openCreateSheet(time, { date: new Date(date + "T12:00:00"), appointmentType: "BIWEEKLY" })
+  }, [create.openCreateSheet])
 
   // ============================================================================
-  // Edit Appointment
-  // ============================================================================
-
-  function openEditSheet(appointment: Appointment) {
-    setSelectedAppointment(appointment)
-    setEditApiError(null)
-    setEditAdditionalProfIds(
-      appointment.additionalProfessionals?.map(ap => ap.professionalProfile.id) || []
-    )
-    const scheduledDate = new Date(appointment.scheduledAt)
-    const endDate = new Date(appointment.endAt)
-    const durationMinutes = Math.round((endDate.getTime() - scheduledDate.getTime()) / 60000)
-
-    editForm.reset({
-      date: toDateString(scheduledDate),
-      startTime: `${scheduledDate.getHours().toString().padStart(2, "0")}:${scheduledDate.getMinutes().toString().padStart(2, "0")}`,
-      duration: durationMinutes,
-      modality: appointment.modality as "ONLINE" | "PRESENCIAL",
-      notes: appointment.notes || "",
-      price: appointment.price ? parseFloat(appointment.price) : null,
-    })
-    setIsEditSheetOpen(true)
-  }
-
-  function closeEditSheet() {
-    setIsEditSheetOpen(false)
-    setSelectedAppointment(null)
-  }
-
-  async function onSubmitEdit(data: EditAppointmentFormData) {
-    if (!selectedAppointment) return
-
-    // Clear any previous API error
-    setEditApiError(null)
-
-    setIsUpdatingAppointment(true)
-    try {
-      const scheduledAt = toLocalDateTime(data.date, data.startTime)
-
-      const durationMinutes = data.duration || appointmentDuration
-      const endAt = new Date(scheduledAt.getTime() + durationMinutes * 60000)
-
-      const body: Record<string, unknown> = {
-        scheduledAt: scheduledAt.toISOString(),
-        endAt: endAt.toISOString(),
-        modality: data.modality,
-        notes: data.notes || null,
-        price: data.price != null && data.price !== "" && !isNaN(Number(data.price)) ? Number(data.price) : null,
-        additionalProfessionalIds: editAdditionalProfIds,
-      }
-
-      const response = await fetch(`/api/appointments/${selectedAppointment.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        setEditApiError(result.error || "Erro ao atualizar agendamento")
-        return
-      }
-
-      toast.success("Agendamento atualizado com sucesso")
-      closeEditSheet()
-      fetchAppointments()
-    } catch {
-      setEditApiError("Erro ao atualizar agendamento")
-    } finally {
-      setIsUpdatingAppointment(false)
-    }
-  }
-
-  // ============================================================================
-  // Status Updates
-  // ============================================================================
-
-  async function handleUpdateStatus(newStatus: string, successMessage: string) {
-    if (!selectedAppointment) return
-
-    setIsUpdatingStatus(true)
-    try {
-      const response = await fetch(`/api/appointments/${selectedAppointment.id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        toast.error(result.error || "Erro ao atualizar status")
-        return
-      }
-
-      toast.success(successMessage)
-      closeEditSheet()
-      fetchAppointments()
-    } catch {
-      toast.error("Erro ao atualizar status")
-    } finally {
-      setIsUpdatingStatus(false)
-    }
-  }
-
-  async function handleResendConfirmation() {
-    if (!selectedAppointment) return
-
-    setIsResendingConfirmation(true)
-    try {
-      const response = await fetch(`/api/appointments/${selectedAppointment.id}/resend-confirmation`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        toast.error(result.error || "Erro ao reenviar confirmacao")
-        return
-      }
-
-      const channels = result.notificationsSent?.join(" e ") || "notificacao"
-      toast.success(`Links de confirmacao reenviados via ${channels}`)
-    } catch {
-      toast.error("Erro ao reenviar confirmacao")
-    } finally {
-      setIsResendingConfirmation(false)
-    }
-  }
-
-  // ============================================================================
-  // Recurrence Management
-  // ============================================================================
-
-  async function handleToggleException(action: "skip" | "unskip") {
-    if (!selectedAppointment?.recurrence) return
-
-    const appointmentDate = new Date(selectedAppointment.scheduledAt)
-    const dateStr = appointmentDate.toISOString().split("T")[0]
-
-    setIsManagingException(true)
-    try {
-      const response = await fetch(
-        `/api/appointments/recurrences/${selectedAppointment.recurrence.id}/exceptions`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: dateStr, action }),
-        }
-      )
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        toast.error(result.error || `Erro ao ${action === "skip" ? "pular" : "restaurar"} data`)
-        return
-      }
-
-      toast.success(result.message)
-
-      if (selectedAppointment.recurrence) {
-        setSelectedAppointment({
-          ...selectedAppointment,
-          recurrence: {
-            ...selectedAppointment.recurrence,
-            exceptions: result.exceptions,
-          },
-          ...(action === "skip" && {
-            status: "CANCELADO_PROFISSIONAL",
-            cancellationReason: "Excecao na recorrencia - data pulada",
-          }),
-          ...(action === "unskip" &&
-            selectedAppointment.status === "CANCELADO_PROFISSIONAL" &&
-            selectedAppointment.cancellationReason === "Excecao na recorrencia - data pulada" && {
-              status: "AGENDADO",
-              cancellationReason: null,
-            }),
-        } as Appointment)
-      }
-
-      fetchAppointments()
-    } catch {
-      toast.error(`Erro ao ${action === "skip" ? "pular" : "restaurar"} data`)
-    } finally {
-      setIsManagingException(false)
-    }
-  }
-
-  // ============================================================================
-  // Delete Appointment
-  // ============================================================================
-
-  async function handleDeleteAppointment() {
-    if (!selectedAppointment) return
-
-    setIsDeletingAppointment(true)
-    try {
-      const response = await fetch(`/api/appointments/${selectedAppointment.id}`, {
-        method: "DELETE",
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        toast.error(result.error || "Erro ao excluir agendamento")
-        return
-      }
-
-      toast.success("Agendamento excluido com sucesso")
-      setIsDeleteDialogOpen(false)
-      closeEditSheet()
-      fetchAppointments()
-    } catch {
-      toast.error("Erro ao excluir agendamento")
-    } finally {
-      setIsDeletingAppointment(false)
-    }
-  }
-
-  // ============================================================================
-  // Effects
-  // ============================================================================
-
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-      return
-    }
-    if (status === "authenticated") {
-      setIsLoading(false)
-      fetchProfessionals()
-    }
-  }, [status, router, fetchProfessionals])
-
-  useEffect(() => {
-    if (status !== "authenticated" || (!activeProfessionalProfileId && !isAdmin)) {
-      return
-    }
-
-    const abortController = new AbortController()
-
-    async function fetchData() {
-      setIsDataLoading(true)
-      try {
-        const startDateStr = toDateString(weekStart)
-        const endDateStr = toDateString(getWeekEnd(weekStart))
-        const profId = isAdmin && selectedProfessionalId ? selectedProfessionalId : ""
-
-        const params = new URLSearchParams({ startDate: startDateStr, endDate: endDateStr })
-        if (profId) params.set("professionalProfileId", profId)
-
-        // Build parallel fetch list: appointments + group sessions always, availability when professional selected
-        const fetches: Promise<unknown>[] = [
-          fetch(`/api/appointments?${params.toString()}`, {
-            signal: abortController.signal,
-          }),
-          fetchGroupSessions({
-            startDate: weekStart,
-            endDate: getWeekEnd(weekStart),
-            professionalProfileId: profId || undefined,
-            signal: abortController.signal,
-          }),
-        ]
-
-        // Fetch availability rules + exceptions when a specific professional is selected
-        const effectiveProfId = profId || (!isAdmin ? activeProfessionalProfileId : "")
-        if (effectiveProfId) {
-          fetches.push(
-            fetch(`/api/availability?professionalProfileId=${effectiveProfId}`, {
-              signal: abortController.signal,
-            }),
-            fetch(`/api/availability/exceptions?professionalProfileId=${effectiveProfId}`, {
-              signal: abortController.signal,
-            }),
-          )
-        }
-
-        const results = await Promise.all(fetches)
-
-        if (abortController.signal.aborted) return
-
-        const appointmentsResponse = results[0] as Response
-        const groupSessionsData = results[1] as { groupSessions: GroupSession[] }
-
-        if (!appointmentsResponse.ok) {
-          if (appointmentsResponse.status === 403) {
-            toast.error("Acesso negado")
-            router.push("/login")
-            return
-          }
-          throw new Error("Failed to fetch appointments")
-        }
-
-        const appointmentsData = await appointmentsResponse.json()
-
-        if (abortController.signal.aborted) return
-
-        setAppointments(appointmentsData.appointments)
-        setGroupSessions(filterActiveGroupSessions(groupSessionsData.groupSessions))
-        setBiweeklyHints(appointmentsData.biweeklyHints || [])
-        setBirthdayPatients(appointmentsData.birthdayPatients || [])
-
-        // Process availability data if fetched
-        if (effectiveProfId && results.length > 2) {
-          const rulesResponse = results[2] as Response
-          const exceptionsResponse = results[3] as Response
-
-          if (rulesResponse.ok) {
-            const rulesData = await rulesResponse.json()
-            setAvailabilityRules(rulesData.rules || [])
-          } else {
-            setAvailabilityRules([])
-          }
-
-          if (exceptionsResponse.ok) {
-            const exceptionsData = await exceptionsResponse.json()
-            setAvailabilityExceptions(exceptionsData.exceptions || [])
-          } else {
-            setAvailabilityExceptions([])
-          }
-        } else {
-          setAvailabilityRules([])
-          setAvailabilityExceptions([])
-          setBiweeklyHints([])
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name === "AbortError") return
-        toast.error("Erro ao carregar agenda")
-      } finally {
-        setIsDataLoading(false)
-      }
-    }
-
-    fetchData()
-
-    return () => {
-      abortController.abort()
-    }
-  }, [status, weekStart, activeProfessionalProfileId, isAdmin, selectedProfessionalId, router, refetchTrigger])
-
-  // Update appointment duration from session for non-admins
-  useEffect(() => {
-    if (!isAdmin && session?.user?.appointmentDuration) {
-      setAppointmentDuration(session.user.appointmentDuration)
-    }
-  }, [isAdmin, session?.user?.appointmentDuration])
-
-  // Update appointment duration when professionals data is available (for admins)
-  useEffect(() => {
-    if (isAdmin && professionals.length > 0 && activeProfessionalProfileId) {
-      const prof = professionals.find(p => p.professionalProfile?.id === activeProfessionalProfileId)
-      if (prof?.professionalProfile?.appointmentDuration) {
-        setAppointmentDuration(prof.professionalProfile.appointmentDuration)
-      }
-    }
-  }, [isAdmin, professionals, activeProfessionalProfileId])
-
-  // ============================================================================
-  // Weekly Availability (available slots for each day)
+  // Availability Slots
   // ============================================================================
 
   const weeklyAvailabilitySlots = useWeeklyAvailability({
@@ -727,14 +198,6 @@ function WeeklyAgendaPageContent() {
     appointmentDuration,
     selectedProfessionalId: activeProfessionalProfileId || "",
   })
-
-  const handleAvailabilitySlotClick = useCallback((date: string, time: string) => {
-    openCreateSheet(time, { date: new Date(date + "T12:00:00") })
-  }, [openCreateSheet])
-
-  const handleBiweeklyHintClick = useCallback((date: string, time: string) => {
-    openCreateSheet(time, { date: new Date(date + "T12:00:00"), appointmentType: "BIWEEKLY" })
-  }, [openCreateSheet])
 
   // ============================================================================
   // Render
@@ -755,7 +218,6 @@ function WeeklyAgendaPageContent() {
 
   return (
     <main className="min-h-screen bg-background pb-20">
-      {/* Header */}
       <WeeklyHeader
         weekStart={weekStart}
         professionals={professionals}
@@ -767,7 +229,6 @@ function WeeklyAgendaPageContent() {
         onSelectProfessional={setSelectedProfessionalId}
       />
 
-      {/* Week change swipe zone (outside the grid) */}
       <SwipeContainer onSwipeLeft={goToNextWeek} onSwipeRight={goToPreviousWeek} className="max-w-6xl mx-auto px-4 pt-4">
         <p className="text-xs text-muted-foreground text-center mb-4 flex items-center justify-center gap-2">
           <span className="w-8 h-0.5 bg-muted-foreground/30 rounded-full" />
@@ -776,7 +237,6 @@ function WeeklyAgendaPageContent() {
         </p>
       </SwipeContainer>
 
-      {/* Weekly Grid - scrolls horizontally on mobile */}
       <div className="max-w-6xl mx-auto px-4 pb-4 relative">
         {isDataLoading && (
           <div className="absolute inset-0 bg-background/60 z-20 flex items-center justify-center rounded-lg backdrop-blur-[1px]">
@@ -803,7 +263,7 @@ function WeeklyAgendaPageContent() {
               availabilitySlots={weeklyAvailabilitySlots}
               appointmentDuration={appointmentDuration}
               birthdayPatients={birthdayPatients}
-              onAppointmentClick={openEditSheet}
+              onAppointmentClick={edit.openEditSheet}
               onGroupSessionClick={openGroupSessionSheet}
               onAlternateWeekClick={handleAlternateWeekClick}
               onAvailabilitySlotClick={handleAvailabilitySlotClick}
@@ -818,22 +278,17 @@ function WeeklyAgendaPageContent() {
             />
           </div>
 
-          {/* Drag overlay — ghost preview (simple card, no absolute positioning) */}
           <DragOverlay
             modifiers={[snapCenterToCursor]}
             dropAnimation={{ duration: 200, easing: "cubic-bezier(0.25, 1, 0.5, 1)" }}
             zIndex={50}
           >
             {drag.activeAppointment ? (
-              <DragGhostCard
-                appointment={drag.activeAppointment}
-                projectedMinutes={drag.projectedMinutes}
-              />
+              <DragGhostCard appointment={drag.activeAppointment} projectedMinutes={drag.projectedMinutes} />
             ) : null}
           </DragOverlay>
         </DndContext>
 
-        {/* Recurrence move dialog */}
         <RecurrenceMoveDialog
           request={drag.recurrenceMoveRequest}
           onMoveThis={drag.handleRecurrenceMoveThis}
@@ -843,7 +298,6 @@ function WeeklyAgendaPageContent() {
         />
       </div>
 
-      {/* FAB + menu rendered via portal to escape PageTransition's will-change containing block */}
       <AgendaFabMenu
         isOpen={isFabMenuOpen}
         onOpen={() => setIsFabMenuOpen(true)}
@@ -851,116 +305,112 @@ function WeeklyAgendaPageContent() {
         onSelect={handleFabMenuSelect}
       />
 
-      {/* Create Appointment Sheet */}
       <CreateAppointmentSheet
-        isOpen={isCreateSheetOpen}
-        onClose={closeCreateSheet}
-        form={createForm}
-        patientSearch={patientSearch}
-        onPatientSearchChange={setPatientSearch}
-        selectedPatient={selectedPatient}
-        onSelectPatient={handleSelectPatient}
-        onClearPatient={handleClearPatient}
-        appointmentType={appointmentType}
-        onAppointmentTypeChange={setAppointmentType}
-        recurrenceEndType={recurrenceEndType}
-        onRecurrenceEndTypeChange={setRecurrenceEndType}
-        recurrenceEndDate={recurrenceEndDate}
-        onRecurrenceEndDateChange={setRecurrenceEndDate}
-        recurrenceOccurrences={recurrenceOccurrences}
-        onRecurrenceOccurrencesChange={setRecurrenceOccurrences}
+        isOpen={create.isCreateSheetOpen}
+        onClose={create.closeCreateSheet}
+        form={create.form}
+        patientSearch={create.patientSearch}
+        onPatientSearchChange={create.setPatientSearch}
+        selectedPatient={create.selectedPatient}
+        onSelectPatient={create.handleSelectPatient}
+        onClearPatient={create.handleClearPatient}
+        appointmentType={create.appointmentType}
+        onAppointmentTypeChange={create.setAppointmentType}
+        recurrenceEndType={create.recurrenceEndType}
+        onRecurrenceEndTypeChange={create.setRecurrenceEndType}
+        recurrenceEndDate={create.recurrenceEndDate}
+        onRecurrenceEndDateChange={create.setRecurrenceEndDate}
+        recurrenceOccurrences={create.recurrenceOccurrences}
+        onRecurrenceOccurrencesChange={create.setRecurrenceOccurrences}
         isAdmin={isAdmin}
         professionals={professionals}
-        createProfessionalId={createApptProfessionalId}
-        onCreateProfessionalIdChange={setCreateApptProfessionalId}
-        isProfessionalLocked={isApptProfessionalLocked}
+        createProfessionalId={create.createProfessionalId}
+        onCreateProfessionalIdChange={create.setCreateProfessionalId}
+        isProfessionalLocked={create.isProfessionalLocked}
         selectedProfessionalId={selectedProfessionalId}
-        additionalProfessionalIds={createAdditionalProfIds}
-        onAdditionalProfessionalIdsChange={setCreateAdditionalProfIds}
-        appointmentDuration={hookAppointmentDuration}
-        apiError={createApiError}
-        onDismissError={clearCreateApiError}
-        availabilityWarning={createAvailabilityWarning}
-        onConfirmAvailabilityOverride={onConfirmCreateAvailabilityOverride}
-        onDismissAvailabilityWarning={clearCreateAvailabilityWarning}
-        isSaving={isSavingAppointment}
-        onSubmit={onSubmitAppointment}
+        additionalProfessionalIds={create.additionalProfessionalIds}
+        onAdditionalProfessionalIdsChange={create.setAdditionalProfessionalIds}
+        appointmentDuration={create.appointmentDuration}
+        apiError={create.apiError}
+        onDismissError={create.clearApiError}
+        availabilityWarning={create.availabilityWarning}
+        onConfirmAvailabilityOverride={create.onConfirmAvailabilityOverride}
+        onDismissAvailabilityWarning={create.clearAvailabilityWarning}
+        isSaving={create.isSaving}
+        onSubmit={create.onSubmit}
       />
 
-      {/* Edit Appointment Sheet */}
       <AppointmentEditor
-        isOpen={isEditSheetOpen}
-        onClose={closeEditSheet}
-        appointment={selectedAppointment}
-        form={editForm}
-        isUpdating={isUpdatingAppointment}
-        onSubmit={onSubmitEdit}
-        apiError={editApiError}
-        onDismissError={() => setEditApiError(null)}
-        canMarkStatus={canMarkStatus(selectedAppointment)}
-        onUpdateStatus={handleUpdateStatus}
-        isUpdatingStatus={isUpdatingStatus}
-        canResendConfirmation={canResendConfirmation(selectedAppointment)}
-        onResendConfirmation={handleResendConfirmation}
-        isResendingConfirmation={isResendingConfirmation}
-        isDeleteDialogOpen={isDeleteDialogOpen}
-        setIsDeleteDialogOpen={setIsDeleteDialogOpen}
-        isDeletingAppointment={isDeletingAppointment}
-        onDeleteAppointment={handleDeleteAppointment}
-        onToggleException={handleToggleException}
-        isManagingException={isManagingException}
-        onRecurrenceSave={fetchAppointments}
+        isOpen={edit.isEditSheetOpen}
+        onClose={edit.closeEditSheet}
+        appointment={edit.selectedAppointment}
+        form={edit.form}
+        isUpdating={edit.isUpdating}
+        onSubmit={edit.onSubmit}
+        apiError={edit.apiError}
+        onDismissError={edit.clearApiError}
+        canMarkStatus={canMarkStatus(edit.selectedAppointment)}
+        onUpdateStatus={actions.handleUpdateStatus}
+        isUpdatingStatus={actions.isUpdatingStatus}
+        canResendConfirmation={canResendConfirmation(edit.selectedAppointment)}
+        onResendConfirmation={actions.handleResendConfirmation}
+        isResendingConfirmation={actions.isResendingConfirmation}
+        isDeleteDialogOpen={actions.isDeleteDialogOpen}
+        setIsDeleteDialogOpen={actions.setIsDeleteDialogOpen}
+        isDeletingAppointment={actions.isDeletingAppointment}
+        onDeleteAppointment={actions.handleDeleteAppointment}
+        onToggleException={actions.handleToggleException}
+        isManagingException={actions.isManagingException}
+        onRecurrenceSave={refetchAppointments}
         professionals={professionals}
-        editAdditionalProfIds={editAdditionalProfIds}
-        setEditAdditionalProfIds={setEditAdditionalProfIds}
+        editAdditionalProfIds={edit.editAdditionalProfIds}
+        setEditAdditionalProfIds={edit.setEditAdditionalProfIds}
       />
 
-      {/* Group Session Sheet */}
       <GroupSessionSheet
         isOpen={isGroupSessionSheetOpen}
         onClose={closeGroupSessionSheet}
         session={selectedGroupSession}
-        onStatusUpdated={fetchAppointments}
+        onStatusUpdated={refetchAppointments}
         professionals={professionals}
         isAdmin={isAdmin}
       />
 
-      {/* Calendar Entry Sheet */}
       <CalendarEntrySheet
-        isOpen={isEntrySheetOpen}
-        onClose={closeEntrySheet}
-        entryType={createEntryType}
-        form={entryForm}
+        isOpen={entry.isSheetOpen}
+        onClose={entry.closeSheet}
+        entryType={entry.entryType}
+        form={entry.form}
         isAdmin={isAdmin}
         professionals={professionals}
-        createProfessionalId={entryProfessionalId}
-        setCreateProfessionalId={setEntryProfessionalId}
-        isProfessionalLocked={isEntryProfessionalLocked}
+        createProfessionalId={entry.createProfessionalId}
+        setCreateProfessionalId={entry.setCreateProfessionalId}
+        isProfessionalLocked={entry.isProfessionalLocked}
         selectedProfessionalId={selectedProfessionalId}
-        isRecurring={isEntryRecurring}
-        setIsRecurring={setIsEntryRecurring}
-        recurrenceType={entryRecurrenceType}
-        setRecurrenceType={setEntryRecurrenceType}
-        recurrenceEndType={entryRecurrenceEndType}
-        setRecurrenceEndType={setEntryRecurrenceEndType}
-        recurrenceEndDate={entryRecurrenceEndDate}
-        setRecurrenceEndDate={setEntryRecurrenceEndDate}
-        recurrenceOccurrences={entryRecurrenceOccurrences}
-        setRecurrenceOccurrences={setEntryRecurrenceOccurrences}
-        additionalProfessionalIds={entryAdditionalProfIds}
-        setAdditionalProfessionalIds={setEntryAdditionalProfIds}
-        selectedPatient={entrySelectedPatient}
-        onSelectPatient={(p) => { setEntrySelectedPatient(p); setEntryPatientSearch(p.name) }}
-        onClearPatient={() => { setEntrySelectedPatient(null); setEntryPatientSearch("") }}
-        patientSearch={entryPatientSearch}
-        onPatientSearchChange={setEntryPatientSearch}
-        apiError={entryApiError}
-        onDismissError={clearEntryApiError}
-        availabilityWarning={entryAvailabilityWarning}
-        onConfirmAvailabilityOverride={onConfirmEntryAvailabilityOverride}
-        onDismissAvailabilityWarning={clearEntryAvailabilityWarning}
-        isSaving={isSavingEntry}
-        onSubmit={onSubmitEntry}
+        isRecurring={entry.isRecurring}
+        setIsRecurring={entry.setIsRecurring}
+        recurrenceType={entry.recurrenceType}
+        setRecurrenceType={entry.setRecurrenceType}
+        recurrenceEndType={entry.recurrenceEndType}
+        setRecurrenceEndType={entry.setRecurrenceEndType}
+        recurrenceEndDate={entry.recurrenceEndDate}
+        setRecurrenceEndDate={entry.setRecurrenceEndDate}
+        recurrenceOccurrences={entry.recurrenceOccurrences}
+        setRecurrenceOccurrences={entry.setRecurrenceOccurrences}
+        additionalProfessionalIds={entry.additionalProfessionalIds}
+        setAdditionalProfessionalIds={entry.setAdditionalProfessionalIds}
+        selectedPatient={entry.selectedPatient}
+        onSelectPatient={(p) => { entry.setSelectedPatient(p); entry.setPatientSearch(p.name) }}
+        onClearPatient={() => { entry.setSelectedPatient(null); entry.setPatientSearch("") }}
+        patientSearch={entry.patientSearch}
+        onPatientSearchChange={entry.setPatientSearch}
+        apiError={entry.apiError}
+        onDismissError={entry.clearApiError}
+        availabilityWarning={entry.availabilityWarning}
+        onConfirmAvailabilityOverride={entry.onConfirmAvailabilityOverride}
+        onDismissAvailabilityWarning={entry.clearAvailabilityWarning}
+        isSaving={entry.isSaving}
+        onSubmit={entry.onSubmit}
       />
     </main>
   )
