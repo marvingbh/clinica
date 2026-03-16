@@ -144,7 +144,9 @@ export function buildDpsXml(
               tribISSQN: 1,
               cPaisResult: PAIS_BRASIL,
               tpRetISSQN: 1,
-              pAliq: formatDecimal(data.aliquotaIss),
+              // opSimpNac: 1=Nao Optante, 2=MEI, 3=ME/EPP
+              // pAliq only sent for SN optantes (2 or 3). Nao optante (1) with active municipality = municipality determines aliquota.
+              ...(data.prestadorOpSimpNac > 1 ? { pAliq: formatDecimal(data.aliquotaIss) } : {}),
             },
             totTrib: {
               indTotTrib: 0, // 0 = nao informado

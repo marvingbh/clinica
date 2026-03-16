@@ -82,8 +82,9 @@ export default function NfseConfigFields({
         <div>
           <label className={labelClass}>Optante Simples Nacional (ADN)</label>
           <select {...register("opSimpNac", { valueAsNumber: true })} className={inputClass}>
-            <option value={1}>Sim (optante)</option>
-            <option value={2}>Nao (nao optante)</option>
+            <option value={1}>Nao Optante (Lucro Presumido / Lucro Real)</option>
+            <option value={2}>MEI</option>
+            <option value={3}>ME/EPP (Simples Nacional)</option>
           </select>
           <p className="text-xs text-muted-foreground mt-1">
             Deve corresponder ao cadastro na Receita Federal. Se o ADN rejeitar, ajuste aqui.
