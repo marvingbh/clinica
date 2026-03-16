@@ -129,6 +129,7 @@ export const GET = withFeatureAuth(
         prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(selectQuery, ...params),
         prisma.$queryRawUnsafe<Array<{ count: number }>>(countQuery, ...params),
       ])
+      if (rawPatients[0]) console.log("[Patients API] keys:", Object.keys(rawPatients[0]).filter(k => k.includes("nfse") || k.includes("billing") || k.includes("address")))
 
       // Normalize: when there's no reference professional, set to null instead of {id: null, user: {name: null}}
       const patients = rawPatients.map((p) => ({
@@ -174,6 +175,16 @@ export const GET = withFeatureAuth(
           email: true,
           phone: true,
           birthDate: true,
+          cpf: true,
+          billingCpf: true,
+          billingResponsibleName: true,
+          nfseDescriptionTemplate: true,
+          addressStreet: true,
+          addressNumber: true,
+          addressNeighborhood: true,
+          addressCity: true,
+          addressState: true,
+          addressZip: true,
           fatherName: true,
           motherName: true,
           notes: true,

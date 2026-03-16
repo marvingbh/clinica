@@ -293,6 +293,7 @@ export default function PatientsPage() {
         })
         .catch(() => {})
     }
+    console.log("[Patient Edit] nfseDescriptionTemplate:", patient.nfseDescriptionTemplate, "billingCpf:", patient.billingCpf, "addressStreet:", patient.addressStreet)
     reset({
       name: patient.name,
       phone: patient.phone,
