@@ -52,8 +52,41 @@ export const GET = withFeatureAuth(
       if (!emission || emission.status !== "EMITIDA" || !emission.chaveAcesso) {
         return NextResponse.json({ error: "NFS-e nao emitida para esta emissao" }, { status: 400 })
       }
-      // For per-item emissions, delegate to ADN for now (local DANFSE uses invoice-level data)
+
+      const emFilename = `NFS-e-${emission.numero || "sem-numero"}-${patientName}.pdf`
       const nfseConfig = invoice.clinic.nfseConfig
+
+      // Try local DANFSE generation first (unless forced ADN)
+      if (!forceAdn && emission.xml && nfseConfig) {
+        const emissionAsInvoice = {
+          nfseNumero: emission.numero,
+          nfseChaveAcesso: emission.chaveAcesso,
+          nfseCodigoVerificacao: emission.codigoVerificacao,
+          nfseEmitidaAt: emission.emitidaAt,
+          nfseDescricao: emission.descricao,
+          nfseAliquotaIss: nfseConfig.aliquotaIss,
+          nfseCodigoServico: nfseConfig.codigoServico,
+          nfseXml: emission.xml,
+          totalAmount: emission.valor,
+          patient: invoice.patient,
+          clinic: invoice.clinic,
+        }
+        const danfseData = buildDanfseData(emissionAsInvoice)
+        if (danfseData) {
+          try {
+            const QRCode = await import("qrcode")
+            danfseData.qrCodeDataUri = await QRCode.toDataURL(danfseData.verificacaoUrl, { width: 120, margin: 1 })
+            const buffer = await renderToBuffer(createDanfseDocument(danfseData))
+            return new NextResponse(new Uint8Array(buffer), {
+              headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${emFilename}"` },
+            })
+          } catch {
+            // Local generation failed — fall through to ADN
+          }
+        }
+      }
+
+      // Fallback: fetch from ADN
       if (!nfseConfig) {
         return NextResponse.json({ error: "Configuracao NFS-e nao encontrada" }, { status: 400 })
       }
@@ -64,13 +97,18 @@ export const GET = withFeatureAuth(
           useSandbox: nfseConfig.useSandbox,
         }
         const pdfBuffer = await fetchDanfse(emission.chaveAcesso, adnConfig)
-        const filename = `NFS-e-${emission.numero || "sem-numero"}-${patientName}.pdf`
         return new NextResponse(new Uint8Array(pdfBuffer), {
-          headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${filename}"` },
+          headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${emFilename}"` },
         })
       } catch (error) {
         const msg = error instanceof Error ? error.message : "Erro desconhecido"
-        return NextResponse.json({ error: `Erro ao baixar DANFSE: ${msg}` }, { status: 500 })
+        const isAdnUnavailable = msg.includes("502") || msg.includes("503") || msg.includes("504")
+        return NextResponse.json(
+          { error: isAdnUnavailable
+            ? "O servidor do ADN esta temporariamente indisponivel. Tente novamente em alguns minutos."
+            : `Erro ao baixar DANFSE: ${msg}` },
+          { status: isAdnUnavailable ? 503 : 500 }
+        )
       }
     }
 
