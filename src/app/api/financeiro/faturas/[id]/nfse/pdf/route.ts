@@ -53,7 +53,13 @@ export const GET = withFeatureAuth(
       })
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Erro desconhecido"
-      return NextResponse.json({ error: `Erro ao baixar DANFSE: ${msg}` }, { status: 500 })
+      const isAdnUnavailable = msg.includes("502") || msg.includes("503") || msg.includes("504")
+      return NextResponse.json(
+        { error: isAdnUnavailable
+          ? "O servidor do ADN esta temporariamente indisponivel para gerar o PDF. Tente novamente em alguns minutos."
+          : `Erro ao baixar DANFSE: ${msg}` },
+        { status: isAdnUnavailable ? 503 : 500 }
+      )
     }
   }
 )
