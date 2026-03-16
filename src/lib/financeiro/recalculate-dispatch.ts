@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client"
 import { recalculateInvoice } from "./recalculate-invoice"
 import { generatePerSessionInvoices } from "./generate-per-session-invoices"
 import { generateMonthlyInvoice } from "./generate-monthly-invoice"
+import { fetchUninvoicedPriorAppointments } from "./uninvoiced-appointments"
 
 type Tx = Prisma.TransactionClient
 
@@ -148,7 +149,7 @@ export async function handleGroupingTransition(
   const startDate = new Date(invoice.referenceYear, invoice.referenceMonth - 1, 1)
   const endDate = new Date(invoice.referenceYear, invoice.referenceMonth, 1)
 
-  const [monthAppointments, uninvoicedPriorAppointments, professional] = await Promise.all([
+  const [monthAppointments, uninvoicedPriorApts, professional] = await Promise.all([
     tx.appointment.findMany({
       where: {
         clinicId,
@@ -162,19 +163,11 @@ export async function handleGroupingTransition(
         recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
       },
     }),
-    tx.appointment.findMany({
-      where: {
-        clinicId,
-        patientId: invoice.patientId,
-        professionalProfileId: invoice.professionalProfileId,
-        scheduledAt: { lt: startDate },
-        type: { in: ["CONSULTA", "REUNIAO"] },
-        invoiceItems: { none: {} },
-      },
-      select: {
-        id: true, scheduledAt: true, status: true, type: true, title: true,
-        recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
-      },
+    fetchUninvoicedPriorAppointments(tx, {
+      clinicId,
+      patientId: invoice.patientId,
+      professionalProfileId: invoice.professionalProfileId,
+      beforeDate: startDate,
     }),
     tx.professionalProfile.findUnique({
       where: { id: invoice.professionalProfileId },
@@ -182,7 +175,7 @@ export async function handleGroupingTransition(
     }),
   ])
 
-  const appointments = [...monthAppointments, ...uninvoicedPriorAppointments]
+  const appointments = [...monthAppointments, ...uninvoicedPriorApts]
 
   const profName = professional?.user?.name || ""
   const sessionFee = Number(patient.sessionFee)

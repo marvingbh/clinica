@@ -5,6 +5,7 @@ import { z } from "zod"
 import { generateMonthlyInvoice } from "@/lib/financeiro/generate-monthly-invoice"
 import { generatePerSessionInvoices } from "@/lib/financeiro/generate-per-session-invoices"
 import { resolveGrouping } from "@/lib/financeiro/invoice-grouping"
+import { fetchUninvoicedPriorAppointments } from "@/lib/financeiro/uninvoiced-appointments"
 
 const schema = z.object({
   month: z.number().int().min(1).max(12),
@@ -62,7 +63,7 @@ export const POST = withFeatureAuth(
     }
 
     // Step 3: Fetch appointments for those patients in the reference month
-    const monthAppointments = await prisma.appointment.findMany({
+    const allAppointments = await prisma.appointment.findMany({
       where: {
         clinicId: user.clinicId,
         patientId: { in: patientIds },
@@ -75,25 +76,6 @@ export const POST = withFeatureAuth(
         patientId: true, professionalProfileId: true,
       },
     })
-
-    // Step 3b: Also fetch uninvoiced appointments from PRIOR months
-    // (e.g. group sessions created after the previous month's invoice was generated)
-    const uninvoicedPriorAppointments = await prisma.appointment.findMany({
-      where: {
-        clinicId: user.clinicId,
-        patientId: { in: patientIds },
-        scheduledAt: { lt: startDate },
-        type: { in: ["CONSULTA", "REUNIAO"] },
-        invoiceItems: { none: {} },
-      },
-      select: {
-        id: true, scheduledAt: true, status: true, type: true, title: true,
-        recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
-        patientId: true, professionalProfileId: true,
-      },
-    })
-
-    const allAppointments = [...monthAppointments, ...uninvoicedPriorAppointments]
 
     // Step 4: Group by patientId + professionalProfileId (one invoice per combination)
     const byPatientAndProfessional = new Map<string, typeof allAppointments>()
@@ -152,7 +134,17 @@ export const POST = withFeatureAuth(
         patient.invoiceGrouping
       )
 
-      const mappedApts = patientApts.map(a => ({
+      // Fetch uninvoiced appointments from prior months for this patient+professional
+      const priorApts = await fetchUninvoicedPriorAppointments(prisma, {
+        clinicId: user.clinicId,
+        patientId,
+        professionalProfileId: profId,
+        beforeDate: startDate,
+      })
+
+      const allPatientApts = [...patientApts, ...priorApts]
+
+      const mappedApts = allPatientApts.map(a => ({
         id: a.id,
         scheduledAt: a.scheduledAt,
         status: a.status,
