@@ -190,9 +190,28 @@ export default function NfseEmissionDialog({
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Servico</p>
           <div className="flex gap-2">
             <input type="text" value={codigoServico} onChange={(e) => setCodigoServico(e.target.value)} placeholder="cTribNac" className={`w-24 ${inputSmCls}`} />
-            <input type="text" value={codigoNbs} onChange={(e) => setCodigoNbs(e.target.value)} placeholder="NBS" className={`w-28 ${inputSmCls}`} />
-            <input type="text" value={cClassNbs} onChange={(e) => setCClassNbs(e.target.value)} placeholder="CClass" className={`w-24 ${inputSmCls}`} />
             <input type="number" step="0.01" min="0" max="100" value={aliquotaIss} onChange={(e) => setAliquotaIss(e.target.value)} placeholder="ISS %" className={`w-20 ${inputSmCls}`} />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Servico NBS</label>
+            <select
+              value={`${codigoNbs}_${cClassNbs}`}
+              onChange={(e) => {
+                const [nbs, cc] = e.target.value.split("_")
+                setCodigoNbs(nbs)
+                setCClassNbs(cc)
+              }}
+              className={inputCls}
+            >
+              <option value="_">Selecione</option>
+              <option value="123019800_200029">123019800 | 200029 - Servicos de psicologia (Saude humana LC 214/2025)</option>
+              <option value="123019800_000001">123019800 | 000001 - Servicos de psicologia (Tributado integralmente IBS/CBS)</option>
+              <option value="112021000_000001">112021000 | 000001 - Pesquisa e desenvolvimento em psicologia (Tributado integralmente)</option>
+              <option value="112021000_200016">112021000 | 200016 - Pesquisa e desenvolvimento em psicologia (ICT sem fins lucrativos)</option>
+              <option value="123012200_200029">123012200 | 200029 - Servicos medicos especializados (Saude humana LC 214/2025)</option>
+              <option value="123019900_200029">123019900 | 200029 - Outros servicos de saude humana (LC 214/2025)</option>
+              <option value="123019900_000001">123019900 | 000001 - Outros servicos de saude humana (Tributado integralmente)</option>
+            </select>
           </div>
           <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={6} placeholder="Descricao do servico" className={`${inputCls} resize-y`} />
         </div>
