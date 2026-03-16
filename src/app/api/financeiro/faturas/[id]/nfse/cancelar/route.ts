@@ -4,10 +4,10 @@ import { prisma } from "@/lib/prisma"
 import { audit, AuditAction } from "@/lib/rbac/audit"
 import { z } from "zod"
 import { cancelNfse, type AdnConfig } from "@/lib/nfse/adn-client"
-import { computeAggregateNfseStatus } from "@/lib/nfse/emission-service"
+import { updateInvoiceAggregateNfseStatus } from "@/lib/nfse/emission-service"
 
 const cancelSchema = z.object({
-  motivo: z.string().min(1, "Motivo do cancelamento obrigatorio"),
+  motivo: z.string().min(15, "Motivo deve ter pelo menos 15 caracteres"),
   codigoMotivo: z.number().int().min(1).max(6, "Codigo do motivo deve ser entre 1 e 6"),
 })
 
@@ -76,15 +76,7 @@ export const POST = withFeatureAuth(
         })
 
         // Recompute aggregate
-        const allEmissions = await prisma.nfseEmission.findMany({
-          where: { invoiceId: invoice.id },
-          select: { status: true },
-        })
-        const aggregate = computeAggregateNfseStatus(allEmissions.map(e => e.status) as Array<"PENDENTE" | "EMITIDA" | "ERRO" | "CANCELADA">)
-        await prisma.invoice.update({
-          where: { id: invoice.id },
-          data: { nfseStatus: aggregate, notaFiscalEmitida: aggregate === "EMITIDA", notaFiscalEmitidaAt: aggregate === "EMITIDA" ? new Date() : null },
-        })
+        const aggregate = await updateInvoiceAggregateNfseStatus(invoice.id)
 
         audit.log({ user, action: AuditAction.NFSE_CANCELADA, entityType: "Invoice", entityId: invoice.id, newValues: { emissionId, nfseStatus: "CANCELADA", motivo }, request: req }).catch(() => {})
         return NextResponse.json({ success: true, nfseStatus: aggregate })

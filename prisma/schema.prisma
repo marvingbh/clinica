@@ -878,6 +878,7 @@ model NfseEmission {
 
   @@index([invoiceId])
   @@index([invoiceId, status])
+  @@index([invoiceItemId])
 }
 
 // ============================================================================

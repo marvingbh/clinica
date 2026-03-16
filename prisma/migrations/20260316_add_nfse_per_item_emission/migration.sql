@@ -32,6 +32,9 @@ CREATE INDEX "NfseEmission_invoiceId_idx" ON "NfseEmission"("invoiceId");
 -- CreateIndex
 CREATE INDEX "NfseEmission_invoiceId_status_idx" ON "NfseEmission"("invoiceId", "status");
 
+-- CreateIndex
+CREATE INDEX "NfseEmission_invoiceItemId_idx" ON "NfseEmission"("invoiceItemId");
+
 -- AddForeignKey
 ALTER TABLE "NfseEmission" ADD CONSTRAINT "NfseEmission_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "Invoice"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
