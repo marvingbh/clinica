@@ -2,6 +2,7 @@ import https from "https"
 import { gzipSync, gunzipSync } from "zlib"
 import { decrypt } from "@/lib/bank-reconciliation/encryption"
 import { ADN_URLS } from "./types"
+import { logAdnCall } from "./adn-logger"
 
 // ============================================================================
 // Types
@@ -11,6 +12,8 @@ export interface AdnConfig {
   certificatePem: string // encrypted
   privateKeyPem: string  // encrypted
   useSandbox: boolean
+  clinicId: string       // for logging
+  invoiceId?: string     // for logging
 }
 
 export interface NfseResponse {
@@ -100,37 +103,50 @@ export async function emitNfse(
   const baseUrl = getBaseUrl(config.useSandbox)
   const agent = createAgent(config)
   const dpsXmlGZipB64 = compressAndEncode(signedDpsXml)
-
+  const url = `${baseUrl}/nfse`
   const body = JSON.stringify({ dpsXmlGZipB64 })
+  const start = Date.now()
 
+  let statusCode: number
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { statusCode, data } = await httpsRequest<any>(`${baseUrl}/nfse`, {
-    method: "POST",
-    agent,
-    headers: {
-      "Content-Type": "application/json",
-      "Content-Length": Buffer.byteLength(body),
-    },
-  }, body)
+  let data: any
+  let rawResponse: string
+
+  try {
+    const result = await httpsRequest<Record<string, unknown>>(url, {
+      method: "POST",
+      agent,
+      headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
+    }, body)
+    statusCode = result.statusCode
+    data = result.data
+    rawResponse = JSON.stringify(data)
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    logAdnCall({ clinicId: config.clinicId, invoiceId: config.invoiceId, operation: "emit", method: "POST", url, requestBody: signedDpsXml, error: errMsg, durationMs: Date.now() - start })
+    throw err
+  }
+
+  logAdnCall({
+    clinicId: config.clinicId, invoiceId: config.invoiceId, operation: "emit", method: "POST", url,
+    requestBody: signedDpsXml, statusCode, responseBody: rawResponse.slice(0, 50000), durationMs: Date.now() - start,
+    error: statusCode >= 400 ? extractAdnError(data, statusCode) : undefined,
+  })
 
   if (statusCode >= 400) {
-    const errorMsg = extractAdnError(data, statusCode)
-    return { error: errorMsg, statusCode }
+    return { error: extractAdnError(data, statusCode), statusCode }
   }
 
   const chaveAcesso = data.chaveAcesso ?? data.idDps ?? ""
   let nfseNumero: string | undefined
   let codigoVerificacao: string | undefined
 
-  // NFS-e data is inside the compressed XML response
   if (data.nfseXmlGZipB64) {
     try {
-      const xmlBuffer = gunzipSync(Buffer.from(data.nfseXmlGZipB64, "base64"))
+      const xmlBuffer = gunzipSync(Buffer.from(data.nfseXmlGZipB64 as string, "base64"))
       const nfseXml = xmlBuffer.toString("utf-8")
-      // Extract nNFSe (NFS-e number)
       const nNFSeMatch = nfseXml.match(/<nNFSe>([^<]+)<\/nNFSe>/)
       if (nNFSeMatch) nfseNumero = nNFSeMatch[1]
-      // Extract cVerif (verification code)
       const cVerifMatch = nfseXml.match(/<cVerif>([^<]+)<\/cVerif>/)
       if (cVerifMatch) codigoVerificacao = cVerifMatch[1]
     } catch {
@@ -138,12 +154,7 @@ export async function emitNfse(
     }
   }
 
-  return {
-    nfseNumero,
-    chaveAcesso,
-    codigoVerificacao,
-    statusCode,
-  }
+  return { nfseNumero, chaveAcesso, codigoVerificacao, statusCode }
 }
 
 // ============================================================================
@@ -173,23 +184,35 @@ export async function cancelNfse(
   const signedXml = sig.getSignedXml()
 
   const eventXmlGZipB64 = compressAndEncode(signedXml)
+  const url = `${baseUrl}/nfse/${chaveAcesso}/eventos`
   const body = JSON.stringify({ pedidoRegistroEventoXmlGZipB64: eventXmlGZipB64 })
+  const start = Date.now()
 
-  const { statusCode, data } = await httpsRequest<{ message?: string }>(
-    `${baseUrl}/nfse/${chaveAcesso}/eventos`,
-    {
-      method: "POST",
-      agent,
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(body),
-      },
-    },
-    body
-  )
+  let statusCode: number
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let data: any
+  try {
+    const result = await httpsRequest<Record<string, unknown>>(url, {
+      method: "POST", agent,
+      headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
+    }, body)
+    statusCode = result.statusCode
+    data = result.data
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    logAdnCall({ clinicId: config.clinicId, invoiceId: config.invoiceId, operation: "cancel", method: "POST", url, requestBody: signedXml, error: errMsg, durationMs: Date.now() - start })
+    throw err
+  }
+
+  const rawResponse = JSON.stringify(data)
+  const errorMsg = statusCode >= 400 ? (typeof data === "object" ? extractAdnError(data, statusCode) : `HTTP ${statusCode}`) : undefined
+
+  logAdnCall({
+    clinicId: config.clinicId, invoiceId: config.invoiceId, operation: "cancel", method: "POST", url,
+    requestBody: signedXml, statusCode, responseBody: rawResponse, durationMs: Date.now() - start, error: errorMsg,
+  })
 
   if (statusCode >= 400) {
-    const errorMsg = typeof data === "object" ? extractAdnError(data, statusCode) : `HTTP ${statusCode}`
     throw new Error(`NFS-e cancellation failed: ${errorMsg}`)
   }
 }
