@@ -20,6 +20,7 @@ export interface NfseResponse {
   nfseNumero?: string
   chaveAcesso?: string
   codigoVerificacao?: string
+  nfseXml?: string
   error?: string
   statusCode?: number
 }
@@ -141,10 +142,11 @@ export async function emitNfse(
   let nfseNumero: string | undefined
   let codigoVerificacao: string | undefined
 
+  let nfseXml: string | undefined
   if (data.nfseXmlGZipB64) {
     try {
       const xmlBuffer = gunzipSync(Buffer.from(data.nfseXmlGZipB64 as string, "base64"))
-      const nfseXml = xmlBuffer.toString("utf-8")
+      nfseXml = xmlBuffer.toString("utf-8")
       const nNFSeMatch = nfseXml.match(/<nNFSe>([^<]+)<\/nNFSe>/)
       if (nNFSeMatch) nfseNumero = nNFSeMatch[1]
       const cVerifMatch = nfseXml.match(/<cVerif>([^<]+)<\/cVerif>/)
@@ -154,7 +156,7 @@ export async function emitNfse(
     }
   }
 
-  return { nfseNumero, chaveAcesso, codigoVerificacao, statusCode }
+  return { nfseNumero, chaveAcesso, codigoVerificacao, nfseXml, statusCode }
 }
 
 // ============================================================================

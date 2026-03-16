@@ -232,6 +232,7 @@ export const POST = withFeatureAuth(
           nfseNumero: result.nfseNumero || null,
           nfseChaveAcesso: result.chaveAcesso || null,
           nfseCodigoVerificacao: result.codigoVerificacao || null,
+          nfseXml: result.nfseXml || null,
           nfseEmitidaAt: new Date(),
           nfseErro: null,
           // Keep the legacy field in sync
