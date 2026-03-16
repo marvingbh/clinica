@@ -22,6 +22,8 @@ interface NfseEmissionDialogProps {
   }
   totalAmount: string
   defaultCodigoServico: string
+  defaultCodigoNbs: string
+  defaultCClassNbs: string
   defaultDescricao: string
   defaultAliquotaIss: number
   onClose: () => void
@@ -37,6 +39,8 @@ export default function NfseEmissionDialog({
   patientAddress,
   totalAmount,
   defaultCodigoServico,
+  defaultCodigoNbs,
+  defaultCClassNbs,
   defaultDescricao,
   defaultAliquotaIss,
   onClose,
@@ -66,6 +70,8 @@ export default function NfseEmissionDialog({
   }, [invoiceId, defaultDescricao])
   const [aliquotaIss, setAliquotaIss] = useState(String(defaultAliquotaIss))
   const [codigoServico, setCodigoServico] = useState(defaultCodigoServico)
+  const [codigoNbs, setCodigoNbs] = useState(defaultCodigoNbs)
+  const [cClassNbs, setCClassNbs] = useState(defaultCClassNbs)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -92,6 +98,8 @@ export default function NfseEmissionDialog({
 
     const overrides: Record<string, unknown> = {}
     if (codigoServico !== defaultCodigoServico) overrides.codigoServico = codigoServico
+    if (codigoNbs !== defaultCodigoNbs) overrides.codigoNbs = codigoNbs
+    if (cClassNbs !== defaultCClassNbs) overrides.cClassNbs = cClassNbs
     if (descricao !== defaultDescricao) overrides.descricao = descricao
     const parsedAliquota = parseFloat(aliquotaIss)
     if (!isNaN(parsedAliquota) && parsedAliquota !== defaultAliquotaIss) {
@@ -181,10 +189,12 @@ export default function NfseEmissionDialog({
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Servico</p>
           <div className="flex gap-2">
-            <input type="text" value={codigoServico} onChange={(e) => setCodigoServico(e.target.value)} placeholder="Codigo" className={`w-28 ${inputSmCls}`} />
+            <input type="text" value={codigoServico} onChange={(e) => setCodigoServico(e.target.value)} placeholder="cTribNac" className={`w-24 ${inputSmCls}`} />
+            <input type="text" value={codigoNbs} onChange={(e) => setCodigoNbs(e.target.value)} placeholder="NBS" className={`w-28 ${inputSmCls}`} />
+            <input type="text" value={cClassNbs} onChange={(e) => setCClassNbs(e.target.value)} placeholder="CClass" className={`w-24 ${inputSmCls}`} />
             <input type="number" step="0.01" min="0" max="100" value={aliquotaIss} onChange={(e) => setAliquotaIss(e.target.value)} placeholder="ISS %" className={`w-20 ${inputSmCls}`} />
           </div>
-          <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={2} placeholder="Descricao do servico" className={`${inputCls} resize-none`} />
+          <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={6} placeholder="Descricao do servico" className={`${inputCls} resize-y`} />
         </div>
 
         {error && <p className="text-xs text-destructive">{error}</p>}

@@ -161,6 +161,8 @@ export const POST = withFeatureAuth(
         tomadorCep: addressFromBody?.zip || invoice.patient.addressZip || undefined,
         codigoServico,
         codigoServicoMunicipal,
+        codigoNbs: nfseConfig.codigoNbs || undefined,
+        cClassNbs: nfseConfig.cClassNbs || undefined,
         descricao,
         valor: Number(invoice.totalAmount),
         aliquotaIss,

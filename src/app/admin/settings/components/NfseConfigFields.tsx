@@ -129,7 +129,13 @@ export default function NfseConfigFields({
           </div>
           <div>
             <label className={labelClass}>Codigo NBS</label>
-            <input {...register("codigoNbs")} className={inputClass} />
+            <input {...register("codigoNbs")} placeholder="123019800" className={inputClass} />
+            <p className="text-xs text-muted-foreground mt-1">Psicologia: 123019800</p>
+          </div>
+          <div>
+            <label className={labelClass}>CClass NBS</label>
+            <input {...register("cClassNbs")} placeholder="200029" className={inputClass} />
+            <p className="text-xs text-muted-foreground mt-1">Saude humana LC 214: 200029</p>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
