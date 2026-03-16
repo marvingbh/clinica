@@ -18,7 +18,6 @@ interface PerItemPreview {
 export default function PerItemNfseSection({ invoice, nfseConfig, onRefresh }: NfseSectionProps) {
   const [previews, setPreviews] = useState<PerItemPreview[]>([])
   const [loadingPreviews, setLoadingPreviews] = useState(true)
-  const [emittingItemId, setEmittingItemId] = useState<string | null>(null)
   const [showDialogForItemId, setShowDialogForItemId] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [cancelReason, setCancelReason] = useState("")
@@ -47,29 +46,9 @@ export default function PerItemNfseSection({ invoice, nfseConfig, onRefresh }: N
   const emitidaCount = invoice.nfseEmissions.filter(e => e.status === "EMITIDA").length
   const totalBillable = billableItems.length
 
-  async function handleEmitItem(itemId: string) {
-    // If patient has no billing info, open dialog to collect it first
-    if (!invoice.patient.billingCpf || !invoice.patient.addressStreet) {
-      setShowDialogForItemId(itemId)
-      return
-    }
-    // Emit directly
-    setEmittingItemId(itemId)
-    try {
-      const res = await fetch(`/api/financeiro/faturas/${invoice.id}/nfse/emitir?itemId=${itemId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error || "Erro ao emitir NFS-e")
-      } else {
-        toast.success("NFS-e emitida")
-        onRefresh()
-      }
-    } catch { toast.error("Erro de rede") }
-    finally { setEmittingItemId(null) }
+  function handleEmitItem(itemId: string) {
+    // Always open dialog so the user can review description and billing info
+    setShowDialogForItemId(itemId)
   }
 
   async function handleCancelEmission() {
@@ -126,7 +105,7 @@ export default function PerItemNfseSection({ invoice, nfseConfig, onRefresh }: N
                 emission={emission}
                 description={description}
                 canEmit={canEmit}
-                emittingItemId={emittingItemId}
+                emittingItemId={null}
                 onEmit={handleEmitItem}
                 onStartCancel={(emissionId) => { setCancelEmissionId(emissionId); setCancelReason("") }}
               />
