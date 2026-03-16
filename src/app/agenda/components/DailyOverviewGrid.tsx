@@ -155,7 +155,7 @@ export function DailyOverviewGrid({
   activeAppointmentId,
 }: DailyOverviewGridProps) {
   const individualAppointments = useMemo(() => {
-    return appointments.filter(apt => !apt.groupId)
+    return appointments.filter(apt => !apt.groupId && !apt.sessionGroupId)
   }, [appointments])
 
   // Build unified layout items from both appointments and group sessions
@@ -167,7 +167,7 @@ export function DailyOverviewGrid({
         endAt: apt.endAt,
       })),
       ...groupSessions.map(gs => ({
-        id: `group-${gs.groupId}-${gs.scheduledAt}`,
+        id: `group-${gs.sessionGroupId || gs.groupId}-${gs.scheduledAt}`,
         scheduledAt: gs.scheduledAt,
         endAt: gs.endAt,
       })),
@@ -391,7 +391,7 @@ export function DailyOverviewGrid({
 
           {/* Group session blocks */}
           {groupSessions.map((session) => {
-            const gsKey = `group-${session.groupId}-${session.scheduledAt}`
+            const gsKey = `group-${session.sessionGroupId || session.groupId}-${session.scheduledAt}`
             const layout = layoutMap.get(gsKey)
             if (!layout) return null
 

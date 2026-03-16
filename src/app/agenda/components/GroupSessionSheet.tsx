@@ -177,7 +177,8 @@ export function GroupSessionSheet({
       const result = await updateGroupSessionStatus(
         session.groupId,
         session.scheduledAt,
-        newStatus
+        newStatus,
+        session.sessionGroupId
       )
       if (result.error) {
         toast.error(result.error)

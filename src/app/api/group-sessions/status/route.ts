@@ -33,7 +33,7 @@ export const PATCH = withFeatureAuth(
     const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "WRITE")
 
     // Parse request body
-    let body: { groupId?: string; scheduledAt?: string; status?: string }
+    let body: { groupId?: string; sessionGroupId?: string; scheduledAt?: string; status?: string }
     try {
       body = await req.json()
     } catch {
@@ -43,12 +43,12 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { groupId, scheduledAt, status: newStatus } = body
+    const { groupId, sessionGroupId, scheduledAt, status: newStatus } = body
 
-    // Validate required fields
-    if (!groupId || !scheduledAt || !newStatus) {
+    // Validate required fields — either groupId or sessionGroupId must be provided
+    if ((!groupId && !sessionGroupId) || !scheduledAt || !newStatus) {
       return NextResponse.json(
-        { error: "groupId, scheduledAt e status sao obrigatorios" },
+        { error: "groupId ou sessionGroupId, scheduledAt e status sao obrigatorios" },
         { status: 400 }
       )
     }
@@ -70,11 +70,15 @@ export const PATCH = withFeatureAuth(
     const dayEnd = new Date(scheduledDate)
     dayEnd.setHours(23, 59, 59, 999)
 
-    // Find all appointments for this group session
+    // Find all appointments for this group session (recurring or one-off)
+    const groupFilter = groupId
+      ? { groupId }
+      : { sessionGroupId }
+
     const appointments = await prisma.appointment.findMany({
       where: {
         clinicId: user.clinicId,
-        groupId,
+        ...groupFilter,
         scheduledAt: { gte: dayStart, lte: dayEnd },
       },
       include: {

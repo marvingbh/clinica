@@ -6,6 +6,7 @@ export interface AppointmentForInvoice {
   title: string | null
   recurrenceId: string | null
   groupId: string | null
+  sessionGroupId: string | null
   price: number | null
 }
 
@@ -49,7 +50,7 @@ export function classifyAppointments(appointments: AppointmentForInvoice[]): Cla
   const schoolMeeting: AppointmentForInvoice[] = []
 
   for (const apt of billable) {
-    if (apt.groupId) group.push(apt)
+    if (apt.groupId || apt.sessionGroupId) group.push(apt)
     else if (apt.type === "REUNIAO") schoolMeeting.push(apt)
     else if (apt.recurrenceId) regular.push(apt)
     else extra.push(apt)

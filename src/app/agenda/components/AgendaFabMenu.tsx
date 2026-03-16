@@ -12,19 +12,27 @@ import {
 } from "@/shared/components/ui"
 import type { CalendarEntryType } from "../lib/types"
 
+export type FabMenuSelection = CalendarEntryType | "CONSULTA" | "GROUP_SESSION"
+
 interface AgendaFabMenuProps {
   isOpen: boolean
   onOpen: () => void
   onClose: () => void
-  onSelect: (type: CalendarEntryType | "CONSULTA") => void
+  onSelect: (type: FabMenuSelection) => void
 }
 
-const MENU_ITEMS: Array<{ type: CalendarEntryType | "CONSULTA"; label: string; icon: React.ReactNode; bgClass: string }> = [
+const MENU_ITEMS: Array<{ type: FabMenuSelection; label: string; icon: React.ReactNode; bgClass: string }> = [
   {
     type: "CONSULTA",
     label: "Consulta",
     icon: <StethoscopeIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />,
     bgClass: "bg-blue-100 dark:bg-blue-900/30",
+  },
+  {
+    type: "GROUP_SESSION",
+    label: "Sessão em Grupo",
+    icon: <UsersRoundIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />,
+    bgClass: "bg-purple-100 dark:bg-purple-900/30",
   },
   {
     type: "TAREFA",

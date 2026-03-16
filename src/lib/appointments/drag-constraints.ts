@@ -1,6 +1,6 @@
 import type { Appointment } from "@/app/agenda/lib/types"
 
-type DragCandidate = Pick<Appointment, "status" | "groupId">
+type DragCandidate = Pick<Appointment, "status" | "groupId" | "sessionGroupId">
 
 const DRAGGABLE_STATUSES = new Set(["AGENDADO", "CONFIRMADO"])
 
@@ -11,7 +11,7 @@ export function isDraggable(
 ): boolean {
   if (!canWriteAgenda) return false
   if (!DRAGGABLE_STATUSES.has(appointment.status)) return false
-  if (appointment.groupId) return false
+  if (appointment.groupId || appointment.sessionGroupId) return false
   return true
 }
 

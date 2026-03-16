@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useCallback, useMemo } from "react"
+import { Suspense, useCallback, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
 import { SwipeContainer } from "@/shared/components/ui"
@@ -11,6 +11,7 @@ import {
   AppointmentEditor, GroupSessionSheet, CalendarEntrySheet,
   CreateAppointmentSheet, AgendaFabMenu,
 } from "../components"
+import { CreateGroupSessionSheet } from "../components/CreateGroupSessionSheet"
 import { AgendaDndWrapper } from "../components/AgendaDndWrapper"
 
 import {
@@ -131,7 +132,10 @@ function WeeklyAgendaPageContent() {
 
   // Shared hooks
   const groupSheet = useGroupSessionSheet(groupSessions)
-  const fabMenu = useFabMenu(create.openCreateSheet, entry.openSheet)
+  const [isGroupSessionSheetOpen, setIsGroupSessionSheetOpen] = useState(false)
+  const openGroupSessionSheet = useCallback(() => setIsGroupSessionSheetOpen(true), [])
+  const closeGroupSessionSheet = useCallback(() => setIsGroupSessionSheetOpen(false), [])
+  const fabMenu = useFabMenu(create.openCreateSheet, entry.openSheet, openGroupSessionSheet)
   const { handleAlternateWeekClick } = useBiweeklyHandlers(create.openCreateSheet, edit.openEditSheet)
 
   const handleAvailabilitySlotClick = useCallback((date: string, time: string) => {
@@ -304,6 +308,21 @@ function WeeklyAgendaPageContent() {
         onStatusUpdated={refetchAppointments}
         professionals={professionals}
         isAdmin={isAdmin}
+      />
+
+      <CreateGroupSessionSheet
+        isOpen={isGroupSessionSheetOpen}
+        onClose={closeGroupSessionSheet}
+        isAdmin={isAdmin}
+        professionals={professionals}
+        createProfessionalId={create.createProfessionalId}
+        onCreateProfessionalIdChange={create.setCreateProfessionalId}
+        isProfessionalLocked={create.isProfessionalLocked}
+        selectedProfessionalId={selectedProfessionalId}
+        additionalProfessionalIds={create.additionalProfessionalIds}
+        onAdditionalProfessionalIdsChange={create.setAdditionalProfessionalIds}
+        appointmentDuration={appointmentDuration}
+        onCreated={refetchAppointments}
       />
 
       <CalendarEntrySheet

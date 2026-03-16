@@ -65,7 +65,7 @@ export const POST = withFeatureAuth(
       },
       select: {
         id: true, scheduledAt: true, status: true, type: true, title: true,
-        recurrenceId: true, groupId: true, price: true,
+        recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
       },
     })
 

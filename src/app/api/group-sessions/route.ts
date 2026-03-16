@@ -3,13 +3,40 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
 
+interface SessionEntry {
+  groupId: string | null
+  sessionGroupId: string | null
+  groupName: string
+  isOneOff: boolean
+  scheduledAt: string
+  endAt: string
+  professionalProfileId: string
+  professionalName: string
+  additionalProfessionals: Array<{
+    professionalProfileId: string
+    professionalName: string
+  }>
+  participants: Array<{
+    appointmentId: string
+    patientId: string
+    patientName: string
+    status: string
+  }>
+}
+
+function buildOneOffGroupName(participants: SessionEntry["participants"]): string {
+  if (participants.length === 0) return "Sessão em Grupo"
+  if (participants.length <= 2) return participants.map(p => p.patientName.split(" ")[0]).join(", ")
+  return `${participants[0].patientName.split(" ")[0]}, ${participants[1].patientName.split(" ")[0]} +${participants.length - 2}`
+}
+
 /**
  * GET /api/group-sessions
  * Fetch aggregated group sessions for a date (or date range)
- * Returns one entry per unique (groupId, scheduledAt) with participant count
+ * Returns one entry per unique (groupId, scheduledAt) or (sessionGroupId, scheduledAt)
  */
 export const GET = withFeatureAuth(
-  { feature: "groups", minAccess: "READ" },
+  { feature: "agenda_own", minAccess: "READ" },
   async (req: NextRequest, { user }) => {
     const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "READ")
     const { searchParams } = new URL(req.url)
@@ -25,44 +52,47 @@ export const GET = withFeatureAuth(
     // Build date filter
     let dateFilter: { gte: Date; lt?: Date; lte?: Date } | undefined
     if (date) {
-      // Single date query
       const dayStart = new Date(date + "T00:00:00")
       const dayEnd = new Date(date + "T23:59:59.999")
       dateFilter = { gte: dayStart, lte: dayEnd }
     } else if (startDate && endDate) {
-      // Date range query
       dateFilter = {
         gte: new Date(startDate + "T00:00:00"),
         lte: new Date(endDate + "T23:59:59.999"),
       }
     } else if (!groupId) {
-      // Date params required unless filtering by groupId
       return NextResponse.json(
         { error: "Either 'date', 'startDate'+'endDate', or 'groupId' is required" },
         { status: 400 }
       )
     }
 
-    // Build where clause
+    // Build where clause — include both recurring (groupId) and one-off (sessionGroupId)
     const where: Record<string, unknown> = {
       clinicId: user.clinicId,
-      groupId: groupId ? groupId : { not: null },
+    }
+
+    if (groupId) {
+      where.groupId = groupId
+    } else {
+      // Fetch appointments belonging to either a recurring group or a one-off group
+      where.OR = [
+        { groupId: { not: null } },
+        { sessionGroupId: { not: null } },
+      ]
     }
 
     // Apply time-based filter (upcoming/past)
-    // referenceDate lets the client override "now" for navigation (e.g. "ir para data")
     const referenceDateParam = searchParams.get("referenceDate")
     const now = referenceDateParam ? new Date(referenceDateParam + "T00:00:00") : new Date()
     if (filter === "upcoming") {
       if (dateFilter) {
-        // Merge: use the later of dateFilter.gte and now
         dateFilter.gte = dateFilter.gte > now ? dateFilter.gte : now
       } else {
         dateFilter = { gte: now }
       }
     } else if (filter === "past") {
       if (dateFilter) {
-        // Merge: use the earlier of dateFilter.lte and now
         const filterEnd = dateFilter.lte || dateFilter.lt
         if (!filterEnd || filterEnd > now) {
           delete dateFilter.lte
@@ -78,31 +108,51 @@ export const GET = withFeatureAuth(
     }
 
     // Filter by professional if user cannot see others' or if explicitly requested
-    if (!canSeeOthers && user.professionalProfileId) {
-      where.OR = [
-        { professionalProfileId: user.professionalProfileId },
-        { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },
-      ]
-    } else if (professionalProfileId) {
-      where.OR = [
-        { professionalProfileId },
-        { additionalProfessionals: { some: { professionalProfileId } } },
-      ]
+    const profFilter = !canSeeOthers && user.professionalProfileId
+      ? [
+          { professionalProfileId: user.professionalProfileId },
+          { additionalProfessionals: { some: { professionalProfileId: user.professionalProfileId } } },
+        ]
+      : professionalProfileId
+        ? [
+            { professionalProfileId },
+            { additionalProfessionals: { some: { professionalProfileId } } },
+          ]
+        : null
+
+    // Merge professional filter with existing OR (group type filter)
+    if (profFilter) {
+      const existingOR = where.OR as Record<string, unknown>[] | undefined
+      if (existingOR) {
+        // Need both conditions: (groupId OR sessionGroupId) AND (profA OR profB)
+        where.AND = [
+          { OR: existingOR },
+          { OR: profFilter },
+        ]
+        delete where.OR
+      } else {
+        where.OR = profFilter
+      }
     }
 
-    // Get all group appointments for the date
+    // Get all group appointments
     const groupAppointments = await prisma.appointment.findMany({
       where,
       select: {
         id: true,
         groupId: true,
+        sessionGroupId: true,
+        professionalProfileId: true,
         scheduledAt: true,
         endAt: true,
         status: true,
         patient: {
+          select: { id: true, name: true },
+        },
+        professionalProfile: {
           select: {
             id: true,
-            name: true,
+            user: { select: { name: true } },
           },
         },
         additionalProfessionals: {
@@ -119,11 +169,7 @@ export const GET = withFeatureAuth(
             professionalProfile: {
               select: {
                 id: true,
-                user: {
-                  select: {
-                    name: true,
-                  },
-                },
+                user: { select: { name: true } },
               },
             },
           },
@@ -132,47 +178,46 @@ export const GET = withFeatureAuth(
       orderBy: { scheduledAt: "asc" },
     })
 
-    // Aggregate by groupId + scheduledAt
-    const sessionMap = new Map<
-      string,
-      {
-        groupId: string
-        groupName: string
-        scheduledAt: string
-        endAt: string
-        professionalProfileId: string
-        professionalName: string
-        additionalProfessionals: Array<{
-          professionalProfileId: string
-          professionalName: string
-        }>
-        participants: Array<{
-          appointmentId: string
-          patientId: string
-          patientName: string
-          status: string
-        }>
-      }
-    >()
+    // Aggregate by (groupId + scheduledAt) or (sessionGroupId + scheduledAt)
+    const sessionMap = new Map<string, SessionEntry>()
+    const cancelledStatuses = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"]
 
     for (const apt of groupAppointments) {
-      if (!apt.groupId || !apt.group) continue
+      let key: string
+      let isOneOff: boolean
 
-      const key = `${apt.groupId}:${apt.scheduledAt.toISOString()}`
+      if (apt.groupId && apt.group) {
+        key = `group:${apt.groupId}:${apt.scheduledAt.toISOString()}`
+        isOneOff = false
+      } else if (apt.sessionGroupId) {
+        key = `session:${apt.sessionGroupId}:${apt.scheduledAt.toISOString()}`
+        isOneOff = true
+      } else {
+        continue
+      }
 
       if (!sessionMap.has(key)) {
-        // Get additional professionals from first appointment in session
         const addlProfs = apt.additionalProfessionals.map(ap => ({
           professionalProfileId: ap.professionalProfile.id,
           professionalName: ap.professionalProfile.user.name,
         }))
+
+        const profId = isOneOff
+          ? apt.professionalProfile.id
+          : apt.group!.professionalProfile.id
+        const profName = isOneOff
+          ? apt.professionalProfile.user.name
+          : apt.group!.professionalProfile.user.name
+
         sessionMap.set(key, {
           groupId: apt.groupId,
-          groupName: apt.group.name,
+          sessionGroupId: apt.sessionGroupId,
+          groupName: isOneOff ? "" : apt.group!.name, // placeholder for one-off, built after participants collected
+          isOneOff,
           scheduledAt: apt.scheduledAt.toISOString(),
           endAt: apt.endAt.toISOString(),
-          professionalProfileId: apt.group.professionalProfile.id,
-          professionalName: apt.group.professionalProfile.user.name,
+          professionalProfileId: profId,
+          professionalName: profName,
           additionalProfessionals: addlProfs,
           participants: [],
         })
@@ -180,18 +225,12 @@ export const GET = withFeatureAuth(
 
       if (apt.patient) {
         const session = sessionMap.get(key)!
-        // Deduplicate: after a reschedule the same patient may have both a
-        // cancelled (old) and an active (new) appointment in the same slot.
-        // Keep only the most relevant one (active wins over cancelled).
-        const cancelledStatuses = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"]
         const existing = session.participants.find(p => p.patientId === apt.patient!.id)
         if (existing) {
-          // Replace if current entry is cancelled but new one is active
           if (cancelledStatuses.includes(existing.status) && !cancelledStatuses.includes(apt.status)) {
             existing.appointmentId = apt.id
             existing.status = apt.status
           }
-          // Otherwise keep what we have (don't add duplicate)
         } else {
           session.participants.push({
             appointmentId: apt.id,
@@ -203,10 +242,16 @@ export const GET = withFeatureAuth(
       }
     }
 
+    // Build auto-generated names for one-off sessions
+    for (const session of sessionMap.values()) {
+      if (session.isOneOff) {
+        session.groupName = buildOneOffGroupName(session.participants)
+      }
+    }
+
     // Convert to array and sort by time
     const allSessions = Array.from(sessionMap.values()).sort((a, b) => {
       const diff = new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
-      // For past filter, show most recent first
       return filter === "past" ? -diff : diff
     })
 
