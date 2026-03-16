@@ -317,6 +317,15 @@ export const PATCH = withFeatureAuth(
     if (data.billingResponsibleName !== undefined) {
       updateData.billingResponsibleName = data.billingResponsibleName || null
     }
+    if (data.nfseDescriptionTemplate !== undefined) {
+      updateData.nfseDescriptionTemplate = data.nfseDescriptionTemplate || null
+    }
+    if (data.addressStreet !== undefined) updateData.addressStreet = data.addressStreet || null
+    if (data.addressNumber !== undefined) updateData.addressNumber = data.addressNumber || null
+    if (data.addressNeighborhood !== undefined) updateData.addressNeighborhood = data.addressNeighborhood || null
+    if (data.addressCity !== undefined) updateData.addressCity = data.addressCity || null
+    if (data.addressState !== undefined) updateData.addressState = data.addressState || null
+    if (data.addressZip !== undefined) updateData.addressZip = data.addressZip?.replace(/\D/g, "") || null
 
     // Handle consent fields with timestamp tracking
     const now = new Date()
