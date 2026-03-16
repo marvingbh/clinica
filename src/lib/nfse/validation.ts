@@ -57,7 +57,9 @@ export const nfseConfigSchema = z.object({
   cnae: z.string().optional(),
   codigoNbs: z.string().optional(),
   aliquotaIss: z.number().min(0).max(100),
-  descricaoServico: z.string().optional(),
+  descricaoServico: z.string().optional().or(z.literal("")),
+  nfseTaxPercentage: z.number().min(0).max(100).optional().nullable(),
+  professionalCrp: z.string().max(20).optional().or(z.literal("")),
   useSandbox: z.boolean(),
 })
 

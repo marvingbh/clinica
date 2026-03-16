@@ -7,6 +7,7 @@ const sampleData: NfseEmissionData = {
   prestadorIm: "12345",
   prestadorNome: "Test Clinic",
   prestadorRegimeTributario: "3", // Lucro Presumido
+  prestadorOpSimpNac: 1, // Nao Optante
   tomadorCpf: "12345678901",
   tomadorNome: "Maria da Silva Santos",
   tomadorLogradouro: "Rua das Flores",
@@ -63,18 +64,18 @@ describe("buildDpsXml", () => {
     expect(xml).toContain("<cLocEmi>3550308</cLocEmi>")
   })
 
-  it("contains prest with CNPJ, xNome, and regTrib", () => {
+  it("contains prest with CNPJ and regTrib (no xNome when tpEmit=1)", () => {
     const xml = buildDpsXml(sampleData, defaultConfig)
     expect(xml).toContain("<CNPJ>11222333000181</CNPJ>")
-    expect(xml).toContain("<xNome>Test Clinic</xNome>")
-    expect(xml).toContain("<opSimpNac>2</opSimpNac>") // Lucro Presumido = nao optante
+    expect(xml).not.toContain("<xNome>Test Clinic</xNome>")
+    expect(xml).toContain("<opSimpNac>1</opSimpNac>") // Nao Optante
     expect(xml).toContain("<regEspTrib>0</regEspTrib>")
   })
 
-  it("sets opSimpNac=1 for Simples Nacional", () => {
-    const snData = { ...sampleData, prestadorRegimeTributario: "2" }
+  it("sets opSimpNac=3 for ME/EPP", () => {
+    const snData = { ...sampleData, prestadorOpSimpNac: 3 }
     const xml = buildDpsXml(snData, defaultConfig)
-    expect(xml).toContain("<opSimpNac>1</opSimpNac>")
+    expect(xml).toContain("<opSimpNac>3</opSimpNac>")
   })
 
   it("contains toma with CPF, xNome, and address", () => {
@@ -121,11 +122,18 @@ describe("buildDpsXml", () => {
     expect(xml).toContain("<vServ>250.00</vServ>")
   })
 
-  it("contains trib with pAliq and totTrib", () => {
+  it("contains trib without pAliq for Nao Optante (opSimpNac=1)", () => {
     const xml = buildDpsXml(sampleData, defaultConfig)
     expect(xml).toContain("<tribISSQN>1</tribISSQN>")
-    expect(xml).toContain("<cPaisResult>BR</cPaisResult>")
     expect(xml).toContain("<tpRetISSQN>1</tpRetISSQN>")
+    expect(xml).not.toContain("<pAliq>")
+    expect(xml).not.toContain("<cPaisResult>")
+    expect(xml).toContain("<vTotTribFed>0.00</vTotTribFed>")
+  })
+
+  it("includes pAliq and indTotTrib for SN optante (opSimpNac=3)", () => {
+    const snData = { ...sampleData, prestadorOpSimpNac: 3 }
+    const xml = buildDpsXml(snData, defaultConfig)
     expect(xml).toContain("<pAliq>5.00</pAliq>")
     expect(xml).toContain("<indTotTrib>0</indTotTrib>")
   })
