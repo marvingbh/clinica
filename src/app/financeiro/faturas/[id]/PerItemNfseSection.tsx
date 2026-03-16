@@ -5,8 +5,8 @@ import { toast } from "sonner"
 import type { NfseEmissionRow } from "./types"
 import NfseEmissionDialog from "./NfseEmissionDialog"
 import PerItemNfseCard from "./PerItemNfseCard"
-import { CancelConfirmBox } from "./NfseSectionShared"
-import type { NfseSectionProps } from "./NfseSectionShared"
+import { CancelConfirmBox, HistoryToggle } from "./NfseSectionShared"
+import type { NfseSectionProps, NfseLogEntry } from "./NfseSectionShared"
 
 interface PerItemPreview {
   invoiceItemId: string
@@ -22,8 +22,21 @@ export default function PerItemNfseSection({ invoice, nfseConfig, onRefresh }: N
   const [cancelling, setCancelling] = useState(false)
   const [cancelReason, setCancelReason] = useState("")
   const [cancelEmissionId, setCancelEmissionId] = useState<string | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
+  const [historyLogs, setHistoryLogs] = useState<NfseLogEntry[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
 
   const canEmit = invoice.status === "PAGO" || invoice.status === "ENVIADO"
+
+  function loadHistory() {
+    if (showHistory) { setShowHistory(false); return }
+    setLoadingHistory(true)
+    fetch(`/api/financeiro/faturas/${invoice.id}/nfse/historico`)
+      .then(r => r.json())
+      .then(data => { setHistoryLogs(data.logs || []); setShowHistory(true) })
+      .catch(() => toast.error("Erro ao carregar historico"))
+      .finally(() => setLoadingHistory(false))
+  }
 
   // Fetch per-item descriptions on mount
   useEffect(() => {
@@ -143,6 +156,8 @@ export default function PerItemNfseSection({ invoice, nfseConfig, onRefresh }: N
           />
         )
       })()}
+
+      <HistoryToggle invoiceId={invoice.id} showHistory={showHistory} historyLogs={historyLogs} loadingHistory={loadingHistory} onToggle={loadHistory} />
     </div>
   )
 }
