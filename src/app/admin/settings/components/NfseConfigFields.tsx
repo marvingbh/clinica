@@ -132,13 +132,28 @@ export default function NfseConfigFields({
             <input {...register("codigoNbs")} className={inputClass} />
           </div>
         </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>CRP do Profissional</label>
+            <input {...register("professionalCrp")} placeholder="CRP04/23853" className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Percentual Total de Impostos (%)</label>
+            <input type="number" step="0.01" min={0} max={100} {...register("nfseTaxPercentage", { valueAsNumber: true })} placeholder="14.33" className={inputClass} />
+            <p className="text-xs text-muted-foreground mt-1">Lei 12.741/2012. Aparece na descricao da NFS-e.</p>
+          </div>
+        </div>
         <div>
-          <label className={labelClass}>Descricao do Servico</label>
+          <label className={labelClass}>Modelo de Descricao da NFS-e</label>
           <textarea
             {...register("descricaoServico")}
-            rows={3}
+            rows={4}
+            placeholder={"Referente a consultas em psicoterapia de {{relacao}} {{paciente}}, nos dias {{dias}} de {{mes}} de {{ano}}, pela psicóloga {{profissional}}. Cada sessão com valor unitário de {{valor_sessao}}{{impostos}}"}
             className="w-full px-4 py-3 rounded-md border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors resize-none"
           />
+          <p className="text-xs text-muted-foreground mt-1">
+            {"Variaveis: {{paciente}}, {{relacao}}, {{profissional}}, {{dias}}, {{mes}}, {{ano}}, {{valor_sessao}}, {{sessoes}}, {{impostos}}. Deixe vazio para usar o padrao."}
+          </p>
         </div>
       </div>
 

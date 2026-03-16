@@ -3,6 +3,7 @@ import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { audit, AuditAction } from "@/lib/rbac/audit"
 import { nfseEmissionOverrideSchema } from "@/lib/nfse"
+import { buildNfseDescription } from "@/lib/nfse/description-builder"
 import { buildDpsXml } from "@/lib/nfse/dps-builder"
 import { signDpsXml } from "@/lib/nfse/xml-signer"
 import { emitNfse, type AdnConfig } from "@/lib/nfse/adn-client"
@@ -18,8 +19,10 @@ export const POST = withFeatureAuth(
     const invoice = await prisma.invoice.findFirst({
       where: { id: params.id, clinicId: user.clinicId },
       include: {
-        patient: { select: { id: true, name: true, cpf: true, billingCpf: true, billingResponsibleName: true, addressStreet: true, addressNumber: true, addressNeighborhood: true, addressZip: true } },
+        patient: { select: { id: true, name: true, cpf: true, billingCpf: true, billingResponsibleName: true, addressStreet: true, addressNumber: true, addressNeighborhood: true, addressZip: true, sessionFee: true } },
+        professionalProfile: { select: { user: { select: { name: true } } } },
         clinic: { include: { nfseConfig: true } },
+        items: { include: { appointment: { select: { scheduledAt: true } } } },
       },
     })
 
@@ -110,7 +113,22 @@ export const POST = withFeatureAuth(
 
     const codigoServico = (overrides.codigoServico as string | undefined) || nfseConfig.codigoServico
     const codigoServicoMunicipal = nfseConfig.codigoServicoMunicipal || undefined
-    const descricao = (overrides.descricao as string | undefined) || nfseConfig.descricaoServico || "Servicos de saude"
+    // Auto-generate description from appointment data
+    const sessionDates = invoice.items
+      .filter(item => item.appointment?.scheduledAt)
+      .map(item => new Date(item.appointment!.scheduledAt))
+    const autoDescription = buildNfseDescription({
+      patientName: invoice.patient.name.replace(/\s*\(.*?\)\s*/g, "").trim(),
+      billingResponsibleName: invoice.patient.billingResponsibleName,
+      professionalName: invoice.professionalProfile.user.name,
+      professionalCrp: nfseConfig.professionalCrp || undefined,
+      referenceMonth: invoice.referenceMonth,
+      referenceYear: invoice.referenceYear,
+      sessionDates,
+      sessionFee: Number(invoice.patient.sessionFee || invoice.totalAmount),
+      taxPercentage: nfseConfig.nfseTaxPercentage ? Number(nfseConfig.nfseTaxPercentage) : undefined,
+    }, nfseConfig.descricaoServico)
+    const descricao = (overrides.descricao as string | undefined) || autoDescription
     const aliquotaIss = (overrides.aliquotaIss as number | undefined) ?? Number(nfseConfig.aliquotaIss)
 
     // Set PENDENTE as optimistic lock against concurrent emission

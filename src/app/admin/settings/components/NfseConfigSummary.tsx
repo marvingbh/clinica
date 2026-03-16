@@ -13,6 +13,8 @@ export interface NfseConfigSummaryData {
   codigoServico: string
   codigoServicoMunicipal?: string | null
   opSimpNac: number
+  nfseTaxPercentage?: number | null
+  professionalCrp?: string | null
   cnae?: string | null
   codigoNbs?: string | null
   aliquotaIss: number

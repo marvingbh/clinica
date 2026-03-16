@@ -46,6 +46,7 @@ describe("nfseConfigSchema", () => {
     inscricaoMunicipal: "12345",
     codigoMunicipio: "3550308",
     regimeTributario: "1",
+    opSimpNac: 1,
     codigoServico: "01.01",
     aliquotaIss: 5,
     useSandbox: true,

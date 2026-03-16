@@ -937,7 +937,9 @@ model NfseConfig {
   cnae                String?  // CNAE code
   codigoNbs           String?  // NBS code (mandatory since 01/2026)
   aliquotaIss         Decimal  @db.Decimal(5, 2) // ISS rate %
-  descricaoServico    String?  // Default service description
+  descricaoServico    String?  // NFS-e description template with {{variables}}
+  nfseTaxPercentage   Decimal? @db.Decimal(5, 2) // Total tax % for Lei 12.741/2012 disclosure
+  professionalCrp     String?  // CRP number (e.g. "CRP23853/4") for description
 
   // Encrypted A1 certificate (PEM extracted from PFX at upload)
   certificatePem      String   // AES-256-GCM encrypted PEM

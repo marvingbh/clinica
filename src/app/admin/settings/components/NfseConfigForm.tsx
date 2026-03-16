@@ -58,6 +58,8 @@ export default function NfseConfigForm() {
         opSimpNac: config.opSimpNac ?? 2,
         codigoServico: config.codigoServico,
         codigoServicoMunicipal: config.codigoServicoMunicipal ?? "",
+        nfseTaxPercentage: config.nfseTaxPercentage ?? undefined,
+        professionalCrp: config.professionalCrp ?? "",
         cnae: config.cnae ?? undefined,
         codigoNbs: config.codigoNbs ?? undefined,
         aliquotaIss: config.aliquotaIss,
