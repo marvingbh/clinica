@@ -772,6 +772,7 @@ model Invoice {
   nfseCodigoServico       String?
   nfseDescricao           String?
   nfseAliquotaIss         Decimal?  @db.Decimal(5, 2)
+  nfseXml                 String?   @db.Text // Full NFS-e XML returned by ADN (stored for local DANFSE generation)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

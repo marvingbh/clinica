@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
+import { renderToBuffer } from "@react-pdf/renderer"
+import { buildDanfseData } from "@/lib/nfse/danfse-data-builder"
+import { createDanfseDocument } from "@/lib/nfse/danfse-pdf"
 import { fetchDanfse, type AdnConfig } from "@/lib/nfse/adn-client"
 
 /**
  * GET /api/financeiro/faturas/[id]/nfse/pdf
- * Downloads the official DANFSE PDF from the ADN.
+ * Generates the DANFSE PDF locally from stored data.
+ * Falls back to the ADN endpoint if local generation fails.
  */
 export const GET = withFeatureAuth(
   { feature: "finances", minAccess: "READ" },
@@ -13,7 +17,20 @@ export const GET = withFeatureAuth(
     const invoice = await prisma.invoice.findFirst({
       where: { id: params.id, clinicId: user.clinicId },
       include: {
-        patient: { select: { name: true } },
+        patient: {
+          select: {
+            name: true,
+            billingResponsibleName: true,
+            billingCpf: true,
+            cpf: true,
+            addressStreet: true,
+            addressNumber: true,
+            addressNeighborhood: true,
+            addressCity: true,
+            addressState: true,
+            addressZip: true,
+          },
+        },
         clinic: { include: { nfseConfig: true } },
       },
     })
@@ -26,6 +43,26 @@ export const GET = withFeatureAuth(
       return NextResponse.json({ error: "NFS-e nao emitida para esta fatura" }, { status: 400 })
     }
 
+    const patientName = invoice.patient.name.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "")
+    const filename = `NFS-e-${invoice.nfseNumero || "sem-numero"}-${patientName}.pdf`
+
+    // Try local PDF generation first
+    const danfseData = buildDanfseData(invoice)
+    if (danfseData) {
+      try {
+        const buffer = await renderToBuffer(createDanfseDocument(danfseData))
+        return new NextResponse(new Uint8Array(buffer), {
+          headers: {
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="${filename}"`,
+          },
+        })
+      } catch {
+        // Local generation failed — fall through to ADN
+      }
+    }
+
+    // Fallback: fetch from ADN
     const nfseConfig = invoice.clinic.nfseConfig
     if (!nfseConfig) {
       return NextResponse.json({ error: "Configuracao NFS-e nao encontrada" }, { status: 400 })
@@ -41,9 +78,6 @@ export const GET = withFeatureAuth(
       }
 
       const pdfBuffer = await fetchDanfse(invoice.nfseChaveAcesso, adnConfig)
-
-      const patientName = invoice.patient.name.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "")
-      const filename = `NFS-e-${invoice.nfseNumero || "sem-numero"}-${patientName}.pdf`
 
       return new NextResponse(new Uint8Array(pdfBuffer), {
         headers: {
