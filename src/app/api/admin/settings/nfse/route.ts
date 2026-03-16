@@ -27,6 +27,7 @@ export const GET = withFeatureAuth(
       config: {
         ...safeConfig,
         aliquotaIss: Number(safeConfig.aliquotaIss),
+        nfseTaxPercentage: safeConfig.nfseTaxPercentage ? Number(safeConfig.nfseTaxPercentage) : null,
         hasCertificate: !!certificatePem,
       },
     })
@@ -92,11 +93,16 @@ export const POST = withFeatureAuth(
       inscricaoMunicipal: data.inscricaoMunicipal,
       codigoMunicipio: data.codigoMunicipio,
       regimeTributario: data.regimeTributario,
+      opSimpNac: data.opSimpNac,
       codigoServico: data.codigoServico,
-      cnae: data.cnae ?? null,
-      codigoNbs: data.codigoNbs ?? null,
+      codigoServicoMunicipal: data.codigoServicoMunicipal || null,
+      cnae: data.cnae || null,
+      codigoNbs: data.codigoNbs || null,
+      cClassNbs: data.cClassNbs || null,
       aliquotaIss: data.aliquotaIss,
-      descricaoServico: data.descricaoServico ?? null,
+      descricaoServico: data.descricaoServico || null,
+      nfseTaxPercentage: data.nfseTaxPercentage ?? null,
+      professionalCrp: data.professionalCrp || null,
       useSandbox: data.useSandbox,
       isActive: true,
     }
@@ -177,13 +183,14 @@ export const POST = withFeatureAuth(
       .catch(() => {})
 
     // Return sanitized config
-    const { certificatePem, privateKeyPem, ...safeConfig } = config
+    const { certificatePem: _cp, privateKeyPem: _kp, ...safeConfig } = config
     return NextResponse.json(
       {
         config: {
           ...safeConfig,
           aliquotaIss: Number(safeConfig.aliquotaIss),
-          hasCertificate: !!certificatePem,
+          nfseTaxPercentage: safeConfig.nfseTaxPercentage ? Number(safeConfig.nfseTaxPercentage) : null,
+          hasCertificate: !!_cp,
         },
       },
       { status: existing ? 200 : 201 }
