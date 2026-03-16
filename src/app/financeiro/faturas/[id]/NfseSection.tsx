@@ -100,11 +100,26 @@ export default function NfseSection({ invoice, nfseConfig, onRefresh }: NfseSect
       return
     }
     setCancelling(true)
-    // TODO: POST /api/financeiro/faturas/[id]/nfse/cancelar when API is ready
-    toast.info("Cancelamento de NFS-e sera implementado com a integracao ADN")
-    setCancelling(false)
-    setShowCancelConfirm(false)
-    setCancelReason("")
+    try {
+      const res = await fetch(`/api/financeiro/faturas/${invoice.id}/nfse/cancelar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ motivo: cancelReason.trim(), codigoMotivo: 2 }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || "Erro ao cancelar NFS-e")
+        return
+      }
+      toast.success("NFS-e cancelada com sucesso")
+      setShowCancelConfirm(false)
+      setCancelReason("")
+      onRefresh()
+    } catch {
+      toast.error("Erro de rede ao cancelar NFS-e")
+    } finally {
+      setCancelling(false)
+    }
   }
 
   function renderStatus() {
