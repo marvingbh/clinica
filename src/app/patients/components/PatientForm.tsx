@@ -192,7 +192,7 @@ export function PatientForm({
           <label htmlFor="nfseDescriptionTemplate" className="block text-sm font-medium text-foreground mb-2">
             Descricao NFS-e (personalizada)
           </label>
-          <textarea id="nfseDescriptionTemplate" rows={3} {...register("nfseDescriptionTemplate")} placeholder="Deixe vazio para usar o padrao da clinica. Variaveis: {{paciente}}, {{relacao}}, {{profissional}}, {{dias}}, {{mes}}, {{ano}}, {{valor_sessao}}, {{impostos}}" className={`${inputClass} resize-none`} />
+          <textarea id="nfseDescriptionTemplate" rows={6} {...register("nfseDescriptionTemplate")} placeholder="Deixe vazio para usar o padrao da clinica. Variaveis: {{paciente}}, {{relacao}}, {{profissional}}, {{dias}}, {{mes}}, {{ano}}, {{valor_sessao}}, {{impostos}}" className={`${inputClass} resize-y`} />
         </div>
 
         {/* ─── Endereço ─── */}
