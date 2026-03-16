@@ -90,7 +90,9 @@ export default function NfseConfigForm() {
     setIsSaving(true)
     try {
       const formData = new FormData()
-      formData.append("config", JSON.stringify(data))
+      // Clean NaN values from number fields before serializing
+      const cleanData = { ...data, nfseTaxPercentage: Number.isNaN(data.nfseTaxPercentage) ? null : data.nfseTaxPercentage }
+      formData.append("config", JSON.stringify(cleanData))
       if (certFile) {
         formData.append("certificate", certFile)
         formData.append("certificatePassword", certPassword)
@@ -102,8 +104,9 @@ export default function NfseConfigForm() {
       })
 
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || "Erro ao salvar")
+        let errMsg = "Erro ao salvar"
+        try { const err = await res.json(); errMsg = err.error || errMsg } catch { /* non-JSON error */ }
+        throw new Error(errMsg)
       }
 
       const result = await res.json()
