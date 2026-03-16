@@ -3,6 +3,7 @@ import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { generatePerSessionInvoices } from "@/lib/financeiro/generate-per-session-invoices"
+import { fetchUninvoicedPriorAppointments } from "@/lib/financeiro/uninvoiced-appointments"
 import { audit, AuditAction } from "@/lib/rbac/audit"
 
 const schema = z.object({
@@ -67,17 +68,9 @@ export const POST = withFeatureAuth(
           recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
         },
       }),
-      prisma.appointment.findMany({
-        where: {
-          clinicId: user.clinicId, patientId, professionalProfileId,
-          scheduledAt: { lt: startDate },
-          type: { in: ["CONSULTA", "REUNIAO"] },
-          invoiceItems: { none: {} },
-        },
-        select: {
-          id: true, scheduledAt: true, status: true, type: true, title: true,
-          recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
-        },
+      fetchUninvoicedPriorAppointments(prisma, {
+        clinicId: user.clinicId, patientId, professionalProfileId,
+        beforeDate: startDate,
       }),
     ])
 

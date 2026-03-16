@@ -122,7 +122,7 @@ export interface Appointment {
   cancellationReason: string | null
   cancelledAt: string | null
   groupId: string | null  // Links to TherapyGroup for recurring group sessions
-  sessionGroupId?: string | null  // Links one-off group appointments together
+  sessionGroupId: string | null  // Links one-off group appointments together
   recurrence: AppointmentRecurrence | null
   alternateWeekInfo?: AlternateWeekInfo // For biweekly appointments, shows who is in the alternate week
   additionalProfessionals?: AdditionalProfessional[]
@@ -190,9 +190,9 @@ export interface GroupSessionParticipant {
 
 export interface GroupSession {
   groupId: string | null
-  sessionGroupId?: string | null
+  sessionGroupId: string | null
   groupName: string
-  isOneOff?: boolean
+  isOneOff: boolean
   scheduledAt: string
   endAt: string
   professionalProfileId: string

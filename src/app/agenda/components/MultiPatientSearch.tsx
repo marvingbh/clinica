@@ -64,7 +64,7 @@ export function MultiPatientSearch({
   const filteredResults = patients.filter(p => !selectedIds.has(p.id))
 
   return (
-    <div>
+    <div className="relative">
       <label className="block text-sm font-medium text-foreground mb-1.5">
         Pacientes *
       </label>

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
+import { checkConflictsBulk, formatConflictError } from "@/lib/appointments"
+import { createAuditLog } from "@/lib/rbac/audit"
 
 /**
  * PATCH /api/group-sessions/reschedule
@@ -30,47 +32,93 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    // Find all appointments for this one-off group session on the same day
     const scheduledDate = new Date(scheduledAt)
     const dayStart = new Date(scheduledDate)
     dayStart.setHours(0, 0, 0, 0)
     const dayEnd = new Date(scheduledDate)
     dayEnd.setHours(23, 59, 59, 999)
 
-    const appointments = await prisma.appointment.findMany({
-      where: {
-        clinicId: user.clinicId,
-        sessionGroupId,
-        scheduledAt: { gte: dayStart, lte: dayEnd },
-      },
-      select: { id: true, professionalProfileId: true },
-    })
+    const newStart = new Date(newScheduledAt)
+    const newEnd = new Date(newEndAt)
 
-    if (appointments.length === 0) {
-      return NextResponse.json({ error: "Nenhum agendamento encontrado" }, { status: 404 })
-    }
+    const result = await prisma.$transaction(async (tx) => {
+      // Find all appointments in this session
+      const appointments = await tx.appointment.findMany({
+        where: {
+          clinicId: user.clinicId,
+          sessionGroupId,
+          scheduledAt: { gte: dayStart, lte: dayEnd },
+        },
+        select: {
+          id: true,
+          professionalProfileId: true,
+          scheduledAt: true,
+          additionalProfessionals: { select: { professionalProfileId: true } },
+        },
+      })
 
-    // Check ownership
-    if (!canSeeOthers && user.professionalProfileId) {
-      const hasUnowned = appointments.some(a => a.professionalProfileId !== user.professionalProfileId)
-      if (hasUnowned) {
-        return forbiddenResponse("Voce so pode atualizar seus proprios agendamentos")
+      if (appointments.length === 0) {
+        return { error: "Nenhum agendamento encontrado", status: 404 }
       }
-    }
 
-    // Bulk update all appointments
-    await prisma.appointment.updateMany({
-      where: {
-        clinicId: user.clinicId,
-        sessionGroupId,
-        scheduledAt: { gte: dayStart, lte: dayEnd },
-      },
-      data: {
-        scheduledAt: new Date(newScheduledAt),
-        endAt: new Date(newEndAt),
-      },
+      // Check ownership
+      if (!canSeeOthers && user.professionalProfileId) {
+        const hasUnowned = appointments.some(a => a.professionalProfileId !== user.professionalProfileId)
+        if (hasUnowned) {
+          return { error: "Voce so pode atualizar seus proprios agendamentos", status: 403 }
+        }
+      }
+
+      // Check conflicts at the new time slot (exclude this session's own appointments)
+      const profId = appointments[0].professionalProfileId
+      const addlProfIds = appointments[0].additionalProfessionals.map(ap => ap.professionalProfileId)
+      const conflictResult = await checkConflictsBulk({
+        professionalProfileId: profId,
+        dates: [{ scheduledAt: newStart, endAt: newEnd }],
+        additionalProfessionalIds: addlProfIds,
+        excludeAppointmentIds: appointments.map(a => a.id),
+      }, tx)
+
+      if (conflictResult.conflicts.length > 0) {
+        return { conflict: conflictResult.conflicts[0].conflictingAppointment }
+      }
+
+      // Update all appointments
+      const updateResult = await tx.appointment.updateMany({
+        where: { id: { in: appointments.map(a => a.id) } },
+        data: { scheduledAt: newStart, endAt: newEnd },
+      })
+
+      return { appointments, updatedCount: updateResult.count }
     })
 
-    return NextResponse.json({ success: true, updatedCount: appointments.length })
+    // Handle errors from transaction
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status })
+    }
+    if ("conflict" in result && result.conflict) {
+      return NextResponse.json(formatConflictError(result.conflict), { status: 409 })
+    }
+
+    // Audit logs (outside transaction)
+    const ipAddress = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? undefined
+    const userAgent = req.headers.get("user-agent") ?? undefined
+
+    await Promise.all(
+      result.appointments.map(apt =>
+        createAuditLog({
+          user,
+          action: "APPOINTMENT_UPDATED",
+          entityType: "Appointment",
+          entityId: apt.id,
+          oldValues: { scheduledAt: apt.scheduledAt.toISOString() },
+          newValues: { scheduledAt: newStart.toISOString(), endAt: newEnd.toISOString(), sessionGroupId },
+          ipAddress,
+          userAgent,
+        })
+      )
+    )
+
+    return NextResponse.json({ success: true, updatedCount: result.updatedCount })
   }
 )

@@ -6,6 +6,7 @@ import { recalculateInvoice } from "@/lib/financeiro/recalculate-invoice"
 import { getMonthName } from "@/lib/financeiro/format"
 import { separateManualItems } from "@/lib/financeiro/invoice-generation"
 import { resolveGrouping } from "@/lib/financeiro/invoice-grouping"
+import { fetchUninvoicedPriorAppointments } from "@/lib/financeiro/uninvoiced-appointments"
 import {
   recalculatePerSession,
   handleGroupingTransition,
@@ -121,7 +122,7 @@ export const POST = withFeatureAuth(
     const startDate = new Date(invoice.referenceYear, invoice.referenceMonth - 1, 1)
     const endDate = new Date(invoice.referenceYear, invoice.referenceMonth, 1)
 
-    const [monthAppointments, uninvoicedPriorAppointments, professional] = await Promise.all([
+    const [monthAppointments, uninvoicedPriorApts, professional] = await Promise.all([
       prisma.appointment.findMany({
         where: {
           clinicId: user.clinicId,
@@ -135,20 +136,11 @@ export const POST = withFeatureAuth(
           recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
         },
       }),
-      // Include uninvoiced appointments from prior months
-      prisma.appointment.findMany({
-        where: {
-          clinicId: user.clinicId,
-          patientId: invoice.patientId,
-          professionalProfileId: invoice.professionalProfileId,
-          scheduledAt: { lt: startDate },
-          type: { in: ["CONSULTA", "REUNIAO"] },
-          invoiceItems: { none: {} },
-        },
-        select: {
-          id: true, scheduledAt: true, status: true, type: true, title: true,
-          recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
-        },
+      fetchUninvoicedPriorAppointments(prisma, {
+        clinicId: user.clinicId,
+        patientId: invoice.patientId,
+        professionalProfileId: invoice.professionalProfileId,
+        beforeDate: startDate,
       }),
       prisma.professionalProfile.findUnique({
         where: { id: invoice.professionalProfileId },
@@ -156,7 +148,7 @@ export const POST = withFeatureAuth(
       }),
     ])
 
-    const appointments = [...monthAppointments, ...uninvoicedPriorAppointments]
+    const appointments = [...monthAppointments, ...uninvoicedPriorApts]
 
     const sessionFee = Number(patient.sessionFee)
     const showDays = patient.showAppointmentDaysOnInvoice

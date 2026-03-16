@@ -804,6 +804,9 @@ async function handleCreateGroupSession(
   canSeeOthers: boolean,
   req: Request
 ) {
+  // Lazy import to keep route file thin
+  const { createGroupSessionAppointments, auditGroupSessionCreation, sendGroupSessionNotifications } = await import("@/lib/appointments/create-group-session")
+
   const validation = createGroupSessionSchema.safeParse(body)
   if (!validation.success) {
     return NextResponse.json(
@@ -814,13 +817,12 @@ async function handleCreateGroupSession(
 
   const { patientIds, title, date, startTime, duration, modality, notes, skipAvailabilityCheck } = validation.data
 
-  // Deduplicate patient IDs
   const uniquePatientIds = [...new Set(patientIds)]
   if (uniquePatientIds.length < 2) {
     return NextResponse.json({ error: "Selecione pelo menos 2 pacientes diferentes" }, { status: 400 })
   }
 
-  // Determine professional
+  // Resolve professional
   let targetProfessionalProfileId = validation.data.professionalProfileId
   if (!targetProfessionalProfileId && user.professionalProfileId) {
     targetProfessionalProfileId = user.professionalProfileId
@@ -836,12 +838,11 @@ async function handleCreateGroupSession(
   if (!professional) {
     return NextResponse.json({ error: "Profissional não encontrado na sua clínica" }, { status: 404 })
   }
-
   if (!canSeeOthers && targetProfessionalProfileId !== user.professionalProfileId) {
     return NextResponse.json({ error: "Você só pode criar agendamentos para si mesmo" }, { status: 403 })
   }
 
-  // Validate all patients
+  // Validate patients
   const patients = await prisma.patient.findMany({
     where: { id: { in: uniquePatientIds }, clinicId: user.clinicId, isActive: true },
     select: { id: true, name: true, email: true, phone: true, consentWhatsApp: true, consentEmail: true },
@@ -850,7 +851,7 @@ async function handleCreateGroupSession(
     return NextResponse.json({ error: "Um ou mais pacientes não encontrados ou inativos" }, { status: 404 })
   }
 
-  // Process additional professionals
+  // Validate additional professionals
   let additionalProfessionalIds: string[] = []
   if (validation.data.additionalProfessionalIds?.length) {
     additionalProfessionalIds = validation.data.additionalProfessionalIds.filter(id => id !== targetProfessionalProfileId)
@@ -863,11 +864,11 @@ async function handleCreateGroupSession(
     }
   }
 
+  // Availability check
   const appointmentDuration = duration || professional.appointmentDuration
   const scheduledAt = new Date(`${date}T${startTime}:00`)
   const endAt = new Date(scheduledAt.getTime() + appointmentDuration * 60 * 1000)
 
-  // Availability check (skip if override)
   if (!skipAvailabilityCheck) {
     const dayOfWeek = scheduledAt.getDay()
     const apptStartTime = `${String(scheduledAt.getHours()).padStart(2, "0")}:${String(scheduledAt.getMinutes()).padStart(2, "0")}`
@@ -876,157 +877,34 @@ async function handleCreateGroupSession(
     const dayRules = await prisma.availabilityRule.findMany({
       where: { professionalProfileId: targetProfessionalProfileId, isActive: true, dayOfWeek },
     })
-
     if (dayRules.length === 0) {
-      return NextResponse.json({
-        error: `Profissional nao disponivel em ${scheduledAt.toLocaleDateString("pt-BR")}`,
-        availabilityWarning: true,
-      }, { status: 400 })
+      return NextResponse.json({ error: `Profissional nao disponivel em ${scheduledAt.toLocaleDateString("pt-BR")}`, availabilityWarning: true }, { status: 400 })
     }
-
-    const isWithinAvailability = dayRules.some(rule =>
-      apptStartTime >= rule.startTime && apptEndTime <= rule.endTime
-    )
-    if (!isWithinAvailability) {
-      return NextResponse.json({
-        error: `Horario fora da disponibilidade em ${scheduledAt.toLocaleDateString("pt-BR")}`,
-        availabilityWarning: true,
-      }, { status: 400 })
+    if (!dayRules.some(rule => apptStartTime >= rule.startTime && apptEndTime <= rule.endTime)) {
+      return NextResponse.json({ error: `Horario fora da disponibilidade em ${scheduledAt.toLocaleDateString("pt-BR")}`, availabilityWarning: true }, { status: 400 })
     }
   }
 
-  // Generate sessionGroupId
-  const sessionGroupId = crypto.randomUUID()
+  // Create appointments (domain logic)
+  const result = await createGroupSessionAppointments({
+    clinicId: user.clinicId,
+    professionalProfileId: targetProfessionalProfileId,
+    professionalName: professional.user.name,
+    appointmentDuration: professional.appointmentDuration,
+    patientIds: uniquePatientIds,
+    title, date, startTime, duration, modality, notes,
+    additionalProfessionalIds,
+  })
 
-  // Create all appointments in a single transaction
-  const result = await prisma.$transaction(async (tx) => {
-    // Check professional conflicts (once for the time slot)
-    const conflictResult = await checkConflictsBulk({
-      professionalProfileId: targetProfessionalProfileId,
-      dates: [{ scheduledAt, endAt }],
-      additionalProfessionalIds,
-    }, tx)
-
-    if (conflictResult.conflicts.length > 0) {
-      return { conflict: conflictResult.conflicts[0].conflictingAppointment }
-    }
-
-    // Create one appointment per patient
-    await tx.appointment.createMany({
-      data: uniquePatientIds.map(pid => ({
-        clinicId: user.clinicId,
-        professionalProfileId: targetProfessionalProfileId,
-        patientId: pid,
-        sessionGroupId,
-        title,
-        scheduledAt,
-        endAt,
-        modality,
-        notes: notes || null,
-      })),
-    })
-
-    // Fetch created appointments
-    const createdAppointments = await tx.appointment.findMany({
-      where: { clinicId: user.clinicId, sessionGroupId },
-      include: {
-        patient: { select: { id: true, name: true, email: true, phone: true } },
-        professionalProfile: { select: { id: true, user: { select: { name: true } } } },
-        additionalProfessionals: {
-          select: { professionalProfile: { select: { id: true, user: { select: { name: true } } } } },
-        },
-      },
-      orderBy: { scheduledAt: "asc" },
-    })
-
-    // Create additional professional records
-    if (additionalProfessionalIds.length > 0) {
-      await tx.appointmentProfessional.createMany({
-        data: createdAppointments.flatMap(apt =>
-          additionalProfessionalIds.map(profId => ({
-            appointmentId: apt.id,
-            professionalProfileId: profId,
-          }))
-        ),
-      })
-    }
-
-    return { appointments: createdAppointments }
-  }, { timeout: 30000 })
-
-  // Check for conflict
-  if ("conflict" in result && result.conflict) {
+  if ("conflict" in result) {
     return NextResponse.json(formatConflictError(result.conflict), { status: 409 })
   }
 
-  // Audit logs
-  for (const appointment of result.appointments) {
-    await audit.log({
-      user,
-      action: AuditAction.APPOINTMENT_CREATED,
-      entityType: "Appointment",
-      entityId: appointment.id,
-      newValues: {
-        patientId: appointment.patientId,
-        patientName: appointment.patient?.name,
-        professionalProfileId: targetProfessionalProfileId,
-        professionalName: professional.user.name,
-        scheduledAt: appointment.scheduledAt.toISOString(),
-        endAt: appointment.endAt.toISOString(),
-        sessionGroupId,
-        isGroupSession: true,
-      },
-      request: req,
-    })
-  }
+  // Audit + notifications (side effects)
+  await auditGroupSessionCreation(user, result.appointments, targetProfessionalProfileId, professional.user.name, result.sessionGroupId, req)
+  sendGroupSessionNotifications(result.appointments, patients, user.clinicId, professional.user.name, modality)
 
-  // Send notifications (skip for past dates)
-  const isPastDate = scheduledAt < new Date()
-  if (!isPastDate) {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    const formattedDate = scheduledAt.toLocaleDateString("pt-BR", {
-      weekday: "long", day: "2-digit", month: "2-digit", year: "numeric",
-    })
-    const formattedTime = scheduledAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
-
-    for (const apt of result.appointments) {
-      if (!apt.patient) continue
-      const patient = patients.find(p => p.id === apt.patientId)
-      if (!patient) continue
-
-      const confirmLink = buildConfirmUrl(baseUrl, apt.id, apt.scheduledAt)
-      const cancelLink = buildCancelUrl(baseUrl, apt.id, apt.scheduledAt)
-
-      const content = `Ola ${patient.name}!\n\nSeu agendamento em grupo foi criado.\n\n📅 Data: ${formattedDate}\n🕐 Horario: ${formattedTime}\n👨‍⚕️ Profissional: ${professional.user.name}\n📍 Modalidade: ${modality === "ONLINE" ? "Online" : "Presencial"}\n\nPara confirmar:\n${confirmLink}\n\nPara cancelar:\n${cancelLink}`
-
-      if (patient.consentWhatsApp && patient.phone) {
-        getPatientPhoneNumbers(patient.id, user.clinicId).then(phoneNumbers => {
-          for (const { phone } of phoneNumbers) {
-            createNotification({
-              clinicId: user.clinicId, patientId: patient.id, appointmentId: apt.id,
-              type: NotificationType.APPOINTMENT_CONFIRMATION,
-              channel: NotificationChannel.WHATSAPP, recipient: phone, content,
-            }).catch(() => {})
-          }
-        }).catch(() => {})
-      }
-
-      if (patient.consentEmail && patient.email) {
-        createNotification({
-          clinicId: user.clinicId, patientId: patient.id, appointmentId: apt.id,
-          type: NotificationType.APPOINTMENT_CONFIRMATION,
-          channel: NotificationChannel.EMAIL, recipient: patient.email,
-          subject: "Agendamento em Grupo Criado - Confirmação",
-          content,
-        }).catch(() => {})
-      }
-    }
-  }
-
-  return NextResponse.json({
-    appointments: result.appointments,
-    sessionGroupId,
-  }, { status: 201 })
+  return NextResponse.json({ appointments: result.appointments, sessionGroupId: result.sessionGroupId }, { status: 201 })
 }
 
 /**
