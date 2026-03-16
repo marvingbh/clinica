@@ -95,8 +95,8 @@ export default function NfseSection({ invoice, nfseConfig, onRefresh }: NfseSect
   }
 
   async function handleCancel() {
-    if (!cancelReason.trim()) {
-      toast.error("Informe o motivo do cancelamento")
+    if (!cancelReason.trim() || cancelReason.trim().length < 15) {
+      toast.error("Motivo do cancelamento deve ter pelo menos 15 caracteres")
       return
     }
     setCancelling(true)
