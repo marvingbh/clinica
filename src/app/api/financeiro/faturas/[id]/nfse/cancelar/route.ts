@@ -68,12 +68,23 @@ export const POST = withFeatureAuth(
       }
       await cancelNfse(invoice.nfseChaveAcesso, motivo, codigoMotivo, nfseConfig.cnpj, adnConfig)
 
+      // Reset NFS-e fields so the user can re-emit if needed
       await prisma.invoice.update({
         where: { id: invoice.id },
         data: {
-          nfseStatus: "CANCELADA",
-          nfseCanceladaAt: new Date(),
-          nfseCancelamentoMotivo: `[${codigoMotivo}] ${motivo}`,
+          nfseStatus: null,
+          nfseNumero: null,
+          nfseChaveAcesso: null,
+          nfseCodigoVerificacao: null,
+          nfseEmitidaAt: null,
+          nfseErro: null,
+          nfseCodigoServico: null,
+          nfseDescricao: null,
+          nfseAliquotaIss: null,
+          nfseCanceladaAt: null,
+          nfseCancelamentoMotivo: null,
+          notaFiscalEmitida: false,
+          notaFiscalEmitidaAt: null,
         },
       })
 
