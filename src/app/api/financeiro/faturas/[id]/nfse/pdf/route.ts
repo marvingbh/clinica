@@ -46,10 +46,18 @@ export const GET = withFeatureAuth(
     const patientName = invoice.patient.name.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "")
     const filename = `NFS-e-${invoice.nfseNumero || "sem-numero"}-${patientName}.pdf`
 
-    // Try local PDF generation first
-    const danfseData = buildDanfseData(invoice)
+    // If ?source=adn, skip local and go straight to ADN
+    const url = new URL(req.url)
+    const forceAdn = url.searchParams.get("source") === "adn"
+
+    // Try local PDF generation first (unless forced ADN)
+    const danfseData = !forceAdn ? buildDanfseData(invoice) : null
     if (danfseData) {
       try {
+        // Generate QR code as data URI
+        const QRCode = await import("qrcode")
+        danfseData.qrCodeDataUri = await QRCode.toDataURL(danfseData.verificacaoUrl, { width: 120, margin: 1 })
+
         const buffer = await renderToBuffer(createDanfseDocument(danfseData))
         return new NextResponse(new Uint8Array(buffer), {
           headers: {
