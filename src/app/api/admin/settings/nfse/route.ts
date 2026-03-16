@@ -151,19 +151,25 @@ export const POST = withFeatureAuth(
       )
     }
 
-    const config = await prisma.nfseConfig.upsert({
-      where: { clinicId: user.clinicId },
-      create: {
-        clinicId: user.clinicId,
-        ...upsertData,
-        certificatePem: certificateFields!.certificatePem,
-        privateKeyPem: certificateFields!.privateKeyPem,
-      },
-      update: {
-        ...upsertData,
-        ...(certificateFields ?? {}),
-      },
-    })
+    let config
+    if (existing) {
+      config = await prisma.nfseConfig.update({
+        where: { clinicId: user.clinicId },
+        data: {
+          ...upsertData,
+          ...(certificateFields ?? {}),
+        },
+      })
+    } else {
+      config = await prisma.nfseConfig.create({
+        data: {
+          clinicId: user.clinicId,
+          ...upsertData,
+          certificatePem: certificateFields!.certificatePem,
+          privateKeyPem: certificateFields!.privateKeyPem,
+        },
+      })
+    }
 
     audit
       .log({
