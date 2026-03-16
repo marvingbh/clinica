@@ -122,6 +122,13 @@ enum InvoiceGrouping {
   PER_SESSION
 }
 
+enum NfseEmissionStatus {
+  PENDENTE
+  EMITIDA
+  ERRO
+  CANCELADA
+}
+
 enum BankProvider {
   INTER
 }
@@ -359,6 +366,7 @@ model Patient {
   invoiceGrouping              InvoiceGrouping? // null = inherit from clinic
   invoiceMessageTemplate       String? // Overrides clinic default for invoice text
   nfseDescriptionTemplate      String? // Overrides clinic default for NFS-e description
+  nfsePerAppointment           Boolean   @default(false) // Emit individual NFS-e per appointment instead of per invoice
   therapeuticProject           String? // Therapeutic project (free text)
   isActive                     Boolean   @default(true)
   lastVisitAt                  DateTime?
@@ -783,6 +791,7 @@ model Invoice {
   items               InvoiceItem[]
   consumedCredits     SessionCredit[]
   reconciliationLinks ReconciliationLink[]
+  nfseEmissions       NfseEmission[]
 
   @@index([clinicId])
   @@index([professionalProfileId])
@@ -806,8 +815,9 @@ model InvoiceItem {
 
   createdAt DateTime @default(now())
 
-  invoice     Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  invoice       Invoice        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  appointment   Appointment?   @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  nfseEmissions NfseEmission[]
 
   @@index([invoiceId])
   @@index([appointmentId])
@@ -837,6 +847,37 @@ model SessionCredit {
   @@index([patientId])
   @@index([consumedByInvoiceId])
   @@index([professionalProfileId, patientId, consumedByInvoiceId])
+}
+
+// ============================================================================
+// NFS-e PER-ITEM EMISSION MODEL
+// ============================================================================
+
+/// Individual NFS-e emission record (supports per-invoice or per-item modes)
+model NfseEmission {
+  id                    String             @id @default(cuid())
+  invoiceId             String
+  invoiceItemId         String? // null = per-invoice emission, set = per-item emission
+  status                NfseEmissionStatus @default(PENDENTE)
+  numero                String? // NFS-e number from ADN
+  chaveAcesso           String? // 50-char access key
+  codigoVerificacao     String?
+  emitidaAt             DateTime?
+  erro                  String?
+  canceladaAt           DateTime?
+  cancelamentoMotivo    String?
+  descricao             String? // Service description sent to ADN
+  valor                 Decimal            @db.Decimal(10, 2)
+  xml                   String?            @db.Text // Full NFS-e XML for local DANFSE generation
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invoice     Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceItem InvoiceItem? @relation(fields: [invoiceItemId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([invoiceId, status])
 }
 
 // ============================================================================

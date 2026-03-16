@@ -17,7 +17,7 @@ export const GET = withFeatureAuth(
           : {}),
       },
       include: {
-        patient: { select: { id: true, name: true, phone: true, cpf: true, billingCpf: true, billingResponsibleName: true, addressStreet: true, addressNumber: true, addressNeighborhood: true, addressCity: true, addressState: true, addressZip: true, motherName: true, sessionFee: true } },
+        patient: { select: { id: true, name: true, phone: true, cpf: true, billingCpf: true, billingResponsibleName: true, nfsePerAppointment: true, addressStreet: true, addressNumber: true, addressNeighborhood: true, addressCity: true, addressState: true, addressZip: true, motherName: true, sessionFee: true } },
         professionalProfile: { select: { id: true, user: { select: { name: true } } } },
         items: {
           include: {
@@ -28,6 +28,14 @@ export const GET = withFeatureAuth(
         consumedCredits: {
           select: { id: true, reason: true, createdAt: true },
         },
+        nfseEmissions: {
+          select: {
+            id: true, invoiceItemId: true, status: true, numero: true,
+            chaveAcesso: true, codigoVerificacao: true, emitidaAt: true,
+            erro: true, canceladaAt: true, descricao: true, valor: true,
+          },
+          orderBy: { createdAt: "asc" },
+        },
       },
     })
 
@@ -36,7 +44,6 @@ export const GET = withFeatureAuth(
     }
 
     const { notaFiscalPdf, ...rest } = invoice
-    console.log("[Invoice API] patient fields:", JSON.stringify({ billingCpf: rest.patient.billingCpf, addressStreet: rest.patient.addressStreet, addressZip: rest.patient.addressZip }))
     return NextResponse.json({ ...rest, hasNotaFiscalPdf: !!notaFiscalPdf })
   }
 )

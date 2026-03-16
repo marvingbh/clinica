@@ -26,6 +26,7 @@ const createPatientSchema = z.object({
   billingCpf: z.string().max(14).optional().nullable().or(z.literal("")),
   billingResponsibleName: z.string().max(200).optional().nullable().or(z.literal("")),
   nfseDescriptionTemplate: z.string().max(2000).optional().nullable().or(z.literal("")),
+  nfsePerAppointment: z.boolean().optional(),
   addressStreet: z.string().max(200).optional().nullable().or(z.literal("")),
   addressNumber: z.string().max(20).optional().nullable().or(z.literal("")),
   addressNeighborhood: z.string().max(100).optional().nullable().or(z.literal("")),
@@ -99,7 +100,7 @@ export const GET = withFeatureAuth(
           p."id", p."name", p."email", p."phone",
           p."motherName", p."fatherName", p."birthDate",
           p."notes", p."schoolName", p."cpf",
-          p."billingCpf", p."billingResponsibleName", p."nfseDescriptionTemplate",
+          p."billingCpf", p."billingResponsibleName", p."nfseDescriptionTemplate", p."nfsePerAppointment",
           p."addressStreet", p."addressNumber", p."addressNeighborhood",
           p."addressCity", p."addressState", p."addressZip",
           p."firstAppointmentDate", p."lastFeeAdjustmentDate",
@@ -179,6 +180,7 @@ export const GET = withFeatureAuth(
           billingCpf: true,
           billingResponsibleName: true,
           nfseDescriptionTemplate: true,
+          nfsePerAppointment: true,
           addressStreet: true,
           addressNumber: true,
           addressNeighborhood: true,
@@ -257,7 +259,7 @@ export const POST = withFeatureAuth(
       )
     }
 
-    const { name, email, phone, birthDate, cpf, billingCpf, billingResponsibleName, nfseDescriptionTemplate, addressStreet, addressNumber, addressNeighborhood, addressCity, addressState, addressZip, fatherName, motherName, notes, schoolName, firstAppointmentDate, lastFeeAdjustmentDate, sessionFee, therapeuticProject, referenceProfessionalId, invoiceGrouping, consentWhatsApp, consentEmail, additionalPhones } =
+    const { name, email, phone, birthDate, cpf, billingCpf, billingResponsibleName, nfseDescriptionTemplate, nfsePerAppointment, addressStreet, addressNumber, addressNeighborhood, addressCity, addressState, addressZip, fatherName, motherName, notes, schoolName, firstAppointmentDate, lastFeeAdjustmentDate, sessionFee, therapeuticProject, referenceProfessionalId, invoiceGrouping, consentWhatsApp, consentEmail, additionalPhones } =
       validation.data
 
     if (invoiceGrouping === "PER_SESSION") {
@@ -325,6 +327,7 @@ export const POST = withFeatureAuth(
         billingCpf: billingCpf ? billingCpf.replace(/\D/g, "") : null,
         billingResponsibleName: billingResponsibleName || null,
         nfseDescriptionTemplate: nfseDescriptionTemplate || null,
+        nfsePerAppointment: nfsePerAppointment ?? false,
         addressStreet: addressStreet || null,
         addressNumber: addressNumber || null,
         addressNeighborhood: addressNeighborhood || null,

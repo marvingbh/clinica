@@ -16,7 +16,7 @@ export interface NfseDescriptionData {
 }
 
 export const DEFAULT_NFSE_DESCRIPTION_TEMPLATE =
-  `Referente a consultas em psicoterapia de {{relacao}} {{paciente}}, nos dias {{dias}} de {{mes}} de {{ano}}, pela psicóloga {{profissional}}. Cada sessão com valor unitário de {{valor_sessao}}{{impostos}}`
+  `Referente a {{consulta_label}} em psicoterapia de {{relacao}} {{paciente}}, {{dia_preposicao}} {{dias}} de {{mes}} de {{ano}}, pela psicóloga {{profissional}}. {{valor_label}} de {{valor_sessao}}{{impostos}}`
 
 /**
  * Build NFS-e service description from invoice/appointment data.
@@ -44,7 +44,23 @@ export function buildNfseDescription(data: NfseDescriptionData, template?: strin
     ? ` - Conforme Lei 12.741/2012, o percentual total de impostos incidentes neste serviço prestado é de aproximadamente ${data.taxPercentage.toFixed(2)}%`
     : ""
 
-  return tmpl
+  const isSingle = days.length === 1
+
+  // Apply new placeholders if present in template
+  let result = tmpl
+    .replace(/\{\{consulta_label\}\}/g, isSingle ? "consulta" : "consultas")
+    .replace(/\{\{dia_preposicao\}\}/g, isSingle ? "no dia" : "nos dias")
+    .replace(/\{\{valor_label\}\}/g, isSingle ? "Valor" : "Cada sessão com valor unitário")
+
+  // For old-style templates without new placeholders: replace hardcoded Portuguese text
+  if (isSingle && !tmpl.includes("{{consulta_label}}")) {
+    result = result
+      .replace(/\bconsultas\b/g, "consulta")
+      .replace(/\bnos dias\b/g, "no dia")
+      .replace(/Cada sessão com valor unitário/g, "Valor")
+  }
+
+  return result
     .replace(/\{\{relacao\}\}/g, relacao)
     .replace(/\{\{paciente\}\}/g, data.patientName)
     .replace(/\{\{profissional\}\}/g, data.professionalName + (data.professionalCrp ? ` (${data.professionalCrp})` : ""))

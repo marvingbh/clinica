@@ -39,16 +39,46 @@ export const GET = withFeatureAuth(
       return NextResponse.json({ error: "Fatura nao encontrada" }, { status: 404 })
     }
 
+    const url = new URL(req.url)
+    const emissionId = url.searchParams.get("emissionId")
+    const forceAdn = url.searchParams.get("source") === "adn"
+    const patientName = invoice.patient.name.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "")
+
+    // Per-item emission PDF
+    if (emissionId) {
+      const emission = await prisma.nfseEmission.findFirst({
+        where: { id: emissionId, invoiceId: invoice.id },
+      })
+      if (!emission || emission.status !== "EMITIDA" || !emission.chaveAcesso) {
+        return NextResponse.json({ error: "NFS-e nao emitida para esta emissao" }, { status: 400 })
+      }
+      // For per-item emissions, delegate to ADN for now (local DANFSE uses invoice-level data)
+      const nfseConfig = invoice.clinic.nfseConfig
+      if (!nfseConfig) {
+        return NextResponse.json({ error: "Configuracao NFS-e nao encontrada" }, { status: 400 })
+      }
+      try {
+        const adnConfig: AdnConfig = {
+          clinicId: user.clinicId, invoiceId: invoice.id,
+          certificatePem: nfseConfig.certificatePem, privateKeyPem: nfseConfig.privateKeyPem,
+          useSandbox: nfseConfig.useSandbox,
+        }
+        const pdfBuffer = await fetchDanfse(emission.chaveAcesso, adnConfig)
+        const filename = `NFS-e-${emission.numero || "sem-numero"}-${patientName}.pdf`
+        return new NextResponse(new Uint8Array(pdfBuffer), {
+          headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${filename}"` },
+        })
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : "Erro desconhecido"
+        return NextResponse.json({ error: `Erro ao baixar DANFSE: ${msg}` }, { status: 500 })
+      }
+    }
+
     if (invoice.nfseStatus !== "EMITIDA" || !invoice.nfseChaveAcesso) {
       return NextResponse.json({ error: "NFS-e nao emitida para esta fatura" }, { status: 400 })
     }
 
-    const patientName = invoice.patient.name.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "")
     const filename = `NFS-e-${invoice.nfseNumero || "sem-numero"}-${patientName}.pdf`
-
-    // If ?source=adn, skip local and go straight to ADN
-    const url = new URL(req.url)
-    const forceAdn = url.searchParams.get("source") === "adn"
 
     // Try local PDF generation first (unless forced ADN)
     const danfseData = !forceAdn ? buildDanfseData(invoice) : null

@@ -2,8 +2,15 @@
 
 import React, { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
-import { formatCurrencyBRL } from "@/lib/financeiro/format"
+import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
 import { AlertTriangleIcon } from "@/shared/components/ui/icons"
+
+interface PerItemPreview {
+  invoiceItemId: string
+  date: string | null
+  valor: number
+  descricao: string
+}
 
 interface NfseEmissionDialogProps {
   invoiceId: string
@@ -21,6 +28,8 @@ interface NfseEmissionDialogProps {
     zip: string | null
   }
   totalAmount: string
+  isPerItem?: boolean
+  itemId?: string | null
   defaultCodigoServico: string
   defaultCodigoNbs: string
   defaultCClassNbs: string
@@ -38,6 +47,8 @@ export default function NfseEmissionDialog({
   patientBillingName,
   patientAddress,
   totalAmount,
+  isPerItem,
+  itemId,
   defaultCodigoServico,
   defaultCodigoNbs,
   defaultCClassNbs,
@@ -55,19 +66,30 @@ export default function NfseEmissionDialog({
   const [city, setCity] = useState(patientAddress.city || "")
   const [state, setState] = useState(patientAddress.state || "")
   const [zip, setZip] = useState(patientAddress.zip || "")
+
+  // Per-invoice: single description
   const [descricao, setDescricao] = useState("")
+  // Per-item: individual descriptions
+  const [itemPreviews, setItemPreviews] = useState<PerItemPreview[]>([])
   const [loadingDescricao, setLoadingDescricao] = useState(true)
 
   useEffect(() => {
     fetch(`/api/financeiro/faturas/${invoiceId}/nfse/preview`)
       .then(res => res.json())
       .then(data => {
-        if (data.descricao) setDescricao(data.descricao)
-        else setDescricao(defaultDescricao)
+        if (data.items) setItemPreviews(data.items)
+        // When emitting a single item, use that item's description
+        if (itemId && data.items) {
+          const match = (data.items as PerItemPreview[]).find(i => i.invoiceItemId === itemId)
+          setDescricao(match?.descricao || data.descricao || defaultDescricao)
+        } else {
+          setDescricao(data.descricao || defaultDescricao)
+        }
       })
       .catch(() => setDescricao(defaultDescricao))
       .finally(() => setLoadingDescricao(false))
-  }, [invoiceId, defaultDescricao])
+  }, [invoiceId, itemId, defaultDescricao])
+
   const [aliquotaIss, setAliquotaIss] = useState(String(defaultAliquotaIss))
   const [codigoServico, setCodigoServico] = useState(defaultCodigoServico)
   const [codigoNbs, setCodigoNbs] = useState(defaultCodigoNbs)
@@ -100,14 +122,13 @@ export default function NfseEmissionDialog({
     if (codigoServico !== defaultCodigoServico) overrides.codigoServico = codigoServico
     if (codigoNbs !== defaultCodigoNbs) overrides.codigoNbs = codigoNbs
     if (cClassNbs !== defaultCClassNbs) overrides.cClassNbs = cClassNbs
-    if (descricao !== defaultDescricao) overrides.descricao = descricao
+    if (!isPerItem && descricao !== defaultDescricao) overrides.descricao = descricao
     const parsedAliquota = parseFloat(aliquotaIss)
     if (!isNaN(parsedAliquota) && parsedAliquota !== defaultAliquotaIss) {
       overrides.aliquotaIss = parsedAliquota
     }
     overrides.billingCpf = billingCpf.replace(/\D/g, "")
     if (billingName !== patientName) overrides.billingResponsibleName = billingName
-    // Send address to save back to patient
     overrides.address = {
       street: street.trim(),
       number: number.trim() || "SN",
@@ -118,7 +139,10 @@ export default function NfseEmissionDialog({
     }
 
     try {
-      const res = await fetch(`/api/financeiro/faturas/${invoiceId}/nfse/emitir`, {
+      const emitUrl = itemId
+        ? `/api/financeiro/faturas/${invoiceId}/nfse/emitir?itemId=${itemId}`
+        : `/api/financeiro/faturas/${invoiceId}/nfse/emitir`
+      const res = await fetch(emitUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(overrides),
@@ -145,7 +169,9 @@ export default function NfseEmissionDialog({
         className="bg-background rounded-xl border border-border shadow-lg w-full max-w-lg mx-4 p-6 space-y-3 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-lg font-semibold">Emitir NFS-e</h3>
+        <h3 className="text-lg font-semibold">
+          {isPerItem ? `Emitir ${itemPreviews.length} NFS-e` : "Emitir NFS-e"}
+        </h3>
 
         {/* Tomador */}
         <div className="space-y-2">
@@ -181,7 +207,7 @@ export default function NfseEmissionDialog({
 
         {/* Valor */}
         <div className="flex items-center justify-between py-1">
-          <span className="text-xs font-medium text-muted-foreground">Valor</span>
+          <span className="text-xs font-medium text-muted-foreground">Valor total</span>
           <span className="text-sm font-bold">{formatCurrencyBRL(Number(totalAmount))}</span>
         </div>
 
@@ -213,7 +239,44 @@ export default function NfseEmissionDialog({
               <option value="123019900_000001">123019900 | 000001 - Outros servicos de saude humana (Tributado integralmente)</option>
             </select>
           </div>
-          <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={6} placeholder="Descricao do servico" className={`${inputCls} resize-y`} />
+
+          {/* Per-item: show each session's description */}
+          {isPerItem && itemPreviews.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                {itemPreviews.length} NFS-e {itemPreviews.length === 1 ? "sera emitida" : "serao emitidas"} individualmente:
+              </p>
+              {loadingDescricao ? (
+                <p className="text-xs text-muted-foreground animate-pulse">Gerando descricoes...</p>
+              ) : (
+                itemPreviews.map((item, idx) => (
+                  <div key={item.invoiceItemId} className="rounded-lg border border-border/60 p-2.5 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-foreground">
+                        {item.date ? formatDateBR(item.date) : `Sessao ${idx + 1}`}
+                      </span>
+                      <span className="text-xs font-medium text-foreground">
+                        {formatCurrencyBRL(item.valor)}
+                      </span>
+                    </div>
+                    <textarea
+                      value={item.descricao}
+                      onChange={(e) => {
+                        const updated = [...itemPreviews]
+                        updated[idx] = { ...updated[idx], descricao: e.target.value }
+                        setItemPreviews(updated)
+                      }}
+                      rows={3}
+                      className={`${inputCls} text-xs resize-y`}
+                    />
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+            /* Per-invoice: single description */
+            <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={6} placeholder="Descricao do servico" className={`${inputCls} resize-y`} />
+          )}
         </div>
 
         {error && <p className="text-xs text-destructive">{error}</p>}
@@ -223,7 +286,12 @@ export default function NfseEmissionDialog({
             Cancelar
           </button>
           <button onClick={handleSubmit} disabled={submitting} className="px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50">
-            {submitting ? "Emitindo..." : "Confirmar Emissao"}
+            {submitting
+              ? "Emitindo..."
+              : isPerItem
+                ? `Emitir ${itemPreviews.length} NFS-e`
+                : "Confirmar Emissao"
+            }
           </button>
         </div>
       </div>

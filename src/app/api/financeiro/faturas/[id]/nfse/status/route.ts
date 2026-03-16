@@ -27,6 +27,23 @@ export const GET = withFeatureAuth(
         nfseCodigoServico: true,
         nfseDescricao: true,
         nfseAliquotaIss: true,
+        nfseEmissions: {
+          select: {
+            id: true,
+            invoiceItemId: true,
+            status: true,
+            numero: true,
+            chaveAcesso: true,
+            codigoVerificacao: true,
+            emitidaAt: true,
+            erro: true,
+            canceladaAt: true,
+            cancelamentoMotivo: true,
+            descricao: true,
+            valor: true,
+          },
+          orderBy: { createdAt: "asc" },
+        },
       },
     })
 
@@ -53,6 +70,11 @@ export const GET = withFeatureAuth(
               : null,
           }
         : null,
+      // Per-item emissions (empty array for per-invoice mode)
+      emissions: invoice.nfseEmissions.map(e => ({
+        ...e,
+        valor: Number(e.valor),
+      })),
     })
   }
 )
