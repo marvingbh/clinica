@@ -19,6 +19,7 @@ const brDateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
 
 const groupSessionSchema = z.object({
+  title: z.string().min(1, "Título é obrigatório").max(200),
   date: z.string().regex(brDateRegex, "Data inválida (DD/MM/AAAA)"),
   startTime: z.string().regex(timeRegex, "Horário inválido (HH:mm)"),
   duration: z.number().int().min(15).max(480).optional(),
@@ -76,6 +77,7 @@ export function CreateGroupSessionSheet({
   const form = useForm<GroupSessionFormData>({
     resolver: zodResolver(groupSessionSchema),
     defaultValues: {
+      title: "",
       date: defaultDate || "",
       startTime: defaultTime || "",
       duration: appointmentDuration,
@@ -112,6 +114,7 @@ export function CreateGroupSessionSheet({
     const isoDate = brDateToISO(data.date)
     const result = await createGroupSession({
       patientIds: selectedPatients.map(p => p.id),
+      title: data.title,
       date: isoDate,
       startTime: data.startTime,
       duration: data.duration,
@@ -166,6 +169,21 @@ export function CreateGroupSessionSheet({
           onRemovePatient={handleRemovePatient}
           error={selectedPatients.length > 0 && selectedPatients.length < 2 ? "Selecione pelo menos 2 pacientes" : undefined}
         />
+
+        {/* Title */}
+        <div>
+          <label htmlFor="gs-title" className="block text-sm font-medium text-foreground mb-1.5">
+            Título *
+          </label>
+          <input
+            id="gs-title"
+            type="text"
+            {...register("title")}
+            placeholder="Ex: Grupo de ansiedade"
+            className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
+          />
+          {errors.title && <p className="text-xs text-destructive mt-1">{errors.title.message}</p>}
+        </div>
 
         {/* Date & Time */}
         <div className="grid grid-cols-2 gap-3">

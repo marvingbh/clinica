@@ -57,6 +57,7 @@ const calendarEntryRecurrenceSchema = z.object({
 
 const createGroupSessionSchema = z.object({
   patientIds: z.array(z.string().min(1)).min(2, "Selecione pelo menos 2 pacientes"),
+  title: z.string().min(1, "Titulo e obrigatorio").max(200),
   professionalProfileId: z.string().optional(),
   additionalProfessionalIds: z.array(z.string()).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
@@ -811,7 +812,7 @@ async function handleCreateGroupSession(
     )
   }
 
-  const { patientIds, date, startTime, duration, modality, notes, skipAvailabilityCheck } = validation.data
+  const { patientIds, title, date, startTime, duration, modality, notes, skipAvailabilityCheck } = validation.data
 
   // Deduplicate patient IDs
   const uniquePatientIds = [...new Set(patientIds)]
@@ -917,6 +918,7 @@ async function handleCreateGroupSession(
         professionalProfileId: targetProfessionalProfileId,
         patientId: pid,
         sessionGroupId,
+        title,
         scheduledAt,
         endAt,
         modality,
