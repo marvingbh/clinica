@@ -183,6 +183,8 @@ export const POST = withFeatureAuth(
 
       // 4. Call ADN API
       const adnConfig: AdnConfig = {
+        clinicId: user.clinicId,
+        invoiceId: invoice.id,
         certificatePem: nfseConfig.certificatePem,
         privateKeyPem: nfseConfig.privateKeyPem,
         useSandbox: nfseConfig.useSandbox,

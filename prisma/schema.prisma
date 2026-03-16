@@ -953,3 +953,22 @@ model NfseConfig {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
+
+/// Logs all ADN API communications for debugging and auditing
+model AdnLog {
+  id          String   @id @default(cuid())
+  clinicId    String
+  invoiceId   String?
+  operation   String   // emit, cancel, query, danfse
+  method      String   // POST, GET
+  url         String
+  requestBody String?  @db.Text // JSON or XML sent
+  statusCode  Int?
+  responseBody String? @db.Text // Full response from ADN
+  durationMs  Int?     // Response time in ms
+  error       String?  // Error message if request failed
+  createdAt   DateTime @default(now())
+
+  @@index([clinicId, createdAt])
+  @@index([invoiceId])
+}
