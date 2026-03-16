@@ -26,6 +26,7 @@ const updatePatientSchema = z.object({
   cpf: z.string().max(14).optional().nullable().or(z.literal("")),
   billingCpf: z.string().max(14).optional().nullable().or(z.literal("")),
   billingResponsibleName: z.string().max(200).optional().nullable().or(z.literal("")),
+  nfseDescriptionTemplate: z.string().max(2000).optional().nullable().or(z.literal("")),
   addressStreet: z.string().max(200).optional().nullable().or(z.literal("")),
   addressNumber: z.string().max(20).optional().nullable().or(z.literal("")),
   addressNeighborhood: z.string().max(100).optional().nullable().or(z.literal("")),

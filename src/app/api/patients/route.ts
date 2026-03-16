@@ -25,6 +25,7 @@ const createPatientSchema = z.object({
   cpf: z.string().max(14).optional().nullable().or(z.literal("")),
   billingCpf: z.string().max(14).optional().nullable().or(z.literal("")),
   billingResponsibleName: z.string().max(200).optional().nullable().or(z.literal("")),
+  nfseDescriptionTemplate: z.string().max(2000).optional().nullable().or(z.literal("")),
   addressStreet: z.string().max(200).optional().nullable().or(z.literal("")),
   addressNumber: z.string().max(20).optional().nullable().or(z.literal("")),
   addressNeighborhood: z.string().max(100).optional().nullable().or(z.literal("")),
@@ -242,7 +243,7 @@ export const POST = withFeatureAuth(
       )
     }
 
-    const { name, email, phone, birthDate, cpf, billingCpf, billingResponsibleName, addressStreet, addressNumber, addressNeighborhood, addressCity, addressState, addressZip, fatherName, motherName, notes, schoolName, firstAppointmentDate, lastFeeAdjustmentDate, sessionFee, therapeuticProject, referenceProfessionalId, invoiceGrouping, consentWhatsApp, consentEmail, additionalPhones } =
+    const { name, email, phone, birthDate, cpf, billingCpf, billingResponsibleName, nfseDescriptionTemplate, addressStreet, addressNumber, addressNeighborhood, addressCity, addressState, addressZip, fatherName, motherName, notes, schoolName, firstAppointmentDate, lastFeeAdjustmentDate, sessionFee, therapeuticProject, referenceProfessionalId, invoiceGrouping, consentWhatsApp, consentEmail, additionalPhones } =
       validation.data
 
     if (invoiceGrouping === "PER_SESSION") {
@@ -309,6 +310,7 @@ export const POST = withFeatureAuth(
         cpf: normalizedCpf,
         billingCpf: billingCpf ? billingCpf.replace(/\D/g, "") : null,
         billingResponsibleName: billingResponsibleName || null,
+        nfseDescriptionTemplate: nfseDescriptionTemplate || null,
         addressStreet: addressStreet || null,
         addressNumber: addressNumber || null,
         addressNeighborhood: addressNeighborhood || null,
