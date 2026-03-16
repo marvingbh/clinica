@@ -61,8 +61,8 @@ export const POST = withFeatureAuth(
       return NextResponse.json({ error: "Nenhum paciente com agendamentos neste mês" }, { status: 404 })
     }
 
-    // Step 3: Fetch ALL appointments for those patients (no professional filter)
-    const allAppointments = await prisma.appointment.findMany({
+    // Step 3: Fetch appointments for those patients in the reference month
+    const monthAppointments = await prisma.appointment.findMany({
       where: {
         clinicId: user.clinicId,
         patientId: { in: patientIds },
@@ -75,6 +75,25 @@ export const POST = withFeatureAuth(
         patientId: true, professionalProfileId: true,
       },
     })
+
+    // Step 3b: Also fetch uninvoiced appointments from PRIOR months
+    // (e.g. group sessions created after the previous month's invoice was generated)
+    const uninvoicedPriorAppointments = await prisma.appointment.findMany({
+      where: {
+        clinicId: user.clinicId,
+        patientId: { in: patientIds },
+        scheduledAt: { lt: startDate },
+        type: { in: ["CONSULTA", "REUNIAO"] },
+        invoiceItems: { none: {} },
+      },
+      select: {
+        id: true, scheduledAt: true, status: true, type: true, title: true,
+        recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
+        patientId: true, professionalProfileId: true,
+      },
+    })
+
+    const allAppointments = [...monthAppointments, ...uninvoicedPriorAppointments]
 
     // Step 4: Group by patientId + professionalProfileId (one invoice per combination)
     const byPatientAndProfessional = new Map<string, typeof allAppointments>()
