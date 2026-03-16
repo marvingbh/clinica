@@ -358,6 +358,7 @@ model Patient {
   invoiceDueDay                Int? // Day of the month for due date (overrides clinic default)
   invoiceGrouping              InvoiceGrouping? // null = inherit from clinic
   invoiceMessageTemplate       String? // Overrides clinic default for invoice text
+  nfseDescriptionTemplate      String? // Overrides clinic default for NFS-e description
   therapeuticProject           String? // Therapeutic project (free text)
   isActive                     Boolean   @default(true)
   lastVisitAt                  DateTime?

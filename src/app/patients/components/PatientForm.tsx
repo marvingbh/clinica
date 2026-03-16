@@ -13,6 +13,7 @@ export interface PatientFormData {
   cpf?: string | undefined
   billingCpf?: string | undefined
   billingResponsibleName?: string | undefined
+  nfseDescriptionTemplate?: string | undefined
   addressStreet?: string | undefined
   addressNumber?: string | undefined
   addressNeighborhood?: string | undefined
@@ -185,6 +186,13 @@ export function PatientForm({
           <p className="text-xs text-muted-foreground mt-1">
             Nome que aparecera na Nota Fiscal. Se vazio, usa o nome do paciente.
           </p>
+        </div>
+
+        <div>
+          <label htmlFor="nfseDescriptionTemplate" className="block text-sm font-medium text-foreground mb-2">
+            Descricao NFS-e (personalizada)
+          </label>
+          <textarea id="nfseDescriptionTemplate" rows={3} {...register("nfseDescriptionTemplate")} placeholder="Deixe vazio para usar o padrao da clinica. Variaveis: {{paciente}}, {{relacao}}, {{profissional}}, {{dias}}, {{mes}}, {{ano}}, {{valor_sessao}}, {{impostos}}" className={`${inputClass} resize-none`} />
         </div>
 
         {/* ─── Endereço ─── */}

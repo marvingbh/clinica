@@ -19,7 +19,7 @@ export const POST = withFeatureAuth(
     const invoice = await prisma.invoice.findFirst({
       where: { id: params.id, clinicId: user.clinicId },
       include: {
-        patient: { select: { id: true, name: true, cpf: true, billingCpf: true, billingResponsibleName: true, addressStreet: true, addressNumber: true, addressNeighborhood: true, addressZip: true, sessionFee: true } },
+        patient: { select: { id: true, name: true, cpf: true, billingCpf: true, billingResponsibleName: true, nfseDescriptionTemplate: true, addressStreet: true, addressNumber: true, addressNeighborhood: true, addressZip: true, sessionFee: true } },
         professionalProfile: { select: { user: { select: { name: true } } } },
         clinic: { include: { nfseConfig: true } },
         items: { include: { appointment: { select: { scheduledAt: true } } } },
@@ -127,7 +127,7 @@ export const POST = withFeatureAuth(
       sessionDates,
       sessionFee: Number(invoice.patient.sessionFee || invoice.totalAmount),
       taxPercentage: nfseConfig.nfseTaxPercentage ? Number(nfseConfig.nfseTaxPercentage) : undefined,
-    }, nfseConfig.descricaoServico)
+    }, invoice.patient.nfseDescriptionTemplate || nfseConfig.descricaoServico)
     const descricao = (overrides.descricao as string | undefined) || autoDescription
     const aliquotaIss = (overrides.aliquotaIss as number | undefined) ?? Number(nfseConfig.aliquotaIss)
 

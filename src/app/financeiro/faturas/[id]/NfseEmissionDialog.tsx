@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { formatCurrencyBRL } from "@/lib/financeiro/format"
 import { AlertTriangleIcon } from "@/shared/components/ui/icons"
@@ -51,7 +51,19 @@ export default function NfseEmissionDialog({
   const [city, setCity] = useState(patientAddress.city || "")
   const [state, setState] = useState(patientAddress.state || "")
   const [zip, setZip] = useState(patientAddress.zip || "")
-  const [descricao, setDescricao] = useState(defaultDescricao)
+  const [descricao, setDescricao] = useState("")
+  const [loadingDescricao, setLoadingDescricao] = useState(true)
+
+  useEffect(() => {
+    fetch(`/api/financeiro/faturas/${invoiceId}/nfse/preview`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.descricao) setDescricao(data.descricao)
+        else setDescricao(defaultDescricao)
+      })
+      .catch(() => setDescricao(defaultDescricao))
+      .finally(() => setLoadingDescricao(false))
+  }, [invoiceId, defaultDescricao])
   const [aliquotaIss, setAliquotaIss] = useState(String(defaultAliquotaIss))
   const [codigoServico, setCodigoServico] = useState(defaultCodigoServico)
   const [submitting, setSubmitting] = useState(false)
