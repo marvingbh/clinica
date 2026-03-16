@@ -53,15 +53,21 @@ export const POST = withFeatureAuth(
     const { motivo, codigoMotivo } = parsed.data
 
     try {
-      // Call ADN cancellation API
+      // Try ADN cancellation API — may fail in sandbox
       const nfseConfig = invoice.clinic.nfseConfig
+      let adnCancelFailed = false
       if (nfseConfig) {
-        const adnConfig: AdnConfig = {
-          certificatePem: nfseConfig.certificatePem,
-          privateKeyPem: nfseConfig.privateKeyPem,
-          useSandbox: nfseConfig.useSandbox,
+        try {
+          const adnConfig: AdnConfig = {
+            certificatePem: nfseConfig.certificatePem,
+            privateKeyPem: nfseConfig.privateKeyPem,
+            useSandbox: nfseConfig.useSandbox,
+          }
+          await cancelNfse(invoice.nfseChaveAcesso, motivo, codigoMotivo, adnConfig)
+        } catch (adnError) {
+          console.error("[NFS-e Cancel] ADN error (proceeding with local cancellation):", adnError instanceof Error ? adnError.message : adnError)
+          adnCancelFailed = true
         }
-        await cancelNfse(invoice.nfseChaveAcesso, motivo, codigoMotivo, adnConfig)
       }
 
       await prisma.invoice.update({
@@ -95,10 +101,14 @@ export const POST = withFeatureAuth(
       return NextResponse.json({
         success: true,
         nfseStatus: "CANCELADA",
-        message: "NFS-e cancelada com sucesso.",
+        message: adnCancelFailed
+          ? "NFS-e cancelada localmente. O cancelamento no ADN falhou — cancele manualmente no portal gov.br se necessario."
+          : "NFS-e cancelada com sucesso.",
+        adnCancelFailed,
       })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro desconhecido"
+      console.error("[NFS-e Cancel] Error:", errorMessage)
 
       audit
         .log({
@@ -112,7 +122,7 @@ export const POST = withFeatureAuth(
         .catch(() => {})
 
       return NextResponse.json(
-        { error: "Erro ao cancelar NFS-e" },
+        { error: `Erro ao cancelar NFS-e: ${errorMessage}` },
         { status: 500 }
       )
     }
