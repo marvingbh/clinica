@@ -158,13 +158,19 @@ export async function cancelNfse(
 ): Promise<void> {
   const baseUrl = getBaseUrl(config.useSandbox)
   const agent = createAgent(config)
+  const cert = decrypt(config.certificatePem)
+  const key = decrypt(config.privateKeyPem)
 
-  const eventXml = buildCancellationEventXml(
-    chaveAcesso,
-    motivo,
-    codigoMotivo
-  )
-  const eventXmlGZipB64 = compressAndEncode(eventXml)
+  const eventXml = buildCancellationEventXml(chaveAcesso, motivo, codigoMotivo)
+
+  // Sign the event XML (ADN requires all XML to be signed)
+  const { SignedXml } = await import("xml-crypto")
+  const sig = new SignedXml({ privateKey: key, publicCert: cert, canonicalizationAlgorithm: "http://www.w3.org/2001/10/xml-exc-c14n#", signatureAlgorithm: "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" })
+  sig.addReference({ xpath: "//*[local-name(.)='infPedReg']", digestAlgorithm: "http://www.w3.org/2001/04/xmlenc#sha256", transforms: ["http://www.w3.org/2000/09/xmldsig#enveloped-signature", "http://www.w3.org/2001/10/xml-exc-c14n#"] })
+  sig.computeSignature(eventXml, { location: { reference: "//*[local-name(.)='pedRegEvento']", action: "append" } })
+  const signedXml = sig.getSignedXml()
+
+  const eventXmlGZipB64 = compressAndEncode(signedXml)
   const body = JSON.stringify({ pedRegEvtXmlGZipB64: eventXmlGZipB64 })
 
   const { statusCode, data } = await httpsRequest<{ message?: string }>(
@@ -181,9 +187,8 @@ export async function cancelNfse(
   )
 
   if (statusCode >= 400) {
-    throw new Error(
-      `NFS-e cancellation failed: ${statusCode} ${data.message ?? ""}`
-    )
+    const errorMsg = typeof data === "object" ? extractAdnError(data, statusCode) : `HTTP ${statusCode}`
+    throw new Error(`NFS-e cancellation failed: ${errorMsg}`)
   }
 }
 
