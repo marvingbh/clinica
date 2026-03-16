@@ -47,10 +47,10 @@ export default function PerItemNfseSection({ invoice, nfseConfig, onRefresh }: N
       .finally(() => setLoadingPreviews(false))
   }, [invoice.id])
 
-  // Map emissions by invoiceItemId for quick lookup
+  // Map emissions by invoiceItemId — latest emission per item wins (handles re-emission after cancel)
   const emissionByItemId = new Map<string, NfseEmissionRow>()
   for (const e of invoice.nfseEmissions) {
-    if (e.invoiceItemId) emissionByItemId.set(e.invoiceItemId, e)
+    if (e.invoiceItemId) emissionByItemId.set(e.invoiceItemId, e) // ordered by createdAt asc, so last = latest
   }
 
   // Billable items (skip CREDITO)

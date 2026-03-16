@@ -82,9 +82,16 @@ export function computeAggregateNfseStatus(
 export async function updateInvoiceAggregateNfseStatus(invoiceId: string): Promise<NfseAggregateStatus> {
   const allEmissions = await prisma.nfseEmission.findMany({
     where: { invoiceId },
-    select: { status: true },
+    select: { status: true, invoiceItemId: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
   })
-  const statuses = allEmissions.map(e => e.status) as Array<"PENDENTE" | "EMITIDA" | "ERRO" | "CANCELADA">
+  // Only consider the latest emission per item (ignore old cancelled rows when re-emitted)
+  const latestByItem = new Map<string | null, typeof allEmissions[0]>()
+  for (const e of allEmissions) {
+    const key = e.invoiceItemId || "__invoice__"
+    if (!latestByItem.has(key)) latestByItem.set(key, e)
+  }
+  const statuses = [...latestByItem.values()].map(e => e.status) as Array<"PENDENTE" | "EMITIDA" | "ERRO" | "CANCELADA">
   const aggregate = computeAggregateNfseStatus(statuses)
 
   await prisma.invoice.update({
