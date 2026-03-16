@@ -174,6 +174,7 @@ export async function fetchAppointments({
 
 export interface CreateGroupSessionData {
   patientIds: string[]
+  title: string
   date: string
   startTime: string
   modality: "ONLINE" | "PRESENCIAL"
@@ -367,6 +368,27 @@ export async function updateGroupSessionStatus(
 
   if (!response.ok) {
     return { error: result.error || "Erro ao atualizar status do grupo" }
+  }
+
+  return result
+}
+
+export async function rescheduleGroupSession(
+  sessionGroupId: string,
+  scheduledAt: string,
+  newScheduledAt: string,
+  newEndAt: string
+): Promise<{ success?: boolean; updatedCount?: number; error?: string }> {
+  const response = await fetch("/api/group-sessions/reschedule", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionGroupId, scheduledAt, newScheduledAt, newEndAt }),
+  })
+
+  const result = await response.json()
+
+  if (!response.ok) {
+    return { error: result.error || "Erro ao reagendar sessão" }
   }
 
   return result

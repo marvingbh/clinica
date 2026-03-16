@@ -24,12 +24,6 @@ interface SessionEntry {
   }>
 }
 
-function buildOneOffGroupName(participants: SessionEntry["participants"]): string {
-  if (participants.length === 0) return "Sessão em Grupo"
-  if (participants.length <= 2) return participants.map(p => p.patientName.split(" ")[0]).join(", ")
-  return `${participants[0].patientName.split(" ")[0]}, ${participants[1].patientName.split(" ")[0]} +${participants.length - 2}`
-}
-
 /**
  * GET /api/group-sessions
  * Fetch aggregated group sessions for a date (or date range)
@@ -142,6 +136,7 @@ export const GET = withFeatureAuth(
         id: true,
         groupId: true,
         sessionGroupId: true,
+        title: true,
         professionalProfileId: true,
         scheduledAt: true,
         endAt: true,
@@ -212,7 +207,7 @@ export const GET = withFeatureAuth(
         sessionMap.set(key, {
           groupId: apt.groupId,
           sessionGroupId: apt.sessionGroupId,
-          groupName: isOneOff ? "" : apt.group!.name, // placeholder for one-off, built after participants collected
+          groupName: isOneOff ? (apt.title || "Sessão em Grupo") : apt.group!.name,
           isOneOff,
           scheduledAt: apt.scheduledAt.toISOString(),
           endAt: apt.endAt.toISOString(),
@@ -239,13 +234,6 @@ export const GET = withFeatureAuth(
             status: apt.status,
           })
         }
-      }
-    }
-
-    // Build auto-generated names for one-off sessions
-    for (const session of sessionMap.values()) {
-      if (session.isOneOff) {
-        session.groupName = buildOneOffGroupName(session.participants)
       }
     }
 

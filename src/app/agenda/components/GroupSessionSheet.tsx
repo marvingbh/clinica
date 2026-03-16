@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from "react"
 import { Sheet } from "./Sheet"
-import { UsersIcon, ClockIcon, CheckCircleIcon, XIcon, CheckIcon } from "@/shared/components/ui/icons"
+import { UsersIcon, ClockIcon, CheckCircleIcon, XIcon, CheckIcon, PencilIcon } from "@/shared/components/ui/icons"
 import { STATUS_LABELS, STATUS_COLORS, CANCELLED_STATUSES } from "../lib/constants"
-import { updateStatus, updateAppointment, updateGroupSessionStatus } from "../services/appointmentService"
+import { updateStatus, updateAppointment, updateGroupSessionStatus, rescheduleGroupSession } from "../services/appointmentService"
 import { CancelConfirmDialog } from "./CancelConfirmDialog"
 import { getCancelVariant, type CancelVariant } from "@/lib/appointments/status-transitions"
 import { toast } from "sonner"
 import type { GroupSession, AppointmentStatus, Professional } from "../lib/types"
+import { DateInput } from "./DateInput"
+import { TimeInput } from "./TimeInput"
 
 const PARTICIPANT_STATUS_LABELS: Record<string, string> = {
   AGENDADO: "Agendado",
@@ -77,14 +79,26 @@ export function GroupSessionSheet({
   const [isSavingProfs, setIsSavingProfs] = useState(false)
   const [isEditingProfs, setIsEditingProfs] = useState(false)
   const [cancelContext, setCancelContext] = useState<CancelContext | null>(null)
+  const [isEditingDateTime, setIsEditingDateTime] = useState(false)
+  const [editDate, setEditDate] = useState("")
+  const [editTime, setEditTime] = useState("")
+  const [isSavingDateTime, setIsSavingDateTime] = useState(false)
 
-  // Initialize session professional IDs when session changes
+  // Initialize session professional IDs and edit values when session changes
   useEffect(() => {
     if (session) {
       setSessionProfIds(
         session.additionalProfessionals?.map(ap => ap.professionalProfileId) || []
       )
       setIsEditingProfs(false)
+      setIsEditingDateTime(false)
+      // Initialize date/time edit values
+      const d = new Date(session.scheduledAt)
+      const dd = String(d.getDate()).padStart(2, "0")
+      const mm = String(d.getMonth() + 1).padStart(2, "0")
+      const yyyy = d.getFullYear()
+      setEditDate(`${dd}/${mm}/${yyyy}`)
+      setEditTime(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`)
     }
   }, [session])
 
@@ -114,6 +128,40 @@ export function GroupSessionSheet({
       toast.error("Erro ao atualizar profissionais")
     } finally {
       setIsSavingProfs(false)
+    }
+  }
+
+  const handleSaveDateTime = async () => {
+    if (!session?.sessionGroupId) return
+    // Parse BR date DD/MM/YYYY
+    const dateMatch = editDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+    const timeMatch = editTime.match(/^(\d{2}):(\d{2})$/)
+    if (!dateMatch || !timeMatch) {
+      toast.error("Data ou horário inválido")
+      return
+    }
+    const isoDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`
+    const newStart = new Date(`${isoDate}T${editTime}:00`)
+    const origStart = new Date(session.scheduledAt)
+    const origEnd = new Date(session.endAt)
+    const durationMs = origEnd.getTime() - origStart.getTime()
+    const newEnd = new Date(newStart.getTime() + durationMs)
+
+    setIsSavingDateTime(true)
+    const result = await rescheduleGroupSession(
+      session.sessionGroupId,
+      session.scheduledAt,
+      newStart.toISOString(),
+      newEnd.toISOString()
+    )
+    setIsSavingDateTime(false)
+
+    if (result.error) {
+      toast.error(result.error)
+    } else {
+      toast.success("Sessão reagendada")
+      setIsEditingDateTime(false)
+      onStatusUpdated()
     }
   }
 
@@ -229,11 +277,60 @@ export function GroupSessionSheet({
         </div>
 
         <div className="space-y-1 text-sm text-muted-foreground">
-          <p className="capitalize">{date}</p>
-          <div className="flex items-center gap-1.5">
-            <ClockIcon className="w-4 h-4" />
-            <span>{timeRange}</span>
-          </div>
+          {isEditingDateTime && session.sessionGroupId ? (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <DateInput
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                  className="h-9 px-3 rounded-lg border border-input bg-background text-foreground text-sm"
+                />
+                <TimeInput
+                  value={editTime}
+                  onChange={(e) => setEditTime(e.target.value)}
+                  placeholder="HH:MM"
+                  className="h-9 px-3 rounded-lg border border-input bg-background text-foreground text-sm"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDateTime}
+                  disabled={isSavingDateTime}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {isSavingDateTime ? "..." : "Salvar"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingDateTime(false)}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <p className="capitalize">{date}</p>
+                {session.sessionGroupId && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingDateTime(true)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    title="Alterar data/horário"
+                  >
+                    <PencilIcon className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <ClockIcon className="w-4 h-4" />
+                <span>{timeRange}</span>
+              </div>
+            </>
+          )}
           <p className="text-foreground font-medium mt-2">
             {session.professionalName}
           </p>
