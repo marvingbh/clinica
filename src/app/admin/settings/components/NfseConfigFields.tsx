@@ -23,6 +23,7 @@ interface Props {
   certPassword: string
   onCertPasswordChange: (password: string) => void
   isNewConfig: boolean
+  onNbsChange?: (nbs: string, cClass: string) => void
 }
 
 export default function NfseConfigFields({
@@ -34,6 +35,7 @@ export default function NfseConfigFields({
   certPassword,
   onCertPasswordChange,
   isNewConfig,
+  onNbsChange,
 }: Props) {
   const certRef = useRef<HTMLInputElement>(null)
   const [, setLocalTrigger] = useState(0)
@@ -127,15 +129,30 @@ export default function NfseConfigFields({
             <label className={labelClass}>CNAE</label>
             <input {...register("cnae")} className={inputClass} />
           </div>
+          <div className="sm:col-span-2">
+            <label className={labelClass}>Servico NBS</label>
+            <select
+              onChange={(e) => {
+                const [nbs, cc] = e.target.value.split("_")
+                if (onNbsChange && nbs) onNbsChange(nbs, cc)
+              }}
+              className={inputClass}
+            >
+              <option value="_">Selecione o servico NBS</option>
+              <option value="123019800_200029">123019800 | 200029 - Servicos de psicologia (Saude humana LC 214/2025)</option>
+              <option value="123019800_000001">123019800 | 000001 - Servicos de psicologia (Tributado integralmente IBS/CBS)</option>
+              <option value="112021000_000001">112021000 | 000001 - Pesquisa e desenvolvimento em psicologia</option>
+              <option value="123012200_200029">123012200 | 200029 - Servicos medicos especializados (LC 214/2025)</option>
+              <option value="123019900_200029">123019900 | 200029 - Outros servicos de saude humana (LC 214/2025)</option>
+            </select>
+          </div>
           <div>
             <label className={labelClass}>Codigo NBS</label>
             <input {...register("codigoNbs")} placeholder="123019800" className={inputClass} />
-            <p className="text-xs text-muted-foreground mt-1">Psicologia: 123019800</p>
           </div>
           <div>
             <label className={labelClass}>CClass NBS</label>
             <input {...register("cClassNbs")} placeholder="200029" className={inputClass} />
-            <p className="text-xs text-muted-foreground mt-1">Saude humana LC 214: 200029</p>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
