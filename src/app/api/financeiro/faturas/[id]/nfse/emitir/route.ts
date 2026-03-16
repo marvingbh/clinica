@@ -9,6 +9,7 @@ import { signDpsXml } from "@/lib/nfse/xml-signer"
 import { emitNfse, type AdnConfig } from "@/lib/nfse/adn-client"
 import { decrypt } from "@/lib/bank-reconciliation/encryption"
 import type { NfseEmissionData } from "@/lib/nfse/types"
+import { lookupIbgeFromCep } from "@/lib/nfse/cep-lookup"
 
 const ALLOWED_STATUSES_FOR_EMISSION = ["PAGO", "ENVIADO"]
 const RETRYABLE_NFSE_STATUSES = [null, "ERRO"]
@@ -144,7 +145,11 @@ export const POST = withFeatureAuth(
     })
 
     try {
-      // 1. Build emission data
+      // 1. Look up tomador's municipality from CEP
+      const tomadorCep = addressFromBody?.zip || invoice.patient.addressZip || ""
+      const tomadorCodigoMunicipio = tomadorCep ? await lookupIbgeFromCep(tomadorCep) : null
+
+      // 2. Build emission data
       const emissionData: NfseEmissionData = {
         prestadorCnpj: nfseConfig.cnpj,
         prestadorIm: nfseConfig.inscricaoMunicipal,
@@ -159,6 +164,7 @@ export const POST = withFeatureAuth(
         tomadorNumero: addressFromBody?.number || invoice.patient.addressNumber || undefined,
         tomadorBairro: addressFromBody?.neighborhood || invoice.patient.addressNeighborhood || undefined,
         tomadorCep: addressFromBody?.zip || invoice.patient.addressZip || undefined,
+        tomadorCodigoMunicipio: tomadorCodigoMunicipio || undefined,
         codigoServico,
         codigoServicoMunicipal,
         codigoNbs: nfseConfig.codigoNbs || undefined,
