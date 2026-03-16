@@ -154,6 +154,7 @@ export async function cancelNfse(
   chaveAcesso: string,
   motivo: string,
   codigoMotivo: number,
+  cnpjAutor: string,
   config: AdnConfig
 ): Promise<void> {
   const baseUrl = getBaseUrl(config.useSandbox)
@@ -161,9 +162,10 @@ export async function cancelNfse(
   const cert = decrypt(config.certificatePem)
   const key = decrypt(config.privateKeyPem)
 
-  const eventXml = buildCancellationEventXml(chaveAcesso, motivo, codigoMotivo)
+  const tpAmb = config.useSandbox ? 2 : 1
+  const eventXml = buildCancellationEventXml(chaveAcesso, motivo, codigoMotivo, cnpjAutor, tpAmb as 1 | 2)
 
-  // Sign the event XML (ADN requires all XML to be signed)
+  // Sign the event XML
   const { SignedXml } = await import("xml-crypto")
   const sig = new SignedXml({ privateKey: key, publicCert: cert, canonicalizationAlgorithm: "http://www.w3.org/2001/10/xml-exc-c14n#", signatureAlgorithm: "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" })
   sig.addReference({ xpath: "//*[local-name(.)='infPedReg']", digestAlgorithm: "http://www.w3.org/2001/04/xmlenc#sha256", transforms: ["http://www.w3.org/2000/09/xmldsig#enveloped-signature", "http://www.w3.org/2001/10/xml-exc-c14n#"] })
@@ -171,7 +173,7 @@ export async function cancelNfse(
   const signedXml = sig.getSignedXml()
 
   const eventXmlGZipB64 = compressAndEncode(signedXml)
-  const body = JSON.stringify({ pedRegEvtXmlGZipB64: eventXmlGZipB64 })
+  const body = JSON.stringify({ pedidoRegistroEventoXmlGZipB64: eventXmlGZipB64 })
 
   const { statusCode, data } = await httpsRequest<{ message?: string }>(
     `${baseUrl}/nfse/${chaveAcesso}/eventos`,
@@ -195,18 +197,31 @@ export async function cancelNfse(
 function buildCancellationEventXml(
   chaveAcesso: string,
   motivo: string,
-  codigoMotivo: number
+  codigoMotivo: number,
+  cnpjAutor: string,
+  tpAmb: 1 | 2
 ): string {
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const dhEvento = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}-03:00`
+  // Id = PRE + chNFSe(50) + tpEvento(6) + nPedRegEvento(3)
+  const id = `PRE${chaveAcesso}101101001`
+
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<pedRegEvento xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00">',
-    "  <infPedReg>",
+    `  <infPedReg Id="${id}">`,
+    `    <tpAmb>${tpAmb}</tpAmb>`,
+    "    <verAplic>CLINICA1.0</verAplic>",
+    `    <dhEvento>${dhEvento}</dhEvento>`,
+    `    <CNPJAutor>${cnpjAutor}</CNPJAutor>`,
     `    <chNFSe>${chaveAcesso}</chNFSe>`,
-    "    <tpEvento>e101101</tpEvento>",
-    "    <detEvento>",
-    `      <cMotCanc>${codigoMotivo}</cMotCanc>`,
-    `      <xMotCanc>${motivo}</xMotCanc>`,
-    "    </detEvento>",
+    "    <nPedRegEvento>001</nPedRegEvento>",
+    "    <e101101>",
+    "      <xDesc>Cancelamento de NFS-e</xDesc>",
+    `      <cMotivo>${codigoMotivo}</cMotivo>`,
+    `      <xMotivo>${motivo}</xMotivo>`,
+    "    </e101101>",
     "  </infPedReg>",
     "</pedRegEvento>",
   ].join("\n")

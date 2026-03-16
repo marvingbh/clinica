@@ -53,22 +53,18 @@ export const POST = withFeatureAuth(
     const { motivo, codigoMotivo } = parsed.data
 
     try {
-      // Try ADN cancellation API — may fail in sandbox
+      // Call ADN cancellation API
       const nfseConfig = invoice.clinic.nfseConfig
-      let adnCancelFailed = false
-      if (nfseConfig) {
-        try {
-          const adnConfig: AdnConfig = {
-            certificatePem: nfseConfig.certificatePem,
-            privateKeyPem: nfseConfig.privateKeyPem,
-            useSandbox: nfseConfig.useSandbox,
-          }
-          await cancelNfse(invoice.nfseChaveAcesso, motivo, codigoMotivo, adnConfig)
-        } catch (adnError) {
-          console.error("[NFS-e Cancel] ADN error (proceeding with local cancellation):", adnError instanceof Error ? adnError.message : adnError)
-          adnCancelFailed = true
-        }
+      if (!nfseConfig) {
+        return NextResponse.json({ error: "Configuracao NFS-e nao encontrada" }, { status: 400 })
       }
+
+      const adnConfig: AdnConfig = {
+        certificatePem: nfseConfig.certificatePem,
+        privateKeyPem: nfseConfig.privateKeyPem,
+        useSandbox: nfseConfig.useSandbox,
+      }
+      await cancelNfse(invoice.nfseChaveAcesso, motivo, codigoMotivo, nfseConfig.cnpj, adnConfig)
 
       await prisma.invoice.update({
         where: { id: invoice.id },
@@ -101,10 +97,7 @@ export const POST = withFeatureAuth(
       return NextResponse.json({
         success: true,
         nfseStatus: "CANCELADA",
-        message: adnCancelFailed
-          ? "NFS-e cancelada localmente. O cancelamento no ADN falhou — cancele manualmente no portal gov.br se necessario."
-          : "NFS-e cancelada com sucesso.",
-        adnCancelFailed,
+        message: "NFS-e cancelada com sucesso.",
       })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro desconhecido"
