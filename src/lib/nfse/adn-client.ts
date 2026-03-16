@@ -216,7 +216,6 @@ function buildCancellationEventXml(
     `    <dhEvento>${dhEvento}</dhEvento>`,
     `    <CNPJAutor>${cnpjAutor}</CNPJAutor>`,
     `    <chNFSe>${chaveAcesso}</chNFSe>`,
-    "    <nPedRegEvento>001</nPedRegEvento>",
     "    <e101101>",
     "      <xDesc>Cancelamento de NFS-e</xDesc>",
     `      <cMotivo>${codigoMotivo}</cMotivo>`,
