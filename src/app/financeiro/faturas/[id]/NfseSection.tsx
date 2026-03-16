@@ -284,7 +284,7 @@ export default function NfseSection({ invoice, nfseConfig, onRefresh }: NfseSect
           defaultCClassNbs={nfseConfig.cClassNbs || ""}
           defaultDescricao={nfseConfig.descricaoServico || "Servicos de saude"}
           defaultAliquotaIss={nfseConfig.aliquotaIss}
-          onClose={() => setShowDialog(false)}
+          onClose={() => { setShowDialog(false); onRefresh() }}
           onSuccess={() => {
             setShowDialog(false)
             toast.success("NFS-e em processamento")
