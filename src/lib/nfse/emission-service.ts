@@ -1,9 +1,12 @@
 /**
  * NFS-e Emission Service
  *
- * Pure functions for determining emission mode, building per-item
- * emission plans, and computing aggregate NFS-e status for invoices.
+ * Functions for determining emission mode, building per-item
+ * emission plans, computing aggregate NFS-e status, and
+ * persisting the aggregate status back to the invoice.
  */
+
+import { prisma } from "@/lib/prisma"
 
 export type EmissionMode = "per-invoice" | "per-item"
 
@@ -70,6 +73,30 @@ export function computeAggregateNfseStatus(
   if (unique.has("PENDENTE")) return "PENDENTE"
   if (unique.has("ERRO")) return "ERRO"
   return "CANCELADA"
+}
+
+/**
+ * Fetch all NfseEmission rows for an invoice, compute the aggregate status,
+ * and persist it back to the Invoice row (including legacy notaFiscalEmitida fields).
+ */
+export async function updateInvoiceAggregateNfseStatus(invoiceId: string): Promise<NfseAggregateStatus> {
+  const allEmissions = await prisma.nfseEmission.findMany({
+    where: { invoiceId },
+    select: { status: true },
+  })
+  const statuses = allEmissions.map(e => e.status) as Array<"PENDENTE" | "EMITIDA" | "ERRO" | "CANCELADA">
+  const aggregate = computeAggregateNfseStatus(statuses)
+
+  await prisma.invoice.update({
+    where: { id: invoiceId },
+    data: {
+      nfseStatus: aggregate,
+      // Keep legacy field in sync
+      notaFiscalEmitida: aggregate === "EMITIDA",
+      notaFiscalEmitidaAt: aggregate === "EMITIDA" ? new Date() : null,
+    },
+  })
+  return aggregate
 }
 
 function toNumber(val: number | string | { toNumber?: () => number }): number {

@@ -60,6 +60,15 @@ function extractAdnError(data: any, statusCode: number): string {
   return `HTTP ${statusCode}`
 }
 
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;")
+}
+
 function compressAndEncode(xml: string): string {
   const gzipped = gzipSync(Buffer.from(xml, "utf-8"))
   return gzipped.toString("base64")
@@ -235,16 +244,16 @@ function buildCancellationEventXml(
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<pedRegEvento xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00">',
-    `  <infPedReg Id="${id}">`,
+    `  <infPedReg Id="${escapeXml(id)}">`,
     `    <tpAmb>${tpAmb}</tpAmb>`,
     "    <verAplic>CLINICA1.0</verAplic>",
     `    <dhEvento>${dhEvento}</dhEvento>`,
-    `    <CNPJAutor>${cnpjAutor}</CNPJAutor>`,
-    `    <chNFSe>${chaveAcesso}</chNFSe>`,
+    `    <CNPJAutor>${escapeXml(cnpjAutor)}</CNPJAutor>`,
+    `    <chNFSe>${escapeXml(chaveAcesso)}</chNFSe>`,
     "    <e101101>",
     "      <xDesc>Cancelamento de NFS-e</xDesc>",
     `      <cMotivo>${codigoMotivo}</cMotivo>`,
-    `      <xMotivo>${motivo}</xMotivo>`,
+    `      <xMotivo>${escapeXml(motivo)}</xMotivo>`,
     "    </e101101>",
     "  </infPedReg>",
     "</pedRegEvento>",

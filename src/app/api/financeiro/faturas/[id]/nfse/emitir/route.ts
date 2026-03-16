@@ -4,14 +4,47 @@ import { prisma } from "@/lib/prisma"
 import { audit, AuditAction } from "@/lib/rbac/audit"
 import { nfseEmissionOverrideSchema } from "@/lib/nfse"
 import { buildNfseDescription } from "@/lib/nfse/description-builder"
-import { determineEmissionMode, buildPerItemEmissions, computeAggregateNfseStatus } from "@/lib/nfse/emission-service"
-import { emitSingleNfse } from "@/lib/nfse/emit-single"
+import { determineEmissionMode, buildPerItemEmissions, updateInvoiceAggregateNfseStatus } from "@/lib/nfse/emission-service"
+import { emitSingleNfse, buildBaseEmissionData, type AddressOverride } from "@/lib/nfse/emit-single"
 import type { AdnConfig } from "@/lib/nfse/adn-client"
 import type { NfseEmissionData } from "@/lib/nfse/types"
-import { lookupIbgeFromCep } from "@/lib/nfse/cep-lookup"
+import type { AuthUser } from "@/lib/rbac/types"
 
 const ALLOWED_STATUSES_FOR_EMISSION = ["PAGO", "ENVIADO"]
 const RETRYABLE_NFSE_STATUSES = [null, "ERRO"]
+
+type InvoiceWithRelations = NonNullable<Awaited<ReturnType<typeof fetchInvoice>>>
+type NfseConfigRow = NonNullable<InvoiceWithRelations["clinic"]["nfseConfig"]>
+
+interface EmissionContext {
+  invoice: InvoiceWithRelations
+  nfseConfig: NfseConfigRow
+  codigoServico: string
+  codigoServicoMunicipal: string | undefined
+  aliquotaIss: number
+  effectiveCpf: string
+  billingNameFromBody: string | undefined
+  addressFromBody: AddressOverride | undefined
+  overrides: Record<string, unknown>
+  user: AuthUser
+  req: NextRequest
+}
+
+interface PerItemContext extends EmissionContext {
+  itemId: string | null
+}
+
+function fetchInvoice(invoiceId: string, clinicId: string) {
+  return prisma.invoice.findFirst({
+    where: { id: invoiceId, clinicId },
+    include: {
+      patient: { select: { id: true, name: true, cpf: true, billingCpf: true, billingResponsibleName: true, nfseDescriptionTemplate: true, nfsePerAppointment: true, addressStreet: true, addressNumber: true, addressNeighborhood: true, addressZip: true, sessionFee: true } },
+      professionalProfile: { select: { user: { select: { name: true } } } },
+      clinic: { include: { nfseConfig: true } },
+      items: { include: { appointment: { select: { scheduledAt: true } } } },
+    },
+  })
+}
 
 export const POST = withFeatureAuth(
   { feature: "finances", minAccess: "WRITE" },
@@ -19,15 +52,7 @@ export const POST = withFeatureAuth(
     const url = new URL(req.url)
     const itemId = url.searchParams.get("itemId") // For single-item retry
 
-    const invoice = await prisma.invoice.findFirst({
-      where: { id: params.id, clinicId: user.clinicId },
-      include: {
-        patient: { select: { id: true, name: true, cpf: true, billingCpf: true, billingResponsibleName: true, nfseDescriptionTemplate: true, nfsePerAppointment: true, addressStreet: true, addressNumber: true, addressNeighborhood: true, addressZip: true, sessionFee: true } },
-        professionalProfile: { select: { user: { select: { name: true } } } },
-        clinic: { include: { nfseConfig: true } },
-        items: { include: { appointment: { select: { scheduledAt: true } } } },
-      },
-    })
+    const invoice = await fetchInvoice(params.id, user.clinicId)
 
     if (!invoice) {
       return NextResponse.json({ error: "Fatura nao encontrada" }, { status: 404 })
@@ -52,12 +77,23 @@ export const POST = withFeatureAuth(
     let overrides: Record<string, unknown> = {}
     let billingCpfFromBody: string | undefined
     let billingNameFromBody: string | undefined
-    let addressFromBody: { street?: string; number?: string; neighborhood?: string; city?: string; state?: string; zip?: string } | undefined
+    let addressFromBody: AddressOverride | undefined
     try {
       const body = await req.json().catch(() => ({}))
       billingCpfFromBody = typeof body.billingCpf === "string" ? body.billingCpf.replace(/\D/g, "") : undefined
       billingNameFromBody = typeof body.billingResponsibleName === "string" ? body.billingResponsibleName.trim() : undefined
-      if (body.address && typeof body.address === "object") addressFromBody = body.address
+      if (body.address && typeof body.address === "object") {
+        // Validate and sanitize address fields
+        const a = body.address
+        addressFromBody = {
+          street: typeof a.street === "string" ? a.street.trim().slice(0, 200) : undefined,
+          number: typeof a.number === "string" ? a.number.trim().slice(0, 20) : undefined,
+          neighborhood: typeof a.neighborhood === "string" ? a.neighborhood.trim().slice(0, 100) : undefined,
+          city: typeof a.city === "string" ? a.city.trim().slice(0, 100) : undefined,
+          state: typeof a.state === "string" ? a.state.trim().slice(0, 2).toUpperCase() : undefined,
+          zip: typeof a.zip === "string" ? a.zip.replace(/\D/g, "").slice(0, 8) : undefined,
+        }
+      }
       const parsed = nfseEmissionOverrideSchema.safeParse(body)
       if (parsed.success) {
         overrides = parsed.data as Record<string, unknown>
@@ -131,8 +167,7 @@ export const POST = withFeatureAuth(
   }
 )
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function handlePerInvoiceEmission(ctx: any) {
+async function handlePerInvoiceEmission(ctx: EmissionContext) {
   const { invoice, nfseConfig, codigoServico, codigoServicoMunicipal, aliquotaIss, effectiveCpf, billingNameFromBody, addressFromBody, overrides, user, req } = ctx
 
   if (!RETRYABLE_NFSE_STATUSES.includes(invoice.nfseStatus)) {
@@ -143,8 +178,8 @@ async function handlePerInvoiceEmission(ctx: any) {
   }
 
   const sessionDates = invoice.items
-    .filter((item: { appointment?: { scheduledAt: string } | null }) => item.appointment?.scheduledAt)
-    .map((item: { appointment: { scheduledAt: string } }) => new Date(item.appointment.scheduledAt))
+    .filter((item) => item.appointment?.scheduledAt)
+    .map((item) => new Date(item.appointment!.scheduledAt))
   const autoDescription = buildNfseDescription({
     patientName: invoice.patient.name.replace(/\s*\(.*?\)\s*/g, "").trim(),
     billingResponsibleName: invoice.patient.billingResponsibleName,
@@ -196,11 +231,10 @@ async function handlePerInvoiceEmission(ctx: any) {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function handlePerItemEmission(ctx: any) {
+async function handlePerItemEmission(ctx: PerItemContext) {
   const { invoice, nfseConfig, codigoServico, codigoServicoMunicipal, aliquotaIss, effectiveCpf, billingNameFromBody, addressFromBody, user, req, itemId } = ctx
 
-  const plans = buildPerItemEmissions(invoice.items.map((item: { id: string; type: string; total: unknown; description: string }) => ({
+  const plans = buildPerItemEmissions(invoice.items.map((item) => ({
     id: item.id,
     type: item.type,
     total: Number(item.total),
@@ -341,53 +375,4 @@ async function handlePerItemEmission(ctx: any) {
     results,
     summary: { total: results.length, succeeded, failed },
   })
-}
-
-async function updateInvoiceAggregateNfseStatus(invoiceId: string): Promise<string | null> {
-  const allEmissions = await prisma.nfseEmission.findMany({
-    where: { invoiceId },
-    select: { status: true },
-  })
-  const statuses = allEmissions.map(e => e.status) as Array<"PENDENTE" | "EMITIDA" | "ERRO" | "CANCELADA">
-  const aggregate = computeAggregateNfseStatus(statuses)
-
-  await prisma.invoice.update({
-    where: { id: invoiceId },
-    data: {
-      nfseStatus: aggregate,
-      // Keep legacy field in sync
-      notaFiscalEmitida: aggregate === "EMITIDA",
-      notaFiscalEmitidaAt: aggregate === "EMITIDA" ? new Date() : null,
-    },
-  })
-  return aggregate
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function buildBaseEmissionData(invoice: any, nfseConfig: any, effectiveCpf: string, billingNameFromBody: string | undefined, addressFromBody: any, codigoServico: string, codigoServicoMunicipal: string | undefined, aliquotaIss: number): Promise<Omit<NfseEmissionData, "descricao" | "valor">> {
-  const tomadorCep = addressFromBody?.zip || invoice.patient.addressZip || ""
-  const tomadorCodigoMunicipio = tomadorCep ? await lookupIbgeFromCep(tomadorCep) : null
-
-  return {
-    prestadorCnpj: nfseConfig.cnpj,
-    prestadorIm: nfseConfig.inscricaoMunicipal,
-    prestadorNome: invoice.clinic.name,
-    prestadorRegimeTributario: nfseConfig.regimeTributario,
-    prestadorOpSimpNac: nfseConfig.opSimpNac,
-    prestadorEmail: invoice.clinic.email || undefined,
-    prestadorFone: invoice.clinic.phone || undefined,
-    tomadorCpf: effectiveCpf,
-    tomadorNome: billingNameFromBody || invoice.patient.billingResponsibleName || invoice.patient.name,
-    tomadorLogradouro: addressFromBody?.street || invoice.patient.addressStreet || undefined,
-    tomadorNumero: addressFromBody?.number || invoice.patient.addressNumber || undefined,
-    tomadorBairro: addressFromBody?.neighborhood || invoice.patient.addressNeighborhood || undefined,
-    tomadorCep: addressFromBody?.zip || invoice.patient.addressZip || undefined,
-    tomadorCodigoMunicipio: tomadorCodigoMunicipio || undefined,
-    codigoServico,
-    codigoServicoMunicipal,
-    codigoNbs: nfseConfig.codigoNbs || undefined,
-    cClassNbs: nfseConfig.cClassNbs || undefined,
-    aliquotaIss,
-    codigoMunicipio: nfseConfig.codigoMunicipio,
-  }
 }

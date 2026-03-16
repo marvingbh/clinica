@@ -10,7 +10,6 @@ const DPS_VERSION = "1.00"
 const VER_APLIC = "CLINICA1.0"
 const XNOME_MAX_LENGTH = 40
 const XDESCSERV_MAX_LENGTH = 2000
-const PAIS_BRASIL = "BR"
 
 // ============================================================================
 // Types
@@ -158,7 +157,7 @@ export function buildDpsXml(
     attributeNamePrefix: "@_",
     format: true,
     suppressEmptyNode: true,
-    processEntities: false,
+    processEntities: true,
   })
 
   return builder.build(dpsObj)
