@@ -49,8 +49,9 @@ export interface DanfseData {
   aliquotaIss: string // e.g. "5,00"
   valorIss: string // formatted BRL
 
-  // Verification URL
+  // Verification
   verificacaoUrl: string
+  qrCodeDataUri?: string // Base64 PNG data URI for QR code
 }
 
 /** Shape of the invoice with relations needed for DANFSE generation. */
@@ -141,7 +142,9 @@ export function buildDanfseData(invoice: InvoiceWithNfse): DanfseData | null {
 
   // Extract from XML if available, otherwise fall back to DB fields
   const nfseNumero = (hasXml ? extractXmlField(xml, "nNFSe") : null) || invoice.nfseNumero || ""
-  const codigoVerificacao = (hasXml ? extractXmlField(xml, "cVerif") : null) || invoice.nfseCodigoVerificacao || ""
+  const codigoVerificacao = (hasXml ? extractXmlField(xml, "cVerif") : null)
+    || invoice.nfseCodigoVerificacao
+    || `NFS${invoice.nfseChaveAcesso}` // Construct from chaveAcesso if not available
 
   const emissionDate = invoice.nfseEmitidaAt
     ? formatDateTimeBR(invoice.nfseEmitidaAt)

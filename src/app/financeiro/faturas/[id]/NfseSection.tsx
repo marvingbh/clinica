@@ -186,6 +186,14 @@ export default function NfseSection({ invoice, nfseConfig, onRefresh }: NfseSect
           >
             Baixar PDF
           </a>
+          <a
+            href={`/api/financeiro/faturas/${invoice.id}/nfse/pdf?source=adn`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-foreground hover:bg-muted/80 transition-colors"
+          >
+            Baixar do Gov.br
+          </a>
           {!showCancelConfirm && (
             <button
               onClick={() => setShowCancelConfirm(true)}

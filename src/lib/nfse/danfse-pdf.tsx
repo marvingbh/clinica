@@ -1,5 +1,5 @@
 import React from "react"
-import { Document, Page, Text, View, StyleSheet, Link } from "@react-pdf/renderer"
+import { Document, Page, Text, View, Image, StyleSheet, Link } from "@react-pdf/renderer"
 import type { DanfseData } from "./danfse-data-builder"
 
 // ---------------------------------------------------------------------------
@@ -212,22 +212,28 @@ function DanfsePage({ data }: { data: DanfseData }) {
       {/* Title */}
       <Text style={styles.title}>Nota Fiscal de Servicos Eletronica - NFS-e</Text>
 
-      {/* Header info */}
-      <View style={styles.headerInfoBlock}>
-        <View style={styles.headerRow}>
-          <View>
+      {/* Header info with QR code */}
+      <View style={{ ...styles.headerInfoBlock, flexDirection: "row" }}>
+        <View style={{ flex: 1 }}>
+          <View style={{ marginBottom: 6 }}>
             <Text style={styles.headerLabel}>Numero da Nota</Text>
             <Text style={styles.headerValue}>{data.nfseNumero}</Text>
           </View>
-          <View>
+          <View style={{ marginBottom: 6 }}>
             <Text style={styles.headerLabel}>Data da Emissao</Text>
             <Text style={styles.headerValue}>{data.dataEmissao}</Text>
           </View>
           <View>
             <Text style={styles.headerLabel}>Codigo de Verificacao</Text>
-            <Text style={styles.headerValue}>{data.codigoVerificacao}</Text>
+            <Text style={{ fontSize: 7, fontFamily: "Courier" }}>{data.codigoVerificacao}</Text>
           </View>
         </View>
+        {data.qrCodeDataUri ? (
+          <View style={{ width: 100, alignItems: "center", justifyContent: "center" }}>
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
+            <Image src={data.qrCodeDataUri} style={{ width: 90, height: 90 }} />
+          </View>
+        ) : null}
       </View>
 
       {/* Prestador */}
