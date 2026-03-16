@@ -29,6 +29,7 @@ export interface NfseEmissionData {
   tomadorNumero?: string
   tomadorBairro?: string
   tomadorCep?: string
+  tomadorCodigoMunicipio?: string // IBGE code of tomador's city (from CEP lookup)
   // Service
   codigoServico: string
   codigoServicoMunicipal?: string // cTribMun - 3 digit municipal code (required by some municipalities like BH)

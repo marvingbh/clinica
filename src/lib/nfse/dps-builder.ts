@@ -113,7 +113,7 @@ export function buildDpsXml(
           xNome: truncate(data.tomadorNome, XNOME_MAX_LENGTH),
           end: {
             endNac: {
-              cMun: config.codigoMunicipio,
+              cMun: data.tomadorCodigoMunicipio || config.codigoMunicipio,
               CEP: (data.tomadorCep || "00000000").replace(/\D/g, ""),
             },
             xLgr: data.tomadorLogradouro || "Nao informado",

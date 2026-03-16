@@ -36,6 +36,7 @@ export const GET = withFeatureAuth(
     }
 
     const { notaFiscalPdf, ...rest } = invoice
+    console.log("[Invoice API] patient fields:", JSON.stringify({ billingCpf: rest.patient.billingCpf, addressStreet: rest.patient.addressStreet, addressZip: rest.patient.addressZip }))
     return NextResponse.json({ ...rest, hasNotaFiscalPdf: !!notaFiscalPdf })
   }
 )
