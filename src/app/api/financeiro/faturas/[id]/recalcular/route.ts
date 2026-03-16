@@ -121,7 +121,7 @@ export const POST = withFeatureAuth(
     const startDate = new Date(invoice.referenceYear, invoice.referenceMonth - 1, 1)
     const endDate = new Date(invoice.referenceYear, invoice.referenceMonth, 1)
 
-    const [appointments, professional] = await Promise.all([
+    const [monthAppointments, uninvoicedPriorAppointments, professional] = await Promise.all([
       prisma.appointment.findMany({
         where: {
           clinicId: user.clinicId,
@@ -135,11 +135,28 @@ export const POST = withFeatureAuth(
           recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
         },
       }),
+      // Include uninvoiced appointments from prior months
+      prisma.appointment.findMany({
+        where: {
+          clinicId: user.clinicId,
+          patientId: invoice.patientId,
+          professionalProfileId: invoice.professionalProfileId,
+          scheduledAt: { lt: startDate },
+          type: { in: ["CONSULTA", "REUNIAO"] },
+          invoiceItems: { none: {} },
+        },
+        select: {
+          id: true, scheduledAt: true, status: true, type: true, title: true,
+          recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
+        },
+      }),
       prisma.professionalProfile.findUnique({
         where: { id: invoice.professionalProfileId },
         select: { user: { select: { name: true } } },
       }),
     ])
+
+    const appointments = [...monthAppointments, ...uninvoicedPriorAppointments]
 
     const sessionFee = Number(patient.sessionFee)
     const showDays = patient.showAppointmentDaysOnInvoice

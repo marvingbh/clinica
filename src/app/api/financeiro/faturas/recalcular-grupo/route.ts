@@ -55,19 +55,33 @@ export const POST = withFeatureAuth(
     const startDate = new Date(year, month - 1, 1)
     const endDate = new Date(year, month, 1)
 
-    const appointments = await prisma.appointment.findMany({
-      where: {
-        clinicId: user.clinicId,
-        patientId,
-        professionalProfileId,
-        scheduledAt: { gte: startDate, lt: endDate },
-        type: { in: ["CONSULTA", "REUNIAO"] },
-      },
-      select: {
-        id: true, scheduledAt: true, status: true, type: true, title: true,
-        recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
-      },
-    })
+    const [monthApts, uninvoicedPriorApts] = await Promise.all([
+      prisma.appointment.findMany({
+        where: {
+          clinicId: user.clinicId, patientId, professionalProfileId,
+          scheduledAt: { gte: startDate, lt: endDate },
+          type: { in: ["CONSULTA", "REUNIAO"] },
+        },
+        select: {
+          id: true, scheduledAt: true, status: true, type: true, title: true,
+          recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
+        },
+      }),
+      prisma.appointment.findMany({
+        where: {
+          clinicId: user.clinicId, patientId, professionalProfileId,
+          scheduledAt: { lt: startDate },
+          type: { in: ["CONSULTA", "REUNIAO"] },
+          invoiceItems: { none: {} },
+        },
+        select: {
+          id: true, scheduledAt: true, status: true, type: true, title: true,
+          recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
+        },
+      }),
+    ])
+
+    const appointments = [...monthApts, ...uninvoicedPriorApts]
 
     const mappedApts = appointments.map(a => ({
       ...a,

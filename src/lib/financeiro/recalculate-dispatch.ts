@@ -148,7 +148,7 @@ export async function handleGroupingTransition(
   const startDate = new Date(invoice.referenceYear, invoice.referenceMonth - 1, 1)
   const endDate = new Date(invoice.referenceYear, invoice.referenceMonth, 1)
 
-  const [appointments, professional] = await Promise.all([
+  const [monthAppointments, uninvoicedPriorAppointments, professional] = await Promise.all([
     tx.appointment.findMany({
       where: {
         clinicId,
@@ -162,11 +162,27 @@ export async function handleGroupingTransition(
         recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
       },
     }),
+    tx.appointment.findMany({
+      where: {
+        clinicId,
+        patientId: invoice.patientId,
+        professionalProfileId: invoice.professionalProfileId,
+        scheduledAt: { lt: startDate },
+        type: { in: ["CONSULTA", "REUNIAO"] },
+        invoiceItems: { none: {} },
+      },
+      select: {
+        id: true, scheduledAt: true, status: true, type: true, title: true,
+        recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
+      },
+    }),
     tx.professionalProfile.findUnique({
       where: { id: invoice.professionalProfileId },
       select: { user: { select: { name: true } } },
     }),
   ])
+
+  const appointments = [...monthAppointments, ...uninvoicedPriorAppointments]
 
   const profName = professional?.user?.name || ""
   const sessionFee = Number(patient.sessionFee)
