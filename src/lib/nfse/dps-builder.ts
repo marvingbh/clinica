@@ -129,7 +129,7 @@ export function buildDpsXml(
             cTribNac: data.codigoServico.replace(/\D/g, "").slice(0, 6),
             ...(data.codigoServicoMunicipal ? { cTribMun: data.codigoServicoMunicipal } : {}),
             xDescServ: truncate(data.descricao, XDESCSERV_MAX_LENGTH),
-            ...(data.codigoNbs ? { CNBS: data.codigoNbs, ...(data.cClassNbs ? { cClassNBS: data.cClassNbs } : {}) } : {}),
+            ...(data.codigoNbs ? { cNBS: data.codigoNbs, ...(data.cClassNbs ? { cClassNBS: data.cClassNbs } : {}) } : {}),
           },
         },
         valores: {
