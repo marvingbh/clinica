@@ -138,14 +138,26 @@ export default function NfseSection({ invoice, nfseConfig, onRefresh }: NfseSect
 
       {renderStatus()}
 
-      {/* Cancel action for EMITIDA */}
-      {invoice.nfseStatus === "EMITIDA" && !showCancelConfirm && (
-        <button
-          onClick={() => setShowCancelConfirm(true)}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
-        >
-          Cancelar NFS-e
-        </button>
+      {/* Actions for EMITIDA */}
+      {invoice.nfseStatus === "EMITIDA" && (
+        <div className="flex gap-2">
+          <a
+            href={`/api/financeiro/faturas/${invoice.id}/nfse/pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            Baixar PDF
+          </a>
+          {!showCancelConfirm && (
+            <button
+              onClick={() => setShowCancelConfirm(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+            >
+              Cancelar NFS-e
+            </button>
+          )}
+        </div>
       )}
 
       {showCancelConfirm && (

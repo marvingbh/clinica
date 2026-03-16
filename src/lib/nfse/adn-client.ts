@@ -1,5 +1,5 @@
 import https from "https"
-import { gzipSync } from "zlib"
+import { gzipSync, gunzipSync } from "zlib"
 import { decrypt } from "@/lib/bank-reconciliation/encryption"
 import { ADN_URLS } from "./types"
 
@@ -114,15 +114,34 @@ export async function emitNfse(
   }, body)
 
   if (statusCode >= 400) {
-    // ADN error responses may use different structures
     const errorMsg = extractAdnError(data, statusCode)
     return { error: errorMsg, statusCode }
   }
 
+  const chaveAcesso = data.chaveAcesso ?? data.idDps ?? ""
+  let nfseNumero: string | undefined
+  let codigoVerificacao: string | undefined
+
+  // NFS-e data is inside the compressed XML response
+  if (data.nfseXmlGZipB64) {
+    try {
+      const xmlBuffer = gunzipSync(Buffer.from(data.nfseXmlGZipB64, "base64"))
+      const nfseXml = xmlBuffer.toString("utf-8")
+      // Extract nNFSe (NFS-e number)
+      const nNFSeMatch = nfseXml.match(/<nNFSe>([^<]+)<\/nNFSe>/)
+      if (nNFSeMatch) nfseNumero = nNFSeMatch[1]
+      // Extract cVerif (verification code)
+      const cVerifMatch = nfseXml.match(/<cVerif>([^<]+)<\/cVerif>/)
+      if (cVerifMatch) codigoVerificacao = cVerifMatch[1]
+    } catch {
+      // Could not parse XML — proceed with chaveAcesso only
+    }
+  }
+
   return {
-    nfseNumero: data.nfseNumero ?? data.nNFSe,
-    chaveAcesso: data.chaveAcesso ?? data.chNFSe,
-    codigoVerificacao: data.codigoVerificacao ?? data.cVerif,
+    nfseNumero,
+    chaveAcesso,
+    codigoVerificacao,
     statusCode,
   }
 }
@@ -238,7 +257,7 @@ export async function fetchDanfse(
 
   return new Promise((resolve, reject) => {
     const req = https.request(
-      `${baseUrl}/nfse/${chaveAcesso}/pdf`,
+      `${config.useSandbox ? "https://adn.producaorestrita.nfse.gov.br" : "https://adn.nfse.gov.br"}/danfse/${chaveAcesso}`,
       {
         method: "GET",
         agent,
