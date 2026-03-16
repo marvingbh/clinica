@@ -55,6 +55,16 @@ function NfBadgeCell({ invoice }: { invoice: Invoice }) {
       </span>
     )
   }
+  if (invoice.nfseStatus === "PARCIAL") {
+    return (
+      <span
+        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+        title="NFS-e parcialmente emitida"
+      >
+        Parcial
+      </span>
+    )
+  }
   if (invoice.nfseStatus === "CANCELADA") {
     return (
       <span

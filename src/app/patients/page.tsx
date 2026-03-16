@@ -40,6 +40,7 @@ const patientSchema = z.object({
   billingCpf: z.string().max(14).optional().or(z.literal("")),
   billingResponsibleName: z.string().max(200).optional().or(z.literal("")),
   nfseDescriptionTemplate: z.string().max(2000).optional().or(z.literal("")),
+  nfsePerAppointment: z.boolean(),
   addressStreet: z.string().max(200).optional().or(z.literal("")),
   addressNumber: z.string().max(20).optional().or(z.literal("")),
   addressNeighborhood: z.string().max(100).optional().or(z.literal("")),
@@ -147,6 +148,7 @@ export default function PatientsPage() {
     defaultValues: {
       consentWhatsApp: false,
       consentEmail: false,
+      nfsePerAppointment: false,
     },
   })
 
@@ -257,6 +259,7 @@ export default function PatientsPage() {
       billingCpf: "",
       billingResponsibleName: "",
       nfseDescriptionTemplate: "",
+      nfsePerAppointment: false,
       addressStreet: "",
       addressNumber: "",
       addressNeighborhood: "",
@@ -293,7 +296,6 @@ export default function PatientsPage() {
         })
         .catch(() => {})
     }
-    console.log("[Patient Edit] nfseDescriptionTemplate:", patient.nfseDescriptionTemplate, "billingCpf:", patient.billingCpf, "addressStreet:", patient.addressStreet)
     reset({
       name: patient.name,
       phone: patient.phone,
@@ -303,6 +305,7 @@ export default function PatientsPage() {
       billingCpf: patient.billingCpf ?? "",
       billingResponsibleName: patient.billingResponsibleName ?? "",
       nfseDescriptionTemplate: patient.nfseDescriptionTemplate ?? "",
+      nfsePerAppointment: patient.nfsePerAppointment ?? false,
       addressStreet: patient.addressStreet ?? "",
       addressNumber: patient.addressNumber ?? "",
       addressNeighborhood: patient.addressNeighborhood ?? "",
@@ -361,6 +364,7 @@ export default function PatientsPage() {
         billingCpf: data.billingCpf || null,
         billingResponsibleName: data.billingResponsibleName || null,
         nfseDescriptionTemplate: data.nfseDescriptionTemplate || null,
+        nfsePerAppointment: data.nfsePerAppointment,
         addressStreet: data.addressStreet || null,
         addressNumber: data.addressNumber || null,
         addressNeighborhood: data.addressNeighborhood || null,

@@ -39,6 +39,7 @@ export interface InvoiceDetail {
   patient: {
     id: string; name: string; phone: string; cpf: string | null
     billingCpf: string | null; billingResponsibleName: string | null
+    nfsePerAppointment: boolean
     addressStreet: string | null; addressNumber: string | null; addressNeighborhood: string | null
     addressCity: string | null; addressState: string | null; addressZip: string | null
     motherName: string | null; sessionFee: string | null
@@ -46,4 +47,19 @@ export interface InvoiceDetail {
   professionalProfile: { id: string; user: { name: string } }
   items: InvoiceItem[]
   consumedCredits: Array<{ id: string; reason: string; createdAt: string }>
+  nfseEmissions: NfseEmissionRow[]
+}
+
+export interface NfseEmissionRow {
+  id: string
+  invoiceItemId: string | null
+  status: string
+  numero: string | null
+  chaveAcesso: string | null
+  codigoVerificacao: string | null
+  emitidaAt: string | null
+  erro: string | null
+  canceladaAt: string | null
+  descricao: string | null
+  valor: string
 }

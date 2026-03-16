@@ -28,6 +28,7 @@ export interface PatientFormData {
   lastFeeAdjustmentDate?: string | undefined
   invoiceDueDay?: string | undefined
   invoiceGrouping?: string | undefined
+  nfsePerAppointment: boolean
   therapeuticProject?: string | undefined
   notes?: string | undefined
   referenceProfessionalId?: string | undefined
@@ -388,6 +389,22 @@ export function PatientForm({
             </select>
           </div>
         </div>
+
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            {...register("nfsePerAppointment")}
+            className="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
+          />
+          <div>
+            <span className="text-sm text-foreground">
+              Emitir NFS-e individual por sessao
+            </span>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Gera uma NFS-e separada para cada sessao ao inves de uma NFS-e por fatura
+            </p>
+          </div>
+        </label>
 
         {isEditing && usualPayers.length > 0 && (
           <div className="border border-border rounded-lg p-4">
