@@ -116,7 +116,7 @@ function calculateDayLayout(
       endMs: new Date(apt.endAt).getTime(),
     })),
     ...groupSessions.map(gs => ({
-      id: `gs-${gs.groupId}-${gs.scheduledAt}`,
+      id: `gs-${gs.sessionGroupId || gs.groupId}-${gs.scheduledAt}`,
       startMs: new Date(gs.scheduledAt).getTime(),
       endMs: new Date(gs.endAt).getTime(),
     })),
@@ -130,7 +130,7 @@ function calculateDayLayout(
   })
 
   const groupSessionsWithLayout = groupSessions.map(gs => {
-    const layout = layoutMap.get(`gs-${gs.groupId}-${gs.scheduledAt}`) || { columnIndex: 0, totalColumns: 1 }
+    const layout = layoutMap.get(`gs-${gs.sessionGroupId || gs.groupId}-${gs.scheduledAt}`) || { columnIndex: 0, totalColumns: 1 }
     return { ...gs, ...layout }
   })
 
@@ -152,7 +152,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
 
   // Filter out individual group appointments (they'll be shown as group sessions)
   const individualAppointments = useMemo(() => {
-    return appointments.filter(apt => !apt.groupId)
+    return appointments.filter(apt => !apt.groupId && !apt.sessionGroupId)
   }, [appointments])
 
   // Create consistent color mapping for all professionals
@@ -363,7 +363,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                   {/* Group Sessions */}
                   {dayGroupSessions.map((session) => (
                     <GroupSessionBlock
-                      key={`${session.groupId}-${session.scheduledAt}`}
+                      key={`${session.sessionGroupId || session.groupId}-${session.scheduledAt}`}
                       session={session}
                       onClick={onGroupSessionClick}
                       showProfessional={showProfessional}

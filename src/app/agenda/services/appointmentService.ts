@@ -172,6 +172,46 @@ export async function fetchAppointments({
   return data
 }
 
+export interface CreateGroupSessionData {
+  patientIds: string[]
+  date: string
+  startTime: string
+  modality: "ONLINE" | "PRESENCIAL"
+  notes?: string | null
+  duration?: number
+  professionalProfileId?: string
+  additionalProfessionalIds?: string[]
+  skipAvailabilityCheck?: boolean
+}
+
+export interface CreateGroupSessionResponse {
+  appointments?: Appointment[]
+  sessionGroupId?: string
+  error?: string
+  availabilityWarning?: boolean
+}
+
+export async function createGroupSession(
+  data: CreateGroupSessionData
+): Promise<CreateGroupSessionResponse> {
+  const response = await fetch("/api/appointments", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+
+  const result = await response.json()
+
+  if (!response.ok) {
+    return {
+      error: result.error || "Erro ao criar sessão em grupo",
+      availabilityWarning: result.availabilityWarning,
+    }
+  }
+
+  return result
+}
+
 export async function createAppointment(
   data: CreateAppointmentData
 ): Promise<CreateAppointmentResponse> {
@@ -305,14 +345,22 @@ export async function deleteAppointment(id: string): Promise<DeleteAppointmentRe
 }
 
 export async function updateGroupSessionStatus(
-  groupId: string,
+  groupId: string | null,
   scheduledAt: string,
-  status: string
+  status: string,
+  sessionGroupId?: string | null
 ): Promise<{ success?: boolean; updatedCount?: number; error?: string }> {
+  const body: Record<string, string> = { scheduledAt, status }
+  if (sessionGroupId) {
+    body.sessionGroupId = sessionGroupId
+  } else if (groupId) {
+    body.groupId = groupId
+  }
+
   const response = await fetch("/api/group-sessions/status", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ groupId, scheduledAt, status }),
+    body: JSON.stringify(body),
   })
 
   const result = await response.json()

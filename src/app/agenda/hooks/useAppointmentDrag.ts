@@ -88,7 +88,7 @@ export function useAppointmentDrag({
   // Pre-process intervals for overlap detection (no Date allocations during drag)
   const processedIntervals = useMemo(() => {
     return appointments
-      .filter(apt => apt.blocksTime && !apt.groupId)
+      .filter(apt => apt.blocksTime && !apt.groupId && !apt.sessionGroupId)
       .map(apt => ({
         id: apt.id,
         startMs: new Date(apt.scheduledAt).getTime(),

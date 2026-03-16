@@ -9,6 +9,7 @@ import {
   AppointmentEditor, AgendaHeader, AgendaTimeline, AgendaPageSkeleton,
   GroupSessionSheet, CalendarEntrySheet, AgendaFabMenu, CreateAppointmentSheet,
 } from "./components"
+import { CreateGroupSessionSheet } from "./components/CreateGroupSessionSheet"
 import { AgendaDndWrapper } from "./components/AgendaDndWrapper"
 import type { Appointment } from "./lib/types"
 import {
@@ -227,7 +228,10 @@ export default function AgendaPage() {
   const handleBiweeklyHintClick = useCallback((time: string) => {
     openCreateSheet(time, { appointmentType: "BIWEEKLY" })
   }, [openCreateSheet])
-  const fabMenu = useFabMenu(openCreateSheet, openEntrySheet)
+  const [isGroupSessionSheetOpen, setIsGroupSessionSheetOpen] = useState(false)
+  const openGroupSessionSheet = useCallback(() => setIsGroupSessionSheetOpen(true), [])
+  const closeGroupSessionSheet = useCallback(() => setIsGroupSessionSheetOpen(false), [])
+  const fabMenu = useFabMenu(openCreateSheet, openEntrySheet, openGroupSessionSheet)
 
   // Auth effect
   useEffect(() => {
@@ -361,6 +365,21 @@ export default function AgendaPage() {
         onStatusUpdated={refetchAppointments}
         professionals={professionals}
         isAdmin={isAdmin}
+      />
+
+      <CreateGroupSessionSheet
+        isOpen={isGroupSessionSheetOpen}
+        onClose={closeGroupSessionSheet}
+        isAdmin={isAdmin}
+        professionals={professionals}
+        createProfessionalId={createProfessionalId}
+        onCreateProfessionalIdChange={setCreateProfessionalId}
+        isProfessionalLocked={isProfessionalLocked}
+        selectedProfessionalId={selectedProfessionalId}
+        additionalProfessionalIds={createAdditionalProfIds}
+        onAdditionalProfessionalIdsChange={setCreateAdditionalProfIds}
+        appointmentDuration={appointmentDuration}
+        onCreated={refetchAppointments}
       />
 
       <CalendarEntrySheet

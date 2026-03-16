@@ -427,7 +427,8 @@ model Appointment {
   professionalProfileId String
   patientId             String?
   recurrenceId          String?
-  groupId               String? // Links appointments in same group session
+  groupId               String? // Links appointments in recurring group session (FK to TherapyGroup)
+  sessionGroupId        String? // Links one-off group appointments together (UUID, no FK)
   type                  AppointmentType      @default(CONSULTA)
   title                 String? // Display name for non-patient entries
   blocksTime            Boolean              @default(true) // Denormalized for efficient conflict queries
@@ -471,6 +472,8 @@ model Appointment {
   @@index([clinicId, status])
   @@index([professionalProfileId, status, scheduledAt])
   @@index([groupId, scheduledAt])
+  @@index([sessionGroupId])
+  @@index([clinicId, sessionGroupId])
 }
 
 /// Defines a recurring appointment pattern

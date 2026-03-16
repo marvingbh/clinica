@@ -55,6 +55,18 @@ const calendarEntryRecurrenceSchema = z.object({
   message: "End date is required for BY_DATE, occurrences is required for BY_OCCURRENCES",
 })
 
+const createGroupSessionSchema = z.object({
+  patientIds: z.array(z.string().min(1)).min(2, "Selecione pelo menos 2 pacientes"),
+  professionalProfileId: z.string().optional(),
+  additionalProfessionalIds: z.array(z.string()).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
+  startTime: z.string().regex(timeRegex, "Invalid time format (HH:mm)"),
+  duration: z.number().int().min(15).max(480).optional(),
+  modality: z.enum(["ONLINE", "PRESENCIAL"]),
+  notes: z.string().max(2000).optional().nullable(),
+  skipAvailabilityCheck: z.boolean().optional(),
+})
+
 const createAppointmentSchema = z.object({
   patientId: z.string().min(1, "Patient ID is required"),
   professionalProfileId: z.string().optional(),
@@ -410,11 +422,16 @@ export const POST = withFeatureAuth(
     const canSeeOthers = meetsMinAccess(user.permissions.agenda_others, "WRITE")
     const body = await req.json()
 
-    // Determine if this is a calendar entry or a regular appointment
+    // Determine if this is a calendar entry, group session, or regular appointment
     const isCalendarEntry = body.type && body.type !== "CONSULTA"
+    const isGroupSession = Array.isArray(body.patientIds)
 
     if (isCalendarEntry) {
       return handleCreateCalendarEntry(body, user, canSeeOthers, req)
+    }
+
+    if (isGroupSession) {
+      return handleCreateGroupSession(body, user, canSeeOthers, req)
     }
 
     return handleCreateAppointment(body, user, canSeeOthers, req)
@@ -774,6 +791,239 @@ async function handleCreateCalendarEntry(
 
   return NextResponse.json({
     appointment: result.appointments[0],
+  }, { status: 201 })
+}
+
+/**
+ * Handle creating a one-off group session (multiple patients, single time slot)
+ */
+async function handleCreateGroupSession(
+  body: unknown,
+  user: AuthUser,
+  canSeeOthers: boolean,
+  req: Request
+) {
+  const validation = createGroupSessionSchema.safeParse(body)
+  if (!validation.success) {
+    return NextResponse.json(
+      { error: "Dados invalidos", details: validation.error.flatten() },
+      { status: 400 }
+    )
+  }
+
+  const { patientIds, date, startTime, duration, modality, notes, skipAvailabilityCheck } = validation.data
+
+  // Deduplicate patient IDs
+  const uniquePatientIds = [...new Set(patientIds)]
+  if (uniquePatientIds.length < 2) {
+    return NextResponse.json({ error: "Selecione pelo menos 2 pacientes diferentes" }, { status: 400 })
+  }
+
+  // Determine professional
+  let targetProfessionalProfileId = validation.data.professionalProfileId
+  if (!targetProfessionalProfileId && user.professionalProfileId) {
+    targetProfessionalProfileId = user.professionalProfileId
+  }
+  if (!targetProfessionalProfileId) {
+    return NextResponse.json({ error: "professionalProfileId is required" }, { status: 400 })
+  }
+
+  const professional = await prisma.professionalProfile.findFirst({
+    where: { id: targetProfessionalProfileId, user: { clinicId: user.clinicId } },
+    select: { id: true, appointmentDuration: true, user: { select: { name: true } } },
+  })
+  if (!professional) {
+    return NextResponse.json({ error: "Profissional não encontrado na sua clínica" }, { status: 404 })
+  }
+
+  if (!canSeeOthers && targetProfessionalProfileId !== user.professionalProfileId) {
+    return NextResponse.json({ error: "Você só pode criar agendamentos para si mesmo" }, { status: 403 })
+  }
+
+  // Validate all patients
+  const patients = await prisma.patient.findMany({
+    where: { id: { in: uniquePatientIds }, clinicId: user.clinicId, isActive: true },
+    select: { id: true, name: true, email: true, phone: true, consentWhatsApp: true, consentEmail: true },
+  })
+  if (patients.length !== uniquePatientIds.length) {
+    return NextResponse.json({ error: "Um ou mais pacientes não encontrados ou inativos" }, { status: 404 })
+  }
+
+  // Process additional professionals
+  let additionalProfessionalIds: string[] = []
+  if (validation.data.additionalProfessionalIds?.length) {
+    additionalProfessionalIds = validation.data.additionalProfessionalIds.filter(id => id !== targetProfessionalProfileId)
+    if (additionalProfessionalIds.length > 0) {
+      const validProfs = await prisma.professionalProfile.findMany({
+        where: { id: { in: additionalProfessionalIds }, user: { clinicId: user.clinicId } },
+        select: { id: true },
+      })
+      additionalProfessionalIds = additionalProfessionalIds.filter(id => validProfs.some(p => p.id === id))
+    }
+  }
+
+  const appointmentDuration = duration || professional.appointmentDuration
+  const scheduledAt = new Date(`${date}T${startTime}:00`)
+  const endAt = new Date(scheduledAt.getTime() + appointmentDuration * 60 * 1000)
+
+  // Availability check (skip if override)
+  if (!skipAvailabilityCheck) {
+    const dayOfWeek = scheduledAt.getDay()
+    const apptStartTime = `${String(scheduledAt.getHours()).padStart(2, "0")}:${String(scheduledAt.getMinutes()).padStart(2, "0")}`
+    const apptEndTime = `${String(endAt.getHours()).padStart(2, "0")}:${String(endAt.getMinutes()).padStart(2, "0")}`
+
+    const dayRules = await prisma.availabilityRule.findMany({
+      where: { professionalProfileId: targetProfessionalProfileId, isActive: true, dayOfWeek },
+    })
+
+    if (dayRules.length === 0) {
+      return NextResponse.json({
+        error: `Profissional nao disponivel em ${scheduledAt.toLocaleDateString("pt-BR")}`,
+        availabilityWarning: true,
+      }, { status: 400 })
+    }
+
+    const isWithinAvailability = dayRules.some(rule =>
+      apptStartTime >= rule.startTime && apptEndTime <= rule.endTime
+    )
+    if (!isWithinAvailability) {
+      return NextResponse.json({
+        error: `Horario fora da disponibilidade em ${scheduledAt.toLocaleDateString("pt-BR")}`,
+        availabilityWarning: true,
+      }, { status: 400 })
+    }
+  }
+
+  // Generate sessionGroupId
+  const sessionGroupId = crypto.randomUUID()
+
+  // Create all appointments in a single transaction
+  const result = await prisma.$transaction(async (tx) => {
+    // Check professional conflicts (once for the time slot)
+    const conflictResult = await checkConflictsBulk({
+      professionalProfileId: targetProfessionalProfileId,
+      dates: [{ scheduledAt, endAt }],
+      additionalProfessionalIds,
+    }, tx)
+
+    if (conflictResult.conflicts.length > 0) {
+      return { conflict: conflictResult.conflicts[0].conflictingAppointment }
+    }
+
+    // Create one appointment per patient
+    await tx.appointment.createMany({
+      data: uniquePatientIds.map(pid => ({
+        clinicId: user.clinicId,
+        professionalProfileId: targetProfessionalProfileId,
+        patientId: pid,
+        sessionGroupId,
+        scheduledAt,
+        endAt,
+        modality,
+        notes: notes || null,
+      })),
+    })
+
+    // Fetch created appointments
+    const createdAppointments = await tx.appointment.findMany({
+      where: { clinicId: user.clinicId, sessionGroupId },
+      include: {
+        patient: { select: { id: true, name: true, email: true, phone: true } },
+        professionalProfile: { select: { id: true, user: { select: { name: true } } } },
+        additionalProfessionals: {
+          select: { professionalProfile: { select: { id: true, user: { select: { name: true } } } } },
+        },
+      },
+      orderBy: { scheduledAt: "asc" },
+    })
+
+    // Create additional professional records
+    if (additionalProfessionalIds.length > 0) {
+      await tx.appointmentProfessional.createMany({
+        data: createdAppointments.flatMap(apt =>
+          additionalProfessionalIds.map(profId => ({
+            appointmentId: apt.id,
+            professionalProfileId: profId,
+          }))
+        ),
+      })
+    }
+
+    return { appointments: createdAppointments }
+  }, { timeout: 30000 })
+
+  // Check for conflict
+  if ("conflict" in result && result.conflict) {
+    return NextResponse.json(formatConflictError(result.conflict), { status: 409 })
+  }
+
+  // Audit logs
+  for (const appointment of result.appointments) {
+    await audit.log({
+      user,
+      action: AuditAction.APPOINTMENT_CREATED,
+      entityType: "Appointment",
+      entityId: appointment.id,
+      newValues: {
+        patientId: appointment.patientId,
+        patientName: appointment.patient?.name,
+        professionalProfileId: targetProfessionalProfileId,
+        professionalName: professional.user.name,
+        scheduledAt: appointment.scheduledAt.toISOString(),
+        endAt: appointment.endAt.toISOString(),
+        sessionGroupId,
+        isGroupSession: true,
+      },
+      request: req,
+    })
+  }
+
+  // Send notifications (skip for past dates)
+  const isPastDate = scheduledAt < new Date()
+  if (!isPastDate) {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const formattedDate = scheduledAt.toLocaleDateString("pt-BR", {
+      weekday: "long", day: "2-digit", month: "2-digit", year: "numeric",
+    })
+    const formattedTime = scheduledAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+
+    for (const apt of result.appointments) {
+      if (!apt.patient) continue
+      const patient = patients.find(p => p.id === apt.patientId)
+      if (!patient) continue
+
+      const confirmLink = buildConfirmUrl(baseUrl, apt.id, apt.scheduledAt)
+      const cancelLink = buildCancelUrl(baseUrl, apt.id, apt.scheduledAt)
+
+      const content = `Ola ${patient.name}!\n\nSeu agendamento em grupo foi criado.\n\n📅 Data: ${formattedDate}\n🕐 Horario: ${formattedTime}\n👨‍⚕️ Profissional: ${professional.user.name}\n📍 Modalidade: ${modality === "ONLINE" ? "Online" : "Presencial"}\n\nPara confirmar:\n${confirmLink}\n\nPara cancelar:\n${cancelLink}`
+
+      if (patient.consentWhatsApp && patient.phone) {
+        getPatientPhoneNumbers(patient.id, user.clinicId).then(phoneNumbers => {
+          for (const { phone } of phoneNumbers) {
+            createNotification({
+              clinicId: user.clinicId, patientId: patient.id, appointmentId: apt.id,
+              type: NotificationType.APPOINTMENT_CONFIRMATION,
+              channel: NotificationChannel.WHATSAPP, recipient: phone, content,
+            }).catch(() => {})
+          }
+        }).catch(() => {})
+      }
+
+      if (patient.consentEmail && patient.email) {
+        createNotification({
+          clinicId: user.clinicId, patientId: patient.id, appointmentId: apt.id,
+          type: NotificationType.APPOINTMENT_CONFIRMATION,
+          channel: NotificationChannel.EMAIL, recipient: patient.email,
+          subject: "Agendamento em Grupo Criado - Confirmação",
+          content,
+        }).catch(() => {})
+      }
+    }
+  }
+
+  return NextResponse.json({
+    appointments: result.appointments,
+    sessionGroupId,
   }, { status: 201 })
 }
 
@@ -1217,6 +1467,19 @@ async function handleCreateAppointment(
 
   // Queue notifications for first appointment only (for recurring)
   // Subsequent appointments will get reminders via scheduled jobs
+  // Skip notifications for past-date appointments (retroactive registration)
+  const isPastDate = result.appointments[0].scheduledAt < new Date()
+  if (isPastDate) {
+    if (recurrence) {
+      return NextResponse.json({
+        appointments: result.appointments,
+        recurrenceId: result.recurrenceId,
+        totalOccurrences: result.appointments.length,
+      }, { status: 201 })
+    }
+    return NextResponse.json({ appointment: result.appointments[0] }, { status: 201 })
+  }
+
   try {
     const firstAppointment = result.appointments[0]
 

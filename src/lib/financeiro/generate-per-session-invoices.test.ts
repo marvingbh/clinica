@@ -14,6 +14,7 @@ function makeApt(overrides: Partial<AppointmentForInvoice> & { id: string; sched
     title: null,
     recurrenceId: "rec-1",
     groupId: null,
+    sessionGroupId: null,
     price: null,
     ...overrides,
   }

@@ -30,6 +30,7 @@ export interface MonthlyInvoiceParams {
     title: string | null
     recurrenceId: string | null
     groupId: string | null
+    sessionGroupId: string | null
     price: number | null
   }[]
 }

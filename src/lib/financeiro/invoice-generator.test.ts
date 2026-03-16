@@ -17,6 +17,7 @@ const makeAppointment = (overrides: Partial<AppointmentForInvoice> = {}): Appoin
   title: null,
   recurrenceId: "rec-1",
   groupId: null,
+  sessionGroupId: null,
   price: null,
   ...overrides,
 })
@@ -39,6 +40,12 @@ describe("classifyAppointments", () => {
   it("classifies group appointment as group", () => {
     const result = classifyAppointments([makeAppointment({ groupId: "grp-1", recurrenceId: null })])
     expect(result.group).toHaveLength(1)
+  })
+
+  it("classifies one-off group appointment (sessionGroupId) as group", () => {
+    const result = classifyAppointments([makeAppointment({ sessionGroupId: "sg-1", groupId: null, recurrenceId: null })])
+    expect(result.group).toHaveLength(1)
+    expect(result.extra).toHaveLength(0)
   })
 
   it("classifies REUNIAO as school meeting", () => {
