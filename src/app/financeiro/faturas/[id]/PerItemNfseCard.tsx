@@ -76,7 +76,7 @@ export default function PerItemNfseCard({
           </span>
         )}
 
-        {/* EMITIDA — PDF + cancel */}
+        {/* EMITIDA — PDF (local + Gov.br) + cancel */}
         {emission?.status === "EMITIDA" && (
           <>
             <a
@@ -85,6 +85,13 @@ export default function PerItemNfseCard({
               className="px-2.5 py-1 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               PDF
+            </a>
+            <a
+              href={`/api/financeiro/faturas/${invoiceId}/nfse/pdf?emissionId=${emission.id}&source=adn`}
+              target="_blank" rel="noopener noreferrer"
+              className="px-2.5 py-1 rounded-lg text-xs font-medium bg-muted text-foreground hover:bg-muted/80 transition-colors"
+            >
+              Gov.br
             </a>
             <button
               onClick={() => onStartCancel(emission.id)}
