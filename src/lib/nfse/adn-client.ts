@@ -204,8 +204,8 @@ function buildCancellationEventXml(
   const now = new Date()
   const pad = (n: number) => String(n).padStart(2, "0")
   const dhEvento = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}-03:00`
-  // Id = PRE + chNFSe(50) + tpEvento(6) + nPedRegEvento(3)
-  const id = `PRE${chaveAcesso}101101001`
+  // Id = PRE + chNFSe(50) + tpEvento(6) = 59 chars (nPedRegEvento removed from Id as of Jan/2026)
+  const id = `PRE${chaveAcesso}101101`
 
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
