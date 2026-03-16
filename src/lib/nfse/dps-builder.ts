@@ -101,12 +101,8 @@ export function buildDpsXml(
         cLocEmi: config.codigoMunicipio, // Required: IBGE code of emission location
         prest: {
           CNPJ: data.prestadorCnpj,
-          // IM is only sent if the municipality supports it (CNC NFS-e)
-          // Some municipalities reject IM when no CNC complementary data exists
-          // ...(data.prestadorIm ? { IM: data.prestadorIm } : {}),
-          xNome: truncate(data.prestadorNome, XNOME_MAX_LENGTH),
-          ...(data.prestadorFone ? { fone: data.prestadorFone.replace(/\D/g, "") } : {}),
-          ...(data.prestadorEmail ? { email: data.prestadorEmail } : {}),
+          // xNome not allowed when tpEmit=1 (prestador is the emitter) — E0121
+          // IM not sent — E0120 (BH has no CNC complementary data)
           regTrib: {
             opSimpNac: data.prestadorOpSimpNac, // 1=optante SN, 2=nao optante. Configurable per clinic.
             regEspTrib: 0, // 0 = Nenhum regime especial
@@ -142,15 +138,14 @@ export function buildDpsXml(
           trib: {
             tribMun: {
               tribISSQN: 1,
-              cPaisResult: PAIS_BRASIL,
               tpRetISSQN: 1,
               // opSimpNac: 1=Nao Optante, 2=MEI, 3=ME/EPP
               // pAliq only sent for SN optantes (2 or 3). Nao optante (1) with active municipality = municipality determines aliquota.
               ...(data.prestadorOpSimpNac > 1 ? { pAliq: formatDecimal(data.aliquotaIss) } : {}),
             },
-            totTrib: {
-              indTotTrib: 0, // 0 = nao informado
-            },
+            totTrib: data.prestadorOpSimpNac > 1
+              ? { indTotTrib: 0 }
+              : { vTotTrib: { vTotTribFed: formatDecimal(0), vTotTribEst: formatDecimal(0), vTotTribMun: formatDecimal(0) } },
           },
         },
       },
