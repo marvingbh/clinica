@@ -260,7 +260,8 @@ async function handlePerItemEmission(ctx: PerItemContext) {
 
   for (const plan of targetPlans) {
     const existing = existingByItemId.get(plan.invoiceItemId)
-    if (existing && existing.status !== "ERRO") continue // Don't recreate unless retrying
+    // Skip items that are already EMITIDA or PENDENTE
+    if (existing && existing.status !== "ERRO" && existing.status !== "CANCELADA") continue
 
     if (existing && existing.status === "ERRO") {
       // Reset to PENDENTE for retry
@@ -269,6 +270,7 @@ async function handlePerItemEmission(ctx: PerItemContext) {
         data: { status: "PENDENTE", erro: null },
       })
     } else {
+      // New emission (or re-emission after cancellation — keep cancelled row as history)
       await prisma.nfseEmission.create({
         data: {
           invoiceId: invoice.id,
