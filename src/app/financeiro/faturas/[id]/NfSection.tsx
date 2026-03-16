@@ -12,6 +12,8 @@ interface NfSectionProps {
 
 interface NfseConfigSummary {
   codigoServico: string
+  codigoNbs?: string | null
+  cClassNbs?: string | null
   descricaoServico: string | null
   aliquotaIss: number
 }
@@ -26,6 +28,8 @@ export default function NfSection({ invoice, onRefresh }: NfSectionProps) {
         if (data.config && data.config.isActive !== false) {
           setNfseConfig({
             codigoServico: data.config.codigoServico,
+            codigoNbs: data.config.codigoNbs,
+            cClassNbs: data.config.cClassNbs,
             descricaoServico: data.config.descricaoServico,
             aliquotaIss: data.config.aliquotaIss,
           })

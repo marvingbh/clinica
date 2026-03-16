@@ -936,7 +936,8 @@ model NfseConfig {
   codigoServico       String   // cTribNac - 6 digit national code e.g. "041601"
   codigoServicoMunicipal String? // cTribMun - 3 digit municipal code (required by some cities like BH)
   cnae                String?  // CNAE code
-  codigoNbs           String?  // NBS code (mandatory since 01/2026)
+  codigoNbs           String?  // NBS code (e.g., "123019800") — mandatory since 01/2026
+  cClassNbs           String?  // NBS CClass (e.g., "200029")
   aliquotaIss         Decimal  @db.Decimal(5, 2) // ISS rate %
   descricaoServico    String?  // NFS-e description template with {{variables}}
   nfseTaxPercentage   Decimal? @db.Decimal(5, 2) // Total tax % for Lei 12.741/2012 disclosure

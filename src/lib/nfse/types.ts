@@ -32,6 +32,8 @@ export interface NfseEmissionData {
   // Service
   codigoServico: string
   codigoServicoMunicipal?: string // cTribMun - 3 digit municipal code (required by some municipalities like BH)
+  codigoNbs?: string // NBS code (e.g., "123019800") — mandatory since 01/2026
+  cClassNbs?: string // NBS CClass (e.g., "200029")
   descricao: string
   valor: number
   aliquotaIss: number

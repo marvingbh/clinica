@@ -8,7 +8,7 @@ import NfseEmissionDialog from "./NfseEmissionDialog"
 
 interface NfseSectionProps {
   invoice: InvoiceDetail
-  nfseConfig: { codigoServico: string; descricaoServico: string | null; aliquotaIss: number }
+  nfseConfig: { codigoServico: string; codigoNbs?: string | null; cClassNbs?: string | null; descricaoServico: string | null; aliquotaIss: number }
   onRefresh: () => void
 }
 
@@ -280,6 +280,8 @@ export default function NfseSection({ invoice, nfseConfig, onRefresh }: NfseSect
           }}
           totalAmount={invoice.totalAmount}
           defaultCodigoServico={nfseConfig.codigoServico}
+          defaultCodigoNbs={nfseConfig.codigoNbs || ""}
+          defaultCClassNbs={nfseConfig.cClassNbs || ""}
           defaultDescricao={nfseConfig.descricaoServico || "Servicos de saude"}
           defaultAliquotaIss={nfseConfig.aliquotaIss}
           onClose={() => setShowDialog(false)}

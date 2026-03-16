@@ -17,6 +17,7 @@ export interface NfseConfigSummaryData {
   professionalCrp?: string | null
   cnae?: string | null
   codigoNbs?: string | null
+  cClassNbs?: string | null
   aliquotaIss: number
   descricaoServico?: string | null
   useSandbox: boolean
