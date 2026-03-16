@@ -111,11 +111,7 @@ export default function NfseSection({ invoice, nfseConfig, onRefresh }: NfseSect
         toast.error(data.error || "Erro ao cancelar NFS-e")
         return
       }
-      if (data.adnCancelFailed) {
-        toast.warning("NFS-e cancelada localmente. Cancele manualmente no portal gov.br.")
-      } else {
-        toast.success("NFS-e cancelada com sucesso")
-      }
+      toast.success("NFS-e cancelada com sucesso")
       setShowCancelConfirm(false)
       setCancelReason("")
       onRefresh()
