@@ -80,11 +80,33 @@ function NfseStatusCancelada({ invoice }: { invoice: InvoiceDetail }) {
   )
 }
 
+interface NfseLogEntry {
+  id: string
+  operation: string
+  statusCode: number | null
+  error: string | null
+  durationMs: number | null
+  createdAt: string
+}
+
 export default function NfseSection({ invoice, nfseConfig, onRefresh }: NfseSectionProps) {
   const [showDialog, setShowDialog] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [cancelReason, setCancelReason] = useState("")
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [historyLogs, setHistoryLogs] = useState<NfseLogEntry[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
+  function loadHistory() {
+    if (showHistory) { setShowHistory(false); return }
+    setLoadingHistory(true)
+    fetch(`/api/financeiro/faturas/${invoice.id}/nfse/historico`)
+      .then(r => r.json())
+      .then(data => { setHistoryLogs(data.logs || []); setShowHistory(true) })
+      .catch(() => toast.error("Erro ao carregar historico"))
+      .finally(() => setLoadingHistory(false))
+  }
 
   const canEmit =
     (invoice.status === "PAGO" || invoice.status === "ENVIADO") &&
@@ -208,6 +230,36 @@ export default function NfseSection({ invoice, nfseConfig, onRefresh }: NfseSect
         <p className="text-xs text-muted-foreground">
           A fatura precisa estar com status Pago ou Enviado para emitir NFS-e.
         </p>
+      )}
+
+      {/* History toggle */}
+      <button
+        onClick={loadHistory}
+        disabled={loadingHistory}
+        className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
+      >
+        {loadingHistory ? "Carregando..." : showHistory ? "Ocultar historico" : "Ver historico de emissoes"}
+      </button>
+
+      {showHistory && historyLogs.length > 0 && (
+        <div className="space-y-1 text-xs">
+          {historyLogs.map((log) => (
+            <div key={log.id} className="flex items-center gap-2 py-1 border-b border-border/50 last:border-0">
+              <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${log.error ? "bg-red-500" : "bg-green-500"}`} />
+              <span className="font-medium capitalize">{log.operation === "emit" ? "Emissao" : log.operation === "cancel" ? "Cancelamento" : log.operation}</span>
+              <span className="text-muted-foreground">
+                {new Date(log.createdAt).toLocaleDateString("pt-BR")} {new Date(log.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+              {log.statusCode && <span className="text-muted-foreground">HTTP {log.statusCode}</span>}
+              {log.durationMs && <span className="text-muted-foreground">{log.durationMs}ms</span>}
+              {log.error && <span className="text-destructive truncate max-w-[200px]" title={log.error}>{log.error}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showHistory && historyLogs.length === 0 && (
+        <p className="text-xs text-muted-foreground">Nenhum registro de comunicacao com o ADN.</p>
       )}
 
       {showDialog && (
