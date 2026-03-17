@@ -52,6 +52,9 @@ export interface DanfseData {
   // Verification
   verificacaoUrl: string
   qrCodeDataUri?: string // Base64 PNG data URI for QR code
+
+  // Environment
+  isSandbox: boolean
 }
 
 /** Shape of the invoice with relations needed for DANFSE generation. */
@@ -89,6 +92,7 @@ export interface InvoiceWithNfse {
       codigoServico: string
       cnae: string | null
       aliquotaIss: unknown // Prisma Decimal
+      useSandbox?: boolean
     } | null
   }
 }
@@ -208,5 +212,7 @@ export function buildDanfseData(invoice: InvoiceWithNfse): DanfseData | null {
     valorIss: formatBRL(valorIss),
 
     verificacaoUrl: `https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave=${invoice.nfseChaveAcesso}`,
+
+    isSandbox: config.useSandbox ?? false,
   }
 }
