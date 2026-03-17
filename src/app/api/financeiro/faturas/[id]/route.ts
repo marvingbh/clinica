@@ -36,6 +36,17 @@ export const GET = withFeatureAuth(
           },
           orderBy: { createdAt: "asc" },
         },
+        reconciliationLinks: {
+          select: {
+            id: true,
+            amount: true,
+            reconciledAt: true,
+            transaction: {
+              select: { date: true, payerName: true, description: true, amount: true },
+            },
+          },
+          orderBy: { reconciledAt: "asc" },
+        },
       },
     })
 
