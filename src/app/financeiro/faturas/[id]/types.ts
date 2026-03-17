@@ -48,6 +48,19 @@ export interface InvoiceDetail {
   items: InvoiceItem[]
   consumedCredits: Array<{ id: string; reason: string; createdAt: string }>
   nfseEmissions: NfseEmissionRow[]
+  reconciliationLinks: ReconciliationLinkRow[]
+}
+
+export interface ReconciliationLinkRow {
+  id: string
+  amount: string
+  reconciledAt: string
+  transaction: {
+    date: string
+    payerName: string | null
+    description: string
+    amount: string
+  }
 }
 
 export interface NfseEmissionRow {
