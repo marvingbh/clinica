@@ -194,6 +194,7 @@ model Clinic {
   billingMode            BillingMode      @default(PER_SESSION)
   invoiceGrouping        InvoiceGrouping  @default(MONTHLY)
   taxPercentage          Decimal     @default(0) @db.Decimal(5, 2) // Clinic tax % deducted before repasse
+  emailSenderName        String? // Display name for outgoing emails (defaults to clinic name)
 
   // SaaS subscription fields
   planId               String?

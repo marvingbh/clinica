@@ -57,6 +57,7 @@ interface ClinicSettings {
   invoiceDueDay: number
   invoiceMessageTemplate: string | null
   paymentInfo: string | null
+  emailSenderName: string | null
   billingMode: "PER_SESSION" | "MONTHLY_FIXED"
   invoiceGrouping: "MONTHLY" | "PER_SESSION"
   taxPercentage: number
@@ -74,6 +75,8 @@ export default function AdminSettingsPage() {
   const [isSavingTemplate, setIsSavingTemplate] = useState(false)
   const [paymentInfo, setPaymentInfo] = useState<string>("")
   const [isSavingPaymentInfo, setIsSavingPaymentInfo] = useState(false)
+  const [emailSenderName, setEmailSenderName] = useState<string>("")
+  const [isSavingEmailSender, setIsSavingEmailSender] = useState(false)
   const [billingMode, setBillingMode] = useState<"PER_SESSION" | "MONTHLY_FIXED">("PER_SESSION")
   const [isSavingBillingMode, setIsSavingBillingMode] = useState(false)
   const [invoiceGrouping, setInvoiceGrouping] = useState<"MONTHLY" | "PER_SESSION">("MONTHLY")
@@ -108,6 +111,7 @@ export default function AdminSettingsPage() {
       setSettings(data.settings)
       setInvoiceTemplate(data.settings.invoiceMessageTemplate || "")
       setPaymentInfo(data.settings.paymentInfo || "")
+      setEmailSenderName(data.settings.emailSenderName || "")
       setBillingMode(data.settings.billingMode || "PER_SESSION")
       setInvoiceGrouping(data.settings.invoiceGrouping || "MONTHLY")
       setTaxPercentage(Number(data.settings.taxPercentage ?? 0))
@@ -241,6 +245,23 @@ export default function AdminSettingsPage() {
       toast.error("Erro ao salvar dados de pagamento")
     } finally {
       setIsSavingPaymentInfo(false)
+    }
+  }
+
+  async function saveEmailSenderName() {
+    setIsSavingEmailSender(true)
+    try {
+      const response = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailSenderName: emailSenderName || null }),
+      })
+      if (!response.ok) throw new Error("Failed to save")
+      toast.success("Nome do remetente salvo")
+    } catch {
+      toast.error("Erro ao salvar nome do remetente")
+    } finally {
+      setIsSavingEmailSender(false)
     }
   }
 
@@ -637,6 +658,31 @@ export default function AdminSettingsPage() {
                 className="h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
               >
                 {isSavingPaymentInfo ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+          </div>
+
+          {/* Email Sender */}
+          <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Remetente de Email</h2>
+            <p className="text-sm text-muted-foreground">
+              Nome que aparece como remetente nos emails enviados (NFS-e, lembretes, faturas). Se vazio, usa o nome da clinica.
+            </p>
+            <input
+              type="text"
+              value={emailSenderName}
+              onChange={(e) => setEmailSenderName(e.target.value)}
+              placeholder={settings?.name || "Nome da clinica"}
+              className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+            />
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={saveEmailSenderName}
+                disabled={isSavingEmailSender}
+                className="h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+              >
+                {isSavingEmailSender ? "Salvando..." : "Salvar"}
               </button>
             </div>
           </div>
