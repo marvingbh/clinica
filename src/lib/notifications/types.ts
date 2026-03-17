@@ -19,7 +19,8 @@ export interface SendResult {
 
 export interface NotificationProvider {
   channel: NotificationChannel
-  send(recipient: string, content: string, subject?: string): Promise<SendResult>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  send(recipient: string, content: string, subject?: string, options?: any): Promise<SendResult>
 }
 
 export interface RetryConfig {

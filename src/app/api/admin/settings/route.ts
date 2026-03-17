@@ -28,6 +28,7 @@ const updateSettingsSchema = z.object({
   invoiceDueDay: z.number().int().min(1, "Mínimo dia 1").max(28, "Máximo dia 28").optional(),
   invoiceMessageTemplate: z.string().nullable().optional(),
   paymentInfo: z.string().nullable().optional(),
+  emailSenderName: z.string().max(100).nullable().optional(),
   billingMode: z.enum(["PER_SESSION", "MONTHLY_FIXED"]).optional(),
   invoiceGrouping: z.enum(["MONTHLY", "PER_SESSION"]).optional(),
   taxPercentage: z.number().min(0).max(100).optional(),
@@ -55,6 +56,7 @@ export const GET = withFeatureAuth(
         invoiceDueDay: true,
         invoiceMessageTemplate: true,
         paymentInfo: true,
+        emailSenderName: true,
         billingMode: true,
         invoiceGrouping: true,
         taxPercentage: true,
@@ -102,7 +104,7 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, billingMode, invoiceGrouping, taxPercentage } =
+    const { name, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, billingMode, invoiceGrouping, taxPercentage } =
       parsed.data
 
     // Build update object with only provided fields
@@ -119,6 +121,7 @@ export const PATCH = withFeatureAuth(
     if (invoiceDueDay !== undefined) updateData.invoiceDueDay = invoiceDueDay
     if (invoiceMessageTemplate !== undefined) updateData.invoiceMessageTemplate = invoiceMessageTemplate || null
     if (paymentInfo !== undefined) updateData.paymentInfo = paymentInfo || null
+    if (emailSenderName !== undefined) updateData.emailSenderName = emailSenderName || null
     if (billingMode !== undefined) updateData.billingMode = billingMode
     if (invoiceGrouping !== undefined) updateData.invoiceGrouping = invoiceGrouping
     if (taxPercentage !== undefined) updateData.taxPercentage = taxPercentage
@@ -149,6 +152,7 @@ export const PATCH = withFeatureAuth(
       invoiceDueDay: true,
       invoiceMessageTemplate: true,
       paymentInfo: true,
+      emailSenderName: true,
       billingMode: true,
       invoiceGrouping: true,
       taxPercentage: true,
