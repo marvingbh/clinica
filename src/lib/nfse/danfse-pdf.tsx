@@ -209,6 +209,15 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 function DanfsePage({ data }: { data: DanfseData }) {
   return (
     <Page size="A4" style={styles.page}>
+      {/* Sandbox banner */}
+      {data.isSandbox && (
+        <View style={{ backgroundColor: "#dc2626", padding: 8, marginBottom: 10 }}>
+          <Text style={{ color: "#fff", fontSize: 14, fontWeight: "bold", textAlign: "center", textTransform: "uppercase" }}>
+            NFS-e SEM VALIDADE JURIDICA - AMBIENTE DE HOMOLOGACAO
+          </Text>
+        </View>
+      )}
+
       {/* Title */}
       <Text style={styles.title}>Nota Fiscal de Servicos Eletronica - NFS-e</Text>
 
