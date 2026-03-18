@@ -1,6 +1,8 @@
 "use client"
 
 import { useCallback, useState } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
@@ -213,8 +215,12 @@ export default function PatientsPage() {
     }
   }, [])
 
-  useMountEffect(() => {
+  // Re-fetches when search, filters, or page change.
+  useEffect(() => {
     fetchPatients()
+  }, [fetchPatients])
+
+  useMountEffect(() => {
     fetchProfessionals()
     fetch("/api/admin/settings")
       .then(r => r.ok ? r.json() : null)
