@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useCallback } from "react"
+import { useMountEffect } from "@/shared/hooks"
 import { Controller, UseFormRegister, Control, FieldErrors } from "react-hook-form"
 import { DatePickerInput } from "@/shared/components/ui"
 import { Professional, AdditionalPhone, UsualPayer } from "./types"
@@ -95,10 +96,10 @@ export function PatientForm({
     if (e.key === "Escape") onClose()
   }, [onClose])
 
-  useEffect(() => {
+  useMountEffect(() => {
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [handleKeyDown])
+  })
 
   return (
     <>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useMemo, useState } from "react"
 import { CalendarIcon, RefreshCwIcon } from "@/shared/components/ui/icons"
 import { DateInput } from "./DateInput"
 import { RecurrenceType, RecurrenceEndType } from "../lib/types"
@@ -59,16 +59,14 @@ export function RecurrenceOptions({
   startDate,
   startTime,
 }: RecurrenceOptionsProps) {
-  const [previewDates, setPreviewDates] = useState<string[]>([])
   const [showPreview, setShowPreview] = useState(false)
 
   const isRecurring = appointmentType !== "SINGLE"
 
-  // Calculate preview dates
-  function calculatePreviewDates() {
+  // Derived state: preview dates computed from recurrence parameters
+  const previewDates = useMemo(() => {
     if (!startDate || !startTime || !isRecurring) {
-      setPreviewDates([])
-      return
+      return []
     }
 
     const dates: string[] = []
@@ -127,18 +125,8 @@ export function RecurrenceOptions({
       }))
     }
 
-    setPreviewDates(dates)
-  }
-
-  useEffect(() => {
-    if (startDate && startTime && isRecurring) {
-      calculatePreviewDates()
-    } else {
-      setPreviewDates([])
-      setShowPreview(false)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appointmentType, recurrenceEndType, endDate, occurrences, startDate, startTime])
+    return dates
+  }, [appointmentType, recurrenceEndType, endDate, occurrences, startDate, startTime, isRecurring])
 
   return (
     <div className="space-y-4">
@@ -155,7 +143,6 @@ export function RecurrenceOptions({
               onClick={() => {
                 onAppointmentTypeChange(type)
                 if (type === "SINGLE") {
-                  setPreviewDates([])
                   setShowPreview(false)
                 }
               }}

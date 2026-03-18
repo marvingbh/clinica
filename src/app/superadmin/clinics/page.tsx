@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useState, useCallback } from "react"
+import { useMountEffect } from "@/shared/hooks"
 import { useRouter } from "next/navigation"
 import { Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { StatusBadge, formatDate } from "@/app/superadmin/components/StatusBadge"
@@ -60,9 +61,9 @@ export default function SuperAdminClinicsPage() {
     }
   }, [search, status, page])
 
-  useEffect(() => {
+  useMountEffect(() => {
     fetchClinics()
-  }, [fetchClinics])
+  })
 
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault()

@@ -1,15 +1,17 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
-import { usePermission } from "@/shared/hooks/usePermission"
+import { useRequireAuth } from "@/shared/hooks"
 import { DEFAULT_INVOICE_TEMPLATE } from "@/lib/financeiro/invoice-template"
 import NfseConfigForm from "./components/NfseConfigForm"
+
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 
 const TIMEZONES = [
   { value: "America/Sao_Paulo", label: "Brasília (GMT-3)" },
@@ -68,8 +70,7 @@ interface ClinicSettings {
 
 export default function AdminSettingsPage() {
   const router = useRouter()
-  const { data: session, status } = useSession()
-  const { canRead } = usePermission("clinic_settings")
+  const { isReady, status } = useRequireAuth({ feature: "clinic_settings", minAccess: "READ" })
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [settings, setSettings] = useState<ClinicSettings | null>(null)
@@ -143,21 +144,13 @@ export default function AdminSettingsPage() {
     }
   }, [router, reset])
 
+  // Data fetch: depends on auth readiness — must remain an effect
+   
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-      return
-    }
-
-    if (status === "authenticated") {
-      if (!canRead) {
-        toast.error("Sem permissao para acessar esta pagina")
-        router.push("/")
-        return
-      }
+    if (isReady) {
       fetchSettings()
     }
-  }, [status, canRead, router, fetchSettings])
+  }, [isReady, fetchSettings])
 
   async function onSubmit(data: SettingsFormData) {
     setIsSaving(true)

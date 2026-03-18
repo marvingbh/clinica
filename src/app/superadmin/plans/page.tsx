@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useState, useCallback } from "react"
+import { useMountEffect } from "@/shared/hooks"
 import { Plus, X } from "lucide-react"
 import { formatCurrency } from "@/app/superadmin/components/StatusBadge"
 
@@ -57,9 +58,9 @@ export default function SuperAdminPlansPage() {
     }
   }, [])
 
-  useEffect(() => {
+  useMountEffect(() => {
     fetchPlans()
-  }, [fetchPlans])
+  })
 
   function openCreateModal() {
     setEditingPlan(null)

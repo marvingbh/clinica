@@ -1,6 +1,8 @@
 "use client"
 
-import React, { useEffect, useState, useCallback } from "react"
+import React, { useState, useCallback } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
 import { STATUS_LABELS } from "../invoice-status"
 
@@ -68,6 +70,7 @@ export default function HistoryTab({ invoiceId }: HistoryTabProps) {
     setHistoryLoaded(true)
   }, [invoiceId])
 
+   
   useEffect(() => {
     if (!historyLoaded) {
       fetchHistory()

@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -56,9 +58,6 @@ export function useWeeklyData(weekStart: Date): UseWeeklyDataReturn {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [groupSessions, setGroupSessions] = useState<GroupSession[]>([])
   const [professionals, setProfessionals] = useState<Professional[]>([])
-  const [appointmentDuration, setAppointmentDuration] = useState(
-    session?.user?.appointmentDuration || DEFAULT_APPOINTMENT_DURATION
-  )
   const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([])
   const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([])
   const [biweeklyHints, setBiweeklyHints] = useState<BiweeklyHint[]>([])
@@ -69,7 +68,8 @@ export function useWeeklyData(weekStart: Date): UseWeeklyDataReturn {
     setRefetchTrigger(prev => prev + 1)
   }, [])
 
-  // Auth check
+  // Auth check: redirects when session status changes
+   
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login")
@@ -80,7 +80,8 @@ export function useWeeklyData(weekStart: Date): UseWeeklyDataReturn {
     }
   }, [status, router])
 
-  // Fetch professionals for admin
+  // Fetch professionals for admin: re-fetches when auth/admin status changes
+   
   useEffect(() => {
     if (status !== "authenticated" || !isAdmin) return
     fetch("/api/professionals")
@@ -89,7 +90,8 @@ export function useWeeklyData(weekStart: Date): UseWeeklyDataReturn {
       .catch(() => {})
   }, [status, isAdmin])
 
-  // Main data fetch
+  // Main data fetch: re-fetches when week/professional/auth changes or refetchTrigger fires
+   
   useEffect(() => {
     if (status !== "authenticated" || (!activeProfessionalProfileId && !isAdmin)) return
 
@@ -174,23 +176,14 @@ export function useWeeklyData(weekStart: Date): UseWeeklyDataReturn {
     return () => { abortController.abort() }
   }, [status, weekStart, activeProfessionalProfileId, isAdmin, selectedProfessionalId, router, refetchTrigger])
 
-  // Sync appointment duration
-  useEffect(() => {
-    if (!isAdmin && session?.user?.appointmentDuration) {
-      setAppointmentDuration(session.user.appointmentDuration)
-    }
-  }, [isAdmin, session?.user?.appointmentDuration])
-
-  useEffect(() => {
-    if (isAdmin && selectedProfessionalId && professionals.length > 0) {
+  // Derived state: appointment duration based on role and selected professional
+  const appointmentDuration = useMemo(() => {
+    if (isAdmin && selectedProfessionalId) {
       const prof = professionals.find(p => p.professionalProfile?.id === selectedProfessionalId)
-      if (prof?.professionalProfile?.appointmentDuration) {
-        setAppointmentDuration(prof.professionalProfile.appointmentDuration)
-      } else {
-        setAppointmentDuration(DEFAULT_APPOINTMENT_DURATION)
-      }
+      return prof?.professionalProfile?.appointmentDuration ?? DEFAULT_APPOINTMENT_DURATION
     }
-  }, [isAdmin, selectedProfessionalId, professionals])
+    return session?.user?.appointmentDuration ?? DEFAULT_APPOINTMENT_DURATION
+  }, [isAdmin, selectedProfessionalId, professionals, session?.user?.appointmentDuration])
 
   return {
     isAdmin,

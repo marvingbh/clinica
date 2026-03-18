@@ -1,6 +1,8 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { toast } from "sonner"
 import type { NfseEmissionRow } from "./types"
 import NfseEmissionDialog from "./NfseEmissionDialog"
@@ -41,6 +43,7 @@ export default function PerItemNfseSection({ invoice, nfseConfig, onRefresh }: N
   }
 
   // Fetch per-item descriptions on mount
+   
   useEffect(() => {
     fetch(`/api/financeiro/faturas/${invoice.id}/nfse/preview`)
       .then(r => r.json())

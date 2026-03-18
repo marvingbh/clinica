@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useCallback, useRef, useEffect } from "react"
+import { useState, useCallback, useRef } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { CheckIcon, SearchIcon, Loader2Icon } from "lucide-react"
 import { formatCurrencyBRL, formatDateBR, getMonthNameShort } from "@/lib/financeiro/format"
 import { INVOICE_STATUS_CONFIG } from "./types"
@@ -57,6 +59,7 @@ export function InvoiceSearch({ selectedInvoiceId, selectedIds, onSelect }: Invo
     debounceRef.current = setTimeout(() => search(value, month, year), 400)
   }
 
+   
   useEffect(() => {
     if (query.length >= 2) {
       search(query, month, year)

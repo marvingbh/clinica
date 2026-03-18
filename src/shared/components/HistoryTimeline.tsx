@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useCallback } from "react"
+import { useMountEffect } from "@/shared/hooks"
 
 interface AuditChange {
   field: string
@@ -91,9 +92,9 @@ export function HistoryTimeline({ entityType, entityId }: HistoryTimelineProps) 
     [entityType, entityId]
   )
 
-  useEffect(() => {
+  useMountEffect(() => {
     fetchEntries(1, false)
-  }, [fetchEntries])
+  })
 
   if (isLoading) {
     return (

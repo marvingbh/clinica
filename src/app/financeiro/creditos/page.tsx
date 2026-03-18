@@ -1,6 +1,8 @@
 "use client"
 
-import React, { useEffect, useState, useCallback } from "react"
+import React, { useState, useCallback } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import Link from "next/link"
 import { useFinanceiroContext } from "../context/FinanceiroContext"
 
@@ -21,7 +23,8 @@ export default function CreditosPage() {
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState("")
 
-  const fetchCredits = useCallback(() => {
+  // Re-fetches when filters change (year, month, statusFilter).
+  useEffect(() => {
     setLoading(true)
     const params = new URLSearchParams()
     params.set("year", String(year))
@@ -32,8 +35,6 @@ export default function CreditosPage() {
       .then(setCredits)
       .finally(() => setLoading(false))
   }, [year, month, statusFilter])
-
-  useEffect(() => { fetchCredits() }, [fetchCredits])
 
   return (
     <div>

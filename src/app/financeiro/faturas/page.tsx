@@ -1,6 +1,8 @@
 "use client"
 
-import React, { useEffect, useState, useCallback, useRef, useMemo } from "react"
+import React, { useState, useCallback, useRef, useMemo } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { formatCurrencyBRL } from "@/lib/financeiro/format"
@@ -62,6 +64,7 @@ export default function FaturasPage() {
       .finally(() => setLoading(false))
   }, [month, year, selectedProfessionalId, patientSearch, sortBy])
 
+   
   useEffect(() => { fetchInvoices() }, [fetchInvoices])
 
   // Build grouped rows from invoices, then apply status filter client-side
@@ -87,6 +90,7 @@ export default function FaturasPage() {
     })
   }
 
+   
   useEffect(() => {
     if (!isAdmin) return
     fetch("/api/professionals")

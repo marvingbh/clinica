@@ -1,5 +1,10 @@
-import { useState, useEffect } from "react"
+import { useState, useMemo, useCallback } from "react"
 import type { GroupSession } from "../lib/types"
+
+interface SessionKey {
+  groupId: string | null
+  scheduledAt: string
+}
 
 export interface UseGroupSessionSheetReturn {
   isOpen: boolean
@@ -10,27 +15,25 @@ export interface UseGroupSessionSheetReturn {
 
 export function useGroupSessionSheet(groupSessions: GroupSession[]): UseGroupSessionSheetReturn {
   const [isOpen, setIsOpen] = useState(false)
-  const [selectedSession, setSelectedSession] = useState<GroupSession | null>(null)
+  const [selectedKey, setSelectedKey] = useState<SessionKey | null>(null)
 
-  const open = (session: GroupSession) => {
-    setSelectedSession(session)
+  // Derived state: resolve the full session object from the key
+  const selectedSession = useMemo(() => {
+    if (!selectedKey) return null
+    return groupSessions.find(
+      s => s.groupId === selectedKey.groupId && s.scheduledAt === selectedKey.scheduledAt
+    ) ?? null
+  }, [selectedKey, groupSessions])
+
+  const open = useCallback((session: GroupSession) => {
+    setSelectedKey({ groupId: session.groupId, scheduledAt: session.scheduledAt })
     setIsOpen(true)
-  }
+  }, [])
 
-  const close = () => {
+  const close = useCallback(() => {
     setIsOpen(false)
-    setSelectedSession(null)
-  }
-
-  // Sync selectedGroupSession when data refreshes
-  useEffect(() => {
-    if (selectedSession && groupSessions.length > 0) {
-      const updated = groupSessions.find(
-        s => s.groupId === selectedSession.groupId && s.scheduledAt === selectedSession.scheduledAt
-      )
-      if (updated) setSelectedSession(updated)
-    }
-  }, [groupSessions, selectedSession])
+    setSelectedKey(null)
+  }, [])
 
   return { isOpen, selectedSession, open, close }
 }

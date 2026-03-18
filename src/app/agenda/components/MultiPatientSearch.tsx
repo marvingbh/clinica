@@ -1,6 +1,9 @@
 "use client"
 
-import { useRef, useEffect, useCallback, useState } from "react"
+import { useRef, useCallback, useState } from "react"
+import { useDebouncedValue } from "@/shared/hooks"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { LoaderIcon, SearchIcon, XIcon, UserIcon } from "@/shared/components/ui/icons"
 import { Patient } from "../lib/types"
 
@@ -44,12 +47,11 @@ export function MultiPatientSearch({
     }
   }, [])
 
+  const debouncedQuery = useDebouncedValue(query, 300)
+  // Triggers search when debounced query settles (effect must react to value changes)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (query) searchPatients(query)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [query, searchPatients])
+    if (debouncedQuery) searchPatients(debouncedQuery)
+  }, [debouncedQuery, searchPatients])
 
   function handleSelect(patient: Patient) {
     if (selectedIds.has(patient.id)) return

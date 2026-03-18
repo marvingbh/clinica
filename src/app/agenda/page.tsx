@@ -1,8 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo, useCallback } from "react"
-import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
+import { useState, useMemo, useCallback } from "react"
 
 import { canMarkStatus, canResendConfirmation, toDateString } from "./lib/utils"
 import {
@@ -18,14 +16,12 @@ import {
   useCalendarEntryCreate, useGroupSessionSheet, useFabMenu, useBiweeklyHandlers,
 } from "./hooks"
 import { createProfessionalColorMap } from "./lib/professional-colors"
-import { usePermission } from "@/shared/hooks/usePermission"
+import { usePermission, useRequireAuth } from "@/shared/hooks"
 import { useAppointmentDrag } from "./hooks/useAppointmentDrag"
 import { DAILY_GRID_BASE } from "./lib/grid-config"
 
 export default function AgendaPage() {
-  const router = useRouter()
-  const { data: session, status } = useSession()
-  const [isLoading, setIsLoading] = useState(true)
+  const { isReady, session } = useRequireAuth()
 
   const { canRead: canReadOthersAgenda } = usePermission("agenda_others")
   const { canWrite: canWriteAgenda } = usePermission("agenda_own")
@@ -60,7 +56,7 @@ export default function AgendaPage() {
     isAdmin,
     currentProfessionalProfileId,
     currentAppointmentDuration: session?.user?.appointmentDuration,
-    isAuthenticated: status === "authenticated",
+    isAuthenticated: isReady,
   })
 
   // Group session sheet (shared hook)
@@ -233,18 +229,7 @@ export default function AgendaPage() {
   const closeGroupSessionSheet = useCallback(() => setIsGroupSessionSheetOpen(false), [])
   const fabMenu = useFabMenu(openCreateSheet, openEntrySheet, openGroupSessionSheet)
 
-  // Auth effect
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-      return
-    }
-    if (status === "authenticated") {
-      setIsLoading(false)
-    }
-  }, [status, router])
-
-  if (status === "loading" || isLoading) {
+  if (!isReady) {
     return <AgendaPageSkeleton />
   }
 

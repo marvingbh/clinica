@@ -1,6 +1,7 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useState } from "react"
+import { useMountEffect, useHasMounted } from "@/shared/hooks"
 
 type Theme = "light" | "dark"
 
@@ -14,10 +15,9 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("light")
-  const [mounted, setMounted] = useState(false)
+  const mounted = useHasMounted()
 
-  useEffect(() => {
-    setMounted(true)
+  useMountEffect(() => {
     // Check localStorage first, then system preference
     const stored = localStorage.getItem("theme") as Theme | null
     if (stored) {
@@ -28,7 +28,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setThemeState("light")
       document.documentElement.classList.remove("dark")
     }
-  }, [])
+  })
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme)

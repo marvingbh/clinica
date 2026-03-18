@@ -1,6 +1,7 @@
 "use client"
 
-import { Suspense, useState, useEffect } from "react"
+import { Suspense, useState } from "react"
+import { useMountEffect } from "@/shared/hooks"
 import { useSearchParams } from "next/navigation"
 import { XIcon, CheckIcon } from "@/shared/components/ui/icons"
 
@@ -27,15 +28,17 @@ function ConfirmationContent() {
     hasParams ? "" : "Link de confirmacao invalido. Verifique se o link esta completo."
   )
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (!hasParams) {
       return
     }
 
-    async function lookupAppointment() {
+    const controller = new AbortController()
+
+    ;(async () => {
       try {
         const params = new URLSearchParams({ id: id!, action: "confirm", expires: expires!, sig: sig! })
-        const response = await fetch(`/api/public/appointments/lookup?${params}`)
+        const response = await fetch(`/api/public/appointments/lookup?${params}`, { signal: controller.signal })
         const data = await response.json()
 
         if (!response.ok) {
@@ -51,14 +54,15 @@ function ConfirmationContent() {
 
         setAppointment(data.appointment)
         setState("ready")
-      } catch {
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return
         setState("error")
         setErrorMessage("Erro de conexao. Tente novamente.")
       }
-    }
+    })()
 
-    lookupAppointment()
-  }, [hasParams, id, expires, sig])
+    return () => controller.abort()
+  })
 
   async function handleConfirm() {
     if (!hasParams) return

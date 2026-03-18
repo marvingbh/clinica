@@ -1,7 +1,10 @@
 "use client"
 
-import { useEffect, useRef, useCallback, useState } from "react"
+import { useRef, useCallback } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { createPortal } from "react-dom"
+import { useHasMounted } from "@/shared/hooks"
 
 interface BottomSheetProps {
   isOpen: boolean
@@ -21,13 +24,10 @@ export function BottomSheet({
   const sheetRef = useRef<HTMLDivElement>(null)
   const touchStartY = useRef<number | null>(null)
   const touchCurrentY = useRef<number | null>(null)
-  const [mounted, setMounted] = useState(false)
+  const mounted = useHasMounted()
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  // Handle escape key
+  // Handle escape key — effect must remain (depends on `isOpen` and `onClose`)
+   
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
@@ -39,7 +39,8 @@ export function BottomSheet({
     return () => document.removeEventListener("keydown", handleEscape)
   }, [isOpen, onClose])
 
-  // Prevent body scroll when sheet is open
+  // Prevent body scroll when sheet is open — effect must remain (depends on `isOpen`)
+   
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden"

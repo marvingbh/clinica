@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Sheet } from "./Sheet"
 import { UsersIcon, ClockIcon, CheckCircleIcon, XIcon, CheckIcon, PencilIcon } from "@/shared/components/ui/icons"
 import { STATUS_LABELS, STATUS_COLORS, CANCELLED_STATUSES } from "../lib/constants"
@@ -65,6 +65,7 @@ function formatTimeRange(startIso: string, endIso: string): string {
   return `${start} - ${end}`
 }
 
+// Parent must use key={session?.id} to reset this component
 export function GroupSessionSheet({
   isOpen,
   onClose,
@@ -75,32 +76,27 @@ export function GroupSessionSheet({
 }: GroupSessionSheetProps) {
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [isBulkUpdating, setIsBulkUpdating] = useState(false)
-  const [sessionProfIds, setSessionProfIds] = useState<string[]>([])
+  const [sessionProfIds, setSessionProfIds] = useState<string[]>(
+    () => session?.additionalProfessionals?.map(ap => ap.professionalProfileId) || []
+  )
   const [isSavingProfs, setIsSavingProfs] = useState(false)
   const [isEditingProfs, setIsEditingProfs] = useState(false)
   const [cancelContext, setCancelContext] = useState<CancelContext | null>(null)
   const [isEditingDateTime, setIsEditingDateTime] = useState(false)
-  const [editDate, setEditDate] = useState("")
-  const [editTime, setEditTime] = useState("")
+  const [editDate, setEditDate] = useState(() => {
+    if (!session) return ""
+    const d = new Date(session.scheduledAt)
+    const dd = String(d.getDate()).padStart(2, "0")
+    const mm = String(d.getMonth() + 1).padStart(2, "0")
+    const yyyy = d.getFullYear()
+    return `${dd}/${mm}/${yyyy}`
+  })
+  const [editTime, setEditTime] = useState(() => {
+    if (!session) return ""
+    const d = new Date(session.scheduledAt)
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+  })
   const [isSavingDateTime, setIsSavingDateTime] = useState(false)
-
-  // Initialize session professional IDs and edit values when session changes
-  useEffect(() => {
-    if (session) {
-      setSessionProfIds(
-        session.additionalProfessionals?.map(ap => ap.professionalProfileId) || []
-      )
-      setIsEditingProfs(false)
-      setIsEditingDateTime(false)
-      // Initialize date/time edit values
-      const d = new Date(session.scheduledAt)
-      const dd = String(d.getDate()).padStart(2, "0")
-      const mm = String(d.getMonth() + 1).padStart(2, "0")
-      const yyyy = d.getFullYear()
-      setEditDate(`${dd}/${mm}/${yyyy}`)
-      setEditTime(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`)
-    }
-  }, [session])
 
   if (!session) return null
 

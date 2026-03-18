@@ -1,4 +1,6 @@
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useRef } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { useForm, UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
@@ -84,11 +86,8 @@ export function useAppointmentEdit({
     [form]
   )
 
-  // Re-sync form values after the Sheet mounts its content.
-  // The Sheet component uses createPortal + a `mounted` state that requires
-  // 2 render cycles before inputs are in the DOM. form.reset() above sets
-  // RHF's internal values, but the DOM inputs may not exist yet, so values
-  // can be lost. This effect re-applies the reset after mount.
+  // Portal workaround: re-syncs form after Sheet portal mounts (depends on isEditSheetOpen)
+   
   useEffect(() => {
     if (isEditSheetOpen && selectedAppointment) {
       const values = computeFormValues(selectedAppointment)

@@ -1,11 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { BottomSheet } from "@/shared/components/ui"
-import { usePermission } from "@/shared/hooks/usePermission"
+import { useRequireAuth } from "@/shared/hooks"
+
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 
 interface TemplateVariable {
   key: string
@@ -39,8 +41,7 @@ const CHANNEL_LABELS: Record<string, string> = {
 
 export default function NotificationTemplatesPage() {
   const router = useRouter()
-  const { data: session, status } = useSession()
-  const { canRead } = usePermission("notifications")
+  const { isReady, status } = useRequireAuth({ feature: "notifications", minAccess: "READ" })
   const [isLoading, setIsLoading] = useState(true)
   const [templates, setTemplates] = useState<Template[]>([])
   const [variables, setVariables] = useState<TemplateVariable[]>([])
@@ -80,21 +81,13 @@ export default function NotificationTemplatesPage() {
     }
   }, [router])
 
+  // Data fetch: depends on auth readiness — must remain an effect
+   
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-      return
-    }
-
-    if (status === "authenticated") {
-      if (!canRead) {
-        toast.error("Sem permissao para acessar esta pagina")
-        router.push("/")
-        return
-      }
+    if (isReady) {
       fetchTemplates()
     }
-  }, [status, canRead, router, fetchTemplates])
+  }, [isReady, fetchTemplates])
 
   function openEditSheet(template: Template) {
     setSelectedTemplate(template)

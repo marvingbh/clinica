@@ -1,9 +1,12 @@
 "use client"
 
-import { Suspense, useCallback, useEffect, useState } from "react"
+import { Suspense, useCallback, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { toast } from "sonner"
+import { useMountEffect, useRequireAuth } from "@/shared/hooks"
+
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 
 interface PlanInfo {
   id: string
@@ -60,21 +63,21 @@ function formatDate(dateString: string): string {
 function BillingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { status: sessionStatus } = useSession()
+  const { isReady, status: sessionStatus } = useRequireAuth()
   const [billing, setBilling] = useState<BillingStatus | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
 
-  // Show toast from query params
-  useEffect(() => {
+  // Show toast from query params (one-time on mount)
+  useMountEffect(() => {
     if (searchParams.get("success") === "true") {
       toast.success("Assinatura realizada com sucesso!")
     }
     if (searchParams.get("canceled") === "true") {
       toast.info("Checkout cancelado.")
     }
-  }, [searchParams])
+  })
 
   const fetchBilling = useCallback(async () => {
     try {
@@ -95,15 +98,13 @@ function BillingContent() {
     }
   }, [router])
 
+  // Data fetch: depends on auth readiness — must remain an effect
+   
   useEffect(() => {
-    if (sessionStatus === "unauthenticated") {
-      router.push("/login")
-      return
-    }
-    if (sessionStatus === "authenticated") {
+    if (isReady) {
       fetchBilling()
     }
-  }, [sessionStatus, router, fetchBilling])
+  }, [isReady, fetchBilling])
 
   async function handleCheckout(planId: string) {
     setCheckoutLoading(planId)

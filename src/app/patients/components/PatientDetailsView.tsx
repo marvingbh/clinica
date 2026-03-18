@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { HistoryTimeline } from "@/shared/components/HistoryTimeline"
 import { Patient, formatPhone, formatDate, formatCurrency } from "./types"
 import { AppointmentHistorySection } from "./AppointmentHistorySection"
@@ -308,6 +310,7 @@ function PatientFinanceTab({ patient, billingMode = "PER_SESSION" }: { patient: 
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(true)
   const [isLoadingCredits, setIsLoadingCredits] = useState(true)
 
+   
   useEffect(() => {
     let cancelled = false
 

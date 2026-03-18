@@ -1,9 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
+import { useMountEffect } from "@/shared/hooks"
 import { nfseConfigSchema, type NfseConfigFormData } from "@/lib/nfse"
 import NfseConfigSummary, { type NfseConfigSummaryData } from "./NfseConfigSummary"
 import NfseConfigFields from "./NfseConfigFields"
@@ -45,9 +46,9 @@ export default function NfseConfigForm() {
     }
   }, [])
 
-  useEffect(() => {
+  useMountEffect(() => {
     fetchConfig()
-  }, [fetchConfig])
+  })
 
   function startEditing() {
     if (config) {

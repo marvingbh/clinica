@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Appointment, RecurrenceType, RecurrenceEndType, Modality, Professional } from "../lib/types"
 import { RECURRENCE_TYPE_LABELS, MAX_RECURRENCE_OCCURRENCES } from "../lib/constants"
 import { TimeInput } from "./TimeInput"
@@ -19,21 +19,36 @@ interface RecurrenceTabContentProps {
 const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"]
 const FULL_DAY_NAMES = ["domingo", "segunda-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sabado"]
 
+// Parent must use key={appointment?.recurrence?.id} to reset this component
 export function RecurrenceTabContent({ appointment, onSave, onClose, professionals }: RecurrenceTabContentProps) {
-  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("WEEKLY")
-  const [originalRecurrenceType, setOriginalRecurrenceType] = useState<RecurrenceType>("WEEKLY")
-  const [startTime, setStartTime] = useState("")
-  const [duration, setDuration] = useState(50)
-  const [modality, setModality] = useState<Modality>("PRESENCIAL")
-  const [recurrenceEndType, setRecurrenceEndType] = useState<RecurrenceEndType>("BY_OCCURRENCES")
-  const [endDate, setEndDate] = useState("")
-  const [occurrences, setOccurrences] = useState(10)
-  const [dayOfWeek, setDayOfWeek] = useState<number>(0)
-  const [originalDayOfWeek, setOriginalDayOfWeek] = useState<number>(0)
+  const recurrence = appointment?.recurrence
+
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(
+    recurrence?.recurrenceType ?? "WEEKLY"
+  )
+  const [originalRecurrenceType] = useState<RecurrenceType>(
+    recurrence?.recurrenceType ?? "WEEKLY"
+  )
+  const [startTime, setStartTime] = useState(recurrence?.startTime ?? "")
+  const [duration, setDuration] = useState(recurrence?.duration ?? 50)
+  const [modality, setModality] = useState<Modality>(
+    (appointment?.modality as Modality) ?? "PRESENCIAL"
+  )
+  const [recurrenceEndType, setRecurrenceEndType] = useState<RecurrenceEndType>(
+    recurrence?.recurrenceEndType ?? "BY_OCCURRENCES"
+  )
+  const [endDate, setEndDate] = useState(
+    recurrence?.endDate ? toDisplayDateFromDate(new Date(recurrence.endDate)) : ""
+  )
+  const [occurrences, setOccurrences] = useState(recurrence?.occurrences || 10)
+  const [dayOfWeek, setDayOfWeek] = useState<number>(recurrence?.dayOfWeek ?? 0)
+  const [originalDayOfWeek] = useState<number>(recurrence?.dayOfWeek ?? 0)
   const [applyToFuture, setApplyToFuture] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
-  const [additionalProfIds, setAdditionalProfIds] = useState<string[]>([])
+  const [additionalProfIds, setAdditionalProfIds] = useState<string[]>(
+    appointment?.additionalProfessionals?.map(ap => ap.professionalProfile.id) || []
+  )
 
   // Finalize dialog state
   const [isFinalizeDialogOpen, setIsFinalizeDialogOpen] = useState(false)
@@ -44,38 +59,6 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
   const [isSwapDialogOpen, setIsSwapDialogOpen] = useState(false)
   const [swapScope, setSwapScope] = useState<"future" | "all">("future")
   const [isSwapping, setIsSwapping] = useState(false)
-
-  // Initialize form when appointment changes
-  useEffect(() => {
-    if (appointment?.recurrence) {
-      const recurrence = appointment.recurrence
-      setRecurrenceType(recurrence.recurrenceType)
-      setOriginalRecurrenceType(recurrence.recurrenceType)
-      setRecurrenceEndType(recurrence.recurrenceEndType)
-      setModality(appointment.modality as Modality)
-      setAdditionalProfIds(
-        appointment.additionalProfessionals?.map(ap => ap.professionalProfile.id) || []
-      )
-      setApplyToFuture(true)
-
-      // Use recurrence's own startTime/duration, NOT the individual appointment's times
-      setStartTime(recurrence.startTime)
-      setDuration(recurrence.duration)
-
-      if (recurrence.endDate) {
-        const date = new Date(recurrence.endDate)
-        setEndDate(toDisplayDateFromDate(date))
-      } else {
-        setEndDate("")
-      }
-      setOccurrences(recurrence.occurrences || 10)
-
-      // Initialize day of week from recurrence record
-      const day = recurrence.dayOfWeek
-      setDayOfWeek(day)
-      setOriginalDayOfWeek(day)
-    }
-  }, [appointment])
 
   async function handleSave() {
     if (!appointment?.recurrence) return

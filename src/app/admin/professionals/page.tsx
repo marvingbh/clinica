@@ -1,14 +1,16 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
-import { usePermission } from "@/shared/hooks/usePermission"
+import { useRequireAuth, useHasMounted } from "@/shared/hooks"
+
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 
 const professionalSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100),
@@ -43,10 +45,9 @@ interface Professional {
 
 export default function AdminProfessionalsPage() {
   const router = useRouter()
-  const { data: session, status } = useSession()
-  const { canRead } = usePermission("professionals")
+  const { isReady, status } = useRequireAuth({ feature: "professionals", minAccess: "READ" })
   const [isLoading, setIsLoading] = useState(true)
-  const [isMounted, setIsMounted] = useState(false)
+  const isMounted = useHasMounted()
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [search, setSearch] = useState("")
   const [filterActive, setFilterActive] = useState<string>("all")
@@ -90,25 +91,13 @@ export default function AdminProfessionalsPage() {
     }
   }, [search, filterActive, router])
 
+  // Data fetch: depends on auth readiness — must remain an effect
+   
   useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-      return
-    }
-
-    if (status === "authenticated") {
-      if (!canRead) {
-        toast.error("Sem permissao para acessar esta pagina")
-        router.push("/")
-        return
-      }
+    if (isReady) {
       fetchProfessionals()
     }
-  }, [status, canRead, router, fetchProfessionals])
+  }, [isReady, fetchProfessionals])
 
   function openCreateSheet() {
     setEditingProfessional(null)

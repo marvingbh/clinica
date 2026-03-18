@@ -1,6 +1,8 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { createPortal } from "react-dom"
 import { formatCurrencyBRL } from "@/lib/financeiro/format"
 import { AlertTriangleIcon } from "@/shared/components/ui/icons"
@@ -63,6 +65,7 @@ export default function NfseEmissionDialog({
   const [descricao, setDescricao] = useState("")
   const [loadingDescricao, setLoadingDescricao] = useState(true)
 
+   
   useEffect(() => {
     fetch(`/api/financeiro/faturas/${invoiceId}/nfse/preview`)
       .then(res => res.json())

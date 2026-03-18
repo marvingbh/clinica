@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useCallback } from "react"
+import { useMountEffect } from "@/shared/hooks"
 import { toast } from "sonner"
 import {
   Loader2Icon,
@@ -61,10 +62,10 @@ export default function ConciliacaoPage() {
     }
   }, [showReconciled])
 
-  useEffect(() => {
+  useMountEffect(() => {
     fetchIntegration()
     fetchTransactions()
-  }, [fetchIntegration, fetchTransactions])
+  })
 
   const handleTestConnection = async () => {
     setConnStatus("testing")

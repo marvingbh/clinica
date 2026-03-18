@@ -1,6 +1,8 @@
 "use client"
 
-import React, { useCallback, useEffect, useRef, useState } from "react"
+import React, { useCallback, useRef, useState } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { DayPicker } from "react-day-picker"
 import { ptBR } from "react-day-picker/locale"
 import "react-day-picker/style.css"
@@ -85,7 +87,7 @@ const DateInput = React.forwardRef<
     setOpen(false)
   }
 
-  // Close on outside click
+  // Close on outside click (must re-run when `open` changes)
   useEffect(() => {
     if (!open) return
     function handleClick(e: MouseEvent) {

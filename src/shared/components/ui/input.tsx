@@ -1,6 +1,6 @@
 "use client"
 
-import { forwardRef, useState, useId, useRef, useCallback, useEffect } from "react"
+import { forwardRef, useState, useId, useRef, useCallback } from "react"
 
 type InputVariant = "default" | "floating"
 type InputSize = "sm" | "md" | "lg"
@@ -64,26 +64,18 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       Boolean(value || defaultValue || placeholder)
     )
 
+    // Derive hasValue from controlled `value` prop (handles react-hook-form reset())
+    const derivedHasValue = value !== undefined ? Boolean(value) : hasValue
+
     const setRefs = useCallback((node: HTMLInputElement | null) => {
       internalRef.current = node
       if (typeof ref === "function") ref(node)
       else if (ref) (ref as React.MutableRefObject<HTMLInputElement | null>).current = node
     }, [ref])
 
-    // Sync hasValue with actual DOM value (handles react-hook-form reset() which sets values via ref)
-    useEffect(() => {
-      const node = internalRef.current
-      if (node) {
-        const hasActualValue = Boolean(node.value)
-        if (hasActualValue !== hasValue) {
-          setHasValue(hasActualValue)
-        }
-      }
-    })
-
     const sizes = sizeClasses[inputSize]
     const isFloating = variant === "floating"
-    const shouldFloat = isFocused || hasValue || placeholder
+    const shouldFloat = isFocused || derivedHasValue || placeholder
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
       setIsFocused(true)

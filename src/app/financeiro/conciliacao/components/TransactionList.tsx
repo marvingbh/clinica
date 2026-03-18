@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { toast } from "sonner"
 import { CheckIcon, Loader2Icon, EyeIcon, EyeOffIcon } from "lucide-react"
@@ -70,6 +72,7 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
     }
   }, [showDismissed])
 
+   
   useEffect(() => {
     if (showDismissed) {
       fetchDismissed()

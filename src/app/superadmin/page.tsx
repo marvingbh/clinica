@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
+import { useMountEffect } from "@/shared/hooks"
 import { Building2, Users, CreditCard, AlertTriangle, Clock, DollarSign } from "lucide-react"
 import { formatCurrency } from "@/app/superadmin/components/StatusBadge"
 
@@ -25,15 +26,22 @@ export default function SuperAdminDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [error, setError] = useState("")
 
-  useEffect(() => {
-    fetch("/api/superadmin/dashboard")
+  useMountEffect(() => {
+    const controller = new AbortController()
+
+    fetch("/api/superadmin/dashboard", { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error("Erro ao carregar dashboard")
         return res.json()
       })
       .then(setData)
-      .catch((err) => setError(err.message))
-  }, [])
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return
+        setError(err.message)
+      })
+
+    return () => controller.abort()
+  })
 
   if (error) {
     return (
