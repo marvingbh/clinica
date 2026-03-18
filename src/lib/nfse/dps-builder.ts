@@ -47,13 +47,15 @@ function buildIdAttribute(
 }
 
 function formatBrazilIso8601(date: Date): string {
+  // Always emit in BRT (UTC-3) regardless of server timezone
+  const brt = new Date(date.getTime() - 3 * 60 * 60 * 1000)
   const pad = (n: number) => String(n).padStart(2, "0")
-  const year = date.getFullYear()
-  const month = pad(date.getMonth() + 1)
-  const day = pad(date.getDate())
-  const hours = pad(date.getHours())
-  const minutes = pad(date.getMinutes())
-  const seconds = pad(date.getSeconds())
+  const year = brt.getUTCFullYear()
+  const month = pad(brt.getUTCMonth() + 1)
+  const day = pad(brt.getUTCDate())
+  const hours = pad(brt.getUTCHours())
+  const minutes = pad(brt.getUTCMinutes())
+  const seconds = pad(brt.getUTCSeconds())
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-03:00`
 }
 
