@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
+import { useMountEffect } from "@/shared/hooks"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { LayoutDashboard, Building2, CreditCard, LogOut } from "lucide-react"
@@ -25,13 +26,15 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
   const isLoginPage = pathname === "/superadmin/login"
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (isLoginPage) {
       setLoading(false)
       return
     }
 
-    fetch("/api/superadmin/me")
+    const controller = new AbortController()
+
+    fetch("/api/superadmin/me", { signal: controller.signal })
       .then((res) => {
         if (!res.ok) {
           router.replace("/superadmin/login")
@@ -44,13 +47,16 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
           setAdmin(data.admin)
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return
         router.replace("/superadmin/login")
       })
       .finally(() => {
         setLoading(false)
       })
-  }, [isLoginPage, router])
+
+    return () => controller.abort()
+  })
 
   if (isLoginPage) {
     return (

@@ -1,12 +1,15 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
+import { useRequireAuth } from "@/shared/hooks"
+
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 
 const profileSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100),
@@ -46,7 +49,7 @@ interface UserProfile {
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { status } = useSession()
+  const { isReady, status } = useRequireAuth()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [user, setUser] = useState<UserProfile | null>(null)
@@ -80,16 +83,13 @@ export default function ProfilePage() {
     }
   }, [reset])
 
+  // Data fetch: depends on auth readiness — must remain an effect
+   
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-      return
-    }
-
-    if (status === "authenticated") {
+    if (isReady) {
       fetchProfile()
     }
-  }, [status, router, fetchProfile])
+  }, [isReady, fetchProfile])
 
   async function onSubmit(data: ProfileFormData) {
     setIsSaving(true)

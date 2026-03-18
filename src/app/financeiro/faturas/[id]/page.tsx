@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useEffect, useState, useCallback } from "react"
+import React, { useState, useCallback } from "react"
+import { useMountEffect } from "@/shared/hooks"
 import { useParams, useRouter } from "next/navigation"
 import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
 import { toast } from "sonner"
@@ -36,9 +37,9 @@ export default function InvoiceDetailPage() {
     }
   }, [params.id])
 
-  useEffect(() => {
+  useMountEffect(() => {
     fetchInvoice().finally(() => setLoading(false))
-  }, [fetchInvoice])
+  })
 
   async function handleStatusChange(newStatus: string) {
     if (!invoice || newStatus === invoice.status) return

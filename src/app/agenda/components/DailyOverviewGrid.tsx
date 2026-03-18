@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useCallback, useState, useEffect } from "react"
+import { useMemo, useCallback, useState } from "react"
+import { useMountEffect } from "@/shared/hooks"
 import { useDroppable } from "@dnd-kit/core"
 import { UsersIcon, PlusIcon, BanIcon } from "@/shared/components/ui/icons"
 import { ArrowLeftRightIcon } from "@/shared/components/ui/icons"
@@ -194,10 +195,10 @@ export function DailyOverviewGrid({
 
   // "Now" indicator — update every minute
   const [now, setNow] = useState(new Date())
-  useEffect(() => {
+  useMountEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(interval)
-  }, [])
+  })
 
   const isToday = selectedDate === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
   const nowMinutes = now.getHours() * 60 + now.getMinutes()

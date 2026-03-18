@@ -1,9 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -16,7 +15,7 @@ import {
   SearchIcon,
 } from "@/shared/components/ui"
 import { ProfessionalCard, ProfessionalGridSkeleton } from "./components"
-import { usePermission } from "@/shared/hooks/usePermission"
+import { usePermission, useRequireAuth, useHasMounted, useMountEffect } from "@/shared/hooks"
 
 const professionalSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100),
@@ -68,9 +67,9 @@ interface Professional {
 
 export default function ProfessionalsPage() {
   const router = useRouter()
-  const { data: session, status } = useSession()
+  const { isReady } = useRequireAuth({ feature: "professionals", minAccess: "READ" })
+  const hasMounted = useHasMounted()
   const [isLoading, setIsLoading] = useState(true)
-  const [isMounted, setIsMounted] = useState(false)
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [search, setSearch] = useState("")
   const [filterActive, setFilterActive] = useState<string>("all")
@@ -136,25 +135,9 @@ export default function ProfessionalsPage() {
     }
   }, [])
 
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-      return
-    }
-
-    if (status === "authenticated") {
-      if (!canRead) {
-        toast.error("Sem permissao para acessar esta pagina")
-        router.push("/")
-        return
-      }
-      fetchProfessionals()
-    }
-  }, [status, canRead, router, fetchProfessionals])
+  useMountEffect(() => {
+    fetchProfessionals()
+  })
 
   function openCreateSheet() {
     setEditingProfessional(null)
@@ -297,7 +280,7 @@ export default function ProfessionalsPage() {
     }
   }
 
-  if (status === "loading" || isLoading) {
+  if (!isReady || isLoading) {
     return (
       <main className="min-h-screen bg-background pb-20">
         {/* Header Skeleton */}
@@ -394,7 +377,7 @@ export default function ProfessionalsPage() {
       </div>
 
       {/* Bottom Sheet */}
-      {isSheetOpen && isMounted && createPortal(
+      {isSheetOpen && hasMounted && createPortal(
         <>
           {/* Backdrop */}
           <div

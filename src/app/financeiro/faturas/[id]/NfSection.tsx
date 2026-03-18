@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef } from "react"
+import { useMountEffect } from "@/shared/hooks"
 import { toast } from "sonner"
 import type { InvoiceDetail } from "./types"
 import NfseSection from "./NfseSection"
@@ -21,7 +22,7 @@ interface NfseConfigSummary {
 export default function NfSection({ invoice, onRefresh }: NfSectionProps) {
   const [nfseConfig, setNfseConfig] = useState<NfseConfigSummary | null | undefined>(undefined)
 
-  useEffect(() => {
+  useMountEffect(() => {
     fetch("/api/admin/settings/nfse")
       .then((res) => res.json())
       .then((data) => {
@@ -38,7 +39,7 @@ export default function NfSection({ invoice, onRefresh }: NfSectionProps) {
         }
       })
       .catch(() => setNfseConfig(null))
-  }, [])
+  })
 
   // Loading state
   if (nfseConfig === undefined) {

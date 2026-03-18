@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useMountEffect } from "@/shared/hooks"
 
 export interface DashboardData {
   todayCount: number
@@ -22,7 +23,7 @@ export function useDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  useMountEffect(() => {
     let cancelled = false
 
     async function fetchDashboard() {
@@ -50,7 +51,7 @@ export function useDashboard() {
       cancelled = true
       clearInterval(interval)
     }
-  }, [])
+  })
 
   return { data, isLoading, error }
 }

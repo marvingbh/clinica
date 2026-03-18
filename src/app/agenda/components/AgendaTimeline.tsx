@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useMountEffect } from "@/shared/hooks"
 import { SwipeContainer, EmptyState, ClockIcon, BanIcon } from "@/shared/components/ui"
 import type { BirthdayPatient } from "../services/appointmentService"
 import { DailyOverviewGrid } from "./DailyOverviewGrid"
@@ -60,10 +61,10 @@ export function AgendaTimeline({
 }: AgendaTimelineProps) {
   // "Now" indicator — update every minute (must be before any early returns)
   const [now, setNow] = useState(new Date())
-  useEffect(() => {
+  useMountEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(interval)
-  }, [])
+  })
 
   // Show skeleton while loading data
   if (isLoading) {

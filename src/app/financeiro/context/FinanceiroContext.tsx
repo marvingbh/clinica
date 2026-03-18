@@ -13,7 +13,7 @@ const FinanceiroContext = createContext<FinanceiroContextValue | null>(null)
 
 export function FinanceiroProvider({ children }: { children: ReactNode }) {
   const [year, setYearState] = useState(() => new Date().getFullYear())
-  const [month, setMonthState] = useState<number | null>(null)
+  const [month, setMonthState] = useState<number | null>(() => new Date().getMonth() + 1)
 
   const setYear = useCallback((y: number) => setYearState(y), [])
   const setMonth = useCallback((m: number | null) => setMonthState(m), [])

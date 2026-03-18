@@ -1,6 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { DayPicker } from "react-day-picker"
 import { ptBR } from "react-day-picker/locale"
 import "react-day-picker/style.css"
@@ -45,7 +47,8 @@ export function DatePickerInput({
   const containerRef = useRef<HTMLDivElement>(null)
   const selected = parseBrDate(value)
 
-  // Close on outside click
+  // Close on outside click — effect must remain (depends on `open`)
+   
   useEffect(() => {
     if (!open) return
     function handleClick(e: MouseEvent) {

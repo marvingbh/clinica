@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { toDateString } from "../lib/utils"
@@ -54,10 +56,6 @@ export function useAgendaData({
   const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([])
   const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([])
   const [professionals, setProfessionals] = useState<Professional[]>([])
-  // Use session's appointmentDuration for non-admins, default for admins (will be updated when selecting professional)
-  const [appointmentDuration, setAppointmentDuration] = useState(
-    currentAppointmentDuration || DEFAULT_APPOINTMENT_DURATION
-  )
   const [isLoadingData, setIsLoadingData] = useState(false)
 
   // Compute the active professional profile ID
@@ -67,7 +65,8 @@ export function useAgendaData({
       : currentProfessionalProfileId
   }, [isAdmin, selectedProfessionalId, currentProfessionalProfileId])
 
-  // Fetch professionals for admin
+  // Fetch professionals for admin: re-fetches when auth/admin status changes
+   
   useEffect(() => {
     if (!isAdmin || !isAuthenticated) return
 
@@ -108,7 +107,8 @@ export function useAgendaData({
     }
   }, [selectedDate, activeProfessionalProfileId, isAdmin, selectedProfessionalId, router])
 
-  // Main data fetching effect with AbortController
+  // Main data fetching effect with AbortController: re-fetches when date/professional/auth changes
+   
   useEffect(() => {
     if (!isAuthenticated || (!activeProfessionalProfileId && !isAdmin)) {
       return
@@ -165,24 +165,16 @@ export function useAgendaData({
     }
   }, [isAuthenticated, selectedDate, activeProfessionalProfileId, isAdmin, selectedProfessionalId, router])
 
-  // Update appointment duration from session for non-admins
-  useEffect(() => {
-    if (!isAdmin && currentAppointmentDuration) {
-      setAppointmentDuration(currentAppointmentDuration)
-    }
-  }, [isAdmin, currentAppointmentDuration])
-
-  // Update appointment duration when professionals data is available (for admins)
-  useEffect(() => {
-    if (isAdmin && professionals.length > 0 && activeProfessionalProfileId) {
+  // Derived state: appointment duration based on role and selected professional
+  const appointmentDuration = useMemo(() => {
+    if (isAdmin && activeProfessionalProfileId) {
       const prof = professionals.find(
         (p) => p.professionalProfile?.id === activeProfessionalProfileId
       )
-      if (prof?.professionalProfile?.appointmentDuration) {
-        setAppointmentDuration(prof.professionalProfile.appointmentDuration)
-      }
+      return prof?.professionalProfile?.appointmentDuration ?? DEFAULT_APPOINTMENT_DURATION
     }
-  }, [isAdmin, professionals, activeProfessionalProfileId])
+    return currentAppointmentDuration ?? DEFAULT_APPOINTMENT_DURATION
+  }, [isAdmin, activeProfessionalProfileId, professionals, currentAppointmentDuration])
 
   return {
     appointments,

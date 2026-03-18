@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useState } from "react"
+import { useMountEffect } from "@/shared/hooks"
 import { useParams, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { formatCurrencyBRL, getMonthName } from "@/lib/financeiro/format"
@@ -16,19 +17,21 @@ export default function RepasseDetailPage() {
   const [data, setData] = useState<RepasseDetailData | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchData = useCallback(async () => {
+  useMountEffect(() => {
     if (!year || !month) return
-    const res = await fetch(
-      `/api/financeiro/repasse/${professionalId}?year=${year}&month=${month}`
-    )
-    if (res.ok) {
-      setData(await res.json())
-    }
-  }, [professionalId, year, month])
-
-  useEffect(() => {
-    fetchData().finally(() => setLoading(false))
-  }, [fetchData])
+    ;(async () => {
+      try {
+        const res = await fetch(
+          `/api/financeiro/repasse/${professionalId}?year=${year}&month=${month}`
+        )
+        if (res.ok) {
+          setData(await res.json())
+        }
+      } finally {
+        setLoading(false)
+      }
+    })()
+  })
 
   if (!year || !month) {
     return <div className="text-destructive">Parâmetros de ano/mês ausentes</div>

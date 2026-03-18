@@ -1,10 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { toast } from "sonner"
+import { useRequireAuth, useHasMounted, useMountEffect } from "@/shared/hooks"
 
 // Date utilities for Brazilian format
 function toDisplayDate(isoDate: string): string {
@@ -92,9 +92,9 @@ const ACTION_COLORS: Record<string, string> = {
 
 export default function AdminAuditPage() {
   const router = useRouter()
-  const { data: session, status } = useSession()
+  const { isReady, session } = useRequireAuth()
+  const hasMounted = useHasMounted()
   const [isLoading, setIsLoading] = useState(true)
-  const [isMounted, setIsMounted] = useState(false)
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
 
@@ -144,25 +144,14 @@ export default function AdminAuditPage() {
     }
   }, [filterAction, filterEntityType, filterStartDate, filterEndDate, page, router])
 
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
+  useMountEffect(() => {
+    if (session?.user?.role !== "ADMIN") {
+      toast.error("Acesso restrito a administradores")
+      router.push("/")
       return
     }
-
-    if (status === "authenticated") {
-      if (session?.user?.role !== "ADMIN") {
-        toast.error("Acesso restrito a administradores")
-        router.push("/")
-        return
-      }
-      fetchAuditLogs()
-    }
-  }, [status, session, router, fetchAuditLogs])
+    fetchAuditLogs()
+  })
 
   function formatDate(dateString: string): string {
     return new Date(dateString).toLocaleString("pt-BR", {
@@ -194,7 +183,7 @@ export default function AdminAuditPage() {
     setPage(1)
   }
 
-  if (status === "loading" || isLoading) {
+  if (!isReady || isLoading) {
     return (
       <main className="min-h-screen bg-background">
         <div className="max-w-6xl mx-auto px-4 py-8">
@@ -414,7 +403,7 @@ export default function AdminAuditPage() {
       </div>
 
       {/* Details Sheet */}
-      {selectedLog && isMounted && createPortal(
+      {selectedLog && hasMounted && createPortal(
         <>
           {/* Backdrop */}
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setSelectedLog(null)} />

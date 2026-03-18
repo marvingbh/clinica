@@ -1,12 +1,15 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { PatientSearchFilters } from "@/shared/components/PatientSearchFilters"
 import { SkeletonPage, ChevronLeftIcon, ChevronRightIcon } from "@/shared/components/ui"
 import { getFeeLabelShort } from "@/lib/financeiro/billing-labels"
+import { useRequireAuth, useDebouncedValue } from "@/shared/hooks"
+
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 
 interface Professional {
   id: string
@@ -35,7 +38,7 @@ const ITEMS_PER_PAGE = 50
 
 export default function PrecosPage() {
   const router = useRouter()
-  const { status } = useSession()
+  const { isReady, status } = useRequireAuth()
   const [isLoading, setIsLoading] = useState(true)
   const [patients, setPatients] = useState<Patient[]>([])
   const [pagination, setPagination] = useState<Pagination>({
@@ -45,22 +48,13 @@ export default function PrecosPage() {
     totalPages: 0,
   })
   const [search, setSearch] = useState("")
-  const [searchDebounced, setSearchDebounced] = useState("")
+  const searchDebounced = useDebouncedValue(search, 300)
   const [filterActive, setFilterActive] = useState<string>("true")
   const [filterProfessional, setFilterProfessional] = useState<string>("")
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [dirtyRows, setDirtyRows] = useState<Map<string, number | null>>(new Map())
   const [isSaving, setIsSaving] = useState(false)
   const [billingMode, setBillingMode] = useState<string>("PER_SESSION")
-
-  // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearchDebounced(search)
-      setPagination((prev) => ({ ...prev, page: 1 }))
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [search])
 
   const fetchPatients = useCallback(async () => {
     try {
@@ -101,12 +95,16 @@ export default function PrecosPage() {
     }
   }, [])
 
+  // Reset pagination when debounced search changes
+   
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-      return
-    }
-    if (status === "authenticated") {
+    setPagination((prev) => ({ ...prev, page: 1 }))
+  }, [searchDebounced])
+
+  // Data fetch: depends on auth readiness and filters — must remain an effect
+   
+  useEffect(() => {
+    if (isReady) {
       fetchPatients()
       fetchProfessionals()
       fetch("/api/admin/settings")
@@ -114,7 +112,7 @@ export default function PrecosPage() {
         .then(data => { if (data?.settings?.billingMode) setBillingMode(data.settings.billingMode) })
         .catch(() => {})
     }
-  }, [status, router, fetchPatients, fetchProfessionals])
+  }, [isReady, fetchPatients, fetchProfessionals])
 
   function handlePriceChange(patientId: string, value: string) {
     const patient = patients.find((p) => p.id === patientId)

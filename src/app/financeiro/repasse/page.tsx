@@ -1,6 +1,8 @@
 "use client"
 
-import React, { useEffect, useState, useCallback } from "react"
+import React, { useState } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import Link from "next/link"
 import { formatCurrencyBRL } from "@/lib/financeiro/format"
 import { EyeIcon } from "@/shared/components/ui/icons"
@@ -31,7 +33,8 @@ export default function RepassePage() {
   const [data, setData] = useState<RepasseResponse | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const fetchRepasse = useCallback(() => {
+  // Re-fetches when year/month filter changes.
+  useEffect(() => {
     if (month === null) return
     setLoading(true)
     const params = new URLSearchParams({ year: String(year), month: String(month) })
@@ -40,8 +43,6 @@ export default function RepassePage() {
       .then(setData)
       .finally(() => setLoading(false))
   }, [year, month])
-
-  useEffect(() => { fetchRepasse() }, [fetchRepasse])
 
   if (month === null) {
     return (

@@ -1,11 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { toast } from "sonner"
-import { usePermission } from "@/shared/hooks/usePermission"
+import { useRequireAuth } from "@/shared/hooks"
 import { SearchIcon } from "@/shared/components/ui/icons"
+
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 
 // Types matching the API response
 interface PermissionUser {
@@ -38,28 +40,12 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function AdminPermissionsPage() {
   const router = useRouter()
-  const { status } = useSession()
-  const { canWrite } = usePermission("users")
+  const { isReady, status } = useRequireAuth({ feature: "users", minAccess: "WRITE" })
 
   const [data, setData] = useState<PermissionsData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [savingCells, setSavingCells] = useState<Set<string>>(new Set())
-
-  // Access gate: redirect if user doesn't have users:WRITE
-  useEffect(() => {
-    if (status === "authenticated" && !canWrite) {
-      toast.error("Sem permissao para acessar esta pagina")
-      router.push("/")
-    }
-  }, [canWrite, status, router])
-
-  // Redirect unauthenticated users
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-    }
-  }, [status, router])
 
   const fetchPermissions = useCallback(async () => {
     setIsLoading(true)
@@ -82,11 +68,13 @@ export default function AdminPermissionsPage() {
     }
   }, [router])
 
+  // Data fetch: depends on auth readiness — must remain an effect
+   
   useEffect(() => {
-    if (status === "authenticated" && canWrite) {
+    if (isReady) {
       fetchPermissions()
     }
-  }, [status, canWrite, fetchPermissions])
+  }, [isReady, fetchPermissions])
 
   // Filter users by search term
   const filteredUsers = useMemo(() => {

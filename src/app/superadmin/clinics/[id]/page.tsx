@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useState, useCallback } from "react"
+import { useMountEffect } from "@/shared/hooks"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Users, Calendar, Pencil, X } from "lucide-react"
@@ -96,10 +97,10 @@ export default function SuperAdminClinicDetailPage() {
     }
   }, [])
 
-  useEffect(() => {
+  useMountEffect(() => {
     fetchClinic()
     fetchPlans()
-  }, [fetchClinic, fetchPlans])
+  })
 
   function startEditSubscription() {
     if (!clinic) return

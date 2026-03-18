@@ -1,9 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
@@ -14,7 +15,7 @@ import {
   UsersIcon,
 } from "@/shared/components/ui"
 import { CalendarIcon } from "@/shared/components/ui/icons"
-import { usePermission } from "@/shared/hooks/usePermission"
+import { usePermission, useRequireAuth, useHasMounted, useMountEffect, useDebouncedValue } from "@/shared/hooks"
 import {
   GroupCard,
   MembersTab,
@@ -37,9 +38,9 @@ import { DAY_OF_WEEK_LABELS, RECURRENCE_TYPE_LABELS, getTodayISO } from "./compo
 
 export default function GroupsPage() {
   const router = useRouter()
-  const { data: session, status } = useSession()
+  const { isReady } = useRequireAuth()
+  const hasMounted = useHasMounted()
   const [isLoading, setIsLoading] = useState(true)
-  const [isMounted, setIsMounted] = useState(false)
   const [groups, setGroups] = useState<TherapyGroup[]>([])
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [isSheetOpen, setIsSheetOpen] = useState(false)
@@ -160,21 +161,10 @@ export default function GroupsPage() {
     }
   }, [])
 
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-      return
-    }
-
-    if (status === "authenticated") {
-      fetchGroups()
-      fetchProfessionals()
-    }
-  }, [status, router, fetchGroups, fetchProfessionals])
+  useMountEffect(() => {
+    fetchGroups()
+    fetchProfessionals()
+  })
 
   function openCreateSheet() {
     setEditingGroup(null)
@@ -381,37 +371,36 @@ export default function GroupsPage() {
     }
   }
 
-  // Patient search for adding members
+  // Patient search for adding members — debounced value drives the fetch.
+  const debouncedPatientSearch = useDebouncedValue(patientSearch, 300)
+
+   
   useEffect(() => {
-    if (!patientSearch || patientSearch.length < 2) {
+    if (!debouncedPatientSearch || debouncedPatientSearch.length < 2) {
       setPatientSearchResults([])
       return
     }
 
-    const searchTimeout = setTimeout(async () => {
-      setIsSearchingPatients(true)
-      try {
-        const response = await fetch(`/api/patients?search=${encodeURIComponent(patientSearch)}&limit=10`)
-        if (response.ok) {
-          const data = await response.json()
-          // Filter out patients that are already members of this group
-          const existingPatientIds = viewingGroup?.memberships
-            .filter(m => !m.leaveDate)
-            .map(m => m.patient.id) || []
-          const filteredPatients = data.patients.filter(
-            (p: { id: string }) => !existingPatientIds.includes(p.id)
-          )
-          setPatientSearchResults(filteredPatients)
-        }
-      } catch {
-        // Silent fail
-      } finally {
-        setIsSearchingPatients(false)
-      }
-    }, 300)
+    let cancelled = false
+    setIsSearchingPatients(true)
+    fetch(`/api/patients?search=${encodeURIComponent(debouncedPatientSearch)}&limit=10`)
+      .then(response => response.ok ? response.json() : null)
+      .then(data => {
+        if (cancelled || !data) return
+        // Filter out patients that are already members of this group
+        const existingPatientIds = viewingGroup?.memberships
+          .filter(m => !m.leaveDate)
+          .map(m => m.patient.id) || []
+        const filteredPatients = data.patients.filter(
+          (p: { id: string }) => !existingPatientIds.includes(p.id)
+        )
+        setPatientSearchResults(filteredPatients)
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setIsSearchingPatients(false) })
 
-    return () => clearTimeout(searchTimeout)
-  }, [patientSearch, viewingGroup?.memberships])
+    return () => { cancelled = true }
+  }, [debouncedPatientSearch, viewingGroup?.memberships])
 
   function handleSelectPatient(patient: { id: string; name: string }) {
     setSelectedPatient(patient)
@@ -508,7 +497,7 @@ export default function GroupsPage() {
     )
   }
 
-  if (status === "loading" || isLoading) {
+  if (!isReady || isLoading) {
     return (
       <main className="min-h-screen bg-background pb-20">
         <div className="max-w-4xl mx-auto px-4 py-8">
@@ -568,7 +557,7 @@ export default function GroupsPage() {
       </div>
 
       {/* Bottom Sheet */}
-      {isSheetOpen && isMounted && createPortal(
+      {isSheetOpen && hasMounted && createPortal(
         <>
           {/* Backdrop */}
           <div

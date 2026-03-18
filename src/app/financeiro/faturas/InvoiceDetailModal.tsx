@@ -1,6 +1,8 @@
 "use client"
 
-import React, { useEffect, useState, useCallback, useRef } from "react"
+import React, { useState, useCallback, useRef } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { createPortal } from "react-dom"
 import { XIcon, PencilIcon, TrashIcon } from "@/shared/components/ui/icons"
 import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
@@ -43,6 +45,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, onUpdate }: InvoiceDeta
   const [dueDateValue, setDueDateValue] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
 
+   
   useEffect(() => {
     fetch(`/api/financeiro/faturas/${invoiceId}`)
       .then(r => r.json())
@@ -125,6 +128,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, onUpdate }: InvoiceDeta
     if (e.key === "Escape" && !editingId && !editingDueDate) onClose()
   }, [onClose, editingId, editingDueDate])
 
+   
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)

@@ -1,9 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -16,7 +15,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "@/shared/components/ui"
-import { usePermission } from "@/shared/hooks/usePermission"
+import { usePermission, useRequireAuth, useHasMounted, useDebouncedValue, useMountEffect } from "@/shared/hooks"
 import {
   PatientsSearchFilters,
   PatientsTable,
@@ -87,9 +86,9 @@ const ITEMS_PER_PAGE = 15
 
 export default function PatientsPage() {
   const router = useRouter()
-  const { data: session, status } = useSession()
+  const { isReady } = useRequireAuth()
+  const hasMounted = useHasMounted()
   const [isLoading, setIsLoading] = useState(true)
-  const [isMounted, setIsMounted] = useState(false)
   const [patients, setPatients] = useState<Patient[]>([])
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
@@ -98,7 +97,7 @@ export default function PatientsPage() {
     totalPages: 0,
   })
   const [search, setSearch] = useState("")
-  const [searchDebounced, setSearchDebounced] = useState("")
+  const searchDebounced = useDebouncedValue(search, 300)
   const [filterActive, setFilterActive] = useState<string>("all")
   const [filterProfessional, setFilterProfessional] = useState<string>("")
   const [isSheetOpen, setIsSheetOpen] = useState(false)
@@ -121,22 +120,6 @@ export default function PatientsPage() {
   const [patientTab, setPatientTab] = useState<"dados" | "historico" | "financeiro">("dados")
   const [billingMode, setBillingMode] = useState<string>("PER_SESSION")
 
-  useEffect(() => {
-    setPatientTab("dados")
-  }, [viewingPatient?.id])
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearchDebounced(search)
-      setPagination((prev) => ({ ...prev, page: 1 }))
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [search])
 
   const {
     register,
@@ -230,21 +213,14 @@ export default function PatientsPage() {
     }
   }, [])
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-      return
-    }
-
-    if (status === "authenticated") {
-      fetchPatients()
-      fetchProfessionals()
-      fetch("/api/admin/settings")
-        .then(r => r.ok ? r.json() : null)
-        .then(data => { if (data?.settings?.billingMode) setBillingMode(data.settings.billingMode) })
-        .catch(() => {})
-    }
-  }, [status, router, fetchPatients, fetchProfessionals])
+  useMountEffect(() => {
+    fetchPatients()
+    fetchProfessionals()
+    fetch("/api/admin/settings")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.settings?.billingMode) setBillingMode(data.settings.billingMode) })
+      .catch(() => {})
+  })
 
   function openCreateSheet() {
     setEditingPatient(null)
@@ -334,6 +310,7 @@ export default function PatientsPage() {
 
   function openViewSheet(patient: Patient) {
     setEditingPatient(null)
+    setPatientTab("dados")
     setAppointmentsStatusFilter("")
     setAppointmentsTotal(0)
     fetchPatientDetails(patient.id)
@@ -488,7 +465,7 @@ export default function PatientsPage() {
     }
   }
 
-  if (status === "loading" || isLoading) {
+  if (!isReady || isLoading) {
     return (
       <main className="min-h-screen bg-background pb-20">
         <div className="max-w-6xl mx-auto px-4 py-8">
@@ -528,7 +505,10 @@ export default function PatientsPage() {
           filterActive={filterActive}
           filterProfessional={filterProfessional}
           professionals={professionals}
-          onSearchChange={setSearch}
+          onSearchChange={(value) => {
+            setSearch(value)
+            setPagination((prev) => ({ ...prev, page: 1 }))
+          }}
           onFilterActiveChange={(value) => {
             setFilterActive(value)
             setPagination((prev) => ({ ...prev, page: 1 }))
@@ -616,7 +596,7 @@ export default function PatientsPage() {
       </div>
 
       {/* Bottom Sheet */}
-      {isSheetOpen && isMounted && createPortal(
+      {isSheetOpen && hasMounted && createPortal(
         <>
           {/* Backdrop */}
           <div

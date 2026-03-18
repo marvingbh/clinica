@@ -1,6 +1,9 @@
 "use client"
 
-import { useMemo, useRef, useEffect, useState } from "react"
+import { useMemo, useRef, useState } from "react"
+import { useMountEffect } from "@/shared/hooks"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { useDroppable } from "@dnd-kit/core"
 import { Appointment, GroupSession, TimeSlot } from "../../lib/types"
 import { getWeekDays, toDateString, isSameDay, isWeekend } from "../../lib/utils"
@@ -143,10 +146,10 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
 
   // "Now" indicator — update every minute
   const [now, setNow] = useState(new Date())
-  useEffect(() => {
+  useMountEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(interval)
-  }, [])
+  })
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
   const showNowLine = nowMinutes >= START_HOUR * 60 && nowMinutes <= END_HOUR * 60
 
@@ -198,7 +201,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll to center today's column on mount and week changes
+  // Auto-scroll to center today's column on mount and week changes (must re-run when weekStart changes)
   useEffect(() => {
     const container = scrollContainerRef.current
     if (!container) return

@@ -1,6 +1,8 @@
 "use client"
 
-import React, { useEffect, useState, useRef } from "react"
+import React, { useState, useRef } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { useFinanceiroContext } from "./context/FinanceiroContext"
 import { DashboardData, InsightsData, MONTH_NAMES } from "./components/dashboard-shared"
 import { DashboardResumo } from "./components/DashboardResumo"
@@ -32,6 +34,7 @@ export default function FinanceiroDashboard() {
   const [insightsLoading, setInsightsLoading] = useState(false)
   const insightsFetched = useRef<string | null>(null)
 
+   
   useEffect(() => {
     let cancelled = false
     fetch(`/api/financeiro/dashboard?${buildParams(year, month)}`)
@@ -42,6 +45,7 @@ export default function FinanceiroDashboard() {
   }, [year, month])
 
   // Fetch insights lazily on first non-resumo tab visit, or when period changes
+   
   useEffect(() => {
     if (tab === "resumo") return
     const key = `${year}-${month}`

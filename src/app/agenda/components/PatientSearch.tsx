@@ -1,6 +1,9 @@
 "use client"
 
-import { useRef, useEffect, useCallback, useState } from "react"
+import { useRef, useCallback, useState } from "react"
+import { useDebouncedValue } from "@/shared/hooks"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { LoaderIcon, SearchIcon, XIcon, PhoneIcon, MailIcon, UserIcon } from "@/shared/components/ui/icons"
 import { Patient } from "../lib/types"
 import { formatPhone } from "../lib/utils"
@@ -52,15 +55,13 @@ export function PatientSearch({
   }, [])
 
   // Debounced search
+  const debouncedValue = useDebouncedValue(value, 300)
+  // Triggers search when debounced value settles (effect must react to value changes)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (value) {
-        searchPatients(value)
-      }
-    }, 300)
-
-    return () => clearTimeout(timer)
-  }, [value, searchPatients])
+    if (debouncedValue) {
+      searchPatients(debouncedValue)
+    }
+  }, [debouncedValue, searchPatients])
 
   // Check if a patient matched via parent name (not by name/email/phone)
   function getParentMatch(patient: Patient): string | null {

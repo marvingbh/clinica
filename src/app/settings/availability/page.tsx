@@ -1,11 +1,13 @@
 "use client"
 
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { SkeletonPage } from "@/shared/components/ui"
-import { usePermission } from "@/shared/hooks/usePermission"
+import { useRequireAuth, useHasMounted, usePermission } from "@/shared/hooks"
+
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import {
   WeeklyScheduleGrid,
   ExceptionsList,
@@ -63,17 +65,13 @@ export default function AvailabilitySettingsPage() {
 }
 
 function AvailabilitySettingsContent() {
-  console.log("=== AvailabilitySettingsContent RENDER ===")
-
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { data: session, status } = useSession()
-
-  console.log("[Render] status:", status, "session:", !!session)
+  const { isReady, status } = useRequireAuth()
 
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [isMounted, setIsMounted] = useState(false)
+  const isMounted = useHasMounted()
   const [rules, setRules] = useState<TimeBlock[]>([])
   const [editingBlock, setEditingBlock] = useState<EditingBlock | null>(null)
 
@@ -90,41 +88,21 @@ function AvailabilitySettingsContent() {
   const { canRead: canReadOthersAvail } = usePermission("availability_others")
   const isAdmin = canReadOthersAvail
 
-  // Effect 0: Set mounted state for portal rendering
+  // Data fetch with AbortController: depends on auth readiness, admin status,
+  // and URL params — must remain an effect to handle cancellation properly
+   
   useEffect(() => {
-    setIsMounted(true)
-  }, [])
+    if (!isReady) return
 
-  // Effect 1: Handle authentication redirect
-  useEffect(() => {
-    console.log("[Auth Effect] status:", status)
-    if (status === "unauthenticated") {
-      router.push("/login")
-    }
-  }, [status, router])
-
-  // Effect 2: Fetch data when authenticated
-  useEffect(() => {
-    console.log("[Data Effect] Running. status:", status, "isAdmin:", isAdmin)
-
-    if (status !== "authenticated") {
-      console.log("[Data Effect] Not authenticated, skipping")
-      return
-    }
-
-    // Use AbortController to cancel stale fetches
     const abortController = new AbortController()
     const signal = abortController.signal
 
     async function loadData() {
-      console.log("[loadData] Starting fetch...")
-
       try {
         let professionalsData: Professional[] = []
 
         // Fetch professionals if admin
         if (isAdmin) {
-          console.log("[loadData] Fetching professionals...")
           const profResponse = await fetch("/api/professionals?isActive=true", { signal })
           if (signal.aborted) return
           if (profResponse.ok) {
@@ -153,7 +131,6 @@ function AvailabilitySettingsContent() {
           params.set("professionalProfileId", profileId)
         }
 
-        console.log("[loadData] Fetching availability and exceptions...")
         const [availResponse, exceptionsResponse] = await Promise.all([
           fetch(`/api/availability?${params.toString()}`, { signal }),
           fetch(`/api/availability/exceptions?${params.toString()}`, { signal }),
@@ -182,16 +159,13 @@ function AvailabilitySettingsContent() {
           (ex: AvailabilityException) => !ex.isRecurring
         )
 
-        console.log("[loadData] Setting state. rules:", availData.rules?.length, "exceptions:", dateExceptions.length)
         setRules(availData.rules || [])
         setExceptions(dateExceptions)
-      } catch (error) {
+      } catch {
         if (signal.aborted) return
-        console.error("[loadData] Error:", error)
         toast.error("Erro ao carregar disponibilidade")
       } finally {
         if (!signal.aborted) {
-          console.log("[loadData] Setting isLoading to false")
           setIsLoading(false)
         }
       }
@@ -201,10 +175,9 @@ function AvailabilitySettingsContent() {
 
     // Cleanup: abort fetch when effect re-runs or component unmounts
     return () => {
-      console.log("[Data Effect] Cleanup - aborting")
       abortController.abort()
     }
-  }, [status, isAdmin, professionalIdParam, router])
+  }, [isReady, isAdmin, professionalIdParam, router])
 
   async function fetchAvailabilityForProfessional(profileId?: string | null) {
     try {

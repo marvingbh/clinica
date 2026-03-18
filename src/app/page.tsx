@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import Link from "next/link"
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useMountEffect } from "@/shared/hooks"
 import {
   CalendarIcon,
   UsersIcon,
@@ -350,19 +351,24 @@ function LandingPage() {
   const [plans, setPlans] = useState<PlanData[]>([])
   const [plansLoading, setPlansLoading] = useState(true)
 
-  useEffect(() => {
-    fetch("/api/public/plans")
+  useMountEffect(() => {
+    const controller = new AbortController()
+
+    fetch("/api/public/plans", { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
         setPlans(data.plans ?? [])
       })
-      .catch(() => {
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return
         setPlans([])
       })
       .finally(() => {
         setPlansLoading(false)
       })
-  }, [])
+
+    return () => controller.abort()
+  })
 
   function formatPrice(cents: number): string {
     return (cents / 100).toLocaleString("pt-BR", {

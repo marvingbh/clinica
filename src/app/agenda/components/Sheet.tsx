@@ -1,7 +1,10 @@
 "use client"
 
-import { ReactNode, useEffect, useState } from "react"
+import { ReactNode } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { createPortal } from "react-dom"
+import { useHasMounted } from "@/shared/hooks"
 
 interface SheetProps {
   isOpen: boolean
@@ -11,13 +14,10 @@ interface SheetProps {
 }
 
 export function Sheet({ isOpen, onClose, title, children }: SheetProps) {
-  const [mounted, setMounted] = useState(false)
+  const mounted = useHasMounted()
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  // Lock body scroll when sheet is open
+  // Lock body scroll when sheet is open — effect must remain (depends on `isOpen`)
+   
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden"
@@ -77,11 +77,7 @@ interface DialogProps {
 }
 
 export function Dialog({ isOpen, onClose, title, children }: DialogProps) {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const mounted = useHasMounted()
 
   if (!isOpen || !mounted) return null
 
