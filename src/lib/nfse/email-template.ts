@@ -1,5 +1,5 @@
 export interface NfseEmailTemplateData {
-  patientName: string
+  recipientName: string
   nfseNumero: string
   clinicName: string
   emissionDate: string // DD/MM/YYYY
@@ -13,7 +13,7 @@ export interface NfseEmailTemplateData {
 
 export function buildNfseEmailHtml(data: NfseEmailTemplateData): string {
   const {
-    patientName, nfseNumero, clinicName, emissionDate,
+    recipientName, nfseNumero, clinicName, emissionDate,
     valor, descricao, codigoVerificacao,
     clinicPhone, clinicEmail, clinicAddress,
   } = data
@@ -57,7 +57,7 @@ export function buildNfseEmailHtml(data: NfseEmailTemplateData): string {
           <tr>
             <td style="padding: 24px;">
               <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.5; color: #374151;">
-                Olá, <strong>${patientName}</strong>.
+                Olá, <strong>${recipientName}</strong>.
               </p>
               <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.5; color: #374151;">
                 Segue anexa a sua Nota Fiscal de Serviço eletrônica (NFS-e), com os seguintes dados:

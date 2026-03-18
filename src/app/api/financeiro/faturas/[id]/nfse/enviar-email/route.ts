@@ -144,7 +144,7 @@ export const POST = withFeatureAuth(
         : new Date().toLocaleDateString("pt-BR")
 
       const html = buildNfseEmailHtml({
-        patientName: invoice.patient.name,
+        recipientName: invoice.patient.billingResponsibleName || invoice.patient.name,
         nfseNumero,
         clinicName: invoice.clinic.name,
         emissionDate,

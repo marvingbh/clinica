@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest"
 import { buildNfseEmailHtml } from "./email-template"
 
 const baseData = {
-  patientName: "João Silva",
+  recipientName: "Maria da Silva",
   nfseNumero: "12345",
   clinicName: "Clínica Vida",
   emissionDate: "15/03/2026",
@@ -18,7 +18,7 @@ describe("buildNfseEmailHtml", () => {
   it("includes all NFS-e details", () => {
     const html = buildNfseEmailHtml(baseData)
 
-    expect(html).toContain("João Silva")
+    expect(html).toContain("Maria da Silva")
     expect(html).toContain("12345")
     expect(html).toContain("Clínica Vida")
     expect(html).toContain("15/03/2026")
