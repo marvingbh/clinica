@@ -63,8 +63,13 @@ describe("superadmin-auth", () => {
 
     it("returns null for a tampered token", async () => {
       const token = await createSuperAdminToken(testAdmin)
-      // Tamper with the token by changing the last character
-      const tampered = token.slice(0, -1) + (token.endsWith("A") ? "B" : "A")
+      // Tamper with the signature by flipping a character in the middle
+      const parts = token.split(".")
+      const sig = parts[2]
+      const mid = Math.floor(sig.length / 2)
+      const flipped = sig[mid] === "x" ? "y" : "x"
+      parts[2] = sig.slice(0, mid) + flipped + sig.slice(mid + 1)
+      const tampered = parts.join(".")
       mockCookieStore.get.mockReturnValue({ value: tampered })
       const session = await getSuperAdminSession()
       expect(session).toBeNull()
