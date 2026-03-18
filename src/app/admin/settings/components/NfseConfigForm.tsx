@@ -64,6 +64,7 @@ export default function NfseConfigForm() {
         professionalCrp: config.professionalCrp ?? "",
         cnae: config.cnae ?? undefined,
         codigoNbs: config.codigoNbs ?? undefined,
+        cClassNbs: config.cClassNbs ?? undefined,
         aliquotaIss: config.aliquotaIss,
         descricaoServico: config.descricaoServico ?? undefined,
         useSandbox: config.useSandbox,
