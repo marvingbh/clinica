@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react"
 import { toast } from "sonner"
 import type { NfseEmissionRow } from "./types"
 import NfseEmissionDialog from "./NfseEmissionDialog"
+import NfseEmailDialog from "./NfseEmailDialog"
 import PerItemNfseCard from "./PerItemNfseCard"
 import { CancelConfirmBox, HistoryToggle } from "./NfseSectionShared"
 import type { NfseSectionProps, NfseLogEntry } from "./NfseSectionShared"
@@ -19,6 +20,7 @@ export default function PerItemNfseSection({ invoice, nfseConfig, onRefresh }: N
   const [previews, setPreviews] = useState<PerItemPreview[]>([])
   const [loadingPreviews, setLoadingPreviews] = useState(true)
   const [showDialogForItemId, setShowDialogForItemId] = useState<string | null>(null)
+  const [emailEmission, setEmailEmission] = useState<{ id: string; numero: string } | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [cancelReason, setCancelReason] = useState("")
   const [cancelEmissionId, setCancelEmissionId] = useState<string | null>(null)
@@ -121,6 +123,7 @@ export default function PerItemNfseSection({ invoice, nfseConfig, onRefresh }: N
                 emittingItemId={null}
                 onEmit={handleEmitItem}
                 onStartCancel={(emissionId) => { setCancelEmissionId(emissionId); setCancelReason("") }}
+                onEmail={(emissionId, numero) => setEmailEmission({ id: emissionId, numero })}
               />
             )
           })}
@@ -148,6 +151,7 @@ export default function PerItemNfseSection({ invoice, nfseConfig, onRefresh }: N
             patientBillingName={invoice.patient.billingResponsibleName ?? null}
             patientAddress={{ street: invoice.patient.addressStreet, number: invoice.patient.addressNumber, neighborhood: invoice.patient.addressNeighborhood, city: invoice.patient.addressCity, state: invoice.patient.addressState, zip: invoice.patient.addressZip }}
             totalAmount={dialogItem?.total || invoice.totalAmount}
+            nfseObs={invoice.patient.nfseObs}
             itemId={showDialogForItemId}
             defaultCodigoServico={nfseConfig.codigoServico} defaultCodigoNbs={nfseConfig.codigoNbs || ""} defaultCClassNbs={nfseConfig.cClassNbs || ""}
             defaultDescricao={nfseConfig.descricaoServico || "Servicos de saude"} defaultAliquotaIss={nfseConfig.aliquotaIss}
@@ -156,6 +160,18 @@ export default function PerItemNfseSection({ invoice, nfseConfig, onRefresh }: N
           />
         )
       })()}
+
+      {emailEmission && (
+        <NfseEmailDialog
+          invoiceId={invoice.id}
+          emissionId={emailEmission.id}
+          patientEmail={invoice.patient.email}
+          patientName={invoice.patient.name}
+          nfseNumero={emailEmission.numero}
+          onClose={() => setEmailEmission(null)}
+          onSuccess={onRefresh}
+        />
+      )}
 
       <HistoryToggle invoiceId={invoice.id} showHistory={showHistory} historyLogs={historyLogs} loadingHistory={loadingHistory} onToggle={loadHistory} />
     </div>

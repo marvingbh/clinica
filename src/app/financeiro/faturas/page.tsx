@@ -43,6 +43,7 @@ export default function FaturasPage() {
   const [recalculatingId, setRecalculatingId] = useState<string | null>(null)
   const [recalculatingGroupKey, setRecalculatingGroupKey] = useState<string | null>(null)
   const [downloadingZip, setDownloadingZip] = useState(false)
+  const [downloadingXmlZip, setDownloadingXmlZip] = useState(false)
   const [detailInvoiceId, setDetailInvoiceId] = useState<string | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
@@ -236,6 +237,34 @@ export default function FaturasPage() {
     }
   }
 
+  async function handleDownloadXmlZip() {
+    if (month === null) {
+      toast.error("Selecione um mês para baixar os XMLs")
+      return
+    }
+    setDownloadingXmlZip(true)
+    try {
+      const dlParams = new URLSearchParams({ month: String(month), year: String(year) })
+      const res = await fetch(`/api/financeiro/faturas/download-nfse-xml?${dlParams}`)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || "Erro ao gerar arquivo")
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || `nfse-xml-${month}-${year}.zip`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error("Erro ao baixar XMLs")
+    } finally {
+      setDownloadingXmlZip(false)
+    }
+  }
+
   const allInvoicesForFooter = useMemo(() => collectAllInvoices(displayRows), [displayRows])
   const hasPendentes = allInvoicesForFooter.some(i => i.status === "PENDENTE")
 
@@ -323,6 +352,14 @@ export default function FaturasPage() {
           >
             <DownloadIcon className="h-4 w-4" />
             {downloadingZip ? "Baixando..." : "Baixar Relatórios"}
+          </button>
+          <button
+            onClick={handleDownloadXmlZip}
+            disabled={downloadingXmlZip || month === null || invoices.length === 0}
+            className="px-4 py-2 border border-input bg-background text-foreground rounded-lg text-sm font-medium hover:bg-muted disabled:opacity-50 transition-colors flex items-center gap-1.5"
+          >
+            <DownloadIcon className="h-4 w-4" />
+            {downloadingXmlZip ? "Baixando..." : "Baixar XMLs"}
           </button>
           <button
             onClick={handleBulkMarkEnviado}

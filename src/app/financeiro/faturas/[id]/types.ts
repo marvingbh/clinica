@@ -37,9 +37,10 @@ export interface InvoiceDetail {
   nfseDescricao: string | null
   nfseAliquotaIss: number | null
   patient: {
-    id: string; name: string; phone: string; cpf: string | null
+    id: string; name: string; phone: string; email: string | null; cpf: string | null
     billingCpf: string | null; billingResponsibleName: string | null
     nfsePerAppointment: boolean
+    nfseObs: string | null
     addressStreet: string | null; addressNumber: string | null; addressNeighborhood: string | null
     addressCity: string | null; addressState: string | null; addressZip: string | null
     motherName: string | null; sessionFee: string | null

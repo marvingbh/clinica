@@ -58,6 +58,8 @@ interface ClinicSettings {
   invoiceMessageTemplate: string | null
   paymentInfo: string | null
   emailSenderName: string | null
+  emailFromAddress: string | null
+  emailBcc: string | null
   billingMode: "PER_SESSION" | "MONTHLY_FIXED"
   invoiceGrouping: "MONTHLY" | "PER_SESSION"
   taxPercentage: number
@@ -76,6 +78,8 @@ export default function AdminSettingsPage() {
   const [paymentInfo, setPaymentInfo] = useState<string>("")
   const [isSavingPaymentInfo, setIsSavingPaymentInfo] = useState(false)
   const [emailSenderName, setEmailSenderName] = useState<string>("")
+  const [emailFromAddress, setEmailFromAddress] = useState<string>("")
+  const [emailBcc, setEmailBcc] = useState<string>("")
   const [isSavingEmailSender, setIsSavingEmailSender] = useState(false)
   const [billingMode, setBillingMode] = useState<"PER_SESSION" | "MONTHLY_FIXED">("PER_SESSION")
   const [isSavingBillingMode, setIsSavingBillingMode] = useState(false)
@@ -112,6 +116,8 @@ export default function AdminSettingsPage() {
       setInvoiceTemplate(data.settings.invoiceMessageTemplate || "")
       setPaymentInfo(data.settings.paymentInfo || "")
       setEmailSenderName(data.settings.emailSenderName || "")
+      setEmailFromAddress(data.settings.emailFromAddress || "")
+      setEmailBcc(data.settings.emailBcc || "")
       setBillingMode(data.settings.billingMode || "PER_SESSION")
       setInvoiceGrouping(data.settings.invoiceGrouping || "MONTHLY")
       setTaxPercentage(Number(data.settings.taxPercentage ?? 0))
@@ -254,7 +260,11 @@ export default function AdminSettingsPage() {
       const response = await fetch("/api/admin/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emailSenderName: emailSenderName || null }),
+        body: JSON.stringify({
+          emailSenderName: emailSenderName || null,
+          emailFromAddress: emailFromAddress || null,
+          emailBcc: emailBcc || null,
+        }),
       })
       if (!response.ok) throw new Error("Failed to save")
       toast.success("Nome do remetente salvo")
@@ -664,17 +674,46 @@ export default function AdminSettingsPage() {
 
           {/* Email Sender */}
           <div className="bg-card border border-border rounded-lg p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">Remetente de Email</h2>
-            <p className="text-sm text-muted-foreground">
-              Nome que aparece como remetente nos emails enviados (NFS-e, lembretes, faturas). Se vazio, usa o nome da clinica.
-            </p>
-            <input
-              type="text"
-              value={emailSenderName}
-              onChange={(e) => setEmailSenderName(e.target.value)}
-              placeholder={settings?.name || "Nome da clinica"}
-              className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-            />
+            <h2 className="text-lg font-semibold text-foreground">Configurações de E-mail</h2>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Nome do remetente</label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Nome que aparece como remetente nos emails enviados. Se vazio, usa o nome da clínica.
+              </p>
+              <input
+                type="text"
+                value={emailSenderName}
+                onChange={(e) => setEmailSenderName(e.target.value)}
+                placeholder={settings?.name || "Nome da clinica"}
+                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Endereço de envio</label>
+              <p className="text-xs text-muted-foreground mb-2">
+                E-mail verificado usado como remetente (ex: naoresponda@seudominio.com.br). O domínio deve estar verificado no Resend.
+              </p>
+              <input
+                type="email"
+                value={emailFromAddress}
+                onChange={(e) => setEmailFromAddress(e.target.value)}
+                placeholder="naoresponda@seudominio.com.br"
+                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">E-mail em cópia oculta (BCC)</label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Todos os e-mails enviados também serão copiados para este endereço.
+              </p>
+              <input
+                type="email"
+                value={emailBcc}
+                onChange={(e) => setEmailBcc(e.target.value)}
+                placeholder="arquivo@seudominio.com.br"
+                className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+              />
+            </div>
             <div className="flex justify-end">
               <button
                 type="button"

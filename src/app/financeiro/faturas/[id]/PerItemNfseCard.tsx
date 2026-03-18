@@ -2,7 +2,7 @@
 
 import React from "react"
 import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
-import { LoaderIcon } from "@/shared/components/ui/icons"
+import { LoaderIcon, DownloadIcon, MailIcon, BanIcon } from "@/shared/components/ui/icons"
 import type { InvoiceItem, NfseEmissionRow } from "./types"
 import { EMISSION_STATUS_STYLES } from "./NfseSectionShared"
 
@@ -15,10 +15,11 @@ interface PerItemNfseCardProps {
   emittingItemId: string | null
   onEmit: (itemId: string) => void
   onStartCancel: (emissionId: string) => void
+  onEmail?: (emissionId: string, numero: string) => void
 }
 
 export default function PerItemNfseCard({
-  item, invoiceId, emission, description, canEmit, emittingItemId, onEmit, onStartCancel,
+  item, invoiceId, emission, description, canEmit, emittingItemId, onEmit, onStartCancel, onEmail,
 }: PerItemNfseCardProps) {
   const dateStr = item.appointment?.scheduledAt ? formatDateBR(item.appointment.scheduledAt) : null
 
@@ -76,28 +77,42 @@ export default function PerItemNfseCard({
           </span>
         )}
 
-        {/* EMITIDA — PDF (local + Gov.br) + cancel */}
+        {/* EMITIDA — actions */}
         {emission?.status === "EMITIDA" && (
           <>
-            <a
-              href={`/api/financeiro/faturas/${invoiceId}/nfse/pdf?emissionId=${emission.id}`}
-              target="_blank" rel="noopener noreferrer"
-              className="px-2.5 py-1 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              PDF
-            </a>
-            <a
-              href={`/api/financeiro/faturas/${invoiceId}/nfse/pdf?emissionId=${emission.id}&source=adn`}
-              target="_blank" rel="noopener noreferrer"
-              className="px-2.5 py-1 rounded-lg text-xs font-medium bg-muted text-foreground hover:bg-muted/80 transition-colors"
-            >
-              Gov.br
-            </a>
+            <div className="inline-flex items-center rounded-md border border-border overflow-hidden divide-x divide-border">
+              <a
+                href={`/api/financeiro/faturas/${invoiceId}/nfse/pdf?emissionId=${emission.id}`}
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted transition-colors"
+                title="Baixar PDF"
+              >
+                <DownloadIcon className="w-3 h-3" /> PDF
+              </a>
+              <a
+                href={`/api/financeiro/faturas/${invoiceId}/nfse/pdf?emissionId=${emission.id}&source=adn`}
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                title="Baixar do Gov.br"
+              >
+                Gov.br
+              </a>
+              {onEmail && (
+                <button
+                  onClick={() => onEmail(emission.id, emission.numero || "")}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  title="Enviar por e-mail"
+                >
+                  <MailIcon className="w-3 h-3" />
+                </button>
+              )}
+            </div>
             <button
               onClick={() => onStartCancel(emission.id)}
-              className="px-2.5 py-1 rounded-lg text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              title="Cancelar NFS-e"
             >
-              Cancelar
+              <BanIcon className="w-3 h-3" />
             </button>
             {emission.emitidaAt && (
               <span className="text-[10px] text-muted-foreground ml-auto">

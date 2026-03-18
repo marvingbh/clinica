@@ -195,6 +195,8 @@ model Clinic {
   invoiceGrouping        InvoiceGrouping  @default(MONTHLY)
   taxPercentage          Decimal     @default(0) @db.Decimal(5, 2) // Clinic tax % deducted before repasse
   emailSenderName        String? // Display name for outgoing emails (defaults to clinic name)
+  emailFromAddress       String? // Verified sender email address (e.g. naoresponda@dominio.com.br)
+  emailBcc               String? // BCC address for all outgoing emails (e.g. archive@dominio.com.br)
 
   // SaaS subscription fields
   planId               String?
@@ -355,6 +357,7 @@ model Patient {
   addressCity                  String? // Cidade
   addressState                 String? // UF (2 chars)
   addressZip                   String? // CEP (8 digits)
+  nfseObs                      String? // Warning/observation shown when emitting NFS-e
   fatherName                   String? // Father's name
   motherName                   String? // Mother's name
   notes                        String? // Administrative observations

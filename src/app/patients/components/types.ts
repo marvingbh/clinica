@@ -67,6 +67,7 @@ export interface Patient {
   billingResponsibleName?: string | null
   nfseDescriptionTemplate?: string | null
   nfsePerAppointment?: boolean
+  nfseObs?: string | null
   addressStreet?: string | null
   addressNumber?: string | null
   addressNeighborhood?: string | null
