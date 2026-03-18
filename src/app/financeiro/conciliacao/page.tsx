@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useCallback } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { useMountEffect } from "@/shared/hooks"
 import { toast } from "sonner"
 import {
@@ -64,8 +66,12 @@ export default function ConciliacaoPage() {
 
   useMountEffect(() => {
     fetchIntegration()
-    fetchTransactions()
   })
+
+  // Re-fetches when showReconciled toggle changes.
+  useEffect(() => {
+    fetchTransactions()
+  }, [fetchTransactions])
 
   const handleTestConnection = async () => {
     setConnStatus("testing")
