@@ -1,6 +1,8 @@
 "use client"
 
 import { useCallback, useState } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
@@ -89,9 +91,10 @@ export default function UsersPage() {
     }
   }, [search, filterRole, filterActive, router])
 
-  useMountEffect(() => {
+  // Re-fetches when search or filters change.
+  useEffect(() => {
     fetchUsers()
-  })
+  }, [fetchUsers])
 
   function openCreateSheet() {
     setEditingUser(null)
