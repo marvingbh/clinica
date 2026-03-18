@@ -1,6 +1,6 @@
 import { useRef, useState } from "react"
 import type { UseFormRegister, FieldErrors } from "react-hook-form"
-import type { NfseConfigFormData } from "@/lib/nfse"
+import type { NfseConfigFormData } from "@/lib/nfse/validation"
 
 const REGIME_OPTIONS = [
   { value: "1", label: "MEI" },

@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 import { useMountEffect } from "@/shared/hooks"
-import { nfseConfigSchema, type NfseConfigFormData } from "@/lib/nfse"
+import { nfseConfigSchema, type NfseConfigFormData } from "@/lib/nfse/validation"
 import NfseConfigSummary, { type NfseConfigSummaryData } from "./NfseConfigSummary"
 import NfseConfigFields from "./NfseConfigFields"
 
