@@ -195,6 +195,32 @@ Public routes (no auth) go in `src/app/api/public/` and use `withAuthentication(
 - Forms with react-hook-form + zod validation
 - Icons via lucide-react
 
+### useEffect Rules
+
+**Never use `useEffect` directly.** It is the source of race conditions, infinite loops, and hidden coupling. Follow these rules instead:
+
+1. **Derive state, don't sync it.** If state depends on other state/props, compute it inline — don't `useEffect(() => setX(f(y)), [y])`.
+   ```typescript
+   // ❌ BAD
+   const [filtered, setFiltered] = useState([])
+   useEffect(() => { setFiltered(items.filter(i => i.active)) }, [items])
+   // ✅ GOOD
+   const filtered = items.filter(i => i.active)
+   ```
+
+2. **Use data-fetching libraries or server components** instead of `useEffect + fetch + setState`. Effect-based fetching creates race conditions and duplicates caching logic.
+
+3. **Use event handlers, not effects**, for user-driven actions. If a user clicks a button, do the work in the handler — don't set a flag for an effect to pick up.
+
+4. **Use `useMountEffect` for one-time external sync.** For the rare case of DOM integration, third-party widgets, or browser API subscriptions on mount:
+   ```typescript
+   function useMountEffect(effect: () => void | (() => void)) {
+     useEffect(effect, [])
+   }
+   ```
+
+5. **Reset with `key`, not dependency choreography.** If a component should "start fresh" when an ID changes, use `<Component key={id} />` instead of an effect that resets state.
+
 ### Component Guidelines
 
 - **Extract repeated UI patterns into reusable components** in `shared/components/` or the feature's `components/` folder. Do not duplicate the same markup/logic across multiple files.
