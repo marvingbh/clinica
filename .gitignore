@@ -25,6 +25,7 @@
 *.pem
 *.dump
 *.sql
+!prisma/migrations/**/*.sql
 
 # debug
 npm-debug.log*
