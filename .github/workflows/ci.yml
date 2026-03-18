@@ -27,6 +27,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://clinica:clinica_dev@localhost:5432/clinica_test
+      DIRECT_URL: postgresql://clinica:clinica_dev@localhost:5432/clinica_test
       NEXTAUTH_SECRET: ci-test-secret
       NEXTAUTH_URL: http://localhost:3000
 
