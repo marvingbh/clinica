@@ -23,6 +23,7 @@ export default function NfseConfigForm() {
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<NfseConfigFormData>({
     resolver: zodResolver(nfseConfigSchema),
@@ -198,6 +199,8 @@ export default function NfseConfigForm() {
           certPassword={certPassword}
           onCertPasswordChange={setCertPassword}
           isNewConfig={!config}
+          currentNbs={watch("codigoNbs") ?? ""}
+          currentCClassNbs={watch("cClassNbs") ?? ""}
           onNbsChange={(nbs, cc) => { setValue("codigoNbs", nbs); setValue("cClassNbs", cc) }}
         />
 

@@ -23,6 +23,8 @@ interface Props {
   certPassword: string
   onCertPasswordChange: (password: string) => void
   isNewConfig: boolean
+  currentNbs?: string
+  currentCClassNbs?: string
   onNbsChange?: (nbs: string, cClass: string) => void
 }
 
@@ -35,6 +37,8 @@ export default function NfseConfigFields({
   certPassword,
   onCertPasswordChange,
   isNewConfig,
+  currentNbs,
+  currentCClassNbs,
   onNbsChange,
 }: Props) {
   const certRef = useRef<HTMLInputElement>(null)
@@ -132,6 +136,7 @@ export default function NfseConfigFields({
           <div className="sm:col-span-2">
             <label className={labelClass}>Servico NBS</label>
             <select
+              value={currentNbs && currentCClassNbs ? `${currentNbs}_${currentCClassNbs}` : "_"}
               onChange={(e) => {
                 const [nbs, cc] = e.target.value.split("_")
                 if (onNbsChange && nbs) onNbsChange(nbs, cc)
