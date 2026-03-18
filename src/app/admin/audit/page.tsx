@@ -1,10 +1,12 @@
 "use client"
 
 import { useCallback, useState } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { useRequireAuth, useHasMounted, useMountEffect } from "@/shared/hooks"
+import { useRequireAuth, useHasMounted } from "@/shared/hooks"
 
 // Date utilities for Brazilian format
 function toDisplayDate(isoDate: string): string {
@@ -144,14 +146,15 @@ export default function AdminAuditPage() {
     }
   }, [filterAction, filterEntityType, filterStartDate, filterEndDate, page, router])
 
-  useMountEffect(() => {
+  // Re-fetches when filters or page change.
+  useEffect(() => {
     if (session?.user?.role !== "ADMIN") {
       toast.error("Acesso restrito a administradores")
       router.push("/")
       return
     }
     fetchAuditLogs()
-  })
+  }, [session, router, fetchAuditLogs])
 
   function formatDate(dateString: string): string {
     return new Date(dateString).toLocaleString("pt-BR", {

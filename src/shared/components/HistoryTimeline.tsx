@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { useMountEffect } from "@/shared/hooks"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 
 interface AuditChange {
   field: string
@@ -92,9 +93,10 @@ export function HistoryTimeline({ entityType, entityId }: HistoryTimelineProps) 
     [entityType, entityId]
   )
 
-  useMountEffect(() => {
+  // Re-fetches when entityType or entityId changes.
+  useEffect(() => {
     fetchEntries(1, false)
-  })
+  }, [fetchEntries])
 
   if (isLoading) {
     return (

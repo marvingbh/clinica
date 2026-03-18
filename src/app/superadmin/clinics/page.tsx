@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { useMountEffect } from "@/shared/hooks"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { StatusBadge, formatDate } from "@/app/superadmin/components/StatusBadge"
@@ -61,9 +62,10 @@ export default function SuperAdminClinicsPage() {
     }
   }, [search, status, page])
 
-  useMountEffect(() => {
+  // Re-fetches when search, status, or page change.
+  useEffect(() => {
     fetchClinics()
-  })
+  }, [fetchClinics])
 
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault()
