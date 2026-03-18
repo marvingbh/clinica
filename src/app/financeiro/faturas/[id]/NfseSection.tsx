@@ -2,7 +2,9 @@
 
 import React, { useState } from "react"
 import { toast } from "sonner"
+import { DownloadIcon, MailIcon, BanIcon } from "@/shared/components/ui/icons"
 import NfseEmissionDialog from "./NfseEmissionDialog"
+import NfseEmailDialog from "./NfseEmailDialog"
 import PerItemNfseSection from "./PerItemNfseSection"
 import { StatusBadge, CancelConfirmBox, HistoryToggle } from "./NfseSectionShared"
 import type { NfseSectionProps, NfseLogEntry } from "./NfseSectionShared"
@@ -23,6 +25,7 @@ export default function NfseSection({ invoice, nfseConfig, onRefresh }: NfseSect
 
 function PerInvoiceNfseSection({ invoice, nfseConfig, onRefresh }: NfseSectionProps) {
   const [showDialog, setShowDialog] = useState(false)
+  const [showEmailDialog, setShowEmailDialog] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [cancelReason, setCancelReason] = useState("")
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
@@ -114,10 +117,23 @@ function PerInvoiceNfseSection({ invoice, nfseConfig, onRefresh }: NfseSectionPr
       {renderStatus()}
 
       {invoice.nfseStatus === "EMITIDA" && (
-        <div className="flex gap-2">
-          <a href={`/api/financeiro/faturas/${invoice.id}/nfse/pdf`} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">Baixar PDF</a>
-          <a href={`/api/financeiro/faturas/${invoice.id}/nfse/pdf?source=adn`} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-foreground hover:bg-muted/80 transition-colors">Baixar do Gov.br</a>
-          {!showCancelConfirm && <button onClick={() => setShowCancelConfirm(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors">Cancelar NFS-e</button>}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="inline-flex items-center rounded-md border border-border overflow-hidden divide-x divide-border">
+            <a href={`/api/financeiro/faturas/${invoice.id}/nfse/pdf`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors">
+              <DownloadIcon className="w-3.5 h-3.5" /> PDF
+            </a>
+            <a href={`/api/financeiro/faturas/${invoice.id}/nfse/pdf?source=adn`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+              Gov.br
+            </a>
+          </div>
+          <button onClick={() => setShowEmailDialog(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs font-medium text-foreground hover:bg-muted transition-colors">
+            <MailIcon className="w-3.5 h-3.5" /> Enviar por E-mail
+          </button>
+          {!showCancelConfirm && (
+            <button onClick={() => setShowCancelConfirm(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors ml-auto">
+              <BanIcon className="w-3.5 h-3.5" /> Cancelar
+            </button>
+          )}
         </div>
       )}
 
@@ -136,10 +152,21 @@ function PerInvoiceNfseSection({ invoice, nfseConfig, onRefresh }: NfseSectionPr
           patientBillingName={invoice.patient.billingResponsibleName ?? null}
           patientAddress={{ street: invoice.patient.addressStreet, number: invoice.patient.addressNumber, neighborhood: invoice.patient.addressNeighborhood, city: invoice.patient.addressCity, state: invoice.patient.addressState, zip: invoice.patient.addressZip }}
           totalAmount={invoice.totalAmount}
+          nfseObs={invoice.patient.nfseObs}
           defaultCodigoServico={nfseConfig.codigoServico} defaultCodigoNbs={nfseConfig.codigoNbs || ""} defaultCClassNbs={nfseConfig.cClassNbs || ""}
           defaultDescricao={nfseConfig.descricaoServico || "Servicos de saude"} defaultAliquotaIss={nfseConfig.aliquotaIss}
           onClose={() => { setShowDialog(false); onRefresh() }}
           onSuccess={() => { setShowDialog(false); toast.success("NFS-e em processamento"); onRefresh() }}
+        />
+      )}
+      {showEmailDialog && (
+        <NfseEmailDialog
+          invoiceId={invoice.id}
+          patientEmail={invoice.patient.email}
+          patientName={invoice.patient.name}
+          nfseNumero={invoice.nfseNumero || ""}
+          onClose={() => setShowEmailDialog(false)}
+          onSuccess={onRefresh}
         />
       )}
     </div>

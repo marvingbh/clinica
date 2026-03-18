@@ -21,6 +21,7 @@ interface NfseEmissionDialogProps {
     zip: string | null
   }
   totalAmount: string
+  nfseObs?: string | null
   itemId?: string | null
   defaultCodigoServico: string
   defaultCodigoNbs: string
@@ -39,6 +40,7 @@ export default function NfseEmissionDialog({
   patientBillingName,
   patientAddress,
   totalAmount,
+  nfseObs,
   itemId,
   defaultCodigoServico,
   defaultCodigoNbs,
@@ -160,6 +162,13 @@ export default function NfseEmissionDialog({
         <h3 className="text-lg font-semibold">
           Emitir NFS-e
         </h3>
+
+        {nfseObs && (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-900/50">
+            <AlertTriangleIcon className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-red-700 dark:text-red-300 font-medium">{nfseObs}</p>
+          </div>
+        )}
 
         {/* Tomador */}
         <div className="space-y-2">

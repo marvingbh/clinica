@@ -29,6 +29,8 @@ const updateSettingsSchema = z.object({
   invoiceMessageTemplate: z.string().nullable().optional(),
   paymentInfo: z.string().nullable().optional(),
   emailSenderName: z.string().max(100).nullable().optional(),
+  emailFromAddress: z.string().email("E-mail de envio inválido").max(200).nullable().optional(),
+  emailBcc: z.string().email("E-mail BCC inválido").max(200).nullable().optional(),
   billingMode: z.enum(["PER_SESSION", "MONTHLY_FIXED"]).optional(),
   invoiceGrouping: z.enum(["MONTHLY", "PER_SESSION"]).optional(),
   taxPercentage: z.number().min(0).max(100).optional(),
@@ -57,6 +59,8 @@ export const GET = withFeatureAuth(
         invoiceMessageTemplate: true,
         paymentInfo: true,
         emailSenderName: true,
+        emailFromAddress: true,
+        emailBcc: true,
         billingMode: true,
         invoiceGrouping: true,
         taxPercentage: true,
@@ -104,7 +108,7 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, billingMode, invoiceGrouping, taxPercentage } =
+    const { name, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage } =
       parsed.data
 
     // Build update object with only provided fields
@@ -122,6 +126,8 @@ export const PATCH = withFeatureAuth(
     if (invoiceMessageTemplate !== undefined) updateData.invoiceMessageTemplate = invoiceMessageTemplate || null
     if (paymentInfo !== undefined) updateData.paymentInfo = paymentInfo || null
     if (emailSenderName !== undefined) updateData.emailSenderName = emailSenderName || null
+    if (emailFromAddress !== undefined) updateData.emailFromAddress = emailFromAddress || null
+    if (emailBcc !== undefined) updateData.emailBcc = emailBcc || null
     if (billingMode !== undefined) updateData.billingMode = billingMode
     if (invoiceGrouping !== undefined) updateData.invoiceGrouping = invoiceGrouping
     if (taxPercentage !== undefined) updateData.taxPercentage = taxPercentage

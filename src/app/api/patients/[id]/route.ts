@@ -28,6 +28,7 @@ const updatePatientSchema = z.object({
   billingResponsibleName: z.string().max(200).optional().nullable().or(z.literal("")),
   nfseDescriptionTemplate: z.string().max(2000).optional().nullable().or(z.literal("")),
   nfsePerAppointment: z.boolean().optional(),
+  nfseObs: z.string().max(500).optional().nullable().or(z.literal("")),
   addressStreet: z.string().max(200).optional().nullable().or(z.literal("")),
   addressNumber: z.string().max(20).optional().nullable().or(z.literal("")),
   addressNeighborhood: z.string().max(100).optional().nullable().or(z.literal("")),
@@ -91,6 +92,7 @@ export const GET = withFeatureAuth(
           billingResponsibleName: true,
           nfseDescriptionTemplate: true,
           nfsePerAppointment: true,
+          nfseObs: true,
           addressStreet: true,
           addressNumber: true,
           addressNeighborhood: true,
@@ -332,6 +334,7 @@ export const PATCH = withFeatureAuth(
       updateData.nfseDescriptionTemplate = data.nfseDescriptionTemplate || null
     }
     if (data.nfsePerAppointment !== undefined) updateData.nfsePerAppointment = data.nfsePerAppointment
+    if (data.nfseObs !== undefined) updateData.nfseObs = data.nfseObs || null
     if (data.addressStreet !== undefined) updateData.addressStreet = data.addressStreet || null
     if (data.addressNumber !== undefined) updateData.addressNumber = data.addressNumber || null
     if (data.addressNeighborhood !== undefined) updateData.addressNeighborhood = data.addressNeighborhood || null
