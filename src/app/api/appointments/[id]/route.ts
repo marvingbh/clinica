@@ -17,6 +17,7 @@ const updateAppointmentSchema = z.object({
   cancellationReason: z.string().max(1000).nullable().optional(),
   title: z.string().max(500).nullable().optional(),
   additionalProfessionalIds: z.array(z.string()).optional(),
+  attendingProfessionalId: z.string().nullable().optional(),
 }).refine(data => {
   if (data.scheduledAt && data.endAt) {
     return new Date(data.endAt) > new Date(data.scheduledAt)
@@ -80,6 +81,9 @@ export const GET = withFeatureAuth(
               select: { id: true, user: { select: { name: true } } },
             },
           },
+        },
+        attendingProfessional: {
+          select: { id: true, user: { select: { name: true } } },
         },
       },
     })
@@ -150,7 +154,7 @@ export const PATCH = withFeatureAuth(
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message || "Dados inválidos" }, { status: 400 })
     }
-    const { scheduledAt, endAt, status, modality, notes, price, cancellationReason, title, additionalProfessionalIds } = parsed.data
+    const { scheduledAt, endAt, status, modality, notes, price, cancellationReason, title, additionalProfessionalIds, attendingProfessionalId } = parsed.data
 
     // Reject time changes for non-reschedulable appointments
     const isReschedule = scheduledAt !== undefined || endAt !== undefined
@@ -214,6 +218,22 @@ export const PATCH = withFeatureAuth(
       oldValues.title = existing.title
       newValues.title = title
       updateData.title = title
+    }
+
+    if (attendingProfessionalId !== undefined) {
+      // Validate the attending professional belongs to the clinic
+      if (attendingProfessionalId !== null) {
+        const attendingProf = await prisma.professionalProfile.findFirst({
+          where: { id: attendingProfessionalId, user: { clinicId: user.clinicId } },
+          select: { id: true },
+        })
+        if (!attendingProf) {
+          return NextResponse.json({ error: "Profissional atendente não encontrado" }, { status: 404 })
+        }
+      }
+      oldValues.attendingProfessionalId = existing.attendingProfessionalId
+      newValues.attendingProfessionalId = attendingProfessionalId
+      updateData.attendingProfessionalId = attendingProfessionalId
     }
 
     // Check if time is being updated - need conflict check
@@ -293,8 +313,19 @@ export const PATCH = withFeatureAuth(
               },
             },
           },
+          attendingProfessional: {
+            select: { id: true, user: { select: { name: true } } },
+          },
         },
       })
+
+      // Propagate attendingProfessionalId to existing invoice items
+      if (attendingProfessionalId !== undefined) {
+        await tx.invoiceItem.updateMany({
+          where: { appointmentId: params.id },
+          data: { attendingProfessionalId: attendingProfessionalId },
+        })
+      }
 
       return { appointment: updatedAppointment }
     })

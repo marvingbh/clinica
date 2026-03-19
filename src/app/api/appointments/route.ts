@@ -227,6 +227,9 @@ export const GET = withFeatureAuth(
             },
           },
         },
+        attendingProfessional: {
+          select: { id: true, user: { select: { name: true } } },
+        },
         invoiceItems: {
           where: { invoice: { status: { not: "CANCELADO" } } },
           select: {

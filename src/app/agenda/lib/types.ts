@@ -23,6 +23,7 @@ export const editAppointmentSchema = z.object({
   modality: z.enum(["ONLINE", "PRESENCIAL"]).nullable().optional(),
   notes: z.string().max(2000).optional().nullable(),
   price: z.union([z.number().min(0), z.string(), z.null()]).optional().nullable(),
+  attendingProfessionalId: z.string().nullable().optional(),
 })
 
 export const calendarEntrySchema = z.object({
@@ -134,6 +135,8 @@ export interface Appointment {
   alternateWeekInfo?: AlternateWeekInfo // For biweekly appointments, shows who is in the alternate week
   additionalProfessionals?: AdditionalProfessional[]
   invoice: AppointmentInvoice | null
+  attendingProfessionalId: string | null
+  attendingProfessional: { id: string; user: { name: string } } | null
   patient: {
     id: string
     name: string

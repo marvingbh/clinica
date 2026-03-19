@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import {
-  buildRepasseFromInvoices,
-  calculateRepasseSummary,
+  buildRepasseByAttendingProfessional,
   REPASSE_BILLABLE_INVOICE_STATUSES,
-  type InvoiceForRepasse,
+  type InvoiceItemForRepasse,
 } from "@/lib/financeiro/repasse"
 
 export const GET = withFeatureAuth(
@@ -46,47 +45,76 @@ export const GET = withFeatureAuth(
       },
     })
 
-    const invoices = await prisma.invoice.findMany({
+    // Query invoice items for the month (with parent invoice info + attending professional)
+    const invoiceItems = await prisma.invoiceItem.findMany({
+      where: {
+        invoice: {
+          clinicId: user.clinicId,
+          referenceYear: year,
+          referenceMonth: month,
+          status: { in: [...REPASSE_BILLABLE_INVOICE_STATUSES] },
+          ...(scope === "own" && user.professionalProfileId
+            ? { professionalProfileId: user.professionalProfileId }
+            : {}),
+        },
+        type: { not: "CREDITO" },
+      },
+      select: {
+        total: true,
+        attendingProfessionalId: true,
+        invoice: {
+          select: {
+            id: true,
+            professionalProfileId: true,
+            patient: { select: { name: true } },
+          },
+        },
+      },
+    })
+
+    // Build items for repasse calculation
+    const items: InvoiceItemForRepasse[] = invoiceItems.map(item => ({
+      total: Number(item.total),
+      attendingProfessionalId: item.attendingProfessionalId,
+      invoiceProfessionalId: item.invoice.professionalProfileId,
+      patientName: item.invoice.patient.name,
+      invoiceId: item.invoice.id,
+    }))
+
+    // Build professional map
+    const profMap = new Map(
+      professionals.map(p => [p.id, { repassePercent: Number(p.repassePercentage) }])
+    )
+
+    const repasseByProf = buildRepasseByAttendingProfessional(items, profMap, taxPercent)
+
+    // Query repasse payments for the month
+    const payments = await prisma.repassePayment.findMany({
       where: {
         clinicId: user.clinicId,
         referenceYear: year,
         referenceMonth: month,
-        status: { in: [...REPASSE_BILLABLE_INVOICE_STATUSES] },
-        ...(scope === "own" && user.professionalProfileId
-          ? { professionalProfileId: user.professionalProfileId }
-          : {}),
-      },
-      select: {
-        id: true,
-        professionalProfileId: true,
-        totalAmount: true,
-        totalSessions: true,
-        patient: { select: { name: true } },
       },
     })
+    const paymentMap = new Map(payments.map(p => [p.professionalProfileId, p]))
 
     const result = professionals.map((prof) => {
-      const profInvoices = invoices.filter(
-        (inv) => inv.professionalProfileId === prof.id
-      )
-
-      const mapped: InvoiceForRepasse[] = profInvoices.map((inv) => ({
-        invoiceId: inv.id,
-        patientName: inv.patient.name,
-        totalSessions: inv.totalSessions,
-        totalAmount: Number(inv.totalAmount),
-      }))
-
-      const repassePercent = Number(prof.repassePercentage)
-      const lines = buildRepasseFromInvoices(mapped, taxPercent, repassePercent)
-      const summary = calculateRepasseSummary(lines)
+      const repasseData = repasseByProf.get(prof.id)
+      const summary = repasseData?.summary ?? {
+        totalInvoices: 0, totalSessions: 0, totalGross: 0,
+        totalTax: 0, totalAfterTax: 0, totalRepasse: 0,
+      }
+      const payment = paymentMap.get(prof.id)
 
       return {
         professionalId: prof.id,
         name: prof.user.name,
-        repassePercent,
+        repassePercent: Number(prof.repassePercentage),
         taxPercent,
         ...summary,
+        paidAmount: payment ? Number(payment.repasseAmount) : null,
+        paidAt: payment?.paidAt?.toISOString() ?? null,
+        adjustment: payment ? Math.round((summary.totalRepasse - Number(payment.repasseAmount)) * 100) / 100 : 0,
       }
     })
 

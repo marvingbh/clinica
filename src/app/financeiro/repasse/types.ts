@@ -20,5 +20,14 @@ export interface RepasseDetailData {
     taxAmount: number
     afterTax: number
     repasseValue: number
+    note?: string
   }>
+  payment: {
+    paidAmount: number
+    grossAmount: number
+    taxAmount: number
+    paidAt: string
+    notes: string | null
+  } | null
+  adjustment: number
 }

@@ -299,6 +299,8 @@ function WeeklyAgendaPageContent() {
         professionals={professionals}
         editAdditionalProfIds={edit.editAdditionalProfIds}
         setEditAdditionalProfIds={edit.setEditAdditionalProfIds}
+        onAttendingProfChange={edit.setEditAttendingProfId}
+        editAttendingProfId={edit.editAttendingProfId}
       />
 
       <GroupSessionSheet

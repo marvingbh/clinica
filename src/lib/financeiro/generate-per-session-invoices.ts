@@ -242,6 +242,7 @@ async function createPerSessionInvoice(
     quantity: 1,
     unitPrice: price,
     total: price,
+    attendingProfessionalId: apt.attendingProfessionalId ?? null,
   }]
 
   // Apply credit if available
@@ -320,6 +321,7 @@ async function createPerSessionInvoice(
       items: {
         create: items.map(item => ({
           appointmentId: item.appointmentId,
+          attendingProfessionalId: item.attendingProfessionalId ?? null,
           type: item.type,
           description: item.description,
           quantity: item.quantity,
