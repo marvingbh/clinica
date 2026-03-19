@@ -16,7 +16,7 @@ export async function GET(
 
   const clinic = await prisma.clinic.findUnique({
     where: { slug },
-    select: { id: true, name: true, slug: true, logoUrl: true, isActive: true },
+    select: { id: true, name: true, slug: true, logoUrl: true, logoData: true, isActive: true },
   })
 
   if (!clinic || !clinic.isActive) {
@@ -30,6 +30,7 @@ export async function GET(
     name: clinic.name,
     slug: clinic.slug,
     logoUrl: clinic.logoUrl,
+    hasLogo: !!clinic.logoData,
   })
 }
 
