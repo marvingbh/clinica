@@ -3,8 +3,20 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+}
+
 const updateSettingsSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(200).optional(),
+  slug: z.string().min(2, "Slug deve ter pelo menos 2 caracteres").max(100)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug deve conter apenas letras minúsculas, números e hífens")
+    .optional(),
   phone: z.string().max(20).nullable().optional(),
   email: z.string().email("Email inválido").max(200).nullable().optional(),
   address: z.string().max(500).nullable().optional(),
@@ -48,6 +60,7 @@ export const GET = withFeatureAuth(
       select: {
         id: true,
         name: true,
+        slug: true,
         phone: true,
         email: true,
         address: true,
@@ -108,12 +121,24 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage } =
+    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage } =
       parsed.data
+
+    // Check slug uniqueness
+    if (slug !== undefined) {
+      const existing = await prisma.clinic.findUnique({ where: { slug } })
+      if (existing && existing.id !== user.clinicId) {
+        return NextResponse.json(
+          { error: "Este slug já está em uso por outra clínica" },
+          { status: 409 }
+        )
+      }
+    }
 
     // Build update object with only provided fields
     const updateData: Record<string, unknown> = {}
     if (name !== undefined) updateData.name = name
+    if (slug !== undefined) updateData.slug = slug
     if (phone !== undefined) updateData.phone = phone || null
     if (email !== undefined) updateData.email = email || null
     if (address !== undefined) updateData.address = address || null
@@ -148,6 +173,7 @@ export const PATCH = withFeatureAuth(
     const clinicSelect = {
       id: true,
       name: true,
+      slug: true,
       phone: true,
       email: true,
       address: true,

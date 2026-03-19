@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
@@ -15,6 +15,8 @@ const TIMEZONES = [
 
 const schema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(200),
+  slug: z.string().min(2, "Slug deve ter pelo menos 2 caracteres").max(100)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Apenas letras minúsculas, números e hífens"),
   phone: z.string().max(20).optional().or(z.literal("")),
   email: z.string().email("Email inválido").max(200).optional().or(z.literal("")),
   address: z.string().max(500).optional().or(z.literal("")),
@@ -35,15 +37,19 @@ export default function GeneralTab({ settings, onUpdate }: TabProps) {
   )
   const [isSavingLogo, setIsSavingLogo] = useState(false)
 
+  const [copied, setCopied] = useState(false)
+
   const {
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors, isDirty },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: settings.name,
+      slug: settings.slug,
       phone: settings.phone || "",
       email: settings.email || "",
       address: settings.address || "",
@@ -56,6 +62,7 @@ export default function GeneralTab({ settings, onUpdate }: TabProps) {
     try {
       const updated = await patchSettings({
         name: data.name,
+        slug: data.slug,
         phone: data.phone || null,
         email: data.email || null,
         address: data.address || null,
@@ -114,6 +121,15 @@ export default function GeneralTab({ settings, onUpdate }: TabProps) {
           <input {...register("name")} className={inputClass} />
           {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
         </div>
+        <div>
+          <label className={labelClass}>Slug (identificador na URL) *</label>
+          <input {...register("slug")} className={inputClass} placeholder="minha-clinica" />
+          {errors.slug && <p className="text-sm text-destructive mt-1">{errors.slug.message}</p>}
+          <p className="text-xs text-muted-foreground mt-1">
+            Usado na URL da ficha de cadastro. Apenas letras minúsculas, números e hífens.
+          </p>
+        </div>
+        <IntakeFormLink control={control} copied={copied} onCopy={() => setCopied(true)} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Telefone</label>
@@ -184,6 +200,47 @@ export default function GeneralTab({ settings, onUpdate }: TabProps) {
           />
         </label>
       </div>
+    </div>
+  )
+}
+
+function IntakeFormLink({
+  control,
+  copied,
+  onCopy,
+}: {
+  control: ReturnType<typeof useForm<FormValues>>["control"]
+  copied: boolean
+  onCopy: () => void
+}) {
+  const slug = useWatch({ control, name: "slug" })
+  const origin = typeof window !== "undefined" ? window.location.origin : ""
+  const url = slug ? `${origin}/intake/${slug}` : ""
+
+  if (!url) return null
+
+  return (
+    <div className="p-3 rounded-md bg-muted/50 border border-border space-y-2">
+      <p className="text-sm font-medium text-foreground">Link da Ficha de Cadastro</p>
+      <div className="flex items-center gap-2">
+        <code className="flex-1 text-xs text-muted-foreground bg-background px-3 py-2 rounded border border-input truncate">
+          {url}
+        </code>
+        <button
+          type="button"
+          onClick={() => {
+            navigator.clipboard.writeText(url)
+            onCopy()
+            setTimeout(() => {}, 0)
+          }}
+          className="shrink-0 h-9 px-3 rounded-md border border-input bg-background text-sm hover:bg-muted transition-colors"
+        >
+          {copied ? "Copiado!" : "Copiar"}
+        </button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Compartilhe este link com os responsáveis para preenchimento da ficha de cadastro.
+      </p>
     </div>
   )
 }
