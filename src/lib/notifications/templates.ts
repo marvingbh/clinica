@@ -17,6 +17,8 @@ export interface TemplateVariables {
   cancelLink?: string
   clinicName?: string
   modality?: string
+  guardianName?: string
+  childName?: string
 }
 
 /**
@@ -177,7 +179,7 @@ Atenciosamente,
     channel: NotificationChannel.EMAIL,
     name: "Nova Ficha de Cadastro (Email)",
     subject: "Nova ficha de cadastro recebida - {{clinicName}}",
-    content: `Uma nova ficha de cadastro foi preenchida.
+    content: `Uma nova ficha de cadastro foi preenchida por {{guardianName}} para {{childName}}.
 
 Acesse o sistema para revisar e aprovar.
 

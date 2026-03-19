@@ -1,11 +1,16 @@
 import { describe, it, expect } from "vitest"
-import { intakeSubmissionSchema, normalizePhone, normalizeCpfCnpj } from "./types"
+import { intakeSubmissionSchema, normalizePhone, normalizeCpfCnpj, isValidCpfCnpj } from "./types"
+
+// Valid CPF for testing (passes checksum): 529.982.247-25
+const VALID_CPF = "52998224725"
+// Valid CNPJ for testing: 11.222.333/0001-81
+const VALID_CNPJ = "11222333000181"
 
 const validInput = {
   childName: "Maria Silva",
   childBirthDate: "2018-05-15",
   guardianName: "Ana Silva",
-  guardianCpfCnpj: "12345678901",
+  guardianCpfCnpj: VALID_CPF,
   phone: "11999887766",
   email: "ana@example.com",
   addressStreet: "Rua das Flores",
@@ -36,7 +41,7 @@ describe("intakeSubmissionSchema", () => {
       childName: "Maria Silva",
       childBirthDate: "2018-05-15",
       guardianName: "Ana Silva",
-      guardianCpfCnpj: "12345678901",
+      guardianCpfCnpj: VALID_CPF,
       phone: "11999887766",
       email: "ana@example.com",
       addressStreet: "Rua das Flores",
@@ -56,6 +61,18 @@ describe("intakeSubmissionSchema", () => {
 
   it("rejects invalid birth date format", () => {
     const input = { ...validInput, childBirthDate: "15/05/2018" }
+    const result = intakeSubmissionSchema.safeParse(input)
+    expect(result.success).toBe(false)
+  })
+
+  it("rejects future birth date", () => {
+    const input = { ...validInput, childBirthDate: "2099-01-01" }
+    const result = intakeSubmissionSchema.safeParse(input)
+    expect(result.success).toBe(false)
+  })
+
+  it("rejects impossible date like 2020-13-45", () => {
+    const input = { ...validInput, childBirthDate: "2020-13-45" }
     const result = intakeSubmissionSchema.safeParse(input)
     expect(result.success).toBe(false)
   })
@@ -96,10 +113,44 @@ describe("intakeSubmissionSchema", () => {
     expect(result.success).toBe(false)
   })
 
-  it("rejects short CPF", () => {
-    const input = { ...validInput, guardianCpfCnpj: "123" }
+  it("rejects CPF with invalid checksum", () => {
+    const input = { ...validInput, guardianCpfCnpj: "12345678901" }
     const result = intakeSubmissionSchema.safeParse(input)
     expect(result.success).toBe(false)
+  })
+
+  it("rejects all-same-digit CPF", () => {
+    const input = { ...validInput, guardianCpfCnpj: "11111111111" }
+    const result = intakeSubmissionSchema.safeParse(input)
+    expect(result.success).toBe(false)
+  })
+
+  it("accepts valid CNPJ", () => {
+    const input = { ...validInput, guardianCpfCnpj: VALID_CNPJ }
+    const result = intakeSubmissionSchema.safeParse(input)
+    expect(result.success).toBe(true)
+  })
+})
+
+describe("isValidCpfCnpj", () => {
+  it("validates correct CPF", () => {
+    expect(isValidCpfCnpj(VALID_CPF)).toBe(true)
+  })
+
+  it("rejects incorrect CPF", () => {
+    expect(isValidCpfCnpj("12345678901")).toBe(false)
+  })
+
+  it("validates correct CNPJ", () => {
+    expect(isValidCpfCnpj(VALID_CNPJ)).toBe(true)
+  })
+
+  it("rejects incorrect CNPJ", () => {
+    expect(isValidCpfCnpj("12345678000190")).toBe(false)
+  })
+
+  it("rejects wrong length", () => {
+    expect(isValidCpfCnpj("12345")).toBe(false)
   })
 })
 

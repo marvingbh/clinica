@@ -5,6 +5,7 @@ import { useCallback, useState } from "react"
 import { useEffect } from "react"
 import { useDebouncedValue } from "@/shared/hooks"
 import { toast } from "sonner"
+import { formatPhoneDisplay } from "@/lib/intake"
 import { IntakeSubmissionDetail } from "./IntakeSubmissionDetail"
 
 interface IntakeSubmission {
@@ -66,16 +67,6 @@ export function IntakeSubmissionsTab({ canWrite }: IntakeSubmissionsTabProps) {
       year: "numeric",
       timeZone: "America/Sao_Paulo",
     })
-  }
-
-  function formatPhone(phone: string) {
-    if (phone.length === 11) {
-      return `(${phone.slice(0, 2)}) ${phone.slice(2, 7)}-${phone.slice(7)}`
-    }
-    if (phone.length === 10) {
-      return `(${phone.slice(0, 2)}) ${phone.slice(2, 6)}-${phone.slice(6)}`
-    }
-    return phone
   }
 
   const statusLabel: Record<string, string> = {
@@ -149,7 +140,7 @@ export function IntakeSubmissionsTab({ canWrite }: IntakeSubmissionsTabProps) {
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-foreground truncate">{s.childName}</p>
                   <p className="text-sm text-muted-foreground truncate">
-                    {s.guardianName} &middot; {formatPhone(s.phone)}
+                    {s.guardianName} &middot; {formatPhoneDisplay(s.phone)}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">

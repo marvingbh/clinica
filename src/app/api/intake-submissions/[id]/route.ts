@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api/with-auth"
-import { mapSubmissionToPatient } from "@/lib/intake"
+import { intakeUpdateSchema, mapSubmissionToPatient } from "@/lib/intake"
+import { audit, AuditAction } from "@/lib/rbac"
 
 /**
  * GET /api/intake-submissions/[id] — Fetch a single submission
@@ -43,32 +44,28 @@ export const PUT = withFeatureAuth(
     }
 
     const body = await req.json()
+    const parsed = intakeUpdateSchema.safeParse(body)
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0].message },
+        { status: 400 }
+      )
+    }
+
+    const data = parsed.data
+    const updateData: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) updateData[key] = value
+    }
+
+    if (typeof data.childBirthDate === "string") {
+      updateData.childBirthDate = new Date(data.childBirthDate)
+    }
 
     const updated = await prisma.intakeSubmission.update({
       where: { id },
-      data: {
-        childName: body.childName ?? submission.childName,
-        childBirthDate: body.childBirthDate ? new Date(body.childBirthDate) : submission.childBirthDate,
-        guardianName: body.guardianName ?? submission.guardianName,
-        guardianCpfCnpj: body.guardianCpfCnpj ?? submission.guardianCpfCnpj,
-        phone: body.phone ?? submission.phone,
-        email: body.email ?? submission.email,
-        addressStreet: body.addressStreet ?? submission.addressStreet,
-        addressNumber: body.addressNumber ?? submission.addressNumber,
-        addressNeighborhood: body.addressNeighborhood ?? submission.addressNeighborhood,
-        addressCity: body.addressCity ?? submission.addressCity,
-        addressState: body.addressState ?? submission.addressState,
-        addressZip: body.addressZip ?? submission.addressZip,
-        schoolName: body.schoolName ?? submission.schoolName,
-        schoolUnit: body.schoolUnit ?? submission.schoolUnit,
-        schoolShift: body.schoolShift ?? submission.schoolShift,
-        motherName: body.motherName ?? submission.motherName,
-        motherPhone: body.motherPhone ?? submission.motherPhone,
-        fatherName: body.fatherName ?? submission.fatherName,
-        fatherPhone: body.fatherPhone ?? submission.fatherPhone,
-        consentPhotoVideo: body.consentPhotoVideo ?? submission.consentPhotoVideo,
-        consentSessionRecording: body.consentSessionRecording ?? submission.consentSessionRecording,
-      },
+      data: updateData,
     })
 
     return NextResponse.json(updated)
@@ -90,20 +87,9 @@ export const PATCH = withFeatureAuth(
       return NextResponse.json({ error: "Acao invalida" }, { status: 400 })
     }
 
-    const submission = await prisma.intakeSubmission.findFirst({
-      where: { id, clinicId: user.clinicId, status: "PENDING" },
-    })
-
-    if (!submission) {
-      return NextResponse.json(
-        { error: "Ficha nao encontrada ou ja foi revisada" },
-        { status: 404 }
-      )
-    }
-
     if (action === "reject") {
-      await prisma.intakeSubmission.update({
-        where: { id },
+      const updated = await prisma.intakeSubmission.updateMany({
+        where: { id, clinicId: user.clinicId, status: "PENDING" },
         data: {
           status: "REJECTED",
           reviewedByUserId: user.id,
@@ -111,56 +97,83 @@ export const PATCH = withFeatureAuth(
         },
       })
 
+      if (updated.count === 0) {
+        return NextResponse.json(
+          { error: "Ficha nao encontrada ou ja foi revisada" },
+          { status: 404 }
+        )
+      }
+
+      await audit.log({
+        user,
+        action: AuditAction.INTAKE_REJECTED,
+        entityType: "IntakeSubmission",
+        entityId: id,
+        request: req,
+      })
+
       return NextResponse.json({ message: "Ficha rejeitada" })
     }
 
-    // Approve: create patient in a transaction
-    const patientData = mapSubmissionToPatient(submission, user.clinicId)
+    // Approve: all checks + creation inside a single transaction
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const submission = await tx.intakeSubmission.findFirst({
+          where: { id, clinicId: user.clinicId, status: "PENDING" },
+        })
 
-    // Check CPF conflict
-    if (patientData.cpf) {
-      const existingPatient = await prisma.patient.findUnique({
-        where: {
-          clinicId_cpf: {
-            clinicId: user.clinicId,
-            cpf: patientData.cpf,
+        if (!submission) {
+          throw new Error("NOT_FOUND")
+        }
+
+        const patientData = mapSubmissionToPatient(submission, user.clinicId)
+
+        const patient = await tx.patient.create({
+          data: patientData,
+        })
+
+        await tx.intakeSubmission.update({
+          where: { id },
+          data: {
+            status: "APPROVED",
+            patientId: patient.id,
+            reviewedByUserId: user.id,
+            reviewedAt: new Date(),
           },
-        },
-        select: { id: true, name: true },
+        })
+
+        return patient
       })
 
-      if (existingPatient) {
+      await audit.log({
+        user,
+        action: AuditAction.INTAKE_APPROVED,
+        entityType: "IntakeSubmission",
+        entityId: id,
+        newValues: { patientId: result.id },
+        request: req,
+      })
+
+      return NextResponse.json({
+        message: "Ficha aprovada e paciente criado",
+        patientId: result.id,
+      })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : ""
+      if (message === "NOT_FOUND") {
         return NextResponse.json(
-          {
-            error: `Ja existe um paciente com este CPF: ${existingPatient.name}`,
-            existingPatientId: existingPatient.id,
-          },
+          { error: "Ficha nao encontrada ou ja foi revisada" },
+          { status: 404 }
+        )
+      }
+      // Prisma unique constraint violation (e.g. duplicate billingCpf if cpf constraint added later)
+      if (typeof error === "object" && error !== null && "code" in error && (error as { code: string }).code === "P2002") {
+        return NextResponse.json(
+          { error: "Erro de duplicidade ao criar paciente. Verifique os dados." },
           { status: 409 }
         )
       }
+      throw error
     }
-
-    const result = await prisma.$transaction(async (tx) => {
-      const patient = await tx.patient.create({
-        data: patientData,
-      })
-
-      await tx.intakeSubmission.update({
-        where: { id },
-        data: {
-          status: "APPROVED",
-          patientId: patient.id,
-          reviewedByUserId: user.id,
-          reviewedAt: new Date(),
-        },
-      })
-
-      return patient
-    })
-
-    return NextResponse.json({
-      message: "Ficha aprovada e paciente criado",
-      patientId: result.id,
-    })
   }
 )
