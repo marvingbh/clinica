@@ -9,6 +9,7 @@ interface ClinicInfo {
   name: string
   slug: string
   logoUrl: string | null
+  hasLogo: boolean
 }
 
 type PageState = "loading" | "ready" | "submitting" | "success" | "error"
@@ -74,11 +75,12 @@ export default function IntakePage() {
         <div className="bg-card border border-border rounded-lg p-6 sm:p-8 shadow-sm">
           {/* Header */}
           <div className="text-center mb-6">
-            {clinic?.logoUrl && (
+            {(clinic?.hasLogo || clinic?.logoUrl) && (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={clinic.logoUrl}
+                src={clinic.hasLogo ? `/api/public/intake/${clinic.slug}/logo` : clinic.logoUrl!}
                 alt={clinic.name}
-                className="w-16 h-16 mx-auto mb-3 rounded-full object-cover"
+                className="h-20 mx-auto mb-3 object-contain"
               />
             )}
             <h1 className="text-2xl font-semibold text-foreground">
