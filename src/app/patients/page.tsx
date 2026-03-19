@@ -24,6 +24,7 @@ import {
   PatientDetailsView,
   PatientForm,
 } from "./components"
+import { IntakeSubmissionsTab } from "./components/IntakeSubmissionsTab"
 import type { Patient, Professional, AdditionalPhone, UsualPayer, Pagination, PatientFormData } from "./components"
 
 // WhatsApp format validation
@@ -121,6 +122,7 @@ export default function PatientsPage() {
   const { canRead: canReadAudit } = usePermission("audit_logs")
   const [patientTab, setPatientTab] = useState<"dados" | "historico" | "financeiro">("dados")
   const [billingMode, setBillingMode] = useState<string>("PER_SESSION")
+  const [pageTab, setPageTab] = useState<"pacientes" | "fichas">("pacientes")
 
 
   const {
@@ -495,7 +497,7 @@ export default function PatientsPage() {
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h1 className="text-2xl font-semibold text-foreground">Pacientes</h1>
-          {canWrite && (
+          {canWrite && pageTab === "pacientes" && (
             <button
               onClick={openCreateSheet}
               className="h-10 px-4 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-opacity"
@@ -505,6 +507,35 @@ export default function PatientsPage() {
           )}
         </div>
 
+        {/* Page-level tabs */}
+        <div className="flex gap-1 mb-6 border-b border-border">
+          <button
+            onClick={() => setPageTab("pacientes")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              pageTab === "pacientes"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Pacientes
+          </button>
+          <button
+            onClick={() => setPageTab("fichas")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              pageTab === "fichas"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Fichas de Cadastro
+          </button>
+        </div>
+
+        {pageTab === "fichas" && (
+          <IntakeSubmissionsTab canWrite={canWrite} />
+        )}
+
+        {pageTab === "pacientes" && <>
         {/* Search and Filter */}
         <PatientsSearchFilters
           search={search}
@@ -599,6 +630,7 @@ export default function PatientsPage() {
             )}
           </>
         )}
+        </>}
       </div>
 
       {/* Bottom Sheet */}
