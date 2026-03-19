@@ -44,6 +44,13 @@ enum NotificationType {
   APPOINTMENT_RESCHEDULED
   PASSWORD_RESET
   WELCOME
+  INTAKE_FORM_SUBMITTED
+}
+
+enum IntakeSubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum NotificationStatus {
@@ -226,6 +233,7 @@ model Clinic {
   reconciliationLinks    ReconciliationLink[]
   patientUsualPayers     PatientUsualPayer[]
   nfseConfig             NfseConfig?
+  intakeSubmissions      IntakeSubmission[]
 
   @@index([slug])
   @@index([isActive])
@@ -251,6 +259,7 @@ model User {
   permissions         UserPermission[]
   reconciliationLinks    ReconciliationLink[]
   dismissedTransactions  BankTransaction[]    @relation("DismissedTransactions")
+  reviewedIntakeSubmissions IntakeSubmission[]
 
   @@unique([clinicId, email])
   @@index([clinicId])
@@ -384,6 +393,16 @@ model Patient {
   consentEmail      Boolean   @default(false)
   consentEmailAt    DateTime?
 
+  // Intake form fields
+  motherPhone              String?
+  fatherPhone              String?
+  schoolUnit               String?
+  schoolShift              String?
+  consentPhotoVideo        Boolean   @default(false)
+  consentPhotoVideoAt      DateTime?
+  consentSessionRecording  Boolean   @default(false)
+  consentSessionRecordingAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -398,6 +417,7 @@ model Patient {
   invoices               Invoice[]
   sessionCredits         SessionCredit[]
   usualPayers            PatientUsualPayer[]
+  intakeSubmissions      IntakeSubmission[]
 
   @@unique([clinicId, cpf])
   @@index([clinicId])
@@ -441,6 +461,67 @@ model PatientUsualPayer {
 
   @@unique([patientId, payerName])
   @@index([clinicId, payerName])
+}
+
+/// Public intake form submission (prospect) awaiting clinic review
+model IntakeSubmission {
+  id        String                 @id @default(cuid())
+  clinicId  String
+  status    IntakeSubmissionStatus @default(PENDING)
+
+  // Child/adolescent info
+  childName      String
+  childBirthDate DateTime @db.Date
+
+  // Guardian (responsavel financeiro)
+  guardianName    String
+  guardianCpfCnpj String
+
+  // Contact
+  phone String
+  email String
+
+  // Address
+  addressStreet       String
+  addressNumber       String?
+  addressNeighborhood String?
+  addressCity         String?
+  addressState        String?  @db.VarChar(2)
+  addressZip          String   @db.VarChar(8)
+
+  // School
+  schoolName  String?
+  schoolUnit  String?
+  schoolShift String?
+
+  // Parents
+  motherName  String?
+  motherPhone String?
+  fatherName  String?
+  fatherPhone String?
+
+  // Consents
+  consentPhotoVideo       Boolean @default(false)
+  consentSessionRecording Boolean @default(false)
+
+  // Review tracking
+  patientId        String?
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+
+  // Metadata
+  ipAddress   String?
+  submittedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  clinic     Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient    Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  reviewedBy User?    @relation(fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId, status])
+  @@index([clinicId, submittedAt])
 }
 
 /// Individual appointment or calendar entry
