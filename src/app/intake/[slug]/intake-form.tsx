@@ -35,8 +35,7 @@ interface IntakeFormProps {
 }
 
 const inputClass =
-  "w-full h-11 px-4 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors text-sm"
-const labelClass = "block text-sm font-medium text-foreground mb-1.5"
+  "w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
 
 function formatPhone(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 11)
@@ -67,31 +66,6 @@ function brDateToIso(value: string): string {
   const parts = value.split("/")
   if (parts.length !== 3) return ""
   return `${parts[2]}-${parts[1]}-${parts[0]}`
-}
-
-function SectionCard({ title, description, children }: {
-  title: string
-  description?: string
-  children: React.ReactNode
-}) {
-  return (
-    <section className="bg-card border border-border rounded-xl p-5 sm:p-6 space-y-4">
-      <div>
-        <h2 className="text-sm font-semibold text-foreground tracking-wide uppercase">
-          {title}
-        </h2>
-        {description && (
-          <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{description}</p>
-        )}
-      </div>
-      {children}
-    </section>
-  )
-}
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null
-  return <p className="text-xs text-destructive mt-1">{message}</p>
 }
 
 export function IntakeForm({ onSubmit, isSubmitting, errorMessage }: IntakeFormProps) {
@@ -144,18 +118,18 @@ export function IntakeForm({ onSubmit, isSubmitting, errorMessage }: IntakeFormP
   }
 
   return (
-    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-5">
+    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-8">
       {errorMessage && (
-        <div className="p-4 rounded-xl bg-destructive/10 text-destructive text-sm border border-destructive/20">
+        <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
           {errorMessage}
         </div>
       )}
 
       {/* ── Section 1: Dados da Crianca ── */}
-      <SectionCard title="Dados da Crianca / Adolescente">
+      <section className="space-y-4">
         <div>
-          <label htmlFor="childName" className={labelClass}>
-            Nome completo <span className="text-destructive">*</span>
+          <label htmlFor="childName" className="block text-sm text-muted-foreground mb-1">
+            Nome completo da crianca/adolescente *
           </label>
           <input
             id="childName"
@@ -163,12 +137,14 @@ export function IntakeForm({ onSubmit, isSubmitting, errorMessage }: IntakeFormP
             className={inputClass}
             {...register("childName", { required: "Nome obrigatorio" })}
           />
-          <FieldError message={errors.childName?.message} />
+          {errors.childName && (
+            <p className="text-sm text-destructive mt-1">{errors.childName.message}</p>
+          )}
         </div>
 
         <div>
-          <label htmlFor="childBirthDate" className={labelClass}>
-            Data de nascimento <span className="text-destructive">*</span>
+          <label htmlFor="childBirthDate" className="block text-sm text-muted-foreground mb-1">
+            Data de nascimento da crianca/adolescente *
           </label>
           <Controller
             name="childBirthDate"
@@ -182,27 +158,39 @@ export function IntakeForm({ onSubmit, isSubmitting, errorMessage }: IntakeFormP
               />
             )}
           />
-          <FieldError message={errors.childBirthDate?.message} />
+          {errors.childBirthDate && (
+            <p className="text-sm text-destructive mt-1">{errors.childBirthDate.message}</p>
+          )}
         </div>
 
         <div>
-          <label htmlFor="schoolName" className={labelClass}>Escola</label>
+          <label htmlFor="schoolName" className="block text-sm text-muted-foreground mb-1">
+            Nome da escola e unidade (caso tenha)
+          </label>
           <input
             id="schoolName"
             type="text"
             className={inputClass}
-            placeholder="Nome da escola"
             {...register("schoolName")}
           />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="schoolUnit" className={labelClass}>Unidade</label>
-            <input id="schoolUnit" type="text" className={inputClass} {...register("schoolUnit")} />
+            <label htmlFor="schoolUnit" className="block text-sm text-muted-foreground mb-1">
+              Unidade
+            </label>
+            <input
+              id="schoolUnit"
+              type="text"
+              className={inputClass}
+              {...register("schoolUnit")}
+            />
           </div>
           <div>
-            <label htmlFor="schoolShift" className={labelClass}>Turno</label>
+            <label htmlFor="schoolShift" className="block text-sm text-muted-foreground mb-1">
+              Turno em que estuda
+            </label>
             <select id="schoolShift" className={inputClass} {...register("schoolShift")}>
               <option value="">Selecione</option>
               <option value="Manha">Manha</option>
@@ -211,231 +199,266 @@ export function IntakeForm({ onSubmit, isSubmitting, errorMessage }: IntakeFormP
             </select>
           </div>
         </div>
-      </SectionCard>
 
-      {/* ── Section 2: Pais ── */}
-      <SectionCard title="Dados dos Pais">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="fatherName" className={labelClass}>Nome do pai</label>
-            <input id="fatherName" type="text" className={inputClass} {...register("fatherName")} />
-          </div>
-          <div>
-            <label htmlFor="fatherPhone" className={labelClass}>Telefone do pai (WhatsApp)</label>
-            <Controller
-              name="fatherPhone"
-              control={control}
-              render={({ field }) => (
-                <input
-                  id="fatherPhone"
-                  type="text"
-                  inputMode="tel"
-                  className={inputClass}
-                  placeholder="(00) 00000-0000"
-                  value={field.value || ""}
-                  onChange={(e) => field.onChange(formatPhone(e.target.value))}
-                />
-              )}
-            />
-          </div>
+        <div>
+          <label htmlFor="fatherName" className="block text-sm text-muted-foreground mb-1">
+            Nome do pai
+          </label>
+          <input
+            id="fatherName"
+            type="text"
+            className={inputClass}
+            {...register("fatherName")}
+          />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="motherName" className={labelClass}>Nome da mae</label>
-            <input id="motherName" type="text" className={inputClass} {...register("motherName")} />
-          </div>
-          <div>
-            <label htmlFor="motherPhone" className={labelClass}>Telefone da mae (WhatsApp)</label>
-            <Controller
-              name="motherPhone"
-              control={control}
-              render={({ field }) => (
-                <input
-                  id="motherPhone"
-                  type="text"
-                  inputMode="tel"
-                  className={inputClass}
-                  placeholder="(00) 00000-0000"
-                  value={field.value || ""}
-                  onChange={(e) => field.onChange(formatPhone(e.target.value))}
-                />
-              )}
-            />
-          </div>
+        <div>
+          <label htmlFor="fatherPhone" className="block text-sm text-muted-foreground mb-1">
+            Telefone do pai (WhatsApp)
+          </label>
+          <Controller
+            name="fatherPhone"
+            control={control}
+            render={({ field }) => (
+              <input
+                id="fatherPhone"
+                type="text"
+                inputMode="tel"
+                className={inputClass}
+                placeholder="(00) 00000-0000"
+                value={field.value || ""}
+                onChange={(e) => field.onChange(formatPhone(e.target.value))}
+              />
+            )}
+          />
         </div>
-      </SectionCard>
 
-      {/* ── Section 3: Responsavel financeiro ── */}
-      <SectionCard
-        title="Responsavel Financeiro"
-        description="Preencha com as informacoes de quem vai declarar o imposto de renda. Caso queira as notas em nome da crianca, preencha com os dados dela."
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="motherName" className="block text-sm text-muted-foreground mb-1">
+            Nome da mae
+          </label>
+          <input
+            id="motherName"
+            type="text"
+            className={inputClass}
+            {...register("motherName")}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="motherPhone" className="block text-sm text-muted-foreground mb-1">
+            Telefone da mae (WhatsApp)
+          </label>
+          <Controller
+            name="motherPhone"
+            control={control}
+            render={({ field }) => (
+              <input
+                id="motherPhone"
+                type="text"
+                inputMode="tel"
+                className={inputClass}
+                placeholder="(00) 00000-0000"
+                value={field.value || ""}
+                onChange={(e) => field.onChange(formatPhone(e.target.value))}
+              />
+            )}
+          />
+        </div>
+      </section>
+
+      {/* ── Section 2: Responsavel financeiro ── */}
+      <section className="space-y-4">
+        <div className="border-t border-border pt-6">
+          <h2 className="text-base font-semibold text-foreground">Responsavel financeiro</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Preencha com as informacoes de quem vai declarar o imposto de renda. Caso queira
+            as notas em nome da crianca, preencha com os dados dela.
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor="guardianName" className="block text-sm text-muted-foreground mb-1">
+            Nome do responsavel financeiro *
+          </label>
+          <input
+            id="guardianName"
+            type="text"
+            className={inputClass}
+            {...register("guardianName", { required: "Nome do responsavel obrigatorio" })}
+          />
+          {errors.guardianName && (
+            <p className="text-sm text-destructive mt-1">{errors.guardianName.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="guardianCpfCnpj" className="block text-sm text-muted-foreground mb-1">
+            CPF/CNPJ *
+          </label>
+          <Controller
+            name="guardianCpfCnpj"
+            control={control}
+            rules={{ required: "CPF/CNPJ obrigatorio" }}
+            render={({ field }) => (
+              <input
+                id="guardianCpfCnpj"
+                type="text"
+                inputMode="numeric"
+                className={inputClass}
+                placeholder="000.000.000-00"
+                value={field.value || ""}
+                onChange={(e) => field.onChange(formatCpfCnpj(e.target.value))}
+              />
+            )}
+          />
+          {errors.guardianCpfCnpj && (
+            <p className="text-sm text-destructive mt-1">{errors.guardianCpfCnpj.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="phone" className="block text-sm text-muted-foreground mb-1">
+            Telefone *
+          </label>
+          <Controller
+            name="phone"
+            control={control}
+            rules={{ required: "Telefone obrigatorio" }}
+            render={({ field }) => (
+              <input
+                id="phone"
+                type="text"
+                inputMode="tel"
+                className={inputClass}
+                placeholder="(00) 00000-0000"
+                value={field.value || ""}
+                onChange={(e) => field.onChange(formatPhone(e.target.value))}
+              />
+            )}
+          />
+          {errors.phone && (
+            <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="email" className="block text-sm text-muted-foreground mb-1">
+            E-mail *
+          </label>
+          <input
+            id="email"
+            type="email"
+            className={inputClass}
+            placeholder="email@exemplo.com"
+            {...register("email", { required: "Email obrigatorio" })}
+          />
+          {errors.email && (
+            <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="addressZip" className="block text-sm text-muted-foreground mb-1">
+            CEP *
+          </label>
+          <Controller
+            name="addressZip"
+            control={control}
+            rules={{ required: "CEP obrigatorio" }}
+            render={({ field }) => (
+              <input
+                id="addressZip"
+                type="text"
+                inputMode="numeric"
+                className={inputClass}
+                placeholder="00000-000"
+                value={field.value || ""}
+                onChange={(e) => field.onChange(formatCep(e.target.value))}
+                onBlur={() => handleCepBlur(field.value || "")}
+              />
+            )}
+          />
+          {cepLoading && (
+            <p className="text-sm text-muted-foreground mt-1">Buscando endereco...</p>
+          )}
+          {errors.addressZip && (
+            <p className="text-sm text-destructive mt-1">{errors.addressZip.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="addressStreet" className="block text-sm text-muted-foreground mb-1">
+            Endereco *
+          </label>
+          <input
+            id="addressStreet"
+            type="text"
+            className={inputClass}
+            placeholder="Rua, Avenida, etc."
+            {...register("addressStreet", { required: "Endereco obrigatorio" })}
+          />
+          {errors.addressStreet && (
+            <p className="text-sm text-destructive mt-1">{errors.addressStreet.message}</p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
           <div>
-            <label htmlFor="guardianName" className={labelClass}>
-              Nome completo <span className="text-destructive">*</span>
+            <label htmlFor="addressNumber" className="block text-sm text-muted-foreground mb-1">
+              Numero
             </label>
-            <input
-              id="guardianName"
-              type="text"
-              className={inputClass}
-              {...register("guardianName", { required: "Nome do responsavel obrigatorio" })}
-            />
-            <FieldError message={errors.guardianName?.message} />
+            <input id="addressNumber" type="text" className={inputClass} {...register("addressNumber")} />
           </div>
-          <div>
-            <label htmlFor="guardianCpfCnpj" className={labelClass}>
-              CPF/CNPJ <span className="text-destructive">*</span>
+          <div className="col-span-2">
+            <label htmlFor="addressNeighborhood" className="block text-sm text-muted-foreground mb-1">
+              Bairro
             </label>
-            <Controller
-              name="guardianCpfCnpj"
-              control={control}
-              rules={{ required: "CPF/CNPJ obrigatorio" }}
-              render={({ field }) => (
-                <input
-                  id="guardianCpfCnpj"
-                  type="text"
-                  inputMode="numeric"
-                  className={inputClass}
-                  placeholder="000.000.000-00"
-                  value={field.value || ""}
-                  onChange={(e) => field.onChange(formatCpfCnpj(e.target.value))}
-                />
-              )}
-            />
-            <FieldError message={errors.guardianCpfCnpj?.message} />
+            <input id="addressNeighborhood" type="text" className={inputClass} {...register("addressNeighborhood")} />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="phone" className={labelClass}>
-              Telefone <span className="text-destructive">*</span>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="col-span-2">
+            <label htmlFor="addressCity" className="block text-sm text-muted-foreground mb-1">
+              Cidade
             </label>
-            <Controller
-              name="phone"
-              control={control}
-              rules={{ required: "Telefone obrigatorio" }}
-              render={({ field }) => (
-                <input
-                  id="phone"
-                  type="text"
-                  inputMode="tel"
-                  className={inputClass}
-                  placeholder="(00) 00000-0000"
-                  value={field.value || ""}
-                  onChange={(e) => field.onChange(formatPhone(e.target.value))}
-                />
-              )}
-            />
-            <FieldError message={errors.phone?.message} />
+            <input id="addressCity" type="text" className={inputClass} {...register("addressCity")} />
           </div>
           <div>
-            <label htmlFor="email" className={labelClass}>
-              E-mail <span className="text-destructive">*</span>
+            <label htmlFor="addressState" className="block text-sm text-muted-foreground mb-1">
+              UF
             </label>
-            <input
-              id="email"
-              type="email"
-              className={inputClass}
-              placeholder="email@exemplo.com"
-              {...register("email", { required: "Email obrigatorio" })}
-            />
-            <FieldError message={errors.email?.message} />
+            <input id="addressState" type="text" className={inputClass} maxLength={2} {...register("addressState")} />
           </div>
         </div>
+      </section>
 
-        <div className="pt-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Endereco</p>
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label htmlFor="addressZip" className={labelClass}>
-                  CEP <span className="text-destructive">*</span>
-                </label>
-                <Controller
-                  name="addressZip"
-                  control={control}
-                  rules={{ required: "CEP obrigatorio" }}
-                  render={({ field }) => (
-                    <input
-                      id="addressZip"
-                      type="text"
-                      inputMode="numeric"
-                      className={inputClass}
-                      placeholder="00000-000"
-                      value={field.value || ""}
-                      onChange={(e) => field.onChange(formatCep(e.target.value))}
-                      onBlur={() => handleCepBlur(field.value || "")}
-                    />
-                  )}
-                />
-                {cepLoading && (
-                  <p className="text-xs text-muted-foreground mt-1">Buscando...</p>
-                )}
-                <FieldError message={errors.addressZip?.message} />
-              </div>
-              <div className="col-span-2">
-                <label htmlFor="addressStreet" className={labelClass}>
-                  Rua / Logradouro <span className="text-destructive">*</span>
-                </label>
-                <input
-                  id="addressStreet"
-                  type="text"
-                  className={inputClass}
-                  {...register("addressStreet", { required: "Endereco obrigatorio" })}
-                />
-                <FieldError message={errors.addressStreet?.message} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label htmlFor="addressNumber" className={labelClass}>Numero</label>
-                <input id="addressNumber" type="text" className={inputClass} {...register("addressNumber")} />
-              </div>
-              <div className="col-span-2">
-                <label htmlFor="addressNeighborhood" className={labelClass}>Bairro</label>
-                <input id="addressNeighborhood" type="text" className={inputClass} {...register("addressNeighborhood")} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2">
-                <label htmlFor="addressCity" className={labelClass}>Cidade</label>
-                <input id="addressCity" type="text" className={inputClass} {...register("addressCity")} />
-              </div>
-              <div>
-                <label htmlFor="addressState" className={labelClass}>UF</label>
-                <input id="addressState" type="text" className={inputClass} maxLength={2} {...register("addressState")} />
-              </div>
-            </div>
-          </div>
+      {/* ── Section 3: Autorizacoes ── */}
+      <section className="space-y-4">
+        <div className="border-t border-border pt-6">
+          <h2 className="text-base font-semibold text-foreground">Autorizacoes</h2>
         </div>
-      </SectionCard>
 
-      {/* ── Section 4: Autorizacoes ── */}
-      <SectionCard title="Autorizacoes">
-        <label className="flex items-start gap-3 cursor-pointer p-4 rounded-lg border border-input bg-background hover:border-ring/50 transition-colors">
+        <label className="flex items-start gap-3 cursor-pointer p-3 rounded-md border border-input hover:bg-muted/50 transition-colors">
           <input
             type="checkbox"
-            className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+            className="mt-0.5 h-4 w-4 rounded border-input"
             {...register("consentPhotoVideo")}
           />
-          <span className="text-sm text-foreground leading-relaxed">
+          <span className="text-sm text-foreground">
             Autorizo o uso de fotos e/ou videos da minha crianca, de forma respeitosa e
             responsavel, nas redes sociais da clinica.
           </span>
         </label>
 
-        <label className="flex items-start gap-3 cursor-pointer p-4 rounded-lg border border-input bg-background hover:border-ring/50 transition-colors">
+        <label className="flex items-start gap-3 cursor-pointer p-3 rounded-md border border-input hover:bg-muted/50 transition-colors">
           <input
             type="checkbox"
-            className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+            className="mt-0.5 h-4 w-4 rounded border-input"
             {...register("consentSessionRecording")}
           />
-          <div className="text-sm text-foreground leading-relaxed">
+          <div className="text-sm text-foreground">
             <p>
               Autorizo e declaro estar ciente da possibilidade de gravacao das sessoes
               psicologicas, com a finalidade de supervisao da equipe e garantia da seguranca
@@ -450,13 +473,13 @@ export function IntakeForm({ onSubmit, isSubmitting, errorMessage }: IntakeFormP
             </p>
           </div>
         </label>
-      </SectionCard>
+      </section>
 
       {/* Submit */}
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+        className="w-full h-12 rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isSubmitting ? "Enviando..." : "Enviar Ficha de Cadastro"}
       </button>
