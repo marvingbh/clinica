@@ -32,6 +32,7 @@ export interface MonthlyInvoiceParams {
     groupId: string | null
     sessionGroupId: string | null
     price: number | null
+    attendingProfessionalId?: string | null
   }[]
 }
 
@@ -182,6 +183,7 @@ async function updateExistingInvoice(
       data: {
         invoiceId: existing.id,
         appointmentId: item.appointmentId,
+        attendingProfessionalId: item.attendingProfessionalId ?? null,
         type: item.type,
         description: item.description,
         quantity: item.quantity,
@@ -297,6 +299,7 @@ async function createNewInvoice(
       items: {
         create: items.map(item => ({
           appointmentId: item.appointmentId,
+          attendingProfessionalId: item.attendingProfessionalId ?? null,
           type: item.type,
           description: item.description,
           quantity: item.quantity,

@@ -102,6 +102,9 @@ interface AppointmentEditorProps {
   professionals?: Professional[]
   editAdditionalProfIds?: string[]
   setEditAdditionalProfIds?: (ids: string[]) => void
+  // Attending professional
+  onAttendingProfChange?: (professionalId: string | null) => void
+  editAttendingProfId?: string | null
 }
 
 type EditorTab = "occurrence" | "recurrence" | "historico"
@@ -131,6 +134,8 @@ export function AppointmentEditor({
   professionals,
   editAdditionalProfIds,
   setEditAdditionalProfIds,
+  onAttendingProfChange,
+  editAttendingProfId,
 }: AppointmentEditorProps) {
   const [activeTab, setActiveTab] = useState<EditorTab>("occurrence")
   const { canRead: canReadAudit } = usePermission("audit_logs")
@@ -254,6 +259,14 @@ export function AppointmentEditor({
                 <span className="text-xs"> +{appointment.additionalProfessionals!.map(ap => ap.professionalProfile.user.name).join(", ")}</span>
               )}
             </span>
+            {appointment.attendingProfessional && appointment.attendingProfessional.id !== appointment.professionalProfile.id && (
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                  Atendente: {appointment.attendingProfessional.user.name}
+                </span>
+              </>
+            )}
             {isConsulta && appointment.modality && (
               <>
                 <span className="text-muted-foreground/40">·</span>
@@ -378,6 +391,8 @@ export function AppointmentEditor({
             professionals={professionals}
             editAdditionalProfIds={editAdditionalProfIds}
             setEditAdditionalProfIds={setEditAdditionalProfIds}
+            onAttendingProfChange={onAttendingProfChange}
+            editAttendingProfId={editAttendingProfId}
           />
         )}
         {activeTab === "recurrence" && (
@@ -425,6 +440,8 @@ interface OccurrenceTabContentProps {
   professionals?: Professional[]
   editAdditionalProfIds?: string[]
   setEditAdditionalProfIds?: (ids: string[]) => void
+  onAttendingProfChange?: (professionalId: string | null) => void
+  editAttendingProfId?: string | null
 }
 
 function OccurrenceTabContent({
@@ -450,6 +467,8 @@ function OccurrenceTabContent({
   professionals,
   editAdditionalProfIds,
   setEditAdditionalProfIds,
+  onAttendingProfChange,
+  editAttendingProfId,
 }: OccurrenceTabContentProps) {
   const [cancelVariant, setCancelVariant] = useState<CancelVariant | null>(null)
 
@@ -755,6 +774,38 @@ function OccurrenceTabContent({
               placeholder="0,00"
               className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
             />
+          </div>
+        )}
+
+        {/* Attending Professional — CONSULTA and REUNIAO */}
+        {(isConsulta || appointment.type === "REUNIAO") && professionals && professionals.length > 1 && (
+          <div>
+            <label htmlFor="editAttendingProf" className="block text-sm font-medium text-foreground mb-1.5">
+              Profissional atendente
+            </label>
+            <select
+              id="editAttendingProf"
+              value={editAttendingProfId ?? ""}
+              onChange={(e) => {
+                const value = e.target.value || null
+                if (onAttendingProfChange) {
+                  onAttendingProfChange(value)
+                }
+              }}
+              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
+            >
+              <option value="">{appointment.professionalProfile.user.name} (titular)</option>
+              {professionals
+                .filter(p => p.professionalProfile?.id && p.professionalProfile.id !== appointment.professionalProfile.id)
+                .map(p => (
+                  <option key={p.professionalProfile!.id} value={p.professionalProfile!.id}>
+                    {p.name}
+                  </option>
+                ))}
+            </select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Selecione quem atendeu esta sessão (repasse será direcionado ao atendente)
+            </p>
           </div>
         )}
 

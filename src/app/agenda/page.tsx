@@ -150,6 +150,8 @@ export default function AgendaPage() {
     form: editForm,
     editAdditionalProfIds,
     setEditAdditionalProfIds,
+    editAttendingProfId,
+    setEditAttendingProfId,
     apiError: editApiError,
     clearApiError: clearEditApiError,
     isUpdating: isUpdatingAppointment,
@@ -341,6 +343,8 @@ export default function AgendaPage() {
         professionals={professionals}
         editAdditionalProfIds={editAdditionalProfIds}
         setEditAdditionalProfIds={setEditAdditionalProfIds}
+        onAttendingProfChange={setEditAttendingProfId}
+        editAttendingProfId={editAttendingProfId}
       />
 
       <GroupSessionSheet

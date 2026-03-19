@@ -36,6 +36,7 @@ export const FIELD_LABELS: Record<string, string> = {
   price: "Valor",
   cancellationReason: "Motivo do Cancelamento",
   title: "Titulo",
+  attendingProfessionalId: "Profissional Atendente",
   type: "Tipo",
   confirmedAt: "Confirmado em",
   cancelledAt: "Cancelado em",

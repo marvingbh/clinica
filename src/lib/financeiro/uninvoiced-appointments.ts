@@ -9,6 +9,7 @@ const LOOKBACK_MONTHS = 6
 const appointmentSelect = {
   id: true, scheduledAt: true, status: true, type: true, title: true,
   recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
+  attendingProfessionalId: true,
 } as const
 
 type AppointmentSelect = Prisma.AppointmentGetPayload<{ select: typeof appointmentSelect }>

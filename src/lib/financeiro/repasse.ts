@@ -58,6 +58,86 @@ export function buildRepasseFromInvoices(
   })
 }
 
+// ============================================================================
+// Item-level repasse (supports attending professional / substitute)
+// ============================================================================
+
+export interface InvoiceItemForRepasse {
+  total: number
+  attendingProfessionalId: string | null
+  invoiceProfessionalId: string
+  patientName: string
+  invoiceId: string
+}
+
+export interface RepasseByProfessional {
+  lines: RepasseInvoiceLine[]
+  summary: RepasseSummary
+}
+
+/** Resolve who actually gets repasse credit for an item */
+export function resolveAttendingProfId(item: InvoiceItemForRepasse): string {
+  return item.attendingProfessionalId ?? item.invoiceProfessionalId
+}
+
+/**
+ * Group invoice items by the attending professional and calculate repasse per professional.
+ * Items with a substitute get their repasse routed to the substitute professional.
+ */
+export function buildRepasseByAttendingProfessional(
+  items: InvoiceItemForRepasse[],
+  professionals: Map<string, { repassePercent: number }>,
+  taxPercent: number,
+): Map<string, RepasseByProfessional> {
+  // Group items by attending professional
+  const grouped = new Map<string, InvoiceItemForRepasse[]>()
+  for (const item of items) {
+    const profId = resolveAttendingProfId(item)
+    const list = grouped.get(profId) || []
+    list.push(item)
+    grouped.set(profId, list)
+  }
+
+  const result = new Map<string, RepasseByProfessional>()
+
+  for (const [profId, profItems] of grouped) {
+    const prof = professionals.get(profId)
+    if (!prof) continue
+
+    // Group by invoice for line-item display
+    const byInvoice = new Map<string, { patientName: string; total: number; count: number }>()
+    for (const item of profItems) {
+      const existing = byInvoice.get(item.invoiceId)
+      if (existing) {
+        existing.total += item.total
+        existing.count++
+      } else {
+        byInvoice.set(item.invoiceId, {
+          patientName: item.patientName,
+          total: item.total,
+          count: 1,
+        })
+      }
+    }
+
+    const lines: RepasseInvoiceLine[] = []
+    for (const [invoiceId, data] of byInvoice) {
+      const calc = calculateRepasse(data.total, taxPercent, prof.repassePercent)
+      lines.push({
+        ...calc,
+        invoiceId,
+        patientName: data.patientName,
+        totalSessions: data.count,
+      })
+    }
+
+    const summary = calculateRepasseSummary(lines)
+    result.set(profId, { lines, summary })
+  }
+
+  return result
+}
+
 export function calculateRepasseSummary(lines: RepasseInvoiceLine[]): RepasseSummary {
   let totalGross = 0, totalTax = 0, totalAfterTax = 0, totalRepasse = 0, totalSessions = 0
 

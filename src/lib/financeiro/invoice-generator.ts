@@ -8,6 +8,7 @@ export interface AppointmentForInvoice {
   groupId: string | null
   sessionGroupId: string | null
   price: number | null
+  attendingProfessionalId?: string | null
 }
 
 export interface CreditForInvoice {
@@ -31,6 +32,7 @@ export interface InvoiceItemData {
   unitPrice: number
   total: number
   creditId?: string
+  attendingProfessionalId?: string | null
 }
 
 export interface InvoiceTotals {
@@ -95,6 +97,7 @@ export function buildInvoiceItems(
         quantity: 1,
         unitPrice: price,
         total: price,
+        attendingProfessionalId: apt.attendingProfessionalId ?? null,
       })
     }
   }

@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useMountEffect } from "@/shared/hooks"
 import { useParams, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { formatCurrencyBRL, getMonthName } from "@/lib/financeiro/format"
+import { CheckCircleIcon } from "@/shared/components/ui/icons"
 import type { RepasseDetailData } from "../types"
 
 export default function RepasseDetailPage() {
@@ -16,22 +17,56 @@ export default function RepasseDetailPage() {
 
   const [data, setData] = useState<RepasseDetailData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [paying, setPaying] = useState(false)
 
-  useMountEffect(() => {
+  const fetchData = useCallback(async () => {
     if (!year || !month) return
-    ;(async () => {
-      try {
-        const res = await fetch(
-          `/api/financeiro/repasse/${professionalId}?year=${year}&month=${month}`
-        )
-        if (res.ok) {
-          setData(await res.json())
-        }
-      } finally {
-        setLoading(false)
+    try {
+      const res = await fetch(
+        `/api/financeiro/repasse/${professionalId}?year=${year}&month=${month}`
+      )
+      if (res.ok) {
+        setData(await res.json())
       }
-    })()
-  })
+    } finally {
+      setLoading(false)
+    }
+  }, [professionalId, year, month])
+
+  useMountEffect(() => { fetchData() })
+
+  const handleMarkAsPaid = async () => {
+    if (!year || !month) return
+    setPaying(true)
+    try {
+      const res = await fetch(`/api/financeiro/repasse/${professionalId}/pay`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ year: parseInt(year), month: parseInt(month) }),
+      })
+      if (res.ok) {
+        await fetchData()
+      }
+    } finally {
+      setPaying(false)
+    }
+  }
+
+  const handleUndoPayment = async () => {
+    if (!year || !month) return
+    setPaying(true)
+    try {
+      const res = await fetch(
+        `/api/financeiro/repasse/${professionalId}/pay?year=${year}&month=${month}`,
+        { method: "DELETE" },
+      )
+      if (res.ok) {
+        await fetchData()
+      }
+    } finally {
+      setPaying(false)
+    }
+  }
 
   if (!year || !month) {
     return <div className="text-destructive">Parâmetros de ano/mês ausentes</div>
@@ -42,6 +77,9 @@ export default function RepasseDetailPage() {
   if (!data) {
     return <div className="text-destructive">Repasse não encontrado</div>
   }
+
+  const isPaid = data.payment !== null
+  const saldo = isPaid ? data.adjustment : data.summary.totalRepasse
 
   return (
     <div className="space-y-6">
@@ -63,7 +101,7 @@ export default function RepasseDetailPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <SummaryCard label="Total Bruto" value={data.summary.totalGross} />
         <SummaryCard label="Imposto" value={data.summary.totalTax} />
         <SummaryCard label="Líquido" value={data.summary.totalAfterTax} />
@@ -72,6 +110,44 @@ export default function RepasseDetailPage() {
           value={data.summary.totalRepasse}
           highlight
         />
+        <SummaryCard
+          label="Já Pago"
+          value={data.payment?.paidAmount ?? 0}
+          variant={isPaid ? "success" : undefined}
+        />
+        <SummaryCard
+          label="Saldo"
+          value={saldo}
+          variant={saldo < 0 ? "danger" : saldo > 0 ? "warning" : undefined}
+        />
+      </div>
+
+      {/* Payment action */}
+      <div className="flex items-center gap-3">
+        {isPaid ? (
+          <>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+              <CheckCircleIcon className="w-4 h-4" />
+              Pago em {new Date(data.payment!.paidAt).toLocaleDateString("pt-BR")}
+            </span>
+            <button
+              onClick={handleUndoPayment}
+              disabled={paying}
+              className="text-sm text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+            >
+              {paying ? "..." : "Desfazer pagamento"}
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={handleMarkAsPaid}
+            disabled={paying || data.summary.totalRepasse === 0}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
+          >
+            <CheckCircleIcon className="w-4 h-4" />
+            {paying ? "Processando..." : "Marcar como pago"}
+          </button>
+        )}
       </div>
 
       {/* Per-invoice line items */}
@@ -93,7 +169,14 @@ export default function RepasseDetailPage() {
                 key={item.invoiceId}
                 className="border-b border-border last:border-0"
               >
-                <td className="py-3 px-4">{item.patientName}</td>
+                <td className="py-3 px-4">
+                  {item.patientName}
+                  {item.note && (
+                    <span className="ml-2 text-xs text-blue-600 dark:text-blue-400 font-medium">
+                      ({item.note})
+                    </span>
+                  )}
+                </td>
                 <td className="text-center py-3 px-4">{item.totalSessions}</td>
                 <td className="text-right py-3 px-4">
                   {formatCurrencyBRL(item.grossValue)}
@@ -123,13 +206,33 @@ export default function RepasseDetailPage() {
   )
 }
 
-function SummaryCard({ label, value, highlight }: {
-  label: string; value: number; highlight?: boolean
+function SummaryCard({ label, value, highlight, variant }: {
+  label: string; value: number; highlight?: boolean; variant?: "success" | "danger" | "warning"
 }) {
+  const colors = variant === "success"
+    ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800"
+    : variant === "danger"
+    ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800"
+    : variant === "warning"
+    ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
+    : highlight
+    ? "bg-primary/5 border-primary/30"
+    : ""
+
+  const textColor = variant === "success"
+    ? "text-green-700 dark:text-green-300"
+    : variant === "danger"
+    ? "text-red-600 dark:text-red-400"
+    : variant === "warning"
+    ? "text-amber-600 dark:text-amber-400"
+    : highlight
+    ? "text-primary"
+    : ""
+
   return (
-    <div className={`rounded-lg border border-border p-4 ${highlight ? "bg-primary/5 border-primary/30" : ""}`}>
+    <div className={`rounded-lg border border-border p-4 ${colors}`}>
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={`text-2xl font-bold ${highlight ? "text-primary" : ""}`}>
+      <div className={`text-2xl font-bold ${textColor}`}>
         {formatCurrencyBRL(value)}
       </div>
     </div>

@@ -30,6 +30,10 @@ export interface UseAppointmentEditReturn {
   editAdditionalProfIds: string[]
   setEditAdditionalProfIds: (ids: string[]) => void
 
+  // Attending professional (substitute)
+  editAttendingProfId: string | null
+  setEditAttendingProfId: (id: string | null) => void
+
   // API error (shown inline)
   apiError: string | null
   clearApiError: () => void
@@ -62,6 +66,7 @@ export function useAppointmentEdit({
   const [isUpdating, setIsUpdating] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
   const [editAdditionalProfIds, setEditAdditionalProfIds] = useState<string[]>([])
+  const [editAttendingProfId, setEditAttendingProfId] = useState<string | null>(null)
   // Store original date/time so we only send them if actually changed
   const originalValuesRef = useRef<{ date: string; startTime: string; duration: number } | null>(null)
 
@@ -78,6 +83,7 @@ export function useAppointmentEdit({
       setEditAdditionalProfIds(
         appointment.additionalProfessionals?.map(ap => ap.professionalProfile.id) || []
       )
+      setEditAttendingProfId(appointment.attendingProfessionalId ?? null)
       const values = computeFormValues(appointment)
       originalValuesRef.current = { date: values.date, startTime: values.startTime, duration: values.duration || 0 }
       form.reset(values)
@@ -124,6 +130,7 @@ export function useAppointmentEdit({
           notes: data.notes || null,
           price: data.price != null && data.price !== "" && !isNaN(Number(data.price)) ? Number(data.price) : null,
           additionalProfessionalIds: editAdditionalProfIds,
+          attendingProfessionalId: editAttendingProfId,
         }
 
         if (timeChanged) {
@@ -150,7 +157,7 @@ export function useAppointmentEdit({
         setIsUpdating(false)
       }
     },
-    [selectedAppointment, appointmentDuration, editAdditionalProfIds, closeEditSheet, onSuccess]
+    [selectedAppointment, appointmentDuration, editAdditionalProfIds, editAttendingProfId, closeEditSheet, onSuccess]
   )
 
   return {
@@ -162,6 +169,8 @@ export function useAppointmentEdit({
     form,
     editAdditionalProfIds,
     setEditAdditionalProfIds,
+    editAttendingProfId,
+    setEditAttendingProfId,
     apiError,
     clearApiError,
     isUpdating,

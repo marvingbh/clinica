@@ -234,6 +234,7 @@ model Clinic {
   patientUsualPayers     PatientUsualPayer[]
   nfseConfig             NfseConfig?
   intakeSubmissions      IntakeSubmission[]
+  repassePayments        RepassePayment[]
 
   @@index([slug])
   @@index([isActive])
@@ -297,6 +298,9 @@ model ProfessionalProfile {
   recurrenceParticipations  RecurrenceProfessional[]   @relation("RecurrenceParticipations")
   invoices                  Invoice[]
   sessionCredits            SessionCredit[]
+  attendedAppointments      Appointment[]              @relation("AttendingProfessional")
+  attendedInvoiceItems      InvoiceItem[]              @relation("AttendingInvoiceItems")
+  repassePayments           RepassePayment[]
 
   @@index([userId])
 }
@@ -547,6 +551,7 @@ model Appointment {
   cancelledAt           DateTime?
   confirmedAt           DateTime?
   creditGenerated       Boolean              @default(false)
+  attendingProfessionalId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -557,6 +562,7 @@ model Appointment {
   patient                 Patient?                  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   recurrence              AppointmentRecurrence?    @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
   group                   TherapyGroup?             @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  attendingProfessional   ProfessionalProfile?      @relation("AttendingProfessional", fields: [attendingProfessionalId], references: [id], onDelete: SetNull)
   notifications           Notification[]
   additionalProfessionals AppointmentProfessional[]
   invoiceItems            InvoiceItem[]
@@ -578,6 +584,7 @@ model Appointment {
   @@index([groupId, scheduledAt])
   @@index([sessionGroupId])
   @@index([clinicId, sessionGroupId])
+  @@index([attendingProfessionalId])
 }
 
 /// Defines a recurring appointment pattern
@@ -889,23 +896,26 @@ model Invoice {
 
 /// Line item on an invoice
 model InvoiceItem {
-  id            String          @id @default(cuid())
-  invoiceId     String
-  appointmentId String?
-  type          InvoiceItemType
-  description   String
-  quantity      Int             @default(1)
-  unitPrice     Decimal         @db.Decimal(10, 2)
-  total         Decimal         @db.Decimal(10, 2)
+  id                      String          @id @default(cuid())
+  invoiceId               String
+  appointmentId           String?
+  attendingProfessionalId String?
+  type                    InvoiceItemType
+  description             String
+  quantity                Int             @default(1)
+  unitPrice               Decimal         @db.Decimal(10, 2)
+  total                   Decimal         @db.Decimal(10, 2)
 
   createdAt DateTime @default(now())
 
-  invoice       Invoice        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  appointment   Appointment?   @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
-  nfseEmissions NfseEmission[]
+  invoice                 Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  appointment             Appointment?         @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  attendingProfessional   ProfessionalProfile? @relation("AttendingInvoiceItems", fields: [attendingProfessionalId], references: [id], onDelete: SetNull)
+  nfseEmissions           NfseEmission[]
 
   @@index([invoiceId])
   @@index([appointmentId])
+  @@index([attendingProfessionalId])
 }
 
 /// Session credit from a cancelled appointment (CANCELADO_ACORDADO)
@@ -932,6 +942,32 @@ model SessionCredit {
   @@index([patientId])
   @@index([consumedByInvoiceId])
   @@index([professionalProfileId, patientId, consumedByInvoiceId])
+}
+
+// ============================================================================
+// REPASSE PAYMENT MODEL
+// ============================================================================
+
+/// Records a repasse payment snapshot for a professional in a given month
+model RepassePayment {
+  id                    String   @id @default(cuid())
+  clinicId              String
+  professionalProfileId String
+  referenceMonth        Int
+  referenceYear         Int
+  grossAmount           Decimal  @db.Decimal(10, 2)
+  taxAmount             Decimal  @db.Decimal(10, 2)
+  repasseAmount         Decimal  @db.Decimal(10, 2)
+  paidAt                DateTime @default(now())
+  notes                 String?
+  createdAt             DateTime @default(now())
+
+  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, professionalProfileId, referenceMonth, referenceYear])
+  @@index([clinicId])
+  @@index([professionalProfileId])
 }
 
 // ============================================================================

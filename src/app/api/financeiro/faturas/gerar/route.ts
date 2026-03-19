@@ -73,7 +73,7 @@ export const POST = withFeatureAuth(
       select: {
         id: true, scheduledAt: true, status: true, type: true, title: true,
         recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
-        patientId: true, professionalProfileId: true,
+        patientId: true, professionalProfileId: true, attendingProfessionalId: true,
       },
     })
 
@@ -154,6 +154,7 @@ export const POST = withFeatureAuth(
         groupId: a.groupId,
         sessionGroupId: a.sessionGroupId,
         price: a.price ? Number(a.price) : null,
+        attendingProfessionalId: a.attendingProfessionalId ?? null,
       }))
 
       try {
