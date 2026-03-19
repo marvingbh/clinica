@@ -80,7 +80,7 @@ export default function IntakePage() {
               <img
                 src={clinic.hasLogo ? `/api/public/intake/${clinic.slug}/logo` : clinic.logoUrl!}
                 alt={clinic.name}
-                className="h-20 mx-auto mb-3 object-contain"
+                className="h-20 mx-auto mb-6 object-contain"
               />
             ) : (
               <h1 className="text-2xl font-semibold text-foreground">
