@@ -222,7 +222,7 @@ export function DesktopHeader() {
   }
 
   // Don't render on public pages or when not authenticated
-  const publicPaths = ["/login", "/confirm", "/cancel"]
+  const publicPaths = ["/login", "/confirm", "/cancel", "/intake"]
   if (publicPaths.some(p => pathname.startsWith(p)) || status === "unauthenticated") {
     return null
   }

@@ -101,7 +101,7 @@ export function BottomNavigation() {
   }
 
   // Don't render on public pages
-  const publicPaths = ["/login", "/confirm", "/cancel"]
+  const publicPaths = ["/login", "/confirm", "/cancel", "/intake"]
   if (publicPaths.some(p => pathname.startsWith(p))) {
     return null
   }
