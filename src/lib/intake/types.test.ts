@@ -133,24 +133,79 @@ describe("intakeSubmissionSchema", () => {
 })
 
 describe("isValidCpfCnpj", () => {
-  it("validates correct CPF", () => {
-    expect(isValidCpfCnpj(VALID_CPF)).toBe(true)
+  // Known valid CPFs (different check digit patterns)
+  it.each([
+    "52998224725",
+    "11144477735",
+    "00000000191", // edge case: valid CPF with leading zeros
+    "76381539011",
+    "34785623179",
+  ])("validates correct CPF: %s", (cpf) => {
+    expect(isValidCpfCnpj(cpf)).toBe(true)
   })
 
-  it("rejects incorrect CPF", () => {
-    expect(isValidCpfCnpj("12345678901")).toBe(false)
+  // All same digit CPFs (must all be rejected)
+  it.each([
+    "00000000000",
+    "11111111111",
+    "22222222222",
+    "33333333333",
+    "44444444444",
+    "55555555555",
+    "66666666666",
+    "77777777777",
+    "88888888888",
+    "99999999999",
+  ])("rejects all-same-digit CPF: %s", (cpf) => {
+    expect(isValidCpfCnpj(cpf)).toBe(false)
   })
 
-  it("validates correct CNPJ", () => {
-    expect(isValidCpfCnpj(VALID_CNPJ)).toBe(true)
+  // Invalid check digits
+  it.each([
+    "12345678901", // wrong first check digit
+    "52998224724", // wrong second check digit (last digit off by 1)
+    "52998224735", // wrong both check digits
+    "11144477736", // off by 1
+  ])("rejects CPF with bad checksum: %s", (cpf) => {
+    expect(isValidCpfCnpj(cpf)).toBe(false)
   })
 
-  it("rejects incorrect CNPJ", () => {
-    expect(isValidCpfCnpj("12345678000190")).toBe(false)
+  // Known valid CNPJs
+  it.each([
+    "11222333000181",
+    "11444777000161",
+  ])("validates correct CNPJ: %s", (cnpj) => {
+    expect(isValidCpfCnpj(cnpj)).toBe(true)
   })
 
-  it("rejects wrong length", () => {
-    expect(isValidCpfCnpj("12345")).toBe(false)
+  // Invalid CNPJs
+  it.each([
+    "12345678000190", // bad checksum
+    "11222333000182", // off by 1
+    "00000000000000", // all zeros
+    "11111111111111", // all same digit
+  ])("rejects invalid CNPJ: %s", (cnpj) => {
+    expect(isValidCpfCnpj(cnpj)).toBe(false)
+  })
+
+  // Wrong lengths
+  it.each([
+    "",
+    "123",
+    "1234567890",   // 10 digits (too short for CPF)
+    "123456789012",  // 12 digits (between CPF and CNPJ)
+    "123456789012345", // 15 digits (too long for CNPJ)
+  ])("rejects wrong length: '%s'", (val) => {
+    expect(isValidCpfCnpj(val)).toBe(false)
+  })
+
+  // Handles formatted input (strips non-digits)
+  it("validates formatted CPF with dots and dash", () => {
+    expect(isValidCpfCnpj("529.982.247-25")).toBe(true)
+  })
+
+  it("validates formatted CNPJ with dots, slash and dash", () => {
+    expect(isValidCpfCnpj("11.222.333/0001-81")).toBe(true)
   })
 })
 

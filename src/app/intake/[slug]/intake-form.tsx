@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useForm, Controller } from "react-hook-form"
 import { DatePickerInput } from "@/shared/components/ui/date-picker-input"
+import { isValidCpfCnpj } from "@/lib/intake"
 
 interface IntakeFormData {
   childName: string
@@ -74,6 +75,8 @@ export function IntakeForm({ onSubmit, isSubmitting, errorMessage }: IntakeFormP
     handleSubmit,
     control,
     setValue,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<IntakeFormData>({
     defaultValues: {
@@ -308,7 +311,16 @@ export function IntakeForm({ onSubmit, isSubmitting, errorMessage }: IntakeFormP
                 className={inputClass}
                 placeholder="000.000.000-00"
                 value={field.value || ""}
-                onChange={(e) => field.onChange(formatCpfCnpj(e.target.value))}
+                onChange={(e) => {
+                  field.onChange(formatCpfCnpj(e.target.value))
+                  if (errors.guardianCpfCnpj) clearErrors("guardianCpfCnpj")
+                }}
+                onBlur={() => {
+                  const digits = (field.value || "").replace(/\D/g, "")
+                  if (digits.length >= 11 && !isValidCpfCnpj(digits)) {
+                    setError("guardianCpfCnpj", { message: "CPF/CNPJ invalido" })
+                  }
+                }}
               />
             )}
           />
