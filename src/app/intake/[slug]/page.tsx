@@ -75,17 +75,18 @@ export default function IntakePage() {
         <div className="bg-card border border-border rounded-lg p-6 sm:p-8 shadow-sm">
           {/* Header */}
           <div className="text-center mb-6">
-            {(clinic?.hasLogo || clinic?.logoUrl) && (
+            {(clinic?.hasLogo || clinic?.logoUrl) ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={clinic.hasLogo ? `/api/public/intake/${clinic.slug}/logo` : clinic.logoUrl!}
                 alt={clinic.name}
                 className="h-20 mx-auto mb-3 object-contain"
               />
+            ) : (
+              <h1 className="text-2xl font-semibold text-foreground">
+                {clinic?.name || "Clinica"}
+              </h1>
             )}
-            <h1 className="text-2xl font-semibold text-foreground">
-              {clinic?.name || "Clinica"}
-            </h1>
             <p className="text-sm text-muted-foreground mt-1">
               Ficha de Cadastro
             </p>
