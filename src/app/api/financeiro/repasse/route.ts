@@ -45,21 +45,28 @@ export const GET = withFeatureAuth(
       },
     })
 
-    const invoiceWhere = {
+    const baseInvoiceWhere = {
       clinicId: user.clinicId,
       referenceYear: year,
       referenceMonth: month,
       status: { in: [...REPASSE_BILLABLE_INVOICE_STATUSES] },
-      ...(scope === "own" && user.professionalProfileId
-        ? { professionalProfileId: user.professionalProfileId }
-        : {}),
     }
+
+    // For "own" scope, include items from own invoices OR items where user is the attending
+    const ownScopeFilter = scope === "own" && user.professionalProfileId
+      ? {
+          OR: [
+            { invoice: { ...baseInvoiceWhere, professionalProfileId: user.professionalProfileId } },
+            { attendingProfessionalId: user.professionalProfileId, invoice: baseInvoiceWhere },
+          ],
+        }
+      : { invoice: baseInvoiceWhere }
 
     // Query invoice items and repasse payments in parallel
     const [invoiceItems, payments] = await Promise.all([
       prisma.invoiceItem.findMany({
         where: {
-          invoice: invoiceWhere,
+          ...ownScopeFilter,
           type: { not: "CREDITO" },
         },
         select: {

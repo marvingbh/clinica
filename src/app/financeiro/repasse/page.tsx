@@ -6,6 +6,7 @@ import { useEffect } from "react"
 import Link from "next/link"
 import { formatCurrencyBRL } from "@/lib/financeiro/format"
 import { EyeIcon, CheckCircleIcon } from "@/shared/components/ui/icons"
+import { toast } from "sonner"
 import { useFinanceiroContext } from "../context/FinanceiroContext"
 
 interface ProfessionalRepasse {
@@ -62,7 +63,11 @@ export default function RepassePage() {
         body: JSON.stringify({ year, month }),
       })
       if (res.ok) {
+        toast.success("Pagamento registrado")
         fetchData()
+      } else {
+        const data = await res.json().catch(() => null)
+        toast.error(data?.error || "Erro ao registrar pagamento")
       }
     } finally {
       setPayingProfId(null)
@@ -78,7 +83,11 @@ export default function RepassePage() {
         { method: "DELETE" },
       )
       if (res.ok) {
+        toast.success("Pagamento desfeito")
         fetchData()
+      } else {
+        const data = await res.json().catch(() => null)
+        toast.error(data?.error || "Erro ao desfazer pagamento")
       }
     } finally {
       setPayingProfId(null)

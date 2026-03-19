@@ -6,6 +6,7 @@ import { useParams, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { formatCurrencyBRL, getMonthName } from "@/lib/financeiro/format"
 import { CheckCircleIcon } from "@/shared/components/ui/icons"
+import { toast } from "sonner"
 import type { RepasseDetailData } from "../types"
 
 export default function RepasseDetailPage() {
@@ -45,7 +46,11 @@ export default function RepasseDetailPage() {
         body: JSON.stringify({ year: parseInt(year), month: parseInt(month) }),
       })
       if (res.ok) {
+        toast.success("Pagamento registrado")
         await fetchData()
+      } else {
+        const data = await res.json().catch(() => null)
+        toast.error(data?.error || "Erro ao registrar pagamento")
       }
     } finally {
       setPaying(false)
@@ -61,7 +66,11 @@ export default function RepasseDetailPage() {
         { method: "DELETE" },
       )
       if (res.ok) {
+        toast.success("Pagamento desfeito")
         await fetchData()
+      } else {
+        const data = await res.json().catch(() => null)
+        toast.error(data?.error || "Erro ao desfazer pagamento")
       }
     } finally {
       setPaying(false)
