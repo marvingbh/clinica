@@ -25,9 +25,32 @@ import {
   UserIcon,
   AlertTriangleIcon,
   TrashIcon,
+  FileTextIcon,
 } from "@/shared/components/ui/icons"
 import { CancelConfirmDialog } from "./CancelConfirmDialog"
 import type { CancelVariant } from "./CancelConfirmDialog"
+
+// ============================================================================
+// Invoice status display
+// ============================================================================
+
+const INVOICE_STATUS_LABELS: Record<string, string> = {
+  PENDENTE: "Pendente",
+  ENVIADO: "Enviado",
+  PARCIAL: "Parcial",
+  PAGO: "Pago",
+  CANCELADO: "Cancelado",
+}
+
+const INVOICE_STATUS_COLORS: Record<string, string> = {
+  PENDENTE: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+  ENVIADO: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  PARCIAL: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  PAGO: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  CANCELADO: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+}
+
+const MONTH_NAMES_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
 // ============================================================================
 // Helpers
@@ -266,6 +289,30 @@ export function AppointmentEditor({
                 <span className="truncate">{appointment.patient.email}</span>
               </a>
             )}
+          </div>
+        )}
+
+        {/* Invoice status */}
+        {(isConsulta || appointment.type === "REUNIAO") && appointment.invoice && (
+          <a
+            href={`/financeiro/faturas/${appointment.invoice.id}`}
+            className="flex items-center gap-1.5 mt-2.5 group"
+          >
+            <FileTextIcon className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
+            <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+              Fatura {MONTH_NAMES_SHORT[appointment.invoice.referenceMonth - 1]}/{appointment.invoice.referenceYear}
+            </span>
+            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+              INVOICE_STATUS_COLORS[appointment.invoice.status] || "bg-muted text-muted-foreground"
+            }`}>
+              {INVOICE_STATUS_LABELS[appointment.invoice.status] || appointment.invoice.status}
+            </span>
+          </a>
+        )}
+        {(isConsulta || appointment.type === "REUNIAO") && !appointment.invoice && (
+          <div className="flex items-center gap-1.5 mt-2.5">
+            <FileTextIcon className="w-3.5 h-3.5 text-muted-foreground/50" />
+            <span className="text-xs text-muted-foreground/50">Sem fatura</span>
           </div>
         )}
 

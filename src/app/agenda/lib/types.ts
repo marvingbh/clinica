@@ -108,6 +108,13 @@ export interface AdditionalProfessional {
   }
 }
 
+export interface AppointmentInvoice {
+  id: string
+  status: string
+  referenceMonth: number
+  referenceYear: number
+}
+
 export interface Appointment {
   id: string
   scheduledAt: string
@@ -126,6 +133,7 @@ export interface Appointment {
   recurrence: AppointmentRecurrence | null
   alternateWeekInfo?: AlternateWeekInfo // For biweekly appointments, shows who is in the alternate week
   additionalProfessionals?: AdditionalProfessional[]
+  invoice: AppointmentInvoice | null
   patient: {
     id: string
     name: string

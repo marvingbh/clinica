@@ -227,6 +227,20 @@ export const GET = withFeatureAuth(
             },
           },
         },
+        invoiceItems: {
+          where: { invoice: { status: { not: "CANCELADO" } } },
+          select: {
+            invoice: {
+              select: {
+                id: true,
+                status: true,
+                referenceMonth: true,
+                referenceYear: true,
+              },
+            },
+          },
+          take: 1,
+        },
       },
       orderBy: {
         scheduledAt: "asc",
@@ -393,7 +407,13 @@ export const GET = withFeatureAuth(
       }
     }
 
-    return NextResponse.json({ appointments: appointmentsWithAlternateInfo, biweeklyHints, birthdayPatients })
+    // Flatten invoiceItems[0].invoice → invoice for each appointment
+    const appointmentsWithInvoice = appointmentsWithAlternateInfo.map(({ invoiceItems, ...apt }) => ({
+      ...apt,
+      invoice: invoiceItems?.[0]?.invoice ?? null,
+    }))
+
+    return NextResponse.json({ appointments: appointmentsWithInvoice, biweeklyHints, birthdayPatients })
   }
 )
 
