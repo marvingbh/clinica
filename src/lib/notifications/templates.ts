@@ -171,6 +171,18 @@ Para reagendar, entre em contato conosco.
 Atenciosamente,
 {{clinicName}}`,
   },
+  // INTAKE_FORM_SUBMITTED - Email
+  {
+    type: NotificationType.INTAKE_FORM_SUBMITTED,
+    channel: NotificationChannel.EMAIL,
+    name: "Nova Ficha de Cadastro (Email)",
+    subject: "Nova ficha de cadastro recebida - {{clinicName}}",
+    content: `Uma nova ficha de cadastro foi preenchida.
+
+Acesse o sistema para revisar e aprovar.
+
+{{clinicName}}`,
+  },
 ]
 
 /**

@@ -49,6 +49,18 @@ export const FIELD_LABELS: Record<string, string> = {
   endDate: "Data Final",
   occurrences: "Ocorrencias",
 
+  // Intake submission fields
+  childName: "Nome da Crianca",
+  childBirthDate: "Data de Nascimento da Crianca",
+  guardianName: "Responsavel Financeiro",
+  guardianCpfCnpj: "CPF/CNPJ do Responsavel",
+  consentPhotoVideo: "Consentimento Fotos/Videos",
+  consentSessionRecording: "Consentimento Gravacao Sessoes",
+  schoolUnit: "Unidade Escolar",
+  schoolShift: "Turno Escolar",
+  motherPhone: "Telefone da Mae",
+  fatherPhone: "Telefone do Pai",
+
   // NFS-e fields
   nfseStatus: "Status NFS-e",
   nfseNumero: "Numero NFS-e",
