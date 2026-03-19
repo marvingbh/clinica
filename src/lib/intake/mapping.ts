@@ -13,7 +13,6 @@ export function mapSubmissionToPatient(submission: IntakeSubmission, clinicId: s
     birthDate: submission.childBirthDate,
     phone: submission.phone,
     email: submission.email || undefined,
-    cpf: submission.guardianCpfCnpj,
     billingCpf: submission.guardianCpfCnpj,
     billingResponsibleName: submission.guardianName,
     addressStreet: submission.addressStreet || undefined,

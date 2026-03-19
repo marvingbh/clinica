@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "@/lib/rate-limit"
 import { intakeSubmissionSchema, normalizePhone, normalizeCpfCnpj } from "@/lib/intake"
 import { createAndSendNotification } from "@/lib/notifications/notification-service"
+import { getTemplate, renderTemplate } from "@/lib/notifications/templates"
 import { NotificationType, NotificationChannel } from "@prisma/client"
 
 /**
@@ -120,7 +121,7 @@ export async function POST(
     )
 
     return NextResponse.json(
-      { message: "Ficha de cadastro enviada com sucesso", id: submission.id },
+      { message: "Ficha de cadastro enviada com sucesso" },
       { status: 201 }
     )
   } catch (error) {
@@ -143,6 +144,16 @@ async function notifyClinicAdmins(
     select: { email: true },
   })
 
+  const template = await getTemplate(
+    clinicId,
+    NotificationType.INTAKE_FORM_SUBMITTED,
+    NotificationChannel.EMAIL
+  )
+
+  const variables = { clinicName, childName, guardianName }
+  const content = renderTemplate(template.content, variables)
+  const subject = template.subject ? renderTemplate(template.subject, variables) : undefined
+
   for (const admin of admins) {
     if (!admin.email) continue
 
@@ -151,8 +162,8 @@ async function notifyClinicAdmins(
       type: NotificationType.INTAKE_FORM_SUBMITTED,
       channel: NotificationChannel.EMAIL,
       recipient: admin.email,
-      subject: `Nova ficha de cadastro recebida - ${clinicName}`,
-      content: `Uma nova ficha de cadastro foi preenchida por ${guardianName} para ${childName}. Acesse o sistema para revisar.`,
+      subject,
+      content,
     })
   }
 }

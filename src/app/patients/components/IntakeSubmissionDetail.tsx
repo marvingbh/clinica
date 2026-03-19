@@ -4,24 +4,13 @@ import { useState } from "react"
 import { useMountEffect } from "@/shared/hooks"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { formatPhoneDisplay, formatCpfCnpjDisplay } from "@/lib/intake"
 import type { IntakeSubmission } from "@prisma/client"
 
 interface IntakeSubmissionDetailProps {
   id: string
   canWrite: boolean
   onBack: () => void
-}
-
-function formatPhone(phone: string) {
-  if (phone.length === 11) return `(${phone.slice(0, 2)}) ${phone.slice(2, 7)}-${phone.slice(7)}`
-  if (phone.length === 10) return `(${phone.slice(0, 2)}) ${phone.slice(2, 6)}-${phone.slice(6)}`
-  return phone
-}
-
-function formatCpf(cpf: string) {
-  if (cpf.length === 11) return `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-${cpf.slice(9)}`
-  if (cpf.length === 14) return `${cpf.slice(0, 2)}.${cpf.slice(2, 5)}.${cpf.slice(5, 8)}/${cpf.slice(8, 12)}-${cpf.slice(12)}`
-  return cpf
 }
 
 function formatDate(dateStr: string | Date) {
@@ -195,9 +184,9 @@ export function IntakeSubmissionDetail({ id, canWrite, onBack }: IntakeSubmissio
         <h3 className="text-sm font-medium text-foreground mb-3">Pais</h3>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Nome do pai" value={submission.fatherName} />
-          <Field label="Telefone do pai" value={submission.fatherPhone ? formatPhone(submission.fatherPhone) : null} />
+          <Field label="Telefone do pai" value={submission.fatherPhone ? formatPhoneDisplay(submission.fatherPhone) : null} />
           <Field label="Nome da mae" value={submission.motherName} />
-          <Field label="Telefone da mae" value={submission.motherPhone ? formatPhone(submission.motherPhone) : null} />
+          <Field label="Telefone da mae" value={submission.motherPhone ? formatPhoneDisplay(submission.motherPhone) : null} />
         </dl>
       </section>
 
@@ -206,8 +195,8 @@ export function IntakeSubmissionDetail({ id, canWrite, onBack }: IntakeSubmissio
         <h3 className="text-sm font-medium text-foreground mb-3">Responsavel Financeiro</h3>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Nome" value={submission.guardianName} />
-          <Field label="CPF/CNPJ" value={formatCpf(submission.guardianCpfCnpj)} />
-          <Field label="Telefone" value={formatPhone(submission.phone)} />
+          <Field label="CPF/CNPJ" value={formatCpfCnpjDisplay(submission.guardianCpfCnpj)} />
+          <Field label="Telefone" value={formatPhoneDisplay(submission.phone)} />
           <Field label="Email" value={submission.email} />
         </dl>
       </section>

@@ -37,8 +37,6 @@ export default function GeneralTab({ settings, onUpdate }: TabProps) {
   )
   const [isSavingLogo, setIsSavingLogo] = useState(false)
 
-  const [copied, setCopied] = useState(false)
-
   const {
     register,
     handleSubmit,
@@ -129,7 +127,7 @@ export default function GeneralTab({ settings, onUpdate }: TabProps) {
             Usado na URL da ficha de cadastro. Apenas letras minúsculas, números e hífens.
           </p>
         </div>
-        <IntakeFormLink control={control} copied={copied} onCopy={() => setCopied(true)} />
+        <IntakeFormLink control={control} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Telefone</label>
@@ -204,16 +202,9 @@ export default function GeneralTab({ settings, onUpdate }: TabProps) {
   )
 }
 
-function IntakeFormLink({
-  control,
-  copied,
-  onCopy,
-}: {
-  control: ReturnType<typeof useForm<FormValues>>["control"]
-  copied: boolean
-  onCopy: () => void
-}) {
+function IntakeFormLink({ control }: { control: ReturnType<typeof useForm<FormValues>>["control"] }) {
   const slug = useWatch({ control, name: "slug" })
+  const [copied, setCopied] = useState(false)
   const origin = typeof window !== "undefined" ? window.location.origin : ""
   const url = slug ? `${origin}/intake/${slug}` : ""
 
@@ -230,8 +221,8 @@ function IntakeFormLink({
           type="button"
           onClick={() => {
             navigator.clipboard.writeText(url)
-            onCopy()
-            setTimeout(() => {}, 0)
+            setCopied(true)
+            setTimeout(() => setCopied(false), 2000)
           }}
           className="shrink-0 h-9 px-3 rounded-md border border-input bg-background text-sm hover:bg-muted transition-colors"
         >

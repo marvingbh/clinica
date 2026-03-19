@@ -9,7 +9,7 @@ const baseSubmission: IntakeSubmission = {
   childName: "Maria Silva",
   childBirthDate: new Date("2018-05-15"),
   guardianName: "Ana Silva",
-  guardianCpfCnpj: "12345678901",
+  guardianCpfCnpj: "52998224725",
   phone: "11999887766",
   email: "ana@example.com",
   addressStreet: "Rua das Flores",
@@ -43,11 +43,11 @@ describe("mapSubmissionToPatient", () => {
     expect(result.birthDate).toEqual(new Date("2018-05-15"))
   })
 
-  it("maps guardian info to billing fields and CPF", () => {
+  it("maps guardian info to billingCpf only (not cpf, to allow siblings)", () => {
     const result = mapSubmissionToPatient(baseSubmission, "clinic_1")
     expect(result.billingResponsibleName).toBe("Ana Silva")
-    expect(result.billingCpf).toBe("12345678901")
-    expect(result.cpf).toBe("12345678901")
+    expect(result.billingCpf).toBe("52998224725")
+    expect(result).not.toHaveProperty("cpf")
   })
 
   it("maps contact info", () => {
