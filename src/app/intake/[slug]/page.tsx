@@ -70,40 +70,38 @@ export default function IntakePage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 py-8 bg-background">
-      <div className="w-full max-w-2xl">
-        <div className="bg-card border border-border rounded-lg p-6 sm:p-8 shadow-sm">
-          {/* Header */}
-          <div className="text-center mb-6">
-            {(clinic?.hasLogo || clinic?.logoUrl) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={clinic.hasLogo ? `/api/public/intake/${clinic.slug}/logo` : clinic.logoUrl!}
-                alt={clinic.name}
-                className="h-20 mx-auto mb-3 object-contain"
-              />
-            ) : (
-              <h1 className="text-2xl font-semibold text-foreground">
-                {clinic?.name || "Clinica"}
-              </h1>
-            )}
-            <p className="text-sm text-muted-foreground mt-1">
-              Ficha de Cadastro
-            </p>
-          </div>
-
-          {/* Content */}
-          {state === "loading" && <LoadingSkeleton />}
-          {state === "error" && <ErrorState message={errorMessage} />}
-          {(state === "ready" || state === "submitting") && (
-            <IntakeForm
-              onSubmit={handleSubmit}
-              isSubmitting={state === "submitting"}
-              errorMessage={errorMessage}
+    <main className="min-h-screen bg-muted/30 py-10 px-4 sm:py-16">
+      <div className="w-full max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-10">
+          {(clinic?.hasLogo || clinic?.logoUrl) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={clinic.hasLogo ? `/api/public/intake/${clinic.slug}/logo` : clinic.logoUrl!}
+              alt={clinic.name}
+              className="h-24 mx-auto object-contain"
             />
+          ) : (
+            <h1 className="text-2xl font-semibold text-foreground">
+              {clinic?.name || "Clinica"}
+            </h1>
           )}
-          {state === "success" && <SuccessState />}
+          <p className="text-sm text-muted-foreground mt-4 tracking-wide uppercase">
+            Ficha de Cadastro
+          </p>
         </div>
+
+        {/* Content */}
+        {state === "loading" && <LoadingSkeleton />}
+        {state === "error" && <ErrorState message={errorMessage} />}
+        {(state === "ready" || state === "submitting") && (
+          <IntakeForm
+            onSubmit={handleSubmit}
+            isSubmitting={state === "submitting"}
+            errorMessage={errorMessage}
+          />
+        )}
+        {state === "success" && <SuccessState />}
       </div>
     </main>
   )
@@ -111,36 +109,46 @@ export default function IntakePage() {
 
 function LoadingSkeleton() {
   return (
-    <div className="space-y-4 animate-pulse">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="h-12 bg-muted rounded" />
-      ))}
+    <div className="space-y-6">
+      <div className="bg-card border border-border rounded-xl p-6 space-y-4 animate-pulse">
+        <div className="h-5 w-48 bg-muted rounded" />
+        <div className="h-12 bg-muted rounded-lg" />
+        <div className="h-12 bg-muted rounded-lg" />
+      </div>
+      <div className="bg-card border border-border rounded-xl p-6 space-y-4 animate-pulse">
+        <div className="h-5 w-40 bg-muted rounded" />
+        <div className="h-12 bg-muted rounded-lg" />
+        <div className="h-12 bg-muted rounded-lg" />
+        <div className="h-12 bg-muted rounded-lg" />
+      </div>
     </div>
   )
 }
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="text-center py-8">
-      <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-destructive/10 flex items-center justify-center">
-        <span className="text-destructive text-xl">!</span>
+    <div className="bg-card border border-border rounded-xl p-8 text-center">
+      <div className="w-14 h-14 mx-auto mb-5 rounded-full bg-destructive/10 flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-destructive"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
       </div>
-      <p className="text-foreground font-medium">{message}</p>
+      <p className="text-foreground font-medium text-lg">{message}</p>
+      <p className="text-muted-foreground text-sm mt-2">Verifique o link e tente novamente.</p>
     </div>
   )
 }
 
 function SuccessState() {
   return (
-    <div className="text-center py-8">
-      <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-        <span className="text-green-600 dark:text-green-400 text-xl">✓</span>
+    <div className="bg-card border border-border rounded-xl p-10 text-center">
+      <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-green-600 dark:text-green-400"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
-      <h2 className="text-lg font-semibold text-foreground mb-2">
+      <h2 className="text-xl font-semibold text-foreground mb-3">
         Ficha enviada com sucesso!
       </h2>
-      <p className="text-muted-foreground">
-        Obrigado! A clinica recebera sua ficha e entrara em contato para agendar a primeira consulta.
+      <p className="text-muted-foreground leading-relaxed max-w-md mx-auto">
+        Obrigado pelo preenchimento! A clinica recebera sua ficha e entrara em contato
+        para agendar a primeira consulta.
       </p>
     </div>
   )
