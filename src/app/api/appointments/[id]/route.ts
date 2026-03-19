@@ -322,7 +322,7 @@ export const PATCH = withFeatureAuth(
       // Propagate attendingProfessionalId to existing invoice items
       if (attendingProfessionalId !== undefined) {
         await tx.invoiceItem.updateMany({
-          where: { appointmentId: params.id },
+          where: { appointmentId: params.id, invoice: { clinicId: user.clinicId } },
           data: { attendingProfessionalId: attendingProfessionalId },
         })
       }
