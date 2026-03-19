@@ -3,9 +3,10 @@ import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import {
-  buildRepasseByAttendingProfessional,
+  calculateRepasse,
+  calculateRepasseSummary,
   REPASSE_BILLABLE_INVOICE_STATUSES,
-  type InvoiceItemForRepasse,
+  type RepasseInvoiceLine,
 } from "@/lib/financeiro/repasse"
 
 const paySchema = z.object({
@@ -47,7 +48,7 @@ export const POST = withFeatureAuth(
     const taxPercent = Number(clinic.taxPercentage)
     const repassePercent = Number(professional.repassePercentage)
 
-    // Calculate current repasse for this professional
+    // Calculate current repasse for this professional only (DB-scoped query)
     const invoiceItems = await prisma.invoiceItem.findMany({
       where: {
         invoice: {
@@ -57,35 +58,39 @@ export const POST = withFeatureAuth(
           status: { in: [...REPASSE_BILLABLE_INVOICE_STATUSES] },
         },
         type: { not: "CREDITO" },
+        OR: [
+          { attendingProfessionalId: professionalId },
+          { attendingProfessionalId: null, invoice: { professionalProfileId: professionalId } },
+        ],
       },
       select: {
         total: true,
-        attendingProfessionalId: true,
-        invoice: {
-          select: {
-            id: true,
-            professionalProfileId: true,
-            patient: { select: { name: true } },
-          },
-        },
+        invoice: { select: { id: true } },
       },
     })
 
-    const items: InvoiceItemForRepasse[] = invoiceItems.map(item => ({
-      total: Number(item.total),
-      attendingProfessionalId: item.attendingProfessionalId,
-      invoiceProfessionalId: item.invoice.professionalProfileId,
-      patientName: item.invoice.patient.name,
-      invoiceId: item.invoice.id,
-    }))
+    // Aggregate by invoice for summary
+    const byInvoice = new Map<string, { total: number; count: number }>()
+    for (const item of invoiceItems) {
+      const existing = byInvoice.get(item.invoice.id)
+      if (existing) {
+        existing.total += Number(item.total)
+        existing.count++
+      } else {
+        byInvoice.set(item.invoice.id, { total: Number(item.total), count: 1 })
+      }
+    }
 
-    const profMap = new Map([[professionalId, { repassePercent }]])
-    const repasseByProf = buildRepasseByAttendingProfessional(items, profMap, taxPercent)
-    const profData = repasseByProf.get(professionalId)
+    const lines: RepasseInvoiceLine[] = []
+    for (const [invoiceId, data] of byInvoice) {
+      const calc = calculateRepasse(data.total, taxPercent, repassePercent)
+      lines.push({ ...calc, invoiceId, patientName: "", totalSessions: data.count })
+    }
+    const summary = calculateRepasseSummary(lines)
 
-    const grossAmount = profData?.summary.totalGross ?? 0
-    const taxAmount = profData?.summary.totalTax ?? 0
-    const repasseAmount = profData?.summary.totalRepasse ?? 0
+    const grossAmount = summary.totalGross
+    const taxAmount = summary.totalTax
+    const repasseAmount = summary.totalRepasse
 
     // Upsert the payment record
     const payment = await prisma.repassePayment.upsert({

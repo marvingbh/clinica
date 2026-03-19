@@ -45,32 +45,43 @@ export const GET = withFeatureAuth(
       },
     })
 
-    // Query invoice items for the month (with parent invoice info + attending professional)
-    const invoiceItems = await prisma.invoiceItem.findMany({
-      where: {
-        invoice: {
+    const invoiceWhere = {
+      clinicId: user.clinicId,
+      referenceYear: year,
+      referenceMonth: month,
+      status: { in: [...REPASSE_BILLABLE_INVOICE_STATUSES] },
+      ...(scope === "own" && user.professionalProfileId
+        ? { professionalProfileId: user.professionalProfileId }
+        : {}),
+    }
+
+    // Query invoice items and repasse payments in parallel
+    const [invoiceItems, payments] = await Promise.all([
+      prisma.invoiceItem.findMany({
+        where: {
+          invoice: invoiceWhere,
+          type: { not: "CREDITO" },
+        },
+        select: {
+          total: true,
+          attendingProfessionalId: true,
+          invoice: {
+            select: {
+              id: true,
+              professionalProfileId: true,
+              patient: { select: { name: true } },
+            },
+          },
+        },
+      }),
+      prisma.repassePayment.findMany({
+        where: {
           clinicId: user.clinicId,
           referenceYear: year,
           referenceMonth: month,
-          status: { in: [...REPASSE_BILLABLE_INVOICE_STATUSES] },
-          ...(scope === "own" && user.professionalProfileId
-            ? { professionalProfileId: user.professionalProfileId }
-            : {}),
         },
-        type: { not: "CREDITO" },
-      },
-      select: {
-        total: true,
-        attendingProfessionalId: true,
-        invoice: {
-          select: {
-            id: true,
-            professionalProfileId: true,
-            patient: { select: { name: true } },
-          },
-        },
-      },
-    })
+      }),
+    ])
 
     // Build items for repasse calculation
     const items: InvoiceItemForRepasse[] = invoiceItems.map(item => ({
@@ -87,15 +98,6 @@ export const GET = withFeatureAuth(
     )
 
     const repasseByProf = buildRepasseByAttendingProfessional(items, profMap, taxPercent)
-
-    // Query repasse payments for the month
-    const payments = await prisma.repassePayment.findMany({
-      where: {
-        clinicId: user.clinicId,
-        referenceYear: year,
-        referenceMonth: month,
-      },
-    })
     const paymentMap = new Map(payments.map(p => [p.professionalProfileId, p]))
 
     const result = professionals.map((prof) => {

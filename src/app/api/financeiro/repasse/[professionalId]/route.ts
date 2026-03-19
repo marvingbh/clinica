@@ -5,9 +5,7 @@ import {
   calculateRepasse,
   calculateRepasseSummary,
   REPASSE_BILLABLE_INVOICE_STATUSES,
-  resolveAttendingProfId,
   type RepasseInvoiceLine,
-  type InvoiceItemForRepasse,
 } from "@/lib/financeiro/repasse"
 
 export const GET = withFeatureAuth(
@@ -57,46 +55,52 @@ export const GET = withFeatureAuth(
     const taxPercent = Number(clinic.taxPercentage)
     const repassePercent = Number(professional.repassePercentage)
 
-    // Query all non-credit invoice items where this professional is the attending
-    // (either explicitly set or as the invoice's professional when no attending is set)
-    const invoiceItems = await prisma.invoiceItem.findMany({
-      where: {
-        invoice: {
-          clinicId: user.clinicId,
-          referenceYear: year,
-          referenceMonth: month,
-          status: { in: [...REPASSE_BILLABLE_INVOICE_STATUSES] },
+    const invoiceWhere = {
+      clinicId: user.clinicId,
+      referenceYear: year,
+      referenceMonth: month,
+      status: { in: [...REPASSE_BILLABLE_INVOICE_STATUSES] },
+    }
+
+    // Query only items where this professional is the attending
+    // (explicitly set, or fallback when attendingProfessionalId is null)
+    const [invoiceItems, payment] = await Promise.all([
+      prisma.invoiceItem.findMany({
+        where: {
+          invoice: invoiceWhere,
+          type: { not: "CREDITO" },
+          OR: [
+            { attendingProfessionalId: professionalId },
+            { attendingProfessionalId: null, invoice: { professionalProfileId: professionalId } },
+          ],
         },
-        type: { not: "CREDITO" },
-      },
-      select: {
-        total: true,
-        attendingProfessionalId: true,
-        invoice: {
-          select: {
-            id: true,
-            professionalProfileId: true,
-            patient: { select: { name: true } },
+        select: {
+          total: true,
+          attendingProfessionalId: true,
+          invoice: {
+            select: {
+              id: true,
+              professionalProfileId: true,
+              patient: { select: { name: true } },
+            },
           },
         },
-      },
-    })
-
-    // Filter items where THIS professional is the attending
-    const profItems = invoiceItems.filter(item => {
-      const mapped: InvoiceItemForRepasse = {
-        total: Number(item.total),
-        attendingProfessionalId: item.attendingProfessionalId,
-        invoiceProfessionalId: item.invoice.professionalProfileId,
-        patientName: item.invoice.patient.name,
-        invoiceId: item.invoice.id,
-      }
-      return resolveAttendingProfId(mapped) === professionalId
-    })
+      }),
+      prisma.repassePayment.findUnique({
+        where: {
+          clinicId_professionalProfileId_referenceMonth_referenceYear: {
+            clinicId: user.clinicId,
+            professionalProfileId: professionalId,
+            referenceMonth: month,
+            referenceYear: year,
+          },
+        },
+      }),
+    ])
 
     // Group by invoice for per-invoice breakdown
     const byInvoice = new Map<string, { patientName: string; total: number; count: number; hasSubstitute: boolean; invoiceProfId: string }>()
-    for (const item of profItems) {
+    for (const item of invoiceItems) {
       const invoiceId = item.invoice.id
       const existing = byInvoice.get(invoiceId)
       const isSubstitute = item.attendingProfessionalId !== null && item.attendingProfessionalId !== item.invoice.professionalProfileId
@@ -125,18 +129,6 @@ export const GET = withFeatureAuth(
     }
 
     const summary = calculateRepasseSummary(lines)
-
-    // Get payment info
-    const payment = await prisma.repassePayment.findUnique({
-      where: {
-        clinicId_professionalProfileId_referenceMonth_referenceYear: {
-          clinicId: user.clinicId,
-          professionalProfileId: professionalId,
-          referenceMonth: month,
-          referenceYear: year,
-        },
-      },
-    })
 
     return NextResponse.json({
       year,
