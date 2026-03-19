@@ -5,7 +5,7 @@ import { z } from "zod"
 import { generateMonthlyInvoice } from "@/lib/financeiro/generate-monthly-invoice"
 import { generatePerSessionInvoices } from "@/lib/financeiro/generate-per-session-invoices"
 import { resolveGrouping } from "@/lib/financeiro/invoice-grouping"
-import { fetchUninvoicedPriorAppointments } from "@/lib/financeiro/uninvoiced-appointments"
+import { fetchUninvoicedPriorAppointmentsBulk } from "@/lib/financeiro/uninvoiced-appointments"
 
 const schema = z.object({
   month: z.number().int().min(1).max(12),
@@ -87,6 +87,25 @@ export const POST = withFeatureAuth(
       byPatientAndProfessional.set(key, list)
     }
 
+    // Step 4b: Fetch uninvoiced prior appointments for all patients (across ALL professionals)
+    // This catches cross-professional group sessions from prior months that were not yet invoiced.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const priorAptsBulk = await fetchUninvoicedPriorAppointmentsBulk(prisma as any, {
+      clinicId: user.clinicId,
+      patientIds,
+      beforeDate: startDate,
+    })
+    for (const apt of priorAptsBulk) {
+      if (!apt.patientId) continue
+      const key = `${apt.patientId}|${apt.professionalProfileId}`
+      const list = byPatientAndProfessional.get(key) || []
+      // Avoid duplicates (prior apts may overlap with per-combo fetch later)
+      if (!list.some(a => a.id === apt.id)) {
+        list.push(apt)
+        byPatientAndProfessional.set(key, list)
+      }
+    }
+
     // Collect unique professional IDs for name lookup
     const profIds = new Set<string>()
     for (const apts of byPatientAndProfessional.values()) {
@@ -134,17 +153,8 @@ export const POST = withFeatureAuth(
         patient.invoiceGrouping
       )
 
-      // Fetch uninvoiced appointments from prior months for this patient+professional
-      const priorApts = await fetchUninvoicedPriorAppointments(prisma, {
-        clinicId: user.clinicId,
-        patientId,
-        professionalProfileId: profId,
-        beforeDate: startDate,
-      })
-
-      const allPatientApts = [...patientApts, ...priorApts]
-
-      const mappedApts = allPatientApts.map(a => ({
+      // Prior uninvoiced appointments already merged in Step 4b (bulk fetch)
+      const mappedApts = patientApts.map(a => ({
         id: a.id,
         scheduledAt: a.scheduledAt,
         status: a.status,
