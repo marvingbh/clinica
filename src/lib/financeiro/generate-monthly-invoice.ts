@@ -128,9 +128,9 @@ export async function generateMonthlyInvoice(
   }
 
   if (existing) {
-    return updateExistingInvoice(tx, existing, items, {
-      dueDate, month, year, sessionFee, profName,
-      patient, clinicInvoiceMessageTemplate,
+    return updateExistingInvoice(tx, existing, {
+      clinicId, patientId, dueDate, month, year, sessionFee, profName, billingMode,
+      showAppointmentDays, classified, patient, clinicInvoiceMessageTemplate,
     })
   }
 
@@ -146,20 +146,25 @@ async function updateExistingInvoice(
   tx: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   existing: any,
-  items: ReturnType<typeof buildInvoiceItems>,
   context: {
+    clinicId: string
+    patientId: string
     dueDate: Date
     month: number
     year: number
     sessionFee: number
     profName: string
+    billingMode: string | null
+    showAppointmentDays: boolean
+    classified: ReturnType<typeof classifyAppointments>
     patient: MonthlyInvoiceParams["patient"]
     clinicInvoiceMessageTemplate: string | null
   },
 ): Promise<"updated"> {
-  const { dueDate, sessionFee, profName, patient, clinicInvoiceMessageTemplate } = context
+  const { clinicId, patientId, dueDate, sessionFee, profName, billingMode,
+    showAppointmentDays, classified, patient, clinicInvoiceMessageTemplate } = context
 
-  // Preserve manual items, notes, NF info, status
+  // 1. Release credits consumed by this invoice
   const consumedCredits = await tx.sessionCredit.findMany({
     where: { consumedByInvoiceId: existing.id },
     select: { id: true, reason: true },
@@ -170,6 +175,7 @@ async function updateExistingInvoice(
     data: { consumedByInvoiceId: null, consumedAt: null },
   })
 
+  // 2. Delete old auto items
   const { autoItems } = separateManualItems(existing.items, consumedCredits)
   if (autoItems.length > 0) {
     await tx.invoiceItem.deleteMany({
@@ -177,7 +183,25 @@ async function updateExistingInvoice(
     })
   }
 
-  // Create new auto items
+  // 3. Re-query available credits AFTER releasing (fixes stale credit bug)
+  const availableCredits = await tx.sessionCredit.findMany({
+    where: { clinicId, patientId, consumedByInvoiceId: null },
+    orderBy: { createdAt: "asc" },
+  })
+
+  // 4. Rebuild items with fresh credits
+  let items
+  if (billingMode === "MONTHLY_FIXED") {
+    const totalSessionCount = classified.regular.length + classified.extra.length
+      + classified.group.length + classified.schoolMeeting.length
+    items = buildMonthlyInvoiceItems(
+      sessionFee, totalSessionCount, getMonthName(context.month), String(context.year), availableCredits, sessionFee
+    )
+  } else {
+    items = buildInvoiceItems(classified, sessionFee, availableCredits, showAppointmentDays)
+  }
+
+  // 5. Create new auto items
   for (const item of items) {
     await tx.invoiceItem.create({
       data: {
@@ -193,7 +217,7 @@ async function updateExistingInvoice(
     })
   }
 
-  // Consume credits
+  // 6. Consume credits
   const creditItems = items.filter(i => i.type === "CREDITO" && i.creditId)
   for (const ci of creditItems) {
     await tx.sessionCredit.update({
@@ -202,13 +226,13 @@ async function updateExistingInvoice(
     })
   }
 
-  // Update due date from clinic settings
+  // 7. Update due date
   await tx.invoice.update({
     where: { id: existing.id },
     data: { dueDate },
   })
 
-  // Recalculate totals (includes kept manual items)
+  // 8. Recalculate totals (includes kept manual items)
   await recalculateInvoice(
     tx, existing.id, { ...existing, dueDate },
     { ...patient, sessionFee },
