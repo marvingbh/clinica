@@ -31,6 +31,9 @@ export const GET = withFeatureAuth(
 
     const year = parseInt(yearParam)
     const month = parseInt(monthParam)
+    if (isNaN(year) || isNaN(month) || month < 1 || month > 12 || year < 2020 || year > 2100) {
+      return NextResponse.json({ error: "year and month must be valid integers" }, { status: 400 })
+    }
 
     const professional = await prisma.professionalProfile.findFirst({
       where: { id: professionalId, user: { clinicId: user.clinicId } },
