@@ -140,6 +140,48 @@ export const GET = withFeatureAuth(
       if (isPago) byProfessional[profId].pago += amount
     }
 
+    // Payments by day (only when a specific month is selected)
+    let paymentsByDay: { day: number; amount: number; count: number }[] = []
+    if (month) {
+      const paidInvoices = await prisma.invoice.findMany({
+        where: {
+          clinicId: user.clinicId,
+          paidAt: {
+            gte: new Date(year, month - 1, 1),
+            lt: new Date(year, month, 1),
+          },
+          status: { not: "CANCELADO" },
+          ...(scope === "own" && user.professionalProfileId
+            ? { professionalProfileId: user.professionalProfileId }
+            : {}),
+        },
+        select: { paidAt: true, totalAmount: true },
+      })
+
+      const byDay = new Map<number, { amount: number; count: number }>()
+      for (const inv of paidInvoices) {
+        if (!inv.paidAt) continue
+        const day = inv.paidAt.getDate()
+        const existing = byDay.get(day)
+        if (existing) {
+          existing.amount += Number(inv.totalAmount)
+          existing.count++
+        } else {
+          byDay.set(day, { amount: Number(inv.totalAmount), count: 1 })
+        }
+      }
+
+      // Build array for all days of the month with cumulative total
+      const daysInMonth = new Date(year, month, 0).getDate()
+      let cumulative = 0
+      paymentsByDay = Array.from({ length: daysInMonth }, (_, i) => {
+        const day = i + 1
+        const data = byDay.get(day)
+        cumulative += data?.amount ?? 0
+        return { day, amount: data?.amount ?? 0, count: data?.count ?? 0, cumulative }
+      })
+    }
+
     // Available credits
     const creditWhere: Record<string, unknown> = {
       clinicId: user.clinicId,
@@ -183,6 +225,7 @@ export const GET = withFeatureAuth(
       availableCredits,
       byMonth,
       byProfessional: byProfessionalSerialized,
+      paymentsByDay,
     })
   }
 )

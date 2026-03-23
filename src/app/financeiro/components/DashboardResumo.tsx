@@ -7,7 +7,7 @@ import {
 } from "recharts"
 import {
   DashboardData, SummaryCard, CustomTooltip,
-  CHART_COLORS, PIE_COLORS, SHORT_MONTHS, MONTH_NAMES,
+  CHART_COLORS, SHORT_MONTHS, MONTH_NAMES,
 } from "./dashboard-shared"
 
 interface Props {
@@ -16,7 +16,11 @@ interface Props {
   onMonthClick: (m: number) => void
 }
 
+const A_RECEBER_COLOR = "#f59e0b" // amber-500
+
 export function DashboardResumo({ data, month, onMonthClick }: Props) {
+  const totalAReceber = data.totalPendente + data.totalEnviado + data.totalParcial
+  const aReceberCount = data.pendingCount + data.enviadoCount + data.parcialCount
   const paidPercent = data.totalFaturado > 0
     ? Math.round((data.totalPago / data.totalFaturado) * 100) : 0
 
@@ -24,8 +28,8 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
     const md = data.byMonth[i + 1]
     return {
       name: SHORT_MONTHS[i],
-      Recebido: md?.pago || 0, Parcial: md?.parcial || 0,
-      Enviado: md?.enviado || 0, Pendente: md?.pendente || 0,
+      Recebido: md?.pago || 0,
+      "A receber": (md?.pendente || 0) + (md?.enviado || 0) + (md?.parcial || 0),
     }
   })
 
@@ -35,26 +39,23 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
   })
 
   const statusPieData = [
-    { name: "Pago", value: data.paidCount },
-    { name: "Parcial", value: data.parcialCount },
-    { name: "Enviado", value: data.enviadoCount },
-    { name: "Pendente", value: data.pendingCount },
-    { name: "Cancelado", value: data.invoiceCount - data.paidCount - data.parcialCount - data.enviadoCount - data.pendingCount },
+    { name: "Recebido", value: data.paidCount },
+    { name: "A receber", value: aReceberCount },
   ].filter(d => d.value > 0)
+  const statusPieColors = [CHART_COLORS.pago, A_RECEBER_COLOR]
 
   const profChartData = data.byProfessional.map(p => ({
     name: p.name.split(" ")[0],
-    Recebido: p.pago, Parcial: p.parcial, Enviado: p.enviado, Pendente: p.pendente,
+    Recebido: p.pago,
+    "A receber": p.pendente + p.enviado + p.parcial,
   }))
 
   return (
     <div className="space-y-6">
       {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <SummaryCard label="Total Faturado" value={formatCurrencyBRL(data.totalFaturado)} sub={`${data.invoiceCount} faturas`} />
-        <SummaryCard label="Pendente" value={formatCurrencyBRL(data.totalPendente)} sub={`${data.pendingCount} faturas`} variant="warning" />
-        <SummaryCard label="Enviado" value={formatCurrencyBRL(data.totalEnviado)} sub={`${data.enviadoCount} faturas`} variant="info" />
-        <SummaryCard label="Parcial" value={formatCurrencyBRL(data.totalParcial)} sub={`${data.parcialCount} faturas`} variant="orange" />
+        <SummaryCard label="A Receber" value={formatCurrencyBRL(totalAReceber)} sub={`${aReceberCount} faturas`} variant="warning" />
         <SummaryCard label="Recebido" value={formatCurrencyBRL(data.totalPago)} sub={`${paidPercent}% do total`} variant="success" />
         <SummaryCard label="Créditos Disponíveis" value={String(data.availableCredits)} sub="não consumidos" />
       </div>
@@ -86,10 +87,8 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} className="fill-muted-foreground" />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="Recebido" fill={CHART_COLORS.pago} radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="Parcial" fill={CHART_COLORS.parcial} radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="Enviado" fill={CHART_COLORS.enviado} radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="Pendente" fill={CHART_COLORS.pendente} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="Recebido" stackId="billing" fill={CHART_COLORS.pago} radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="A receber" stackId="billing" fill={A_RECEBER_COLOR} radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -102,7 +101,7 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
                       paddingAngle={3} dataKey="value"
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-                      {statusPieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                      {statusPieData.map((_, i) => <Cell key={i} fill={statusPieColors[i]} />)}
                     </Pie>
                     <Tooltip formatter={(value) => [String(value), "Faturas"]} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -141,10 +140,8 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
               <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={80} className="fill-muted-foreground" />
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="Recebido" fill={CHART_COLORS.pago} radius={[0, 3, 3, 0]} />
-              <Bar dataKey="Parcial" fill={CHART_COLORS.parcial} radius={[0, 3, 3, 0]} />
-              <Bar dataKey="Enviado" fill={CHART_COLORS.enviado} radius={[0, 3, 3, 0]} />
-              <Bar dataKey="Pendente" fill={CHART_COLORS.pendente} radius={[0, 3, 3, 0]} />
+              <Bar dataKey="Recebido" stackId="billing" fill={CHART_COLORS.pago} radius={[0, 0, 0, 0]} />
+              <Bar dataKey="A receber" stackId="billing" fill={A_RECEBER_COLOR} radius={[0, 3, 3, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -178,7 +175,7 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
                   cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value"
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-                  <Cell fill="#22c55e" /><Cell fill="#e5e7eb" />
+                  <Cell fill={CHART_COLORS.pago} /><Cell fill={A_RECEBER_COLOR} />
                 </Pie>
                 <Tooltip formatter={(value) => [formatCurrencyBRL(Number(value)), ""]} />
               </PieChart>
@@ -195,7 +192,7 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
                     {data.byProfessional.filter(p => p.pago > 0).map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      <Cell key={i} fill={["#22c55e", "#3b82f6", "#f97316", "#eab308", "#ef4444"][i % 5]} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value) => [formatCurrencyBRL(Number(value)), ""]} />
@@ -219,9 +216,7 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
                   <th className="text-center py-3 px-4 font-medium">Pacientes</th>
                   <th className="text-center py-3 px-4 font-medium">Sessões</th>
                   <th className="text-right py-3 px-4 font-medium">Faturado</th>
-                  <th className="text-right py-3 px-4 font-medium">Pendente</th>
-                  <th className="text-right py-3 px-4 font-medium">Enviado</th>
-                  <th className="text-right py-3 px-4 font-medium">Parcial</th>
+                  <th className="text-right py-3 px-4 font-medium">A Receber</th>
                   <th className="text-right py-3 px-4 font-medium">Recebido</th>
                   <th className="text-right py-3 px-4 font-medium">% Recebido</th>
                 </tr>
@@ -229,15 +224,14 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
               <tbody>
                 {data.byProfessional.map(prof => {
                   const pp = prof.faturado > 0 ? Math.round((prof.pago / prof.faturado) * 100) : 0
+                  const aReceber = prof.pendente + prof.enviado + prof.parcial
                   return (
                     <tr key={prof.id} className="border-b border-border last:border-0">
                       <td className="py-3 px-4 font-medium">{prof.name}</td>
                       <td className="text-center py-3 px-4">{prof.patientCount}</td>
                       <td className="text-center py-3 px-4">{prof.sessions}</td>
                       <td className="text-right py-3 px-4">{formatCurrencyBRL(prof.faturado)}</td>
-                      <td className="text-right py-3 px-4 text-yellow-600 dark:text-yellow-400">{formatCurrencyBRL(prof.pendente)}</td>
-                      <td className="text-right py-3 px-4 text-blue-600 dark:text-blue-400">{formatCurrencyBRL(prof.enviado)}</td>
-                      <td className="text-right py-3 px-4 text-orange-600 dark:text-orange-400">{formatCurrencyBRL(prof.parcial)}</td>
+                      <td className="text-right py-3 px-4 text-amber-600 dark:text-amber-400">{formatCurrencyBRL(aReceber)}</td>
                       <td className="text-right py-3 px-4 text-green-600 dark:text-green-400">{formatCurrencyBRL(prof.pago)}</td>
                       <td className="text-right py-3 px-4">
                         <div className="flex items-center justify-end gap-2">
@@ -268,9 +262,7 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
                   <th className="text-center py-3 px-4 font-medium">Faturas</th>
                   <th className="text-center py-3 px-4 font-medium">Sessões</th>
                   <th className="text-right py-3 px-4 font-medium">Faturado</th>
-                  <th className="text-right py-3 px-4 font-medium">Pendente</th>
-                  <th className="text-right py-3 px-4 font-medium">Enviado</th>
-                  <th className="text-right py-3 px-4 font-medium">Parcial</th>
+                  <th className="text-right py-3 px-4 font-medium">A Receber</th>
                   <th className="text-right py-3 px-4 font-medium">Recebido</th>
                 </tr>
               </thead>
@@ -278,18 +270,17 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
                 {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
                   const md = data.byMonth[m]
                   if (!md) return null
+                  const aReceber = md.pendente + md.enviado + md.parcial
                   return (
                     <tr key={m} className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer" onClick={() => onMonthClick(m)}>
                       <td className="py-3 px-4 font-medium text-primary">{MONTH_NAMES[m - 1]}</td>
                       <td className="text-center py-3 px-4">
                         {md.invoiceCount}
-                        {md.pendingCount > 0 && <span className="text-yellow-600 dark:text-yellow-400 text-xs ml-1">({md.pendingCount} pend.)</span>}
+                        {md.pendingCount > 0 && <span className="text-amber-600 dark:text-amber-400 text-xs ml-1">({md.pendingCount} pend.)</span>}
                       </td>
                       <td className="text-center py-3 px-4">{md.sessions}</td>
                       <td className="text-right py-3 px-4">{formatCurrencyBRL(md.faturado)}</td>
-                      <td className="text-right py-3 px-4 text-yellow-600 dark:text-yellow-400">{md.pendente > 0 ? formatCurrencyBRL(md.pendente) : "—"}</td>
-                      <td className="text-right py-3 px-4 text-blue-600 dark:text-blue-400">{md.enviado > 0 ? formatCurrencyBRL(md.enviado) : "—"}</td>
-                      <td className="text-right py-3 px-4 text-orange-600 dark:text-orange-400">{md.parcial > 0 ? formatCurrencyBRL(md.parcial) : "—"}</td>
+                      <td className="text-right py-3 px-4 text-amber-600 dark:text-amber-400">{aReceber > 0 ? formatCurrencyBRL(aReceber) : "—"}</td>
                       <td className="text-right py-3 px-4 text-green-600 dark:text-green-400">{md.pago > 0 ? formatCurrencyBRL(md.pago) : "—"}</td>
                     </tr>
                   )
@@ -301,9 +292,7 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
                   <td className="text-center py-3 px-4">{data.invoiceCount}</td>
                   <td className="text-center py-3 px-4">{data.totalSessions}</td>
                   <td className="text-right py-3 px-4">{formatCurrencyBRL(data.totalFaturado)}</td>
-                  <td className="text-right py-3 px-4 text-yellow-600 dark:text-yellow-400">{formatCurrencyBRL(data.totalPendente)}</td>
-                  <td className="text-right py-3 px-4 text-blue-600 dark:text-blue-400">{formatCurrencyBRL(data.totalEnviado)}</td>
-                  <td className="text-right py-3 px-4 text-orange-600 dark:text-orange-400">{formatCurrencyBRL(data.totalParcial)}</td>
+                  <td className="text-right py-3 px-4 text-amber-600 dark:text-amber-400">{formatCurrencyBRL(totalAReceber)}</td>
                   <td className="text-right py-3 px-4 text-green-600 dark:text-green-400">{formatCurrencyBRL(data.totalPago)}</td>
                 </tr>
               </tfoot>

@@ -26,20 +26,18 @@ import {
   AlertTriangleIcon,
   TrashIcon,
   FileTextIcon,
+  ChevronDownIcon,
 } from "@/shared/components/ui/icons"
 import { CancelConfirmDialog } from "./CancelConfirmDialog"
 import type { CancelVariant } from "./CancelConfirmDialog"
 
 // ============================================================================
-// Invoice status display
+// Constants
 // ============================================================================
 
 const INVOICE_STATUS_LABELS: Record<string, string> = {
-  PENDENTE: "Pendente",
-  ENVIADO: "Enviado",
-  PARCIAL: "Parcial",
-  PAGO: "Pago",
-  CANCELADO: "Cancelado",
+  PENDENTE: "Pendente", ENVIADO: "Enviado", PARCIAL: "Parcial",
+  PAGO: "Pago", CANCELADO: "Cancelado",
 }
 
 const INVOICE_STATUS_COLORS: Record<string, string> = {
@@ -51,6 +49,16 @@ const INVOICE_STATUS_COLORS: Record<string, string> = {
 }
 
 const MONTH_NAMES_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
+/** Status accent colors for the header left border */
+const STATUS_ACCENT: Record<string, string> = {
+  AGENDADO: "border-l-blue-500",
+  CONFIRMADO: "border-l-emerald-500",
+  CANCELADO_ACORDADO: "border-l-teal-500",
+  CANCELADO_FALTA: "border-l-amber-500",
+  CANCELADO_PROFISSIONAL: "border-l-red-500",
+  FINALIZADO: "border-l-gray-400",
+}
 
 // ============================================================================
 // Helpers
@@ -78,31 +86,24 @@ interface AppointmentEditorProps {
   form: UseFormReturn<EditAppointmentFormData>
   isUpdating: boolean
   onSubmit: (data: EditAppointmentFormData) => Promise<void>
-  // API error
   apiError?: string | null
   onDismissError?: () => void
-  // Status actions
   canMarkStatus: boolean
   onUpdateStatus: (status: string, message: string, reason?: string) => Promise<void>
   isUpdatingStatus: boolean
-  // Confirmation
   canResendConfirmation: boolean
   onResendConfirmation: () => Promise<void>
   isResendingConfirmation: boolean
-  // Delete
   isDeleteDialogOpen: boolean
   setIsDeleteDialogOpen: (open: boolean) => void
   isDeletingAppointment: boolean
   onDeleteAppointment: () => Promise<void>
-  // Recurrence
   onToggleException: (action: "skip" | "unskip") => Promise<void>
   isManagingException: boolean
   onRecurrenceSave: () => void
-  // Additional professionals editing
   professionals?: Professional[]
   editAdditionalProfIds?: string[]
   setEditAdditionalProfIds?: (ids: string[]) => void
-  // Attending professional
   onAttendingProfChange?: (professionalId: string | null) => void
   editAttendingProfId?: string | null
 }
@@ -110,41 +111,18 @@ interface AppointmentEditorProps {
 type EditorTab = "occurrence" | "recurrence" | "historico"
 
 export function AppointmentEditor({
-  isOpen,
-  onClose,
-  appointment,
-  form,
-  isUpdating,
-  onSubmit,
-  apiError,
-  onDismissError,
-  canMarkStatus,
-  onUpdateStatus,
-  isUpdatingStatus,
-  canResendConfirmation,
-  onResendConfirmation,
-  isResendingConfirmation,
-  isDeleteDialogOpen,
-  setIsDeleteDialogOpen,
-  isDeletingAppointment,
-  onDeleteAppointment,
-  onToggleException,
-  isManagingException,
-  onRecurrenceSave,
-  professionals,
-  editAdditionalProfIds,
-  setEditAdditionalProfIds,
-  onAttendingProfChange,
-  editAttendingProfId,
+  isOpen, onClose, appointment, form, isUpdating, onSubmit,
+  apiError, onDismissError, canMarkStatus, onUpdateStatus, isUpdatingStatus,
+  canResendConfirmation, onResendConfirmation, isResendingConfirmation,
+  isDeleteDialogOpen, setIsDeleteDialogOpen, isDeletingAppointment, onDeleteAppointment,
+  onToggleException, isManagingException, onRecurrenceSave,
+  professionals, editAdditionalProfIds, setEditAdditionalProfIds,
+  onAttendingProfChange, editAttendingProfId,
 }: AppointmentEditorProps) {
   const [activeTab, setActiveTab] = useState<EditorTab>("occurrence")
   const { canRead: canReadAudit } = usePermission("audit_logs")
 
-  const handleClose = () => {
-    setActiveTab("occurrence")
-    onClose()
-  }
-
+  const handleClose = () => { setActiveTab("occurrence"); onClose() }
   if (!appointment) return null
 
   const isConsulta = appointment.type === "CONSULTA"
@@ -152,51 +130,29 @@ export function AppointmentEditor({
   const isException = isDateException(appointment)
   const isActive = appointment.recurrence?.isActive ?? false
 
-  // Format appointment time for header display
   const scheduled = new Date(appointment.scheduledAt)
   const end = new Date(appointment.endAt)
   const timeRange = `${formatTime(scheduled)} — ${formatTime(end)}`
   const durationMin = Math.round((end.getTime() - scheduled.getTime()) / 60000)
   const dateDisplay = formatDateDisplay(scheduled)
 
-  // Build segments for the segmented control
-  const occurrenceLabel = isConsulta ? "Esta consulta" : "Esta entrada"
   const segments: Segment[] = [
-    { key: "occurrence", label: occurrenceLabel },
+    { key: "occurrence", label: isConsulta ? "Esta consulta" : "Esta entrada" },
   ]
+  if (isRecurring && isActive) segments.push({ key: "recurrence", label: "Recorrencia" })
+  if (canReadAudit) segments.push({ key: "historico", label: "Historico" })
 
-  if (isRecurring && isActive) {
-    segments.push({ key: "recurrence", label: "Recorrencia" })
-  }
-
-  if (canReadAudit) {
-    segments.push({ key: "historico", label: "Historico" })
-  }
-
-  // Skip toggle button as trailing element
   const skipToggle = isRecurring && isActive ? (
-    <button
-      type="button"
-      onClick={() => onToggleException(isException ? "unskip" : "skip")}
+    <button type="button" onClick={() => onToggleException(isException ? "unskip" : "skip")}
       disabled={isManagingException}
       className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors min-h-[40px] disabled:opacity-50 ${
-        isException
-          ? "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
+        isException ? "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
           : "text-muted-foreground hover:text-foreground hover:bg-background"
-      }`}
-    >
-      {isManagingException ? (
-        "..."
-      ) : isException ? (
-        <>
-          <RefreshCwIcon className="w-4 h-4" />
-          <span>Pulada</span>
-        </>
+      }`}>
+      {isManagingException ? "..." : isException ? (
+        <><RefreshCwIcon className="w-4 h-4" /><span>Pulada</span></>
       ) : (
-        <>
-          <BanIcon className="w-4 h-4" />
-          <span>Pular</span>
-        </>
+        <><BanIcon className="w-4 h-4" /><span>Pular</span></>
       )}
     </button>
   ) : null
@@ -205,10 +161,10 @@ export function AppointmentEditor({
 
   return (
     <Sheet isOpen={isOpen} onClose={handleClose} title={sheetTitle}>
-      {/* ── Rich Header ── */}
-      <div className="px-4 pt-3 pb-4 bg-muted/30 border-b border-border">
-        {/* Top row: name + status */}
-        <div className="flex items-start justify-between gap-3 mb-3">
+      {/* ── Header with status accent ── */}
+      <div className={`px-4 pt-3 pb-4 border-b border-border border-l-4 ${STATUS_ACCENT[appointment.status] || "border-l-gray-300"}`}>
+        {/* Identity row */}
+        <div className="flex items-start justify-between gap-3 mb-2.5">
           <div className="min-w-0 flex-1">
             {isConsulta && appointment.patient ? (
               <h3 className="font-semibold text-lg text-foreground truncate leading-tight">
@@ -238,121 +194,80 @@ export function AppointmentEditor({
           </span>
         </div>
 
-        {/* Appointment details card */}
-        <div className="rounded-xl bg-background/70 dark:bg-background/40 border border-border/60 px-3.5 py-2.5 space-y-1.5">
-          {/* Date + time row */}
-          <div className="flex items-center gap-2 text-sm flex-wrap">
-            <ClockIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        {/* Compact info grid */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <ClockIcon className="w-3.5 h-3.5" />
             <span className="font-medium text-foreground">{dateDisplay}</span>
-            <span className="text-muted-foreground/60">·</span>
-            <span className="text-foreground tabular-nums font-medium">{timeRange}</span>
-            <span className="text-muted-foreground/60">·</span>
-            <span className="text-muted-foreground text-xs">{durationMin} min</span>
-          </div>
-
-          {/* Professional + modality row */}
-          <div className="flex items-center gap-2 text-sm">
-            <UserIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-            <span className="text-muted-foreground">
-              {appointment.professionalProfile.user.name}
-              {(appointment.additionalProfessionals?.length ?? 0) > 0 && (
-                <span className="text-xs"> +{appointment.additionalProfessionals!.map(ap => ap.professionalProfile.user.name).join(", ")}</span>
-              )}
-            </span>
-            {appointment.attendingProfessional && appointment.attendingProfessional.id !== appointment.professionalProfile.id && (
-              <>
-                <span className="text-muted-foreground/40">·</span>
-                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                  Atendente: {appointment.attendingProfessional.user.name}
-                </span>
-              </>
-            )}
-            {isConsulta && appointment.modality && (
-              <>
-                <span className="text-muted-foreground/40">·</span>
-                <span className="inline-flex items-center gap-1 text-muted-foreground text-xs">
-                  {appointment.modality === "ONLINE" ? (
-                    <VideoIcon className="w-3.5 h-3.5" />
-                  ) : (
-                    <BuildingIcon className="w-3.5 h-3.5" />
-                  )}
-                  {appointment.modality === "ONLINE" ? "Online" : "Presencial"}
-                </span>
-              </>
-            )}
-          </div>
+          </span>
+          <span className="text-foreground tabular-nums">{timeRange}</span>
+          <span className="text-xs">{durationMin} min</span>
         </div>
 
-        {/* Contact row - clickable links */}
-        {isConsulta && appointment.patient && (
-          <div className="flex items-center gap-4 mt-3 text-sm">
-            <a
-              href={`tel:${appointment.patient.phone}`}
-              className="inline-flex items-center gap-1.5 text-foreground hover:text-primary transition-colors"
-            >
-              <PhoneIcon className="w-3.5 h-3.5 text-muted-foreground" />
-              {formatPhone(appointment.patient.phone)}
-            </a>
-            {appointment.patient.email && (
-              <a
-                href={`mailto:${appointment.patient.email}`}
-                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors truncate min-w-0"
-              >
-                <MailIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                <span className="truncate">{appointment.patient.email}</span>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-1">
+          <span className="inline-flex items-center gap-1.5">
+            <UserIcon className="w-3.5 h-3.5" />
+            {appointment.professionalProfile.user.name}
+          </span>
+          {appointment.attendingProfessional && appointment.attendingProfessional.id !== appointment.professionalProfile.id && (
+            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+              Atendente: {appointment.attendingProfessional.user.name}
+            </span>
+          )}
+          {isConsulta && appointment.modality && (
+            <span className="inline-flex items-center gap-1 text-xs">
+              {appointment.modality === "ONLINE" ? <VideoIcon className="w-3.5 h-3.5" /> : <BuildingIcon className="w-3.5 h-3.5" />}
+              {appointment.modality === "ONLINE" ? "Online" : "Presencial"}
+            </span>
+          )}
+        </div>
+
+        {/* Contact + invoice + recurrence — compact row */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2.5 text-sm">
+          {isConsulta && appointment.patient && (
+            <>
+              <a href={`tel:${appointment.patient.phone}`} className="inline-flex items-center gap-1 text-foreground hover:text-primary transition-colors">
+                <PhoneIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                {formatPhone(appointment.patient.phone)}
               </a>
-            )}
-          </div>
-        )}
-
-        {/* Invoice status */}
-        {(isConsulta || appointment.type === "REUNIAO") && appointment.invoice && (
-          <a
-            href={`/financeiro/faturas/${appointment.invoice.id}`}
-            className="flex items-center gap-1.5 mt-2.5 group"
-          >
-            <FileTextIcon className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
-            <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-              Fatura {MONTH_NAMES_SHORT[appointment.invoice.referenceMonth - 1]}/{appointment.invoice.referenceYear}
-            </span>
-            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-              INVOICE_STATUS_COLORS[appointment.invoice.status] || "bg-muted text-muted-foreground"
-            }`}>
-              {INVOICE_STATUS_LABELS[appointment.invoice.status] || appointment.invoice.status}
-            </span>
-          </a>
-        )}
-        {(isConsulta || appointment.type === "REUNIAO") && !appointment.invoice && (
-          <div className="flex items-center gap-1.5 mt-2.5">
-            <FileTextIcon className="w-3.5 h-3.5 text-muted-foreground/50" />
-            <span className="text-xs text-muted-foreground/50">Sem fatura</span>
-          </div>
-        )}
-
-        {/* Recurrence info */}
-        {isRecurring && (
-          <div className="flex items-center gap-1.5 mt-2.5">
-            <RefreshCwIcon className="w-3.5 h-3.5 text-blue-500" />
-            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-              {RECURRENCE_TYPE_LABELS[appointment.recurrence!.recurrenceType]}
-              {appointment.recurrence!.recurrenceEndType === "INDEFINITE" && " · sem fim"}
-              {isRecurrenceModified(appointment) && (
-                <span className="text-amber-600 dark:text-amber-400"> · alterado</span>
+              {appointment.patient.email && (
+                <a href={`mailto:${appointment.patient.email}`} className="inline-flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors truncate max-w-[180px]">
+                  <MailIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="truncate">{appointment.patient.email}</span>
+                </a>
               )}
+            </>
+          )}
+          {(isConsulta || appointment.type === "REUNIAO") && appointment.invoice && (
+            <a href={`/financeiro/faturas/${appointment.invoice.id}`} className="inline-flex items-center gap-1 group">
+              <FileTextIcon className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
+              <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+                {MONTH_NAMES_SHORT[appointment.invoice.referenceMonth - 1]}/{appointment.invoice.referenceYear}
+              </span>
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                INVOICE_STATUS_COLORS[appointment.invoice.status] || "bg-muted text-muted-foreground"
+              }`}>
+                {INVOICE_STATUS_LABELS[appointment.invoice.status] || appointment.invoice.status}
+              </span>
+            </a>
+          )}
+          {isRecurring && (
+            <span className="inline-flex items-center gap-1">
+              <RefreshCwIcon className="w-3.5 h-3.5 text-blue-500" />
+              <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                {RECURRENCE_TYPE_LABELS[appointment.recurrence!.recurrenceType]}
+                {isRecurrenceModified(appointment) && <span className="text-amber-600 dark:text-amber-400"> · alterado</span>}
+              </span>
             </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Segmented Control (recurring or audit access) */}
+      {/* Segmented Control */}
       {(isRecurring && isActive || canReadAudit) && (
         <div className="px-4 pt-4">
-          <SegmentedControl
-            segments={segments}
-            activeKey={activeTab}
-            onChange={(key) => setActiveTab(key as EditorTab)}
-            trailing={skipToggle}
-          />
+          <SegmentedControl segments={segments} activeKey={activeTab}
+            onChange={(key) => setActiveTab(key as EditorTab)} trailing={skipToggle} />
         </div>
       )}
 
@@ -369,39 +284,22 @@ export function AppointmentEditor({
       <div className="p-4">
         {activeTab === "occurrence" && (
           <OccurrenceTabContent
-            appointment={appointment}
-            form={form}
-            isUpdating={isUpdating}
-            onSubmit={onSubmit}
-            apiError={apiError}
-            onDismissError={onDismissError}
-            onClose={handleClose}
-            canMarkStatus={canMarkStatus}
-            onUpdateStatus={onUpdateStatus}
-            isUpdatingStatus={isUpdatingStatus}
-            canResendConfirmation={canResendConfirmation}
-            onResendConfirmation={onResendConfirmation}
+            appointment={appointment} form={form} isUpdating={isUpdating} onSubmit={onSubmit}
+            apiError={apiError} onDismissError={onDismissError} onClose={handleClose}
+            canMarkStatus={canMarkStatus} onUpdateStatus={onUpdateStatus} isUpdatingStatus={isUpdatingStatus}
+            canResendConfirmation={canResendConfirmation} onResendConfirmation={onResendConfirmation}
             isResendingConfirmation={isResendingConfirmation}
-            isDeleteDialogOpen={isDeleteDialogOpen}
-            setIsDeleteDialogOpen={setIsDeleteDialogOpen}
-            isDeletingAppointment={isDeletingAppointment}
-            onDeleteAppointment={onDeleteAppointment}
-            isRecurring={isRecurring}
-            isConsulta={isConsulta}
-            professionals={professionals}
-            editAdditionalProfIds={editAdditionalProfIds}
+            isDeleteDialogOpen={isDeleteDialogOpen} setIsDeleteDialogOpen={setIsDeleteDialogOpen}
+            isDeletingAppointment={isDeletingAppointment} onDeleteAppointment={onDeleteAppointment}
+            isRecurring={isRecurring} isConsulta={isConsulta}
+            professionals={professionals} editAdditionalProfIds={editAdditionalProfIds}
             setEditAdditionalProfIds={setEditAdditionalProfIds}
-            onAttendingProfChange={onAttendingProfChange}
-            editAttendingProfId={editAttendingProfId}
+            onAttendingProfChange={onAttendingProfChange} editAttendingProfId={editAttendingProfId}
           />
         )}
         {activeTab === "recurrence" && (
-          <RecurrenceTabContent
-            appointment={appointment}
-            onSave={onRecurrenceSave}
-            onClose={handleClose}
-            professionals={professionals}
-          />
+          <RecurrenceTabContent appointment={appointment} onSave={onRecurrenceSave}
+            onClose={handleClose} professionals={professionals} />
         )}
         {activeTab === "historico" && (
           <div className="px-4 py-4">
@@ -445,293 +343,137 @@ interface OccurrenceTabContentProps {
 }
 
 function OccurrenceTabContent({
-  appointment,
-  form,
-  isUpdating,
-  onSubmit,
-  apiError,
-  onDismissError,
-  onClose,
-  canMarkStatus,
-  onUpdateStatus,
-  isUpdatingStatus,
-  canResendConfirmation,
-  onResendConfirmation,
-  isResendingConfirmation,
-  isDeleteDialogOpen,
-  setIsDeleteDialogOpen,
-  isDeletingAppointment,
-  onDeleteAppointment,
-  isRecurring,
-  isConsulta,
-  professionals,
-  editAdditionalProfIds,
-  setEditAdditionalProfIds,
-  onAttendingProfChange,
-  editAttendingProfId,
+  appointment, form, isUpdating, onSubmit, apiError, onDismissError, onClose,
+  canMarkStatus, onUpdateStatus, isUpdatingStatus,
+  canResendConfirmation, onResendConfirmation, isResendingConfirmation,
+  isDeleteDialogOpen, setIsDeleteDialogOpen, isDeletingAppointment, onDeleteAppointment,
+  isRecurring, isConsulta, professionals, editAdditionalProfIds, setEditAdditionalProfIds,
+  onAttendingProfChange, editAttendingProfId,
 }: OccurrenceTabContentProps) {
   const [cancelVariant, setCancelVariant] = useState<CancelVariant | null>(null)
+  const [showCancelOptions, setShowCancelOptions] = useState(false)
 
   const isCancelled = CANCELLED_STATUSES.includes(appointment.status)
   const isNoShow = appointment.status === "CANCELADO_FALTA"
   const isFinished = appointment.status === "FINALIZADO"
   const isTerminal = isCancelled || isNoShow || isFinished
-
-  const hasQuickActions = !isTerminal && (
-    canMarkStatus ||
-    canResendConfirmation
-  )
+  const hasQuickActions = !isTerminal && (canMarkStatus || canResendConfirmation)
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 
-      {/* ── Quick Actions (status-first UX) ── */}
+      {/* ── Quick Actions ── */}
       {hasQuickActions && (
-        <div className="space-y-2.5">
-          {/* AGENDADO: Confirm + Atendido row, then cancel options row */}
+        <div className="space-y-2">
+          {/* Primary actions */}
           {canMarkStatus && isConsulta && appointment.status === "AGENDADO" && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => onUpdateStatus("CONFIRMADO", "Consulta confirmada com sucesso")} disabled={isUpdatingStatus}
-                  className="h-11 rounded-xl bg-blue-600 text-white font-medium text-sm flex items-center justify-center gap-1.5 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50">
-                  <CheckCircleIcon className="w-4 h-4" />
-                  {isUpdatingStatus ? "..." : "Confirmar"}
-                </button>
-                <button type="button" onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")} disabled={isUpdatingStatus}
-                  className="h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50">
-                  {isUpdatingStatus ? "..." : "Atendido"}
-                </button>
-              </div>
-              <div className="rounded-xl border border-border/60 bg-muted/30 dark:bg-muted/10 p-2.5 space-y-2">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-0.5">Cancelamento</p>
-                <div className="grid grid-cols-3 gap-2">
-                  <button type="button" onClick={() => setCancelVariant("faltou")} disabled={isUpdatingStatus}
-                    className="h-10 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-xs flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                    Faltou
-                  </button>
-                  <button type="button" onClick={() => setCancelVariant("desmarcou")} disabled={isUpdatingStatus}
-                    className="h-10 rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-xs flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                    Desmarcou
-                  </button>
-                  <button type="button" onClick={() => setCancelVariant("sem_cobranca")} disabled={isUpdatingStatus}
-                    className="h-10 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 font-medium text-xs flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                    Sem cobrança
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* CONFIRMADO: Atendido full width, then cancel options row */}
-          {canMarkStatus && isConsulta && appointment.status === "CONFIRMADO" && (
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => onUpdateStatus("CONFIRMADO", "Consulta confirmada com sucesso")} disabled={isUpdatingStatus}
+                className="h-11 rounded-xl bg-blue-600 text-white font-medium text-sm flex items-center justify-center gap-1.5 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50">
+                <CheckCircleIcon className="w-4 h-4" />
+                {isUpdatingStatus ? "..." : "Confirmar"}
+              </button>
               <button type="button" onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")} disabled={isUpdatingStatus}
-                className="w-full h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50">
+                className="h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50">
                 {isUpdatingStatus ? "..." : "Atendido"}
               </button>
-              <div className="rounded-xl border border-border/60 bg-muted/30 dark:bg-muted/10 p-2.5 space-y-2">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-0.5">Cancelamento</p>
-                <div className="grid grid-cols-3 gap-2">
-                  <button type="button" onClick={() => setCancelVariant("faltou")} disabled={isUpdatingStatus}
-                    className="h-10 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-xs flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                    Faltou
-                  </button>
-                  <button type="button" onClick={() => setCancelVariant("desmarcou")} disabled={isUpdatingStatus}
-                    className="h-10 rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-xs flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                    Desmarcou
-                  </button>
-                  <button type="button" onClick={() => setCancelVariant("sem_cobranca")} disabled={isUpdatingStatus}
-                    className="h-10 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 font-medium text-xs flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                    Sem cobrança
-                  </button>
-                </div>
-              </div>
             </div>
           )}
 
-          {/* Conclude — non-CONSULTA */}
+          {canMarkStatus && isConsulta && appointment.status === "CONFIRMADO" && (
+            <button type="button" onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")} disabled={isUpdatingStatus}
+              className="w-full h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50">
+              {isUpdatingStatus ? "..." : "Atendido"}
+            </button>
+          )}
+
           {canMarkStatus && !isConsulta && (
-            <button
-              type="button"
-              onClick={() => onUpdateStatus("FINALIZADO", "Entrada concluida com sucesso")}
-              disabled={isUpdatingStatus}
-              className="w-full h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center gap-2 hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50"
-            >
+            <button type="button" onClick={() => onUpdateStatus("FINALIZADO", "Entrada concluida com sucesso")} disabled={isUpdatingStatus}
+              className="w-full h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center gap-2 hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50">
               {isUpdatingStatus ? "..." : "Concluir"}
             </button>
           )}
 
+          {/* Collapsible cancel zone */}
+          {canMarkStatus && isConsulta && (appointment.status === "AGENDADO" || appointment.status === "CONFIRMADO") && (
+            <div>
+              <button type="button" onClick={() => setShowCancelOptions(!showCancelOptions)}
+                className="w-full flex items-center justify-between px-3 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50">
+                <span className="font-medium uppercase tracking-wider">Cancelamento</span>
+                <ChevronDownIcon className={`w-4 h-4 transition-transform ${showCancelOptions ? "rotate-180" : ""}`} />
+              </button>
+              {showCancelOptions && (
+                <div className="grid grid-cols-3 gap-2 mt-1.5">
+                  <button type="button" onClick={() => setCancelVariant("faltou")} disabled={isUpdatingStatus}
+                    className="h-10 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-xs flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                    Faltou
+                  </button>
+                  <button type="button" onClick={() => setCancelVariant("desmarcou")} disabled={isUpdatingStatus}
+                    className="h-10 rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-xs flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                    Desmarcou
+                  </button>
+                  <button type="button" onClick={() => setCancelVariant("sem_cobranca")} disabled={isUpdatingStatus}
+                    className="h-10 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 font-medium text-xs flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                    Sem cobranca
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Resend confirmation */}
           {canResendConfirmation && (
-            <button
-              type="button"
-              onClick={onResendConfirmation}
-              disabled={isResendingConfirmation}
-              className="w-full h-10 rounded-xl border border-border text-muted-foreground font-medium text-sm flex items-center justify-center gap-2 hover:bg-muted/50 hover:text-foreground active:scale-[0.98] transition-all disabled:opacity-50"
-            >
+            <button type="button" onClick={onResendConfirmation} disabled={isResendingConfirmation}
+              className="w-full h-10 rounded-xl border border-border text-muted-foreground font-medium text-sm flex items-center justify-center gap-2 hover:bg-muted/50 hover:text-foreground active:scale-[0.98] transition-all disabled:opacity-50">
               {isResendingConfirmation ? "Reenviando..." : "Reenviar Links de Confirmacao"}
             </button>
           )}
         </div>
       )}
 
-      {/* Terminal state context */}
+      {/* ── Terminal state ── */}
       {isTerminal && (
-        <div className={`p-3 rounded-xl border text-sm flex items-start gap-2.5 ${
-          isFinished
-            ? "bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400"
-            : isNoShow
-            ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300"
-            : appointment.status === "CANCELADO_ACORDADO"
-            ? "bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300"
-            : "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400"
-        }`}>
-          <div className="flex-shrink-0 mt-0.5">
-            {isFinished ? (
-              <CheckCircleIcon className="w-4 h-4" />
-            ) : (
-              <AlertTriangleIcon className="w-4 h-4" />
-            )}
-          </div>
-          <div className="flex-1">
-            {isFinished && "Esta consulta foi finalizada."}
-            {isNoShow && "Paciente não compareceu à esta consulta."}
-            {appointment.status === "CANCELADO_ACORDADO" && (
-              <>
-                Paciente desmarcou — crédito gerado.
-                {appointment.cancellationReason && (
-                  <span className="block mt-1 text-xs opacity-75">
-                    Motivo: {appointment.cancellationReason}
-                  </span>
-                )}
-              </>
-            )}
-            {appointment.status === "CANCELADO_PROFISSIONAL" && (
-              <>
-                Sessão cancelada sem cobrança.
-                {appointment.cancellationReason && (
-                  <span className="block mt-1 text-xs opacity-75">
-                    Motivo: {appointment.cancellationReason}
-                  </span>
-                )}
-              </>
-            )}
-
-            {/* Revert FINALIZADO */}
-            {canMarkStatus && isFinished && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                <button type="button"
-                  onClick={() => onUpdateStatus("AGENDADO", "Agendamento restaurado")}
-                  disabled={isUpdatingStatus}
-                  className="h-8 px-3 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                  {isUpdatingStatus ? "..." : "Reagendar"}
-                </button>
-                <button type="button"
-                  onClick={() => onUpdateStatus("CONFIRMADO", "Status alterado para confirmado")}
-                  disabled={isUpdatingStatus}
-                  className="h-8 px-3 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                  {isUpdatingStatus ? "..." : "Alterar para Confirmado"}
-                </button>
-              </div>
-            )}
-
-            {/* Switch between cancel statuses */}
-            {canMarkStatus && isConsulta && isCancelled && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {appointment.status !== "CANCELADO_FALTA" && (
-                  <button type="button"
-                    onClick={() => onUpdateStatus("CANCELADO_FALTA", "Status alterado para falta")}
-                    disabled={isUpdatingStatus}
-                    className="h-8 px-3 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                    {isUpdatingStatus ? "..." : "Alterar para Falta"}
-                  </button>
-                )}
-                {appointment.status !== "CANCELADO_ACORDADO" && (
-                  <button type="button"
-                    onClick={() => onUpdateStatus("CANCELADO_ACORDADO", "Status alterado para desmarcou")}
-                    disabled={isUpdatingStatus}
-                    className="h-8 px-3 rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 text-xs font-medium hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                    {isUpdatingStatus ? "..." : "Alterar para Desmarcou"}
-                  </button>
-                )}
-                {appointment.status !== "CANCELADO_PROFISSIONAL" && (
-                  <button type="button"
-                    onClick={() => onUpdateStatus("CANCELADO_PROFISSIONAL", "Status alterado para cancelado sem cobrança")}
-                    disabled={isUpdatingStatus}
-                    className="h-8 px-3 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                    {isUpdatingStatus ? "..." : "Alterar para sem cobrança"}
-                  </button>
-                )}
-                <button type="button"
-                  onClick={() => onUpdateStatus("AGENDADO", "Agendamento restaurado")}
-                  disabled={isUpdatingStatus}
-                  className="h-8 px-3 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                  {isUpdatingStatus ? "..." : "Reagendar"}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+        <TerminalStateBanner
+          appointment={appointment} isConsulta={isConsulta} isFinished={isFinished}
+          isNoShow={isNoShow} isCancelled={isCancelled} canMarkStatus={canMarkStatus}
+          isUpdatingStatus={isUpdatingStatus} onUpdateStatus={onUpdateStatus}
+        />
       )}
 
       {/* ── Edit Fields ── */}
-      <div className="space-y-4">
-        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
+      <fieldset className="space-y-4">
+        <legend className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
           Detalhes
-        </p>
+        </legend>
 
-        {/* Date */}
-        <div>
-          <label htmlFor="editDate" className="block text-sm font-medium text-foreground mb-1.5">
-            Data
-          </label>
-          <DateInput
-            id="editDate"
-            {...form.register("date")}
-            className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
-          />
-          {form.formState.errors.date && (
-            <p className="text-xs text-destructive mt-1">{form.formState.errors.date.message}</p>
-          )}
+        {/* Date + Time row */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="editDate" className="block text-sm font-medium text-foreground mb-1.5">Data</label>
+            <DateInput id="editDate" {...form.register("date")}
+              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
+            {form.formState.errors.date && <p className="text-xs text-destructive mt-1">{form.formState.errors.date.message}</p>}
+          </div>
+          <div>
+            <label htmlFor="editStartTime" className="block text-sm font-medium text-foreground mb-1.5">Inicio</label>
+            <TimeInput id="editStartTime" placeholder="HH:MM" {...form.register("startTime")}
+              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
+            {form.formState.errors.startTime && <p className="text-xs text-destructive mt-1">{form.formState.errors.startTime.message}</p>}
+          </div>
         </div>
 
-        {/* Time + Duration + End Time */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* Duration + End */}
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="editStartTime" className="block text-sm font-medium text-foreground mb-1.5">
-              Inicio
-            </label>
-            <TimeInput
-              id="editStartTime"
-              placeholder="HH:MM"
-              {...form.register("startTime")}
-              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
-            />
-            {form.formState.errors.startTime && (
-              <p className="text-xs text-destructive mt-1">{form.formState.errors.startTime.message}</p>
-            )}
+            <label htmlFor="editDuration" className="block text-sm font-medium text-foreground mb-1.5">Duracao</label>
+            <input id="editDuration" type="number"
+              {...form.register("duration", { setValueAs: (v) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v) })}
+              min={15} max={480} step={5}
+              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
           </div>
           <div>
-            <label htmlFor="editDuration" className="block text-sm font-medium text-foreground mb-1.5">
-              Duracao
-            </label>
-            <input
-              id="editDuration"
-              type="number"
-              {...form.register("duration", {
-                setValueAs: (v) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v)
-              })}
-              min={15}
-              max={480}
-              step={5}
-              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Fim
-            </label>
-            <div className="h-11 px-3.5 rounded-xl border border-input bg-muted/50 text-foreground text-sm flex items-center">
+            <label className="block text-sm font-medium text-foreground mb-1.5">Fim</label>
+            <div className="h-11 px-3.5 rounded-xl border border-input bg-muted/50 text-foreground text-sm flex items-center tabular-nums">
               {calculateEndTime(form.watch("startTime"), form.watch("duration")) || "—"}
             </div>
           </div>
@@ -745,112 +487,83 @@ function OccurrenceTabContent({
               <label className="relative cursor-pointer">
                 <input type="radio" value="PRESENCIAL" {...form.register("modality")} className="sr-only peer" />
                 <div className="h-11 flex items-center justify-center gap-2 rounded-xl border-2 border-input bg-background text-foreground text-sm font-medium peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all">
-                  <BuildingIcon className="w-4 h-4" />
-                  Presencial
+                  <BuildingIcon className="w-4 h-4" /> Presencial
                 </div>
               </label>
               <label className="relative cursor-pointer">
                 <input type="radio" value="ONLINE" {...form.register("modality")} className="sr-only peer" />
                 <div className="h-11 flex items-center justify-center gap-2 rounded-xl border-2 border-input bg-background text-foreground text-sm font-medium peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all">
-                  <VideoIcon className="w-4 h-4" />
-                  Online
+                  <VideoIcon className="w-4 h-4" /> Online
                 </div>
               </label>
             </div>
           </div>
         )}
 
-        {/* Price — CONSULTA only */}
+        {/* Price + Attending Professional — side by side */}
         {isConsulta && (
-          <div>
-            <label htmlFor="editPrice" className="block text-sm font-medium text-foreground mb-1.5">
-              Valor (R$)
-            </label>
-            <input
-              id="editPrice"
-              type="number"
-              step="0.01"
-              {...form.register("price", { valueAsNumber: true })}
-              placeholder="0,00"
-              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
-            />
+          <div className={`grid gap-3 ${professionals && professionals.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+            <div>
+              <label htmlFor="editPrice" className="block text-sm font-medium text-foreground mb-1.5">Valor (R$)</label>
+              <input id="editPrice" type="number" step="0.01" {...form.register("price", { valueAsNumber: true })} placeholder="0,00"
+                className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
+            </div>
+            {professionals && professionals.length > 1 && (
+              <div>
+                <label htmlFor="editAttendingProf" className="block text-sm font-medium text-foreground mb-1.5">Atendente</label>
+                <select id="editAttendingProf" value={editAttendingProfId ?? ""}
+                  onChange={(e) => { if (onAttendingProfChange) onAttendingProfChange(e.target.value || null) }}
+                  className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors">
+                  <option value="">{appointment.professionalProfile.user.name} (titular)</option>
+                  {professionals
+                    .filter(p => p.professionalProfile?.id && p.professionalProfile.id !== appointment.professionalProfile.id)
+                    .map(p => <option key={p.professionalProfile!.id} value={p.professionalProfile!.id}>{p.name}</option>)}
+                </select>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Attending Professional — CONSULTA and REUNIAO */}
-        {(isConsulta || appointment.type === "REUNIAO") && professionals && professionals.length > 1 && (
+        {/* Attending Professional for REUNIAO (no price) */}
+        {!isConsulta && appointment.type === "REUNIAO" && professionals && professionals.length > 1 && (
           <div>
-            <label htmlFor="editAttendingProf" className="block text-sm font-medium text-foreground mb-1.5">
-              Profissional atendente
-            </label>
-            <select
-              id="editAttendingProf"
-              value={editAttendingProfId ?? ""}
-              onChange={(e) => {
-                const value = e.target.value || null
-                if (onAttendingProfChange) {
-                  onAttendingProfChange(value)
-                }
-              }}
-              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
-            >
+            <label htmlFor="editAttendingProf" className="block text-sm font-medium text-foreground mb-1.5">Atendente</label>
+            <select id="editAttendingProf" value={editAttendingProfId ?? ""}
+              onChange={(e) => { if (onAttendingProfChange) onAttendingProfChange(e.target.value || null) }}
+              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors">
               <option value="">{appointment.professionalProfile.user.name} (titular)</option>
               {professionals
                 .filter(p => p.professionalProfile?.id && p.professionalProfile.id !== appointment.professionalProfile.id)
-                .map(p => (
-                  <option key={p.professionalProfile!.id} value={p.professionalProfile!.id}>
-                    {p.name}
-                  </option>
-                ))}
+                .map(p => <option key={p.professionalProfile!.id} value={p.professionalProfile!.id}>{p.name}</option>)}
             </select>
-            <p className="text-xs text-muted-foreground mt-1">
-              Selecione quem atendeu esta sessão (repasse será direcionado ao atendente)
-            </p>
           </div>
         )}
 
         {/* Notes */}
         <div>
-          <label htmlFor="editNotes" className="block text-sm font-medium text-foreground mb-1.5">
-            Observacoes
-          </label>
-          <textarea
-            id="editNotes"
-            rows={3}
-            {...form.register("notes")}
-            placeholder="Notas sobre esta consulta..."
-            className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors resize-none"
-          />
+          <label htmlFor="editNotes" className="block text-sm font-medium text-foreground mb-1.5">Observacoes</label>
+          <textarea id="editNotes" rows={2} {...form.register("notes")} placeholder="Notas sobre esta consulta..."
+            className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors resize-none" />
         </div>
-      </div>
+      </fieldset>
 
-      {/* Additional professionals editor */}
+      {/* Additional professionals */}
       {professionals && editAdditionalProfIds && setEditAdditionalProfIds &&
-       (isConsulta || appointment.type === "REUNIAO") &&
-       professionals.length > 1 && (
+       (isConsulta || appointment.type === "REUNIAO") && professionals.length > 1 && (
         <div>
           <label className="block text-sm font-medium text-foreground mb-1.5">Profissionais adicionais</label>
           <div className="space-y-2 p-3 rounded-xl border border-input bg-background">
             {professionals
-              .filter(p => {
-                const profId = p.professionalProfile?.id
-                return profId && profId !== appointment.professionalProfile.id
-              })
+              .filter(p => p.professionalProfile?.id && p.professionalProfile.id !== appointment.professionalProfile.id)
               .map(prof => (
                 <label key={prof.id} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={editAdditionalProfIds.includes(prof.professionalProfile!.id)}
+                  <input type="checkbox" checked={editAdditionalProfIds.includes(prof.professionalProfile!.id)}
                     onChange={(e) => {
                       const id = prof.professionalProfile!.id
-                      if (e.target.checked) {
-                        setEditAdditionalProfIds([...editAdditionalProfIds, id])
-                      } else {
-                        setEditAdditionalProfIds(editAdditionalProfIds.filter(x => x !== id))
-                      }
+                      if (e.target.checked) setEditAdditionalProfIds([...editAdditionalProfIds, id])
+                      else setEditAdditionalProfIds(editAdditionalProfIds.filter(x => x !== id))
                     }}
-                    className="w-4 h-4 rounded border-input text-primary focus:ring-ring/40"
-                  />
+                    className="w-4 h-4 rounded border-input text-primary focus:ring-ring/40" />
                   <span className="text-sm">{prof.name}</span>
                 </label>
               ))}
@@ -867,14 +580,10 @@ function OccurrenceTabContent({
       )}
 
       {/* ── Danger Zone ── */}
-      <div className="pt-4 border-t border-border/60 space-y-2.5">
-        <button
-          type="button"
-          onClick={() => setIsDeleteDialogOpen(true)}
-          className="w-full h-9 text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center justify-center gap-1.5"
-        >
-          <TrashIcon className="w-3.5 h-3.5" />
-          Excluir permanentemente
+      <div className="pt-4 border-t border-border/60">
+        <button type="button" onClick={() => setIsDeleteDialogOpen(true)}
+          className="w-full h-9 text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center justify-center gap-1.5">
+          <TrashIcon className="w-3.5 h-3.5" /> Excluir permanentemente
         </button>
       </div>
 
@@ -882,12 +591,8 @@ function OccurrenceTabContent({
       {isDeleteDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in">
           <div className="bg-background rounded-2xl p-6 max-w-sm mx-4 shadow-2xl animate-scale-in relative">
-            <button
-              type="button"
-              onClick={() => setIsDeleteDialogOpen(false)}
-              className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              aria-label="Fechar"
-            >
+            <button type="button" onClick={() => setIsDeleteDialogOpen(false)}
+              className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" aria-label="Fechar">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
             <div className="flex items-start gap-3 mb-3">
@@ -896,26 +601,16 @@ function OccurrenceTabContent({
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-foreground">Excluir agendamento?</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Esta acao nao pode ser desfeita. O agendamento sera permanentemente removido.
-                </p>
+                <p className="text-sm text-muted-foreground mt-1">Esta acao nao pode ser desfeita. O agendamento sera permanentemente removido.</p>
               </div>
             </div>
             <div className="flex gap-3 mt-5">
-              <button
-                type="button"
-                onClick={() => setIsDeleteDialogOpen(false)}
-                disabled={isDeletingAppointment}
-                className="flex-1 h-11 rounded-xl border border-input bg-background text-foreground font-medium text-sm hover:bg-muted disabled:opacity-50 transition-colors"
-              >
+              <button type="button" onClick={() => setIsDeleteDialogOpen(false)} disabled={isDeletingAppointment}
+                className="flex-1 h-11 rounded-xl border border-input bg-background text-foreground font-medium text-sm hover:bg-muted disabled:opacity-50 transition-colors">
                 Manter
               </button>
-              <button
-                type="button"
-                onClick={onDeleteAppointment}
-                disabled={isDeletingAppointment}
-                className="flex-1 h-11 rounded-xl bg-red-600 text-white font-medium text-sm hover:bg-red-700 disabled:opacity-50 transition-colors"
-              >
+              <button type="button" onClick={onDeleteAppointment} disabled={isDeletingAppointment}
+                className="flex-1 h-11 rounded-xl bg-red-600 text-white font-medium text-sm hover:bg-red-700 disabled:opacity-50 transition-colors">
                 {isDeletingAppointment ? "Excluindo..." : "Excluir"}
               </button>
             </div>
@@ -925,38 +620,104 @@ function OccurrenceTabContent({
 
       {/* Cancel Confirm Dialog */}
       {cancelVariant && (
-        <CancelConfirmDialog
-          isOpen={!!cancelVariant}
-          onClose={() => setCancelVariant(null)}
-          variant={cancelVariant}
-          onConfirm={async (status, reason) => {
-            await onUpdateStatus(status, "Status alterado com sucesso", reason || undefined)
-          }}
-        />
+        <CancelConfirmDialog isOpen={!!cancelVariant} onClose={() => setCancelVariant(null)} variant={cancelVariant}
+          onConfirm={async (status, reason) => { await onUpdateStatus(status, "Status alterado com sucesso", reason || undefined) }} />
       )}
 
       {/* API Error */}
-      {apiError && onDismissError && (
-        <InlineAlert message={apiError} onDismiss={onDismissError} />
-      )}
+      {apiError && onDismissError && <InlineAlert message={apiError} onDismiss={onDismissError} />}
 
       {/* ── Footer ── */}
       <div className="flex gap-3 pt-4 pb-8">
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex-1 h-12 rounded-xl border border-input bg-background text-foreground font-medium text-sm hover:bg-muted transition-colors"
-        >
+        <button type="button" onClick={onClose}
+          className="flex-1 h-12 rounded-xl border border-input bg-background text-foreground font-medium text-sm hover:bg-muted transition-colors">
           Fechar
         </button>
-        <button
-          type="submit"
-          disabled={isUpdating}
-          className="flex-1 h-12 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
-        >
+        <button type="submit" disabled={isUpdating}
+          className="flex-1 h-12 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity">
           {isUpdating ? "Salvando..." : "Salvar Alteracoes"}
         </button>
       </div>
     </form>
+  )
+}
+
+// ============================================================================
+// Terminal State Banner (extracted)
+// ============================================================================
+
+function TerminalStateBanner({ appointment, isConsulta, isFinished, isNoShow, isCancelled, canMarkStatus, isUpdatingStatus, onUpdateStatus }: {
+  appointment: Appointment; isConsulta: boolean; isFinished: boolean; isNoShow: boolean; isCancelled: boolean
+  canMarkStatus: boolean; isUpdatingStatus: boolean
+  onUpdateStatus: (status: string, message: string) => Promise<void>
+}) {
+  const bannerStyle = isFinished
+    ? "bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400"
+    : isNoShow
+    ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300"
+    : appointment.status === "CANCELADO_ACORDADO"
+    ? "bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300"
+    : "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400"
+
+  return (
+    <div className={`p-3 rounded-xl border text-sm flex items-start gap-2.5 ${bannerStyle}`}>
+      <div className="flex-shrink-0 mt-0.5">
+        {isFinished ? <CheckCircleIcon className="w-4 h-4" /> : <AlertTriangleIcon className="w-4 h-4" />}
+      </div>
+      <div className="flex-1">
+        {isFinished && "Esta consulta foi finalizada."}
+        {isNoShow && "Paciente nao compareceu a esta consulta."}
+        {appointment.status === "CANCELADO_ACORDADO" && (
+          <>Paciente desmarcou — credito gerado.
+            {appointment.cancellationReason && <span className="block mt-1 text-xs opacity-75">Motivo: {appointment.cancellationReason}</span>}
+          </>
+        )}
+        {appointment.status === "CANCELADO_PROFISSIONAL" && (
+          <>Sessao cancelada sem cobranca.
+            {appointment.cancellationReason && <span className="block mt-1 text-xs opacity-75">Motivo: {appointment.cancellationReason}</span>}
+          </>
+        )}
+
+        {canMarkStatus && isFinished && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" onClick={() => onUpdateStatus("AGENDADO", "Agendamento restaurado")} disabled={isUpdatingStatus}
+              className="h-8 px-3 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+              {isUpdatingStatus ? "..." : "Reagendar"}
+            </button>
+            <button type="button" onClick={() => onUpdateStatus("CONFIRMADO", "Status alterado para confirmado")} disabled={isUpdatingStatus}
+              className="h-8 px-3 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+              {isUpdatingStatus ? "..." : "Alterar para Confirmado"}
+            </button>
+          </div>
+        )}
+
+        {canMarkStatus && isConsulta && isCancelled && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {appointment.status !== "CANCELADO_FALTA" && (
+              <button type="button" onClick={() => onUpdateStatus("CANCELADO_FALTA", "Status alterado para falta")} disabled={isUpdatingStatus}
+                className="h-8 px-3 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                {isUpdatingStatus ? "..." : "Alterar para Falta"}
+              </button>
+            )}
+            {appointment.status !== "CANCELADO_ACORDADO" && (
+              <button type="button" onClick={() => onUpdateStatus("CANCELADO_ACORDADO", "Status alterado para desmarcou")} disabled={isUpdatingStatus}
+                className="h-8 px-3 rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 text-xs font-medium hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                {isUpdatingStatus ? "..." : "Alterar para Desmarcou"}
+              </button>
+            )}
+            {appointment.status !== "CANCELADO_PROFISSIONAL" && (
+              <button type="button" onClick={() => onUpdateStatus("CANCELADO_PROFISSIONAL", "Status alterado para cancelado sem cobranca")} disabled={isUpdatingStatus}
+                className="h-8 px-3 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                {isUpdatingStatus ? "..." : "Alterar para sem cobranca"}
+              </button>
+            )}
+            <button type="button" onClick={() => onUpdateStatus("AGENDADO", "Agendamento restaurado")} disabled={isUpdatingStatus}
+              className="h-8 px-3 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+              {isUpdatingStatus ? "..." : "Reagendar"}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

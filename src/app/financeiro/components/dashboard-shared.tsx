@@ -19,6 +19,7 @@ export interface DashboardData {
   availableCredits: number
   byMonth: Record<number, MonthSummary>
   byProfessional: ProfessionalSummary[]
+  paymentsByDay: { day: number; amount: number; count: number; cumulative: number }[]
 }
 
 export interface MonthSummary {

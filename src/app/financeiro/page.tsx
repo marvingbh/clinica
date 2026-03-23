@@ -94,7 +94,7 @@ export default function FinanceiroDashboard() {
         <div className="animate-pulse text-muted-foreground py-8 text-center">Carregando insights...</div>
       )}
 
-      {tab === "cobranca" && insights && !insightsLoading && <InsightsCobranca data={insights} />}
+      {tab === "cobranca" && insights && !insightsLoading && <InsightsCobranca data={insights} paymentsByDay={data?.paymentsByDay} />}
       {tab === "atendimento" && insights && !insightsLoading && <InsightsAtendimento data={insights} />}
       {tab === "analise" && insights && !insightsLoading && <InsightsAnalise data={insights} />}
     </div>

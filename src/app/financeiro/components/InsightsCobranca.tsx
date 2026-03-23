@@ -1,13 +1,24 @@
 "use client"
 
 import { formatCurrencyBRL } from "@/lib/financeiro/format"
-import { InsightsData, MetricCard, DeltaIndicator } from "./dashboard-shared"
+import {
+  AreaChart, Area, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts"
+import { InsightsData, MetricCard, DeltaIndicator, CHART_COLORS } from "./dashboard-shared"
+
+interface PaymentDay {
+  day: number
+  amount: number
+  count: number
+  cumulative: number
+}
 
 interface Props {
   data: InsightsData
+  paymentsByDay?: PaymentDay[]
 }
 
-export function InsightsCobranca({ data }: Props) {
+export function InsightsCobranca({ data, paymentsByDay }: Props) {
   const { inadimplencia: inad, pagamentoAtraso: atraso, tempoRecebimento: tempo, comparativo: comp } = data
   const unpaidRatePct = (inad.unpaidRate * 100).toFixed(1)
   const lateRatePct = (atraso.lateRate * 100).toFixed(1)
@@ -16,8 +27,33 @@ export function InsightsCobranca({ data }: Props) {
     ? tempo.avgCollectionDays - tempo.prevAvgCollectionDays
     : null
 
+  const hasPayments = paymentsByDay && paymentsByDay.some(d => d.amount > 0)
+
   return (
     <div className="space-y-6">
+      {/* Recebimentos por Dia */}
+      {hasPayments && (
+        <div className="p-4 rounded-lg border border-border">
+          <h3 className="text-sm font-semibold mb-4">Recebimentos por Dia</h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={paymentsByDay}>
+              <defs>
+                <linearGradient id="gradCumulative" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={CHART_COLORS.pago} stopOpacity={0.2} />
+                  <stop offset="95%" stopColor={CHART_COLORS.pago} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <XAxis dataKey="day" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} className="fill-muted-foreground" />
+              <Tooltip content={<PaymentDayTooltip />} />
+              <Bar dataKey="amount" fill={CHART_COLORS.pago} radius={[3, 3, 0, 0]} name="Recebido no dia" />
+              <Area type="monotone" dataKey="cumulative" stroke={CHART_COLORS.pago} fill="url(#gradCumulative)" strokeWidth={2} name="Acumulado" dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       {/* Inadimplência */}
       <div>
         <h3 className="text-sm font-semibold mb-3">Inadimplência no Período</h3>
@@ -99,6 +135,32 @@ export function InsightsCobranca({ data }: Props) {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function PaymentDayTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  const dayData = payload[0]?.payload
+  return (
+    <div className="bg-card border border-border rounded-lg shadow-lg p-3 text-sm">
+      <p className="font-medium mb-1">Dia {label}</p>
+      {dayData?.amount > 0 && (
+        <p className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
+          <span className="text-muted-foreground">Recebido:</span>
+          <span className="font-medium">{formatCurrencyBRL(dayData.amount)}</span>
+          <span className="text-muted-foreground text-xs">({dayData.count} fatura{dayData.count !== 1 ? "s" : ""})</span>
+        </p>
+      )}
+      {dayData?.cumulative > 0 && (
+        <p className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full border-2 border-green-500 bg-transparent" />
+          <span className="text-muted-foreground">Acumulado:</span>
+          <span className="font-medium">{formatCurrencyBRL(dayData.cumulative)}</span>
+        </p>
+      )}
     </div>
   )
 }
