@@ -31,13 +31,23 @@ export const GET = withFeatureAuth(
     if (status) where.status = status
     if (patientId) where.patientId = patientId
     if (patientSearch) {
-      where.patient = { name: { contains: patientSearch, mode: "insensitive" } }
+      // Use unaccent for accent-insensitive search across patient name + parent names
+      const matchingPatients = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "Patient"
+        WHERE "clinicId" = ${user.clinicId}
+        AND (
+          unaccent("name") ILIKE '%' || unaccent(${patientSearch}) || '%'
+          OR unaccent(COALESCE("motherName", '')) ILIKE '%' || unaccent(${patientSearch}) || '%'
+          OR unaccent(COALESCE("fatherName", '')) ILIKE '%' || unaccent(${patientSearch}) || '%'
+        )
+      `
+      where.patientId = { in: matchingPatients.map(p => p.id) }
     }
 
     const invoices = await prisma.invoice.findMany({
       where,
       include: {
-        patient: { select: { id: true, name: true } },
+        patient: { select: { id: true, name: true, motherName: true, fatherName: true } },
         professionalProfile: { select: { id: true, user: { select: { name: true } } } },
         _count: { select: { items: true } },
         reconciliationLinks: { select: { id: true, transaction: { select: { payerName: true, date: true } } }, take: 1 },

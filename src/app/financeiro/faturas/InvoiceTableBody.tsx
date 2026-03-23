@@ -189,7 +189,14 @@ function IndividualRow({
         {indent ? (
           <span className="text-muted-foreground">{invoice._count.items > 0 ? invoice.dueDate ? formatDateBR(invoice.dueDate) : "Sessão" : "Sessão"}</span>
         ) : (
-          invoice.patient.name
+          <div>
+            <span>{invoice.patient.name}</span>
+            {(invoice.patient.motherName || invoice.patient.fatherName) && (
+              <span className="block text-xs text-muted-foreground mt-0.5 truncate max-w-[250px]">
+                {invoice.patient.motherName || invoice.patient.fatherName}
+              </span>
+            )}
+          </div>
         )}
       </td>
       <td className="text-center py-3 px-4">{invoice.totalSessions}</td>

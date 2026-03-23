@@ -33,8 +33,9 @@ export function PatientsTable({
             <tr className="border-b border-border bg-muted/50">
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Nome</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground hidden sm:table-cell">Telefone</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground hidden lg:table-cell">Mae / Pai</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground hidden md:table-cell">Profissional</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground hidden lg:table-cell">Ultima Visita</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground hidden xl:table-cell">Ultima Visita</th>
               <th className="text-center px-4 py-3 text-sm font-medium text-muted-foreground">Status</th>
               <th className="text-right px-4 py-3 text-sm font-medium text-muted-foreground">Acoes</th>
             </tr>
@@ -74,10 +75,18 @@ export function PatientsTable({
                 <td className="px-4 py-3 text-sm text-muted-foreground hidden sm:table-cell">
                   {formatPhone(patient.phone)}
                 </td>
+                <td className="px-4 py-3 text-sm text-muted-foreground hidden lg:table-cell">
+                  {patient.motherName || patient.fatherName ? (
+                    <div className="space-y-0.5">
+                      {patient.motherName && <div className="truncate max-w-[180px]">{patient.motherName}</div>}
+                      {patient.fatherName && <div className="truncate max-w-[180px] text-muted-foreground/70">{patient.fatherName}</div>}
+                    </div>
+                  ) : "-"}
+                </td>
                 <td className="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">
                   {patient.referenceProfessional?.user.name || "-"}
                 </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground hidden lg:table-cell">
+                <td className="px-4 py-3 text-sm text-muted-foreground hidden xl:table-cell">
                   {formatDate(patient.lastVisitAt)}
                 </td>
                 <td className="px-4 py-3 text-center">
