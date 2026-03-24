@@ -26,7 +26,6 @@ import {
   AlertTriangleIcon,
   TrashIcon,
   FileTextIcon,
-  ChevronDownIcon,
 } from "@/shared/components/ui/icons"
 import { CancelConfirmDialog } from "./CancelConfirmDialog"
 import type { CancelVariant } from "./CancelConfirmDialog"
@@ -351,7 +350,6 @@ function OccurrenceTabContent({
   onAttendingProfChange, editAttendingProfId,
 }: OccurrenceTabContentProps) {
   const [cancelVariant, setCancelVariant] = useState<CancelVariant | null>(null)
-  const [showCancelOptions, setShowCancelOptions] = useState(false)
 
   const isCancelled = CANCELLED_STATUSES.includes(appointment.status)
   const isNoShow = appointment.status === "CANCELADO_FALTA"
@@ -394,30 +392,24 @@ function OccurrenceTabContent({
             </button>
           )}
 
-          {/* Collapsible cancel zone */}
+          {/* Cancel options */}
           {canMarkStatus && isConsulta && (appointment.status === "AGENDADO" || appointment.status === "CONFIRMADO") && (
-            <div>
-              <button type="button" onClick={() => setShowCancelOptions(!showCancelOptions)}
-                className="w-full flex items-center justify-between px-3 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50">
-                <span className="font-medium uppercase tracking-wider">Cancelamento</span>
-                <ChevronDownIcon className={`w-4 h-4 transition-transform ${showCancelOptions ? "rotate-180" : ""}`} />
-              </button>
-              {showCancelOptions && (
-                <div className="grid grid-cols-3 gap-2 mt-1.5">
-                  <button type="button" onClick={() => setCancelVariant("faltou")} disabled={isUpdatingStatus}
-                    className="h-10 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-xs flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                    Faltou
-                  </button>
-                  <button type="button" onClick={() => setCancelVariant("desmarcou")} disabled={isUpdatingStatus}
-                    className="h-10 rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-xs flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                    Desmarcou
-                  </button>
-                  <button type="button" onClick={() => setCancelVariant("sem_cobranca")} disabled={isUpdatingStatus}
-                    className="h-10 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 font-medium text-xs flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                    Sem cobranca
-                  </button>
-                </div>
-              )}
+            <div className="rounded-xl border border-border/60 bg-muted/30 dark:bg-muted/10 p-2.5 space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-0.5">Cancelamento</p>
+              <div className="grid grid-cols-3 gap-2">
+                <button type="button" onClick={() => setCancelVariant("faltou")} disabled={isUpdatingStatus}
+                  className="h-10 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-xs flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                  Faltou
+                </button>
+                <button type="button" onClick={() => setCancelVariant("desmarcou")} disabled={isUpdatingStatus}
+                  className="h-10 rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-xs flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                  Desmarcou
+                </button>
+                <button type="button" onClick={() => setCancelVariant("sem_cobranca")} disabled={isUpdatingStatus}
+                  className="h-10 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 font-medium text-xs flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                  Sem cobranca
+                </button>
+              </div>
             </div>
           )}
 
