@@ -131,7 +131,6 @@ export function buildDpsXml(
             ...(data.codigoServicoMunicipal ? { cTribMun: data.codigoServicoMunicipal } : {}),
             xDescServ: truncate(data.descricao, XDESCSERV_MAX_LENGTH),
             ...(data.codigoNbs ? { cNBS: data.codigoNbs } : {}),
-            ...(data.cClassNbs ? { cClassNbs: data.cClassNbs } : {}),
           },
         },
         valores: {
