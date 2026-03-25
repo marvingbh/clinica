@@ -218,8 +218,15 @@ function DanfsePage({ data }: { data: DanfseData }) {
         </View>
       )}
 
-      {/* Title */}
-      <Text style={styles.title}>Nota Fiscal de Servicos Eletronica - NFS-e</Text>
+      {/* Municipal header */}
+      <View style={{ marginBottom: 12, alignItems: "center" }}>
+        <Text style={{ fontSize: 11, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 0.5 }}>
+          Prefeitura Municipal de {data.prestadorMunicipioUf.split(" - ")[0] || ""}
+        </Text>
+        <Text style={{ fontSize: 10, marginTop: 2, textTransform: "uppercase", color: colors.muted }}>
+          Nota Fiscal de Servicos Eletronica - NFS-e
+        </Text>
+      </View>
 
       {/* Header info with QR code */}
       <View style={{ ...styles.headerInfoBlock, flexDirection: "row" }}>

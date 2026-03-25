@@ -16,7 +16,7 @@ export interface NfseDescriptionData {
 }
 
 export const DEFAULT_NFSE_DESCRIPTION_TEMPLATE =
-  `Referente a {{consulta_label}} em psicoterapia de {{relacao}} {{paciente}}, {{dia_preposicao}} {{dias}} de {{mes}} de {{ano}}, pela psicóloga {{profissional}}. {{valor_label}} de {{valor_sessao}}{{impostos}}`
+  `Referente a {{consulta_label}} em psicoterapia de {{relacao}} {{paciente}}, {{dia_preposicao}} {{dias}} de {{mes}} de {{ano}}, pela psicóloga {{profissional}} {{registro}}. {{valor_label}} de {{valor_sessao}}{{impostos}}`
 
 /**
  * Build NFS-e service description from invoice/appointment data.
@@ -63,7 +63,8 @@ export function buildNfseDescription(data: NfseDescriptionData, template?: strin
   return result
     .replace(/\{\{relacao\}\}/g, relacao)
     .replace(/\{\{paciente\}\}/g, data.patientName)
-    .replace(/\{\{profissional\}\}/g, data.professionalName + (data.professionalCrp ? ` (${data.professionalCrp})` : ""))
+    .replace(/\{\{profissional\}\}/g, data.professionalName)
+    .replace(/\{\{registro\}\}/g, data.professionalCrp || "")
     .replace(/\{\{dias\}\}/g, diasStr)
     .replace(/\{\{mes\}\}/g, month)
     .replace(/\{\{ano\}\}/g, year)

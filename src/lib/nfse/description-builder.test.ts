@@ -54,13 +54,14 @@ describe("buildNfseDescription", () => {
     expect(result).not.toContain("seu(a) filho(a)")
   })
 
-  it("includes CRP when provided", () => {
+  it("includes registration number when provided", () => {
     const result = buildNfseDescription({
       ...baseData,
       professionalCrp: "CRP23853/4",
       sessionDates: [date("2026-03-05")],
     })
-    expect(result).toContain("Maria Santos (CRP23853/4)")
+    expect(result).toContain("Maria Santos CRP23853/4")
+    expect(result).not.toContain("(CRP23853/4)")
   })
 
   it("includes tax info when provided", () => {

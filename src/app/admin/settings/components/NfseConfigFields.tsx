@@ -176,11 +176,11 @@ export default function NfseConfigFields({
           <textarea
             {...register("descricaoServico")}
             rows={4}
-            placeholder={"Referente a consultas em psicoterapia de {{relacao}} {{paciente}}, nos dias {{dias}} de {{mes}} de {{ano}}, pela psicóloga {{profissional}}. Cada sessão com valor unitário de {{valor_sessao}}{{impostos}}"}
+            placeholder={"Referente a consultas em psicoterapia de {{relacao}} {{paciente}}, nos dias {{dias}} de {{mes}} de {{ano}}, pela psicóloga {{profissional}} {{registro}}. Cada sessão com valor unitário de {{valor_sessao}}{{impostos}}"}
             className="w-full px-4 py-3 rounded-md border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors resize-none"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            {"Variaveis: {{paciente}}, {{relacao}}, {{profissional}}, {{dias}}, {{mes}}, {{ano}}, {{valor_sessao}}, {{sessoes}}, {{impostos}}. Deixe vazio para usar o padrao."}
+            {"Variaveis: {{paciente}}, {{relacao}}, {{profissional}}, {{registro}}, {{dias}}, {{mes}}, {{ano}}, {{valor_sessao}}, {{sessoes}}, {{impostos}}. Deixe vazio para usar o padrao."}
           </p>
         </div>
       </div>

@@ -64,13 +64,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       Boolean(value || defaultValue || placeholder)
     )
 
-    // Derive hasValue from controlled `value` prop (handles react-hook-form reset())
-    const derivedHasValue = value !== undefined ? Boolean(value) : hasValue
+    // Derive hasValue from controlled `value` prop or DOM value (handles react-hook-form reset())
+    const domHasValue = internalRef.current ? Boolean(internalRef.current.value) : false
+    const derivedHasValue = value !== undefined ? Boolean(value) : (hasValue || domHasValue)
 
     const setRefs = useCallback((node: HTMLInputElement | null) => {
       internalRef.current = node
       if (typeof ref === "function") ref(node)
       else if (ref) (ref as React.MutableRefObject<HTMLInputElement | null>).current = node
+      // Detect value set by react-hook-form via ref (not through value prop)
+      if (node && node.value) setHasValue(true)
     }, [ref])
 
     const sizes = sizeClasses[inputSize]

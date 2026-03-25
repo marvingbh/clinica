@@ -16,7 +16,7 @@ export const GET = withFeatureAuth(
       where: { id: params.id, clinicId: user.clinicId },
       include: {
         patient: { select: { name: true, billingResponsibleName: true, nfseDescriptionTemplate: true, nfsePerAppointment: true, sessionFee: true } },
-        professionalProfile: { select: { user: { select: { name: true } } } },
+        professionalProfile: { select: { registrationNumber: true, user: { select: { name: true } } } },
         clinic: { include: { nfseConfig: true } },
         items: { include: { appointment: { select: { scheduledAt: true } } }, orderBy: { createdAt: "asc" } },
       },
@@ -36,7 +36,7 @@ export const GET = withFeatureAuth(
       patientName: invoice.patient.name.replace(/\s*\(.*?\)\s*/g, "").trim(),
       billingResponsibleName: invoice.patient.billingResponsibleName,
       professionalName: invoice.professionalProfile.user.name,
-      professionalCrp: nfseConfig.professionalCrp || undefined,
+      professionalCrp: invoice.professionalProfile.registrationNumber || nfseConfig.professionalCrp || undefined,
       referenceMonth: invoice.referenceMonth,
       referenceYear: invoice.referenceYear,
       taxPercentage: nfseConfig.nfseTaxPercentage ? Number(nfseConfig.nfseTaxPercentage) : undefined,
