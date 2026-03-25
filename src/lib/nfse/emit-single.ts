@@ -83,7 +83,13 @@ export async function buildBaseEmissionData(
   aliquotaIss: number,
 ): Promise<Omit<NfseEmissionData, "descricao" | "valor">> {
   const tomadorCep = addressFromBody?.zip || invoice.patient.addressZip || ""
-  const tomadorCodigoMunicipio = tomadorCep ? await lookupIbgeFromCep(tomadorCep) : null
+  let tomadorCodigoMunicipio: string | null = null
+  if (tomadorCep) {
+    tomadorCodigoMunicipio = await lookupIbgeFromCep(tomadorCep)
+    if (!tomadorCodigoMunicipio) {
+      throw new Error(`Não foi possível resolver o município do CEP ${tomadorCep}. Tente novamente.`)
+    }
+  }
 
   return {
     prestadorCnpj: nfseConfig.cnpj,
