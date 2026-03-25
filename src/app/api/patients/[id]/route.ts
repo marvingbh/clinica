@@ -243,9 +243,10 @@ export const PATCH = withFeatureAuth(
       const oldFee = existing.sessionFee ? Number(existing.sessionFee) : null
       updateData.sessionFee = newFee
 
-      // Auto-update lastFeeAdjustmentDate only when changing from one non-null value to another
+      // Auto-update lastFeeAdjustmentDate to 1st of next month when fee changes
       if (oldFee !== null && newFee !== null && oldFee !== newFee) {
-        updateData.lastFeeAdjustmentDate = new Date()
+        const now = new Date()
+        updateData.lastFeeAdjustmentDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
       }
     }
 
