@@ -6,6 +6,7 @@ import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from "@/shared/compon
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { formatDateHeader, toDateString, toDisplayDateFromDate } from "../lib/utils"
 import type { Professional } from "../lib/types"
+import { PROFESSIONAL_COLORS, type ProfessionalColorMap } from "../lib/professional-colors"
 
 export interface AgendaHeaderProps {
   selectedDate: Date
@@ -17,6 +18,7 @@ export interface AgendaHeaderProps {
   onGoToPrevious: () => void
   onGoToNext: () => void
   onGoToToday: () => void
+  professionalColorMap?: ProfessionalColorMap
 }
 
 const WEEKDAY_NAMES = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"]
@@ -55,6 +57,7 @@ export function AgendaHeader({
   onGoToPrevious,
   onGoToNext,
   onGoToToday,
+  professionalColorMap,
 }: AgendaHeaderProps) {
   const dateInputRef = useRef<HTMLInputElement>(null)
   const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate])
@@ -211,6 +214,9 @@ export function AgendaHeader({
                     }
                   `}
                 >
+                  {!selectedProfessionalId && professionalColorMap && professionalColorMap.has(profId) && (
+                    <span className={`inline-block w-2.5 h-2.5 rounded-full mr-1.5 ${PROFESSIONAL_COLORS[professionalColorMap.get(profId)!].accent}`} />
+                  )}
                   {prof.name}
                 </button>
               )

@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Clinica is a multi-tenant SaaS clinic management system built with Next.js 16+, PostgreSQL (via Prisma), and NextAuth.js for authentication. It provides appointment scheduling, patient management, billing/invoicing, notification systems, and audit logging for healthcare clinics in Brazil. There is also a superadmin panel for managing clinics and Stripe subscription plans.
 
+## Git Workflow
+
+**Never push to remote unless the user explicitly asks to push.** Commit locally when asked, but wait for explicit "push" instruction before running `git push`. This allows the user to review changes before they go to the remote.
+
 ## Development Commands
 
 ```bash

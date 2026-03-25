@@ -4,6 +4,7 @@ import Link from "next/link"
 import { ListIcon } from "@/shared/components/ui"
 import { WeekNavigation } from "./WeekNavigation"
 import type { Professional } from "../../lib/types"
+import { PROFESSIONAL_COLORS, type ProfessionalColorMap } from "../../lib/professional-colors"
 
 interface WeeklyHeaderProps {
   weekStart: Date
@@ -14,6 +15,7 @@ interface WeeklyHeaderProps {
   onNextWeek: () => void
   onToday: () => void
   onSelectProfessional: (id: string) => void
+  professionalColorMap?: ProfessionalColorMap
 }
 
 export function WeeklyHeader({
@@ -25,6 +27,7 @@ export function WeeklyHeader({
   onNextWeek,
   onToday,
   onSelectProfessional,
+  professionalColorMap,
 }: WeeklyHeaderProps) {
   return (
     <header className="sticky top-0 bg-background/95 backdrop-blur border-b border-border z-30">
@@ -77,6 +80,9 @@ export function WeeklyHeader({
                     }
                   `}
                 >
+                  {!selectedProfessionalId && professionalColorMap && professionalColorMap.has(profId) && (
+                    <span className={`inline-block w-2.5 h-2.5 rounded-full mr-1.5 ${PROFESSIONAL_COLORS[professionalColorMap.get(profId)!].accent}`} />
+                  )}
                   {prof.name}
                 </button>
               )
