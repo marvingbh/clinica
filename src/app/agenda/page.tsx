@@ -8,6 +8,7 @@ import {
   GroupSessionSheet, CalendarEntrySheet, AgendaFabMenu, CreateAppointmentSheet,
 } from "./components"
 import { CreateGroupSessionSheet } from "./components/CreateGroupSessionSheet"
+import { ProfessionalLegend } from "./components/ProfessionalLegend"
 import { AgendaDndWrapper } from "./components/AgendaDndWrapper"
 import type { Appointment } from "./lib/types"
 import {
@@ -248,6 +249,10 @@ export default function AgendaPage() {
         onGoToNext={goToNextDay}
         onGoToToday={goToToday}
       />
+
+      {!selectedProfessionalId && professionals.length > 1 && (
+        <ProfessionalLegend professionals={professionals} colorMap={professionalColorMap} />
+      )}
 
       <AgendaDndWrapper drag={drag}>
         <AgendaTimeline

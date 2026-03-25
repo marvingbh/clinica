@@ -23,6 +23,8 @@ import { useWeeklyData } from "./hooks/useWeeklyData"
 import { useAgendaContext } from "../context/AgendaContext"
 
 import { WeeklyGrid, WeeklyHeader } from "./components"
+import { ProfessionalLegend } from "../components/ProfessionalLegend"
+import { createProfessionalColorMap } from "../lib/professional-colors"
 import { useAppointmentDrag } from "../hooks/useAppointmentDrag"
 import { WEEKLY_GRID } from "../lib/grid-config"
 
@@ -130,6 +132,12 @@ function WeeklyAgendaPageContent() {
     onSuccess: refetchAppointments,
   })
 
+  // Professional color map for legend
+  const professionalColorMap = useMemo(() => {
+    const ids = appointments.map(apt => apt.professionalProfile.id)
+    return createProfessionalColorMap(ids)
+  }, [appointments])
+
   // Shared hooks
   const groupSheet = useGroupSessionSheet(groupSessions)
   const [isGroupSessionSheetOpen, setIsGroupSessionSheetOpen] = useState(false)
@@ -198,6 +206,12 @@ function WeeklyAgendaPageContent() {
           <span className="w-8 h-0.5 bg-muted-foreground/30 rounded-full" />
         </p>
       </SwipeContainer>
+
+      {!selectedProfessionalId && professionals.length > 1 && (
+        <div className="max-w-6xl mx-auto px-4">
+          <ProfessionalLegend professionals={professionals} colorMap={professionalColorMap} />
+        </div>
+      )}
 
       <div className="max-w-6xl mx-auto px-4 pb-4 relative">
         {isDataLoading && (
