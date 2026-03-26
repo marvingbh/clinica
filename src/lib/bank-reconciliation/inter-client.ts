@@ -134,7 +134,7 @@ export async function fetchStatements(
           reject(new Error(`Inter statement returned invalid JSON: ${data.slice(0, 200)}`))
           return
         }
-        const rawList = (parsed.transacoes || []).filter((tx: InterTransaction) => tx.tipoOperacao === "C")
+        const rawList = parsed.transacoes || []
         // Build stable externalIds from transaction content (not array index)
         const keyCounts = new Map<string, number>()
         const transactions = rawList.map((tx) => {
