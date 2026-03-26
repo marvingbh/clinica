@@ -10,6 +10,7 @@ const tabs = [
   { href: "/financeiro", label: "Dashboard", exact: true },
   { href: "/financeiro/faturas", label: "Faturas" },
   { href: "/financeiro/despesas", label: "Despesas" },
+  { href: "/financeiro/fluxo-de-caixa", label: "Fluxo de Caixa" },
   { href: "/financeiro/creditos", label: "Créditos" },
   { href: "/financeiro/precos", label: "Preços" },
   { href: "/financeiro/repasse", label: "Repasse" },
