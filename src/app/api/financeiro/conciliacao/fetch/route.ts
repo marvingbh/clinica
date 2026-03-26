@@ -58,17 +58,21 @@ export const POST = withFeatureAuth(
       return NextResponse.json({ error: message }, { status: 502 })
     }
 
-    // Filter to the exact requested range and only CREDIT transactions
+    // Filter to the exact requested range (both CREDIT and DEBIT)
     const startStr = formatDate(startDate)
     const endStr = formatDate(endDate)
-    const credits = transactions.filter(
-      (tx) => tx.type === "CREDIT" && tx.date >= startStr && tx.date <= endStr
+    const filtered = transactions.filter(
+      (tx) => tx.date >= startStr && tx.date <= endStr
     )
+    const credits = filtered.filter((tx) => tx.type === "CREDIT")
+    const debits = filtered.filter((tx) => tx.type === "DEBIT")
 
-    // Delete all non-reconciled transactions before importing fresh data
+    // Delete only non-reconciled CREDIT transactions before importing fresh data
+    // DEBIT transactions are preserved for expense matching
     await prisma.bankTransaction.deleteMany({
       where: {
         clinicId: user.clinicId,
+        type: "CREDIT",
         reconciliationLinks: { none: {} },
         dismissReason: null,
       },
@@ -143,9 +147,41 @@ export const POST = withFeatureAuth(
       newCount++
     }
 
+    // Upsert DEBIT transactions (never delete — preserve for expense matching)
+    let newDebitCount = 0
+    for (const tx of debits) {
+      await prisma.bankTransaction.upsert({
+        where: {
+          clinicId_externalId: {
+            clinicId: user.clinicId,
+            externalId: tx.externalId,
+          },
+        },
+        update: {
+          date: new Date(tx.date),
+          amount: tx.amount,
+          description: tx.description,
+          payerName: tx.payerName,
+        },
+        create: {
+          clinicId: user.clinicId,
+          bankIntegrationId: integration.id,
+          externalId: tx.externalId,
+          date: new Date(tx.date),
+          amount: tx.amount,
+          description: tx.description,
+          payerName: tx.payerName,
+          type: tx.type,
+        },
+      })
+      newDebitCount++
+    }
+
     return NextResponse.json({
-      fetched: credits.length,
-      newTransactions: newCount,
+      creditsFetched: credits.length,
+      debitsFetched: debits.length,
+      newCredits: newCount,
+      newDebits: newDebitCount,
       period: {
         start: formatDate(startDate),
         end: formatDate(endDate),
