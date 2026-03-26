@@ -24,6 +24,7 @@ interface Summary {
 }
 
 type ViewMode = "chart" | "table"
+type CashFlowView = "realizado" | "projetado"
 
 export default function FluxoDeCaixaPage() {
   const { year, month } = useFinanceiroContext()
@@ -32,25 +33,37 @@ export default function FluxoDeCaixaPage() {
   const [alerts, setAlerts] = useState<CashFlowAlert[]>([])
   const [granularity, setGranularity] = useState<Granularity>("daily")
   const [viewMode, setViewMode] = useState<ViewMode>("chart")
+  const [cashFlowView, setCashFlowView] = useState<CashFlowView>("realizado")
   const [balanceSource, setBalanceSource] = useState<string>("none")
   const [balanceFetchedAt, setBalanceFetchedAt] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
 
   const loadData = useCallback(async () => {
     // Use the month/year from the top bar filter
-    // If month is selected: show that specific month
-    // If no month (full year): show the entire year
+    // Realizado: uses the selected period as-is (only confirmed/paid data)
+    // Projetado: from selected period forward 90 days (includes open + recurring projections)
     let startDate: string
     let endDate: string
 
-    if (month) {
-      const start = new Date(year, month - 1, 1)
-      const end = new Date(year, month, 0) // last day of month
+    if (cashFlowView === "projetado") {
+      // Projected: from start of selected month/year forward 90 days
+      const start = month
+        ? new Date(year, month - 1, 1)
+        : new Date(year, 0, 1)
+      const end = new Date(start.getTime() + 90 * 24 * 60 * 60 * 1000)
       startDate = start.toISOString().split("T")[0]
       endDate = end.toISOString().split("T")[0]
     } else {
-      startDate = `${year}-01-01`
-      endDate = `${year}-12-31`
+      // Realized: exact selected period
+      if (month) {
+        const start = new Date(year, month - 1, 1)
+        const end = new Date(year, month, 0)
+        startDate = start.toISOString().split("T")[0]
+        endDate = end.toISOString().split("T")[0]
+      } else {
+        startDate = `${year}-01-01`
+        endDate = `${year}-12-31`
+      }
     }
 
     const params = new URLSearchParams({ startDate, endDate, granularity })
@@ -72,7 +85,7 @@ export default function FluxoDeCaixaPage() {
       console.error("Cashflow fetch error:", err)
     }
     setLoaded(true)
-  }, [year, month, granularity])
+  }, [year, month, granularity, cashFlowView])
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -87,11 +100,6 @@ export default function FluxoDeCaixaPage() {
 
   const formatCurrency = (value: number) =>
     value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-
-  const now = new Date()
-  const isCurrentOrFuture = month
-    ? (year > now.getFullYear() || (year === now.getFullYear() && month >= now.getMonth() + 1))
-    : year >= now.getFullYear()
 
   if (!loaded) return <div className="text-sm text-muted-foreground">Carregando...</div>
 
@@ -115,6 +123,23 @@ export default function FluxoDeCaixaPage() {
 
       {/* Controls */}
       <div className="flex flex-wrap gap-3 items-end">
+        <div>
+          <label className="block text-xs text-muted-foreground mb-1">Visão</label>
+          <div className="flex rounded-md border border-input overflow-hidden">
+            <button
+              onClick={() => setCashFlowView("realizado")}
+              className={`px-3 py-1.5 text-xs ${cashFlowView === "realizado" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            >
+              Realizado
+            </button>
+            <button
+              onClick={() => setCashFlowView("projetado")}
+              className={`px-3 py-1.5 text-xs ${cashFlowView === "projetado" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            >
+              Projetado
+            </button>
+          </div>
+        </div>
         <div>
           <label className="block text-xs text-muted-foreground mb-1">Granularidade</label>
           <div className="flex rounded-md border border-input overflow-hidden">
@@ -146,7 +171,7 @@ export default function FluxoDeCaixaPage() {
             </button>
           </div>
         </div>
-        {isCurrentOrFuture && (
+        {cashFlowView === "projetado" && (
           <span className="text-xs text-muted-foreground px-2 py-1 bg-blue-50 rounded border border-blue-200 text-blue-700">
             Inclui projeções de despesas recorrentes e faturas em aberto
           </span>
