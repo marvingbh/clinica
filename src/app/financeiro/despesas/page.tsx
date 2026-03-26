@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Plus, Upload, Building2, Repeat } from "lucide-react"
@@ -37,6 +37,7 @@ export default function DespesasPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>("")
+  const [searchQuery, setSearchQuery] = useState("")
 
   const loadData = useCallback(async () => {
     const params = new URLSearchParams()
@@ -57,8 +58,7 @@ export default function DespesasPage() {
     setLoaded(true)
   }, [year, month, statusFilter])
 
-  // Load data on mount and when filters change
-  useState(() => { loadData() })
+  useEffect(() => { loadData() }, [loadData])
 
   const formatCurrency = (value: string | number) =>
     Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
@@ -86,7 +86,19 @@ export default function DespesasPage() {
     }
   }
 
-  const totals = expenses.reduce(
+  // Client-side description search filter
+  const filteredExpenses = searchQuery
+    ? expenses.filter((e) => {
+        const q = searchQuery.toLowerCase()
+        return (
+          e.description.toLowerCase().includes(q) ||
+          (e.supplierName?.toLowerCase().includes(q) ?? false) ||
+          (e.category?.name.toLowerCase().includes(q) ?? false)
+        )
+      })
+    : expenses
+
+  const totals = filteredExpenses.reduce(
     (acc, e) => {
       const amt = Number(e.amount)
       if (e.status === "OPEN") acc.open += amt
@@ -104,9 +116,16 @@ export default function DespesasPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between items-center gap-2">
         <div className="flex gap-2">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar descrição, fornecedor..."
+            className="rounded-md border border-input px-3 py-1.5 text-sm w-48 md:w-64"
+          />
           <select
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setTimeout(loadData, 0) }}
+            onChange={(e) => setStatusFilter(e.target.value)}
             className="rounded-md border border-input px-3 py-1.5 text-sm"
           >
             <option value="">Todos os status</option>
@@ -165,7 +184,7 @@ export default function DespesasPage() {
       </div>
 
       {/* Expense Table */}
-      {expenses.length === 0 ? (
+      {filteredExpenses.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <p className="text-lg mb-2">Nenhuma despesa encontrada</p>
           <p className="text-sm">Cadastre sua primeira despesa clicando em &quot;Nova Despesa&quot;</p>
@@ -185,7 +204,7 @@ export default function DespesasPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {expenses.map((expense) => (
+              {filteredExpenses.map((expense) => (
                 <tr key={expense.id} className="hover:bg-muted/30">
                   <td className="px-4 py-2">{formatDate(expense.dueDate)}</td>
                   <td className="px-4 py-2">{expense.description}</td>
