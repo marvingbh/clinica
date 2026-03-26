@@ -1233,8 +1233,9 @@ model ExpenseRecurrence {
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
-  clinic   Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  clinic   Clinic                  @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   expenses Expense[]
+  patterns ExpenseCategoryPattern[]
 
   @@index([clinicId])
   @@index([clinicId, active])
@@ -1265,14 +1266,16 @@ model ExpenseCategoryPattern {
   id                    String   @id @default(cuid())
   clinicId              String
   categoryId            String?
+  recurrenceId          String?
   normalizedDescription String
   supplierName          String?
   matchCount            Int      @default(1)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
-  clinic   Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  category ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  clinic     Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  category   ExpenseCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  recurrence ExpenseRecurrence?  @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
 
   @@unique([clinicId, normalizedDescription])
   @@index([clinicId])
