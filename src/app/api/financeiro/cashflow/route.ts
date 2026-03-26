@@ -113,8 +113,11 @@ export const GET = withFeatureAuth(
       : null
 
     if (interBalance !== null) {
-      // Calculate net flow from startDate to today (tracked transactions only)
-      const [flowIncome, flowExpenses, flowRepasse] = await Promise.all([
+      // Calculate net flow from startDate to today.
+      // Includes tracked transactions (invoices, expenses, repasse) PLUS
+      // unmatched bank transactions (debits not registered as expenses,
+      // credits not reconciled to invoices — e.g. refunds, transfers).
+      const [flowIncome, flowExpenses, flowRepasse, unmatchedDebits, unmatchedCredits] = await Promise.all([
         prisma.invoice.aggregate({
           where: { clinicId: user.clinicId, status: "PAGO", paidAt: { gte: startDate, lte: now } },
           _sum: { totalAmount: true },
@@ -127,16 +130,45 @@ export const GET = withFeatureAuth(
           where: { clinicId: user.clinicId, paidAt: { gte: startDate, lte: now } },
           _sum: { repasseAmount: true },
         }),
+        // Unmatched DEBIT bank transactions (real outflows not tracked as expenses)
+        prisma.bankTransaction.aggregate({
+          where: {
+            clinicId: user.clinicId,
+            type: "DEBIT",
+            date: { gte: startDate, lte: now },
+            expenseReconciliationLinks: { none: {} },
+            dismissReason: null,
+          },
+          _sum: { amount: true },
+        }),
+        // Unmatched undismissed CREDIT bank transactions (real inflows not tracked as invoices)
+        prisma.bankTransaction.aggregate({
+          where: {
+            clinicId: user.clinicId,
+            type: "CREDIT",
+            date: { gte: startDate, lte: now },
+            reconciliationLinks: { none: {} },
+            dismissReason: null,
+          },
+          _sum: { amount: true },
+        }),
       ])
 
-      const netFlowSinceStart =
+      const trackedNetFlow =
         Number(flowIncome._sum.totalAmount ?? 0) -
         Number(flowExpenses._sum.amount ?? 0) -
         Number(flowRepasse._sum.repasseAmount ?? 0)
 
-      // interBalance = startingBalance + netFlowSinceStart
-      // → startingBalance = interBalance - netFlowSinceStart
-      startingBalance = interBalance - netFlowSinceStart
+      // Add unmatched bank transactions to get the real net flow
+      const bankOnlyNetFlow =
+        Number(unmatchedCredits._sum.amount ?? 0) -
+        Number(unmatchedDebits._sum.amount ?? 0)
+
+      const totalNetFlow = trackedNetFlow + bankOnlyNetFlow
+
+      // interBalance = startingBalance + totalNetFlow
+      // → startingBalance = interBalance - totalNetFlow
+      startingBalance = interBalance - totalNetFlow
       balanceSource = "inter"
     } else {
       // No Inter balance — fall back to cumulative from system start
