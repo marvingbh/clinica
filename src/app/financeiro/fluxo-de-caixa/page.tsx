@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { AlertTriangle } from "lucide-react"
+import { useState, useCallback, useEffect } from "react"
+import { AlertTriangle, RefreshCw } from "lucide-react"
 import { CashFlowChart } from "./components/CashFlowChart"
 import { CashFlowTable } from "./components/CashFlowTable"
 import type { Granularity, CashFlowAlert } from "@/lib/cashflow"
@@ -23,6 +23,7 @@ interface Summary {
 }
 
 type ViewMode = "chart" | "table"
+type CashFlowView = "realizado" | "projetado"
 
 export default function FluxoDeCaixaPage() {
   const [entries, setEntries] = useState<Entry[]>([])
@@ -30,21 +31,32 @@ export default function FluxoDeCaixaPage() {
   const [alerts, setAlerts] = useState<CashFlowAlert[]>([])
   const [granularity, setGranularity] = useState<Granularity>("weekly")
   const [period, setPeriod] = useState(90)
-  const [startingBalance, setStartingBalance] = useState("")
   const [viewMode, setViewMode] = useState<ViewMode>("chart")
+  const [cashFlowView, setCashFlowView] = useState<CashFlowView>("projetado")
+  const [balanceSource, setBalanceSource] = useState<string>("none")
+  const [balanceFetchedAt, setBalanceFetchedAt] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
 
   const loadData = useCallback(async () => {
     const now = new Date()
-    const start = new Date(now.getFullYear(), now.getMonth(), 1)
-    const end = new Date(now.getTime() + period * 24 * 60 * 60 * 1000)
+    let start: Date
+    let end: Date
+
+    if (cashFlowView === "realizado") {
+      // Past: from start of year (or 6 months ago) to today
+      start = new Date(now.getFullYear(), now.getMonth() - 5, 1)
+      end = now
+    } else {
+      // Future: from today to N days ahead
+      start = new Date(now.getFullYear(), now.getMonth(), 1)
+      end = new Date(now.getTime() + period * 24 * 60 * 60 * 1000)
+    }
 
     const params = new URLSearchParams({
       startDate: start.toISOString().split("T")[0],
       endDate: end.toISOString().split("T")[0],
       granularity,
     })
-    if (startingBalance) params.set("startingBalance", startingBalance)
 
     const res = await fetch(`/api/financeiro/cashflow?${params}`)
     if (res.ok) {
@@ -52,11 +64,13 @@ export default function FluxoDeCaixaPage() {
       setEntries(data.entries)
       setSummary(data.summary)
       setAlerts(data.alerts)
+      setBalanceSource(data.balanceSource)
+      setBalanceFetchedAt(data.balanceFetchedAt)
     }
     setLoaded(true)
-  }, [granularity, period, startingBalance])
+  }, [granularity, period, cashFlowView])
 
-  useState(() => { loadData() })
+  useEffect(() => { loadData() }, [loadData])
 
   const formatCurrency = (value: number) =>
     value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
@@ -66,7 +80,7 @@ export default function FluxoDeCaixaPage() {
   return (
     <div className="space-y-4">
       {/* Alerts */}
-      {alerts.length > 0 && (
+      {cashFlowView === "projetado" && alerts.length > 0 && (
         <div className="space-y-2">
           {alerts.map((alert, i) => (
             <div key={i} className={`flex items-start gap-2 px-4 py-3 rounded-lg text-sm ${
@@ -83,13 +97,32 @@ export default function FluxoDeCaixaPage() {
 
       {/* Controls */}
       <div className="flex flex-wrap gap-3 items-end">
+        {/* Real vs Projected toggle */}
+        <div>
+          <label className="block text-xs text-muted-foreground mb-1">Visão</label>
+          <div className="flex rounded-md border border-input overflow-hidden">
+            <button
+              onClick={() => setCashFlowView("realizado")}
+              className={`px-3 py-1.5 text-xs ${cashFlowView === "realizado" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            >
+              Realizado
+            </button>
+            <button
+              onClick={() => setCashFlowView("projetado")}
+              className={`px-3 py-1.5 text-xs ${cashFlowView === "projetado" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            >
+              Projetado
+            </button>
+          </div>
+        </div>
+
         <div>
           <label className="block text-xs text-muted-foreground mb-1">Granularidade</label>
           <div className="flex rounded-md border border-input overflow-hidden">
             {(["daily", "weekly", "monthly"] as const).map((g) => (
               <button
                 key={g}
-                onClick={() => { setGranularity(g); setTimeout(loadData, 0) }}
+                onClick={() => setGranularity(g)}
                 className={`px-3 py-1.5 text-xs ${granularity === g ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
               >
                 {g === "daily" ? "Diário" : g === "weekly" ? "Semanal" : "Mensal"}
@@ -97,31 +130,24 @@ export default function FluxoDeCaixaPage() {
             ))}
           </div>
         </div>
-        <div>
-          <label className="block text-xs text-muted-foreground mb-1">Período</label>
-          <div className="flex rounded-md border border-input overflow-hidden">
-            {[30, 60, 90].map((p) => (
-              <button
-                key={p}
-                onClick={() => { setPeriod(p); setTimeout(loadData, 0) }}
-                className={`px-3 py-1.5 text-xs ${period === p ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-              >
-                {p} dias
-              </button>
-            ))}
+
+        {cashFlowView === "projetado" && (
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Período</label>
+            <div className="flex rounded-md border border-input overflow-hidden">
+              {[30, 60, 90].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`px-3 py-1.5 text-xs ${period === p ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  {p} dias
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div>
-          <label className="block text-xs text-muted-foreground mb-1">Saldo inicial (R$)</label>
-          <input
-            type="number"
-            value={startingBalance}
-            onChange={(e) => setStartingBalance(e.target.value)}
-            onBlur={() => loadData()}
-            placeholder="0,00"
-            className="w-32 rounded-md border border-input px-3 py-1.5 text-xs"
-          />
-        </div>
+        )}
+
         <div>
           <label className="block text-xs text-muted-foreground mb-1">Visualização</label>
           <div className="flex rounded-md border border-input overflow-hidden">
@@ -143,7 +169,21 @@ export default function FluxoDeCaixaPage() {
 
       {/* Summary Cards */}
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="rounded-lg border p-3">
+            <p className="text-xs text-muted-foreground">
+              Saldo inicial
+              {balanceSource === "inter" && (
+                <span className="text-[10px] ml-1 text-green-600">(Inter)</span>
+              )}
+            </p>
+            <p className="text-lg font-semibold">{formatCurrency(summary.startingBalance)}</p>
+            {balanceFetchedAt && balanceSource === "inter" && (
+              <p className="text-[10px] text-muted-foreground">
+                Atualizado em {new Date(balanceFetchedAt).toLocaleDateString("pt-BR")}
+              </p>
+            )}
+          </div>
           <div className="rounded-lg border p-3">
             <p className="text-xs text-muted-foreground">Entradas</p>
             <p className="text-lg font-semibold text-green-600">{formatCurrency(summary.totalInflow)}</p>
@@ -159,7 +199,9 @@ export default function FluxoDeCaixaPage() {
             </p>
           </div>
           <div className="rounded-lg border p-3">
-            <p className="text-xs text-muted-foreground">Saldo projetado</p>
+            <p className="text-xs text-muted-foreground">
+              {cashFlowView === "realizado" ? "Saldo final" : "Saldo projetado"}
+            </p>
             <p className={`text-lg font-semibold ${summary.projectedEndBalance >= 0 ? "" : "text-red-600"}`}>
               {formatCurrency(summary.projectedEndBalance)}
             </p>

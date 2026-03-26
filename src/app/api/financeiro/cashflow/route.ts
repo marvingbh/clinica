@@ -17,21 +17,26 @@ export const GET = withFeatureAuth(
     const startDateStr = url.searchParams.get("startDate")
     const endDateStr = url.searchParams.get("endDate")
     const granularity = (url.searchParams.get("granularity") ?? "daily") as Granularity
-    const startingBalance = parseFloat(url.searchParams.get("startingBalance") ?? "0")
+    const manualBalance = url.searchParams.get("startingBalance")
 
     const now = new Date()
     const startDate = startDateStr ? new Date(startDateStr) : new Date(now.getFullYear(), now.getMonth(), 1)
     const endDate = endDateStr ? new Date(endDateStr) : new Date(now.getFullYear(), now.getMonth() + 3, 0)
 
-    // Parallel queries
-    const [invoices, expenses, repassePayments, activeRecurrences] = await Promise.all([
+    // Parallel queries — fetch everything we need
+    const [invoices, expenses, repassePayments, activeRecurrences, bankIntegration] = await Promise.all([
+      // Invoices: ALL non-cancelled within the window (past paid + future expected)
       prisma.invoice.findMany({
         where: {
           clinicId: user.clinicId,
           status: { in: ["PENDENTE", "ENVIADO", "PARCIAL", "PAGO"] },
           OR: [
-            { dueDate: { gte: startDate, lte: endDate } },
+            // Paid within window
             { paidAt: { gte: startDate, lte: endDate } },
+            // Due within window (future expected inflows)
+            { dueDate: { gte: startDate, lte: endDate } },
+            // Overdue invoices still pending (no dueDate filter, just status)
+            { status: { in: ["PENDENTE", "ENVIADO"] }, dueDate: { lt: startDate } },
           ],
         },
         select: {
@@ -41,15 +46,17 @@ export const GET = withFeatureAuth(
           paidAt: true,
           status: true,
           patient: { select: { name: true } },
+          reconciliationLinks: { select: { amount: true } },
         },
       }),
+      // Expenses: ALL non-cancelled within the window
       prisma.expense.findMany({
         where: {
           clinicId: user.clinicId,
           status: { in: ["OPEN", "OVERDUE", "PAID"] },
           OR: [
-            { dueDate: { gte: startDate, lte: endDate } },
             { paidAt: { gte: startDate, lte: endDate } },
+            { dueDate: { gte: startDate, lte: endDate } },
           ],
         },
         select: {
@@ -62,12 +69,15 @@ export const GET = withFeatureAuth(
           recurrenceId: true,
         },
       }),
+      // Repasse: within the year range
       prisma.repassePayment.findMany({
         where: {
           clinicId: user.clinicId,
           OR: [
+            { paidAt: { gte: startDate, lte: endDate } },
             {
               referenceYear: { gte: startDate.getFullYear(), lte: endDate.getFullYear() },
+              referenceMonth: { gte: 1, lte: 12 },
             },
           ],
         },
@@ -80,14 +90,34 @@ export const GET = withFeatureAuth(
           professionalProfile: { select: { user: { select: { name: true } } } },
         },
       }),
+      // Active recurrences for projecting future expenses
       prisma.expenseRecurrence.findMany({
         where: { clinicId: user.clinicId, active: true },
       }),
+      // Bank integration for balance
+      prisma.bankIntegration.findFirst({
+        where: { clinicId: user.clinicId, isActive: true },
+        select: { lastKnownBalance: true, balanceFetchedAt: true },
+      }),
     ])
 
-    // Generate projected expenses from active recurrences that don't yet have
-    // materialized expenses in the window. This fills gaps beyond the cron's
-    // 3-month generation horizon.
+    // Determine starting balance:
+    // 1. Manual override if provided
+    // 2. Last known bank balance from Inter
+    // 3. Default to 0
+    let startingBalance = 0
+    let balanceSource: "manual" | "inter" | "none" = "none"
+    if (manualBalance && !isNaN(parseFloat(manualBalance))) {
+      startingBalance = parseFloat(manualBalance)
+      balanceSource = "manual"
+    } else if (bankIntegration?.lastKnownBalance) {
+      startingBalance = Number(bankIntegration.lastKnownBalance)
+      balanceSource = "inter"
+    }
+
+    // Project future expenses from active recurrences.
+    // Use startDate (not lastGeneratedDate) to ensure we cover the full window,
+    // then deduplicate against existing materialized expenses.
     const existingRecurrenceExpenseDates = new Set(
       expenses
         .filter((e) => e.recurrenceId)
@@ -96,11 +126,15 @@ export const GET = withFeatureAuth(
 
     const projectedFromRecurrences: ExpenseForCashFlow[] = []
     for (const rec of activeRecurrences) {
-      const generated = generateExpensesFromRecurrence(
-        { ...rec, amount: Number(rec.amount) },
-        endDate
-      )
+      // For projection, generate from startDate to endDate (ignoring lastGeneratedDate)
+      const projectionTemplate = {
+        ...rec,
+        amount: Number(rec.amount),
+        lastGeneratedDate: null, // Force generation from startDate
+      }
+      const generated = generateExpensesFromRecurrence(projectionTemplate, endDate)
       for (const g of generated) {
+        if (g.dueDate < startDate) continue
         const key = `${rec.id}-${g.dueDate.toISOString().split("T")[0]}`
         if (!existingRecurrenceExpenseDates.has(key)) {
           projectedFromRecurrences.push({
@@ -115,14 +149,30 @@ export const GET = withFeatureAuth(
       }
     }
 
-    const invoicesForCashFlow: InvoiceForCashFlow[] = invoices.map((inv) => ({
-      id: inv.id,
-      totalAmount: Number(inv.totalAmount),
-      dueDate: inv.dueDate ?? new Date(),
-      paidAt: inv.paidAt,
-      status: inv.status,
-      patientName: inv.patient?.name,
-    }))
+    // Build invoice cash flow entries
+    // For PARCIAL invoices, use remaining amount (total - already reconciled)
+    const invoicesForCashFlow: InvoiceForCashFlow[] = invoices.map((inv) => {
+      const totalAmount = Number(inv.totalAmount)
+      const reconciledAmount = inv.reconciliationLinks?.reduce(
+        (sum, l) => sum + Number(l.amount), 0
+      ) ?? 0
+
+      // For PAGO, use full amount on paidAt date
+      // For PARCIAL, use remaining on dueDate
+      // For PENDENTE/ENVIADO, use full amount on dueDate
+      const effectiveAmount = inv.status === "PARCIAL"
+        ? totalAmount - reconciledAmount
+        : totalAmount
+
+      return {
+        id: inv.id,
+        totalAmount: effectiveAmount,
+        dueDate: inv.dueDate ?? new Date(),
+        paidAt: inv.paidAt,
+        status: inv.status,
+        patientName: inv.patient?.name,
+      }
+    })
 
     const expensesForCashFlow: ExpenseForCashFlow[] = [
       ...expenses.map((exp) => ({
@@ -165,6 +215,8 @@ export const GET = withFeatureAuth(
       entries,
       alerts,
       summary: projection.summary,
+      balanceSource,
+      balanceFetchedAt: bankIntegration?.balanceFetchedAt ?? null,
     })
   }
 )

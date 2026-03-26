@@ -91,6 +91,47 @@ async function getAccessToken(config: InterConfig): Promise<string> {
 }
 
 /**
+ * Fetch current account balance from Inter API.
+ */
+export async function fetchBalance(config: InterConfig): Promise<number> {
+  const token = await getAccessToken(config)
+  const agent = createAgent(config)
+  const today = new Date().toISOString().split("T")[0]
+
+  const url = `https://cdpj.partners.bancointer.com.br/banking/v2/saldo?dataSaldo=${today}`
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, {
+      method: "GET",
+      agent,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }, (res) => {
+      let data = ""
+      res.on("data", (chunk) => (data += chunk))
+      res.on("end", () => {
+        if (res.statusCode !== 200) {
+          reject(new Error(`Inter balance fetch failed: ${res.statusCode} ${data}`))
+          return
+        }
+        try {
+          const parsed = JSON.parse(data)
+          // Inter returns { disponivel: number } or { bloqueado, disponivel, ... }
+          const balance = parsed.disponivel ?? parsed.saldo ?? 0
+          resolve(typeof balance === "string" ? parseFloat(balance) : balance)
+        } catch {
+          reject(new Error(`Inter balance returned invalid JSON: ${data.slice(0, 200)}`))
+        }
+      })
+    })
+    req.on("error", reject)
+    req.end()
+  })
+}
+
+/**
  * Fetch bank statement from Inter API.
  * Date range max 90 days per Inter API limitation.
  */

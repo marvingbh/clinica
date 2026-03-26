@@ -1035,8 +1035,10 @@ model BankIntegration {
   clientSecret  String // Encrypted
   certificate   String       @db.Text // PEM content, encrypted
   privateKey    String       @db.Text // PEM content, encrypted
-  accountNumber String?
-  isActive      Boolean      @default(true)
+  accountNumber    String?
+  lastKnownBalance Decimal?     @db.Decimal(10, 2) // Last balance fetched from bank API
+  balanceFetchedAt DateTime?    // When the balance was last fetched
+  isActive         Boolean      @default(true)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
