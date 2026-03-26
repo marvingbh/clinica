@@ -3,7 +3,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { isValidTransition } from "@/lib/expenses"
-import { normalizeDescription } from "@/lib/expense-matcher"
+import { upsertCategoryPattern } from "@/lib/expense-matcher"
 
 const matchSchema = z.object({
   transactionId: z.string(),
@@ -59,29 +59,7 @@ export const POST = withFeatureAuth(
 
       // Upsert pattern for future matching
       if (expense.categoryId) {
-        const normalized = normalizeDescription(transaction.description)
-        if (normalized) {
-          await tx.expenseCategoryPattern.upsert({
-            where: {
-              clinicId_normalizedDescription: {
-                clinicId: user.clinicId,
-                normalizedDescription: normalized,
-              },
-            },
-            update: {
-              categoryId: expense.categoryId,
-              supplierName: expense.supplierName ?? undefined,
-              matchCount: { increment: 1 },
-            },
-            create: {
-              clinicId: user.clinicId,
-              normalizedDescription: normalized,
-              categoryId: expense.categoryId,
-              supplierName: expense.supplierName ?? null,
-              matchCount: 1,
-            },
-          })
-        }
+        await upsertCategoryPattern(tx, user.clinicId, transaction.description, expense.categoryId, expense.supplierName)
       }
     })
 

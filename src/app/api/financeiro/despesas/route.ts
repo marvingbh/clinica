@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import { Prisma, ExpenseStatus } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac/audit"
@@ -25,8 +26,8 @@ export const GET = withFeatureAuth(
     const year = url.searchParams.get("year")
     const month = url.searchParams.get("month")
 
-    const where: Record<string, unknown> = { clinicId: user.clinicId }
-    if (status.length > 0) where.status = { in: status }
+    const where: Prisma.ExpenseWhereInput = { clinicId: user.clinicId }
+    if (status.length > 0) where.status = { in: status as ExpenseStatus[] }
     if (categoryId) where.categoryId = categoryId
     if (supplierName) where.supplierName = { contains: supplierName, mode: "insensitive" }
     if (year) {

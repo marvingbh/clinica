@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { toast } from "sonner"
 import { Plus, Trash2 } from "lucide-react"
 
@@ -26,7 +26,7 @@ export default function CategoriasPage() {
     setLoaded(true)
   }, [])
 
-  useState(() => { loadData() })
+  useEffect(() => { loadData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()

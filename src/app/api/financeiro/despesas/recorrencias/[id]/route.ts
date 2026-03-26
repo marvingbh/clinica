@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac/audit"
@@ -65,7 +66,7 @@ export const PATCH = withFeatureAuth(
       return NextResponse.json(updated)
     }
 
-    const data: Record<string, unknown> = {}
+    const data: Prisma.ExpenseRecurrenceUncheckedUpdateInput = {}
     if (parsed.data.description !== undefined) data.description = parsed.data.description
     if (parsed.data.supplierName !== undefined) data.supplierName = parsed.data.supplierName
     if (parsed.data.categoryId !== undefined) data.categoryId = parsed.data.categoryId

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { toast } from "sonner"
 
 interface DebitTransaction {
@@ -50,7 +50,7 @@ export function useInterImport() {
     setLoaded(true)
   }, [])
 
-  useState(() => { loadTransactions() })
+  useEffect(() => { loadTransactions() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleFetchFromInter() {
     setFetching(true)

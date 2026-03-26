@@ -3,7 +3,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac/audit"
-import { normalizeDescription } from "@/lib/expense-matcher"
+import { upsertCategoryPattern } from "@/lib/expense-matcher"
 
 const schema = z.object({
   // Transaction details
@@ -72,6 +72,11 @@ export const POST = withFeatureAuth(
 
       // 3. Link to bank transaction if provided
       if (transactionId) {
+        const bankTx = await tx.bankTransaction.findFirst({
+          where: { id: transactionId, clinicId: user.clinicId },
+        })
+        if (!bankTx) throw new Error("Transação não encontrada")
+
         await tx.expenseReconciliationLink.create({
           data: {
             clinicId: user.clinicId,
@@ -84,31 +89,7 @@ export const POST = withFeatureAuth(
       }
 
       // 4. Save pattern with recurrenceId for auto-matching
-      const normalized = normalizeDescription(description)
-      if (normalized) {
-        await tx.expenseCategoryPattern.upsert({
-          where: {
-            clinicId_normalizedDescription: {
-              clinicId: user.clinicId,
-              normalizedDescription: normalized,
-            },
-          },
-          update: {
-            categoryId: categoryId ?? undefined,
-            supplierName: supplierName ?? undefined,
-            recurrenceId: recurrence.id,
-            matchCount: { increment: 1 },
-          },
-          create: {
-            clinicId: user.clinicId,
-            normalizedDescription: normalized,
-            categoryId: categoryId ?? null,
-            supplierName: supplierName ?? null,
-            recurrenceId: recurrence.id,
-            matchCount: 1,
-          },
-        })
-      }
+      await upsertCategoryPattern(tx, user.clinicId, description, categoryId, supplierName, recurrence.id)
 
       return { expense, recurrence }
     })

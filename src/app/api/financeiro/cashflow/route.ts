@@ -25,7 +25,10 @@ export const GET = withFeatureAuth(
     const url = new URL(req.url)
     const startDateStr = url.searchParams.get("startDate")
     const endDateStr = url.searchParams.get("endDate")
-    const granularity = (url.searchParams.get("granularity") ?? "daily") as Granularity
+    const rawGranularity = url.searchParams.get("granularity") ?? "daily"
+    const granularity: Granularity = ["daily", "weekly", "monthly"].includes(rawGranularity)
+      ? (rawGranularity as Granularity)
+      : "daily"
     const mode = url.searchParams.get("mode") ?? "realizado"
 
     const now = new Date()
