@@ -37,6 +37,7 @@ export default function DespesasPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>("")
+  const [categoryFilter, setCategoryFilter] = useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
 
   const loadData = useCallback(async () => {
@@ -44,6 +45,7 @@ export default function DespesasPage() {
     params.set("year", year.toString())
     if (month) params.set("month", month.toString())
     if (statusFilter) params.set("status", statusFilter)
+    if (categoryFilter) params.set("categoryId", categoryFilter)
 
     const [expRes, catRes] = await Promise.all([
       fetch(`/api/financeiro/despesas?${params}`),
@@ -56,7 +58,7 @@ export default function DespesasPage() {
       setCategories(cats.map((c: Category & { _count?: unknown }) => ({ id: c.id, name: c.name, color: c.color })))
     }
     setLoaded(true)
-  }, [year, month, statusFilter])
+  }, [year, month, statusFilter, categoryFilter])
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -133,6 +135,16 @@ export default function DespesasPage() {
             <option value="OVERDUE">Vencido</option>
             <option value="PAID">Pago</option>
             <option value="CANCELLED">Cancelado</option>
+          </select>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="rounded-md border border-input px-3 py-1.5 text-sm"
+          >
+            <option value="">Todas as categorias</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
           </select>
         </div>
         <div className="flex gap-2">
