@@ -5,6 +5,9 @@ import { AlertTriangle } from "lucide-react"
 import { useFinanceiroContext } from "../context/FinanceiroContext"
 import { CashFlowChart } from "./components/CashFlowChart"
 import { CashFlowTable } from "./components/CashFlowTable"
+import { CashFlowSummary } from "./components/CashFlowSummary"
+import { CashFlowControls } from "./components/CashFlowControls"
+import { ProjectionBreakdown } from "./components/ProjectionBreakdown"
 import type { Granularity, CashFlowAlert } from "@/lib/cashflow"
 
 interface Entry {
@@ -131,194 +134,34 @@ export default function FluxoDeCaixaPage() {
       )}
 
       {/* Controls */}
-      <div className="flex flex-wrap gap-3 items-end">
-        <div>
-          <label className="block text-xs text-muted-foreground mb-1">Visão</label>
-          <div className="flex rounded-md border border-input overflow-hidden">
-            <button
-              onClick={() => setCashFlowView("realizado")}
-              className={`px-3 py-1.5 text-xs ${cashFlowView === "realizado" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-            >
-              Realizado
-            </button>
-            <button
-              onClick={() => setCashFlowView("projetado")}
-              className={`px-3 py-1.5 text-xs ${cashFlowView === "projetado" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-            >
-              Projetado
-            </button>
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs text-muted-foreground mb-1">Granularidade</label>
-          <div className="flex rounded-md border border-input overflow-hidden">
-            {(["daily", "weekly", "monthly"] as const).map((g) => (
-              <button
-                key={g}
-                onClick={() => setGranularity(g)}
-                className={`px-3 py-1.5 text-xs ${granularity === g ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-              >
-                {g === "daily" ? "Diário" : g === "weekly" ? "Semanal" : "Mensal"}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs text-muted-foreground mb-1">Visualização</label>
-          <div className="flex rounded-md border border-input overflow-hidden">
-            <button
-              onClick={() => setViewMode("chart")}
-              className={`px-3 py-1.5 text-xs ${viewMode === "chart" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-            >
-              Gráfico
-            </button>
-            <button
-              onClick={() => setViewMode("table")}
-              className={`px-3 py-1.5 text-xs ${viewMode === "table" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-            >
-              Tabela
-            </button>
-          </div>
-        </div>
-        {cashFlowView === "projetado" && (
-          <span className="text-xs text-muted-foreground px-2 py-1 bg-blue-50 rounded border border-blue-200 text-blue-700">
-            Inclui projeções de despesas recorrentes e faturas em aberto
-          </span>
-        )}
-      </div>
+      <CashFlowControls
+        cashFlowView={cashFlowView}
+        setCashFlowView={setCashFlowView}
+        granularity={granularity}
+        setGranularity={setGranularity}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+      />
 
-      {/* Current Bank Balance */}
-      {lastKnownBalance !== null && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-green-700 font-medium">Saldo atual — Banco Inter</p>
-            <p className="text-2xl font-bold text-green-800">{formatCurrency(lastKnownBalance)}</p>
-          </div>
-          {balanceFetchedAt && (
-            <p className="text-xs text-green-600">
-              Atualizado em {new Date(balanceFetchedAt).toLocaleDateString("pt-BR")}{" "}
-              às {new Date(balanceFetchedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Summary Cards */}
+      {/* Bank Balance + Summary Cards */}
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="rounded-lg border p-3">
-            <p className="text-xs text-muted-foreground">
-              Saldo inicial
-              {balanceSource === "inter" && (
-                <span className="text-[10px] ml-1 text-green-600">(Inter)</span>
-              )}
-            </p>
-            <p className="text-lg font-semibold">{formatCurrency(summary.startingBalance)}</p>
-            {balanceFetchedAt && balanceSource === "inter" && (
-              <p className="text-[10px] text-muted-foreground">
-                Atualizado em {new Date(balanceFetchedAt).toLocaleDateString("pt-BR")}
-              </p>
-            )}
-          </div>
-          <div className="rounded-lg border p-3">
-            <p className="text-xs text-muted-foreground">Entradas</p>
-            <p className="text-lg font-semibold text-green-600">{formatCurrency(summary.totalInflow)}</p>
-          </div>
-          <div className="rounded-lg border p-3">
-            <p className="text-xs text-muted-foreground">Saídas</p>
-            <p className="text-lg font-semibold text-red-600">{formatCurrency(summary.totalOutflow)}</p>
-          </div>
-          <div className="rounded-lg border p-3">
-            <p className="text-xs text-muted-foreground">Fluxo líquido</p>
-            <p className={`text-lg font-semibold ${summary.netFlow >= 0 ? "text-green-600" : "text-red-600"}`}>
-              {formatCurrency(summary.netFlow)}
-            </p>
-          </div>
-          <div className="rounded-lg border p-3">
-            <p className="text-xs text-muted-foreground">Saldo final</p>
-            <p className={`text-lg font-semibold ${summary.projectedEndBalance >= 0 ? "" : "text-red-600"}`}>
-              {formatCurrency(summary.projectedEndBalance)}
-            </p>
-          </div>
-        </div>
+        <CashFlowSummary
+          summary={summary}
+          balanceSource={balanceSource}
+          balanceFetchedAt={balanceFetchedAt}
+          lastKnownBalance={lastKnownBalance}
+          formatCurrency={formatCurrency}
+        />
       )}
 
       {/* Projection Breakdown (projetado mode only) */}
       {cashFlowView === "projetado" && revenueProjection && (
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="rounded-lg border p-4 space-y-2">
-              <h3 className="text-sm font-medium">Receita do Mês</h3>
-              <p className="text-2xl font-bold text-green-600">
-                {formatCurrency((revenueProjection.actualRevenue ?? 0) + revenueProjection.projectedRevenue)}
-              </p>
-              <div className="text-xs text-muted-foreground space-y-1">
-                {revenueProjection.actualRevenue > 0 && (
-                  <p>Recebido até hoje: {formatCurrency(revenueProjection.actualRevenue)}</p>
-                )}
-                <p>Projetado restante: {formatCurrency(revenueProjection.projectedRevenue)}</p>
-                <p>{revenueProjection.totalAppointments} sessões futuras agendadas</p>
-                <p>Taxa de cancelamento: {(revenueProjection.cancellationRate * 100).toFixed(1)}%</p>
-              </div>
-            </div>
-
-            <div className="rounded-lg border p-4 space-y-2">
-              <h3 className="text-sm font-medium">Despesas Projetadas</h3>
-              <p className="text-2xl font-bold text-red-600">{formatCurrency(projectedExpenses)}</p>
-              <div className="text-xs text-muted-foreground">
-                <p>Despesas abertas + recorrentes</p>
-              </div>
-            </div>
-
-            {taxEstimate && taxEstimate.totalTax > 0 && (
-              <div className="rounded-lg border p-4 space-y-2">
-                <h3 className="text-sm font-medium">Impostos Estimados</h3>
-                <p className="text-2xl font-bold text-red-600">{formatCurrency(taxEstimate.totalTax)}</p>
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <p>Regime: {taxEstimate.regime}</p>
-                  <p className="font-medium mt-1">Mensais: {formatCurrency(taxEstimate.monthlyTotal)}</p>
-                  {taxEstimate.breakdown.filter(b => b.period === "mensal").map((b) => (
-                    <p key={b.name} className="ml-2">{b.name}: {formatCurrency(b.amount)}</p>
-                  ))}
-                  {taxEstimate.quarterlyDueThisMonth ? (
-                    <>
-                      <p className="font-medium mt-1">Trimestrais (vence este mês): {formatCurrency(taxEstimate.quarterlyTotal)}</p>
-                      {taxEstimate.breakdown.filter(b => b.period === "trimestral").map((b) => (
-                        <p key={b.name} className="ml-2">{b.name}: {formatCurrency(b.amount)}</p>
-                      ))}
-                    </>
-                  ) : taxEstimate.nextQuarterlyDueMonth ? (
-                    <p className="mt-1">IRPJ + CSLL: próximo vencimento em {
-                      ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-                       "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][taxEstimate.nextQuarterlyDueMonth]
-                    }</p>
-                  ) : null}
-                </div>
-              </div>
-            )}
-
-            <div className="rounded-lg border p-4 space-y-2">
-              <h3 className="text-sm font-medium">Repasse Estimado</h3>
-              <p className="text-2xl font-bold text-amber-600">{formatCurrency(revenueProjection.totalEstimatedRepasse)}</p>
-            </div>
-          </div>
-
-          {/* Sobra clínica: revenue - expenses - tax - repasse */}
-          <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 flex justify-between items-center">
-            <span className="text-sm font-medium">Sobra clínica estimada</span>
-            <span className={`text-xl font-bold ${
-              revenueProjection.projectedRevenue - projectedExpenses - (taxEstimate?.totalTax ?? 0) - revenueProjection.totalEstimatedRepasse >= 0
-                ? "text-green-600" : "text-red-600"
-            }`}>
-              {formatCurrency(
-                revenueProjection.projectedRevenue -
-                projectedExpenses -
-                (taxEstimate?.totalTax ?? 0) -
-                revenueProjection.totalEstimatedRepasse
-              )}
-            </span>
-          </div>
-        </div>
+        <ProjectionBreakdown
+          revenueProjection={revenueProjection}
+          taxEstimate={taxEstimate}
+          projectedExpenses={projectedExpenses}
+          formatCurrency={formatCurrency}
+        />
       )}
 
       {/* Chart or Table */}

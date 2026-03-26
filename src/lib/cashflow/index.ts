@@ -5,6 +5,8 @@ export { estimateTax } from "./tax-estimate"
 export type { TaxEstimate } from "./tax-estimate"
 export { calculateCancellationRate, projectRevenue } from "./revenue-projection"
 export type { RevenueProjection } from "./revenue-projection"
+export { buildRealized } from "./build-realized"
+export { buildProjected } from "./build-projected"
 export type {
   CashFlowEntry,
   CashFlowProjection,

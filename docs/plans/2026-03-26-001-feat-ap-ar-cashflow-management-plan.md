@@ -1,7 +1,7 @@
 ---
 title: "AP/AR & Cash Flow Management"
 type: feat
-status: active
+status: completed
 date: 2026-03-26
 origin: docs/brainstorms/2026-03-26-ap-ar-cashflow-brainstorm.md
 ---
