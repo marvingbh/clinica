@@ -11,7 +11,7 @@ import { generateExpensesFromRecurrence } from "@/lib/expenses"
 import type { InvoiceForCashFlow, ExpenseForCashFlow, RepasseForCashFlow, Granularity } from "@/lib/cashflow"
 
 export const GET = withFeatureAuth(
-  { feature: "expenses", minAccess: "READ" },
+  { feature: "finances", minAccess: "READ" },
   async (req, { user }) => {
     const url = new URL(req.url)
     const startDateStr = url.searchParams.get("startDate")

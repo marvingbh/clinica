@@ -58,14 +58,21 @@ export default function FluxoDeCaixaPage() {
       granularity,
     })
 
-    const res = await fetch(`/api/financeiro/cashflow?${params}`)
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/financeiro/cashflow?${params}`)
+      if (!res.ok) {
+        console.error("Cashflow API error:", res.status, await res.text())
+        setLoaded(true)
+        return
+      }
       const data = await res.json()
       setEntries(data.entries)
       setSummary(data.summary)
       setAlerts(data.alerts)
       setBalanceSource(data.balanceSource)
       setBalanceFetchedAt(data.balanceFetchedAt)
+    } catch (err) {
+      console.error("Cashflow fetch error:", err)
     }
     setLoaded(true)
   }, [granularity, period, cashFlowView])
