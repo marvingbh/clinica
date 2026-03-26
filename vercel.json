@@ -10,6 +10,14 @@
     {
       "path": "/api/jobs/extend-recurrences",
       "schedule": "0 2 * * 1"
+    },
+    {
+      "path": "/api/jobs/generate-recurring-expenses",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/jobs/mark-overdue-expenses",
+      "schedule": "0 6 * * *"
     }
   ]
 }

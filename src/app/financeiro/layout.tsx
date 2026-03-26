@@ -9,6 +9,7 @@ import { FinanceiroFilterBar } from "./components/FinanceiroFilterBar"
 const tabs = [
   { href: "/financeiro", label: "Dashboard", exact: true },
   { href: "/financeiro/faturas", label: "Faturas" },
+  { href: "/financeiro/despesas", label: "Despesas" },
   { href: "/financeiro/creditos", label: "Créditos" },
   { href: "/financeiro/precos", label: "Preços" },
   { href: "/financeiro/repasse", label: "Repasse" },
@@ -22,7 +23,7 @@ export default function FinanceiroLayout({ children }: { children: React.ReactNo
     <FinanceiroProvider>
       <div className="max-w-7xl mx-auto px-4 py-6">
         <h1 className="text-2xl font-bold mb-4">Financeiro</h1>
-        <div className="flex gap-1 border-b border-border mb-6">
+        <div className="flex gap-1 border-b border-border mb-6 overflow-x-auto">
           {tabs.map(tab => {
             const isActive = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href)
             return (
