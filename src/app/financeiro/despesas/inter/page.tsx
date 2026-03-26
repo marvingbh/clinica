@@ -98,11 +98,14 @@ export default function InterImportPage() {
     try {
       const res = await fetch("/api/financeiro/despesas/scheduled")
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Erro ao buscar agendamentos" }))
-        toast.error(err.error)
+        toast.error("Erro ao buscar agendamentos")
         return
       }
       const data = await res.json()
+      if (data.unavailable) {
+        toast.info("Pagamentos agendados não disponível para sua conta Inter")
+        return
+      }
       setScheduledPayments(data.payments?.filter((p: ScheduledPayment) => !p.alreadyImported) ?? [])
       toast.success(`${data.pending ?? 0} pagamento(s) agendado(s) encontrado(s)`)
     } catch {
