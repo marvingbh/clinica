@@ -498,6 +498,10 @@ export const GET = withFeatureAuth(
           totalEstimatedRepasse: revenueProjectionData.totalEstimatedRepasse,
         },
         taxEstimate: taxEstimateData,
+        // Total of recurring + open expenses (excluding tax and repasse which are already in the projection)
+        projectedExpenses: expensesForCashFlow
+          .filter((e) => !e.id.startsWith("projected-tax") && !e.id.startsWith("projected-repasse-"))
+          .reduce((sum, e) => sum + e.amount, 0),
       }),
     })
   }
