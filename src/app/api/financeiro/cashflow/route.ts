@@ -101,28 +101,65 @@ export const GET = withFeatureAuth(
     ])
 
     // Determine starting balance:
-    // Always compute from historical data: sum of all paid inflows - outflows before startDate.
-    // This way saldo final for the current month should approximate the Inter bank balance.
-    const [priorIncome, priorExpenses, priorRepasse] = await Promise.all([
-      prisma.invoice.aggregate({
-        where: { clinicId: user.clinicId, status: "PAGO", paidAt: { lt: startDate } },
-        _sum: { totalAmount: true },
-      }),
-      prisma.expense.aggregate({
-        where: { clinicId: user.clinicId, status: "PAID", paidAt: { lt: startDate } },
-        _sum: { amount: true },
-      }),
-      prisma.repassePayment.aggregate({
-        where: { clinicId: user.clinicId, paidAt: { lt: startDate } },
-        _sum: { repasseAmount: true },
-      }),
-    ])
+    // Use the Inter bank balance as the anchor (today's real balance), then work
+    // backwards: startingBalance = interBalance - netFlow(startDate → today)
+    // This avoids the "starting from zero" problem — the clinic had money before
+    // the system existed, and not all transactions are tracked as expenses.
+    let startingBalance = 0
+    let balanceSource: "inter" | "computed" | "none" = "none"
 
-    const totalPriorIncome = Number(priorIncome._sum.totalAmount ?? 0)
-    const totalPriorExpenses = Number(priorExpenses._sum.amount ?? 0)
-    const totalPriorRepasse = Number(priorRepasse._sum.repasseAmount ?? 0)
-    const startingBalance = totalPriorIncome - totalPriorExpenses - totalPriorRepasse
-    const balanceSource = "computed"
+    const interBalance = bankIntegration?.lastKnownBalance
+      ? Number(bankIntegration.lastKnownBalance)
+      : null
+
+    if (interBalance !== null) {
+      // Calculate net flow from startDate to today (tracked transactions only)
+      const [flowIncome, flowExpenses, flowRepasse] = await Promise.all([
+        prisma.invoice.aggregate({
+          where: { clinicId: user.clinicId, status: "PAGO", paidAt: { gte: startDate, lte: now } },
+          _sum: { totalAmount: true },
+        }),
+        prisma.expense.aggregate({
+          where: { clinicId: user.clinicId, status: "PAID", paidAt: { gte: startDate, lte: now } },
+          _sum: { amount: true },
+        }),
+        prisma.repassePayment.aggregate({
+          where: { clinicId: user.clinicId, paidAt: { gte: startDate, lte: now } },
+          _sum: { repasseAmount: true },
+        }),
+      ])
+
+      const netFlowSinceStart =
+        Number(flowIncome._sum.totalAmount ?? 0) -
+        Number(flowExpenses._sum.amount ?? 0) -
+        Number(flowRepasse._sum.repasseAmount ?? 0)
+
+      // interBalance = startingBalance + netFlowSinceStart
+      // → startingBalance = interBalance - netFlowSinceStart
+      startingBalance = interBalance - netFlowSinceStart
+      balanceSource = "inter"
+    } else {
+      // No Inter balance — fall back to cumulative from system start
+      const [priorIncome, priorExpenses, priorRepasse] = await Promise.all([
+        prisma.invoice.aggregate({
+          where: { clinicId: user.clinicId, status: "PAGO", paidAt: { lt: startDate } },
+          _sum: { totalAmount: true },
+        }),
+        prisma.expense.aggregate({
+          where: { clinicId: user.clinicId, status: "PAID", paidAt: { lt: startDate } },
+          _sum: { amount: true },
+        }),
+        prisma.repassePayment.aggregate({
+          where: { clinicId: user.clinicId, paidAt: { lt: startDate } },
+          _sum: { repasseAmount: true },
+        }),
+      ])
+      startingBalance =
+        Number(priorIncome._sum.totalAmount ?? 0) -
+        Number(priorExpenses._sum.amount ?? 0) -
+        Number(priorRepasse._sum.repasseAmount ?? 0)
+      balanceSource = "computed"
+    }
 
     // Project future expenses from active recurrences.
     // Use startDate (not lastGeneratedDate) to ensure we cover the full window,

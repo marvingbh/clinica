@@ -18,6 +18,9 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
   { name: "Honorários Profissionais", color: "#84CC16", icon: "briefcase" },
   { name: "Impostos", color: "#EF4444", icon: "receipt" },
   { name: "Gastos com Cartão", color: "#D946EF", icon: "credit-card" },
+  { name: "Benefícios", color: "#7C3AED", icon: "heart-handshake" },
+  { name: "Empréstimos", color: "#B45309", icon: "landmark" },
+  { name: "Investimentos", color: "#0D9488", icon: "trending-up" },
   { name: "Lucros e Dividendos", color: "#059669", icon: "banknote" },
   { name: "Outros", color: "#6B7280", icon: "ellipsis" },
 ]
