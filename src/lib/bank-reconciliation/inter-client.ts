@@ -45,7 +45,7 @@ async function getAccessToken(config: InterConfig): Promise<string> {
   const body = new URLSearchParams({
     client_id: config.clientId,
     client_secret: clientSecret,
-    scope: "extrato.read",
+    scope: "extrato.read pagamento.read",
     grant_type: "client_credentials",
   }).toString()
 
@@ -154,7 +154,7 @@ export async function fetchScheduledPayments(
   const token = await getAccessToken(config)
   const agent = createAgent(config)
 
-  const url = `https://cdpj.partners.bancointer.com.br/banking/v2/pagamentos?dataInicio=${startDate}&dataFim=${endDate}&filtrarDataPor=AGENDAMENTO`
+  const url = `https://cdpj.partners.bancointer.com.br/banking/v2/pagamentos/codigo-barras?dataInicio=${startDate}&dataFim=${endDate}&filtrarDataPor=AGENDAMENTO`
 
   return new Promise((resolve, reject) => {
     const req = https.request(url, {
