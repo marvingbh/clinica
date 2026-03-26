@@ -172,10 +172,16 @@ export const GET = withFeatureAuth(
       existingDates.add(`${e.recurrenceId}-${e.dueDate.toISOString().split("T")[0]}`)
     }
 
+    // Use local dates for recurrence generation to avoid UTC/local timezone mismatch
+    const localStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
+    const localEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate())
+    const dayBeforeStart = new Date(localStart)
+    dayBeforeStart.setDate(dayBeforeStart.getDate() - 1)
+
     for (const rec of activeRecurrences) {
-      const generated = generateExpensesFromRecurrence({ ...rec, amount: Number(rec.amount), lastGeneratedDate: new Date(startDate.getTime() - 86400000) }, endDate)
+      const generated = generateExpensesFromRecurrence({ ...rec, amount: Number(rec.amount), lastGeneratedDate: dayBeforeStart }, localEnd)
       for (const g of generated) {
-        if (g.dueDate < startDate || g.dueDate > endDate) continue
+        if (g.dueDate < localStart || g.dueDate > localEnd) continue
         const key = `${rec.id}-${g.dueDate.toISOString().split("T")[0]}`
         if (!existingDates.has(key)) {
           expensesForCF.push({
