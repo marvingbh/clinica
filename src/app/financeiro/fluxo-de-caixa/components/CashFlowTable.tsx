@@ -1,5 +1,7 @@
 "use client"
 
+import React from "react"
+
 interface Entry {
   date: string
   inflow: number
@@ -51,7 +53,7 @@ export function CashFlowTable({ entries, granularity, todayDivider }: CashFlowTa
           {filtered.map((entry, i) => {
             const isProjected = todayDivider ? entry.date > todayDivider : false
             const showDivider = todayDivider && i > 0 && filtered[i - 1].date <= todayDivider && entry.date > todayDivider
-            return (<>
+            return (<React.Fragment key={entry.date}>
             {showDivider && (
               <tr key={`divider-${entry.date}`} className="bg-indigo-50">
                 <td colSpan={5} className="px-4 py-1 text-xs text-center text-indigo-600 font-medium">
@@ -74,7 +76,7 @@ export function CashFlowTable({ entries, granularity, todayDivider }: CashFlowTa
                 {formatCurrency(entry.runningBalance)}
               </td>
             </tr>
-          </>)})}
+          </React.Fragment>)})}
         </tbody>
       </table>
     </div>
