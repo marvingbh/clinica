@@ -156,24 +156,22 @@ export const GET = withFeatureAuth(
     let balanceSource: "inter" | "computed" | "none" = "none"
     const interBalance = bankIntegration?.lastKnownBalance ? Number(bankIntegration.lastKnownBalance) : null
 
+    // Starting balance: only invoices (in) and expenses (out) — repasse is already
+    // tracked as expenses when paid, bank transactions are noise
     if (interBalance !== null) {
-      const [flowIncome, flowExpenses, flowRepasse, unmatchedDebits, unmatchedCredits] = await Promise.all([
+      const [flowIncome, flowExpenses] = await Promise.all([
         prisma.invoice.aggregate({ where: { clinicId: user.clinicId, status: "PAGO", paidAt: { gte: startDate, lte: now } }, _sum: { totalAmount: true } }),
         prisma.expense.aggregate({ where: { clinicId: user.clinicId, status: "PAID", paidAt: { gte: startDate, lte: now } }, _sum: { amount: true } }),
-        prisma.repassePayment.aggregate({ where: { clinicId: user.clinicId, paidAt: { gte: startDate, lte: now } }, _sum: { repasseAmount: true } }),
-        prisma.bankTransaction.aggregate({ where: { clinicId: user.clinicId, type: "DEBIT", date: { gte: startDate, lte: now }, expenseReconciliationLinks: { none: {} }, dismissReason: null }, _sum: { amount: true } }),
-        prisma.bankTransaction.aggregate({ where: { clinicId: user.clinicId, type: "CREDIT", date: { gte: startDate, lte: now }, reconciliationLinks: { none: {} }, dismissReason: null }, _sum: { amount: true } }),
       ])
-      const netFlow = Number(flowIncome._sum.totalAmount ?? 0) - Number(flowExpenses._sum.amount ?? 0) - Number(flowRepasse._sum.repasseAmount ?? 0) + Number(unmatchedCredits._sum.amount ?? 0) - Number(unmatchedDebits._sum.amount ?? 0)
+      const netFlow = Number(flowIncome._sum.totalAmount ?? 0) - Number(flowExpenses._sum.amount ?? 0)
       startingBalance = interBalance - netFlow
       balanceSource = "inter"
     } else {
-      const [pi, pe, pr] = await Promise.all([
+      const [pi, pe] = await Promise.all([
         prisma.invoice.aggregate({ where: { clinicId: user.clinicId, status: "PAGO", paidAt: { lt: startDate } }, _sum: { totalAmount: true } }),
         prisma.expense.aggregate({ where: { clinicId: user.clinicId, status: "PAID", paidAt: { lt: startDate } }, _sum: { amount: true } }),
-        prisma.repassePayment.aggregate({ where: { clinicId: user.clinicId, paidAt: { lt: startDate } }, _sum: { repasseAmount: true } }),
       ])
-      startingBalance = Number(pi._sum.totalAmount ?? 0) - Number(pe._sum.amount ?? 0) - Number(pr._sum.repasseAmount ?? 0)
+      startingBalance = Number(pi._sum.totalAmount ?? 0) - Number(pe._sum.amount ?? 0)
       balanceSource = "computed"
     }
 
@@ -325,36 +323,8 @@ export const GET = withFeatureAuth(
       }
     }
 
-    // ========================================================================
-    // UNMATCHED BANK TRANSACTIONS: Only past (real, not projected)
-    // ========================================================================
-    const bankDateLimit = hasPast ? (today < endDate ? today : endDate) : null
-    if (bankDateLimit) {
-      const [unmatchedDebits, unmatchedCredits] = await Promise.all([
-        prisma.bankTransaction.findMany({ where: { clinicId: user.clinicId, type: "DEBIT", date: { gte: startDate, lte: bankDateLimit }, expenseReconciliationLinks: { none: {} }, dismissReason: null }, select: { id: true, date: true, amount: true, description: true } }),
-        prisma.bankTransaction.findMany({ where: { clinicId: user.clinicId, type: "CREDIT", date: { gte: startDate, lte: bankDateLimit }, reconciliationLinks: { none: {} }, dismissReason: null }, select: { id: true, date: true, amount: true, description: true } }),
-      ])
-      for (const tx of unmatchedCredits) {
-        invoicesForCashFlow.push({ id: `bank-credit-${tx.id}`, totalAmount: Number(tx.amount), dueDate: tx.date, paidAt: tx.date, status: "PAGO", patientName: `${tx.description} (banco)` })
-      }
-      for (const tx of unmatchedDebits) {
-        expensesForCashFlow.push({ id: `bank-debit-${tx.id}`, description: `${tx.description} (banco)`, amount: Number(tx.amount), dueDate: tx.date, paidAt: tx.date, status: "PAID" })
-      }
-    }
-
-    // ========================================================================
-    // REPASSE
-    // ========================================================================
-    const repasseForCashFlow: RepasseForCashFlow[] = repassePayments
-      .filter((rep) => rep.paidAt) // Only include paid repasse in entries (projected repasse is added above)
-      .map((rep) => ({
-        id: rep.id,
-        repasseAmount: Number(rep.repasseAmount),
-        referenceMonth: rep.referenceMonth,
-        referenceYear: rep.referenceYear,
-        paidAt: rep.paidAt,
-        professionalName: rep.professionalProfile?.user?.name ?? "Profissional",
-      }))
+    // Repasse is already tracked as expenses when paid — don't add separately
+    const repasseForCashFlow: RepasseForCashFlow[] = []
 
     // ========================================================================
     // CALCULATE PROJECTION
