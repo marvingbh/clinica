@@ -227,6 +227,31 @@ export const GET = withFeatureAuth(
       }
     }
 
+    // Fetch unmatched bank transactions in the window to include in entries
+    // These are real flows that aren't tracked as invoices/expenses (refunds, fees, transfers)
+    const [unmatchedDebitTx, unmatchedCreditTx] = await Promise.all([
+      prisma.bankTransaction.findMany({
+        where: {
+          clinicId: user.clinicId,
+          type: "DEBIT",
+          date: { gte: startDate, lte: endDate },
+          expenseReconciliationLinks: { none: {} },
+          dismissReason: null,
+        },
+        select: { id: true, date: true, amount: true, description: true },
+      }),
+      prisma.bankTransaction.findMany({
+        where: {
+          clinicId: user.clinicId,
+          type: "CREDIT",
+          date: { gte: startDate, lte: endDate },
+          reconciliationLinks: { none: {} },
+          dismissReason: null,
+        },
+        select: { id: true, date: true, amount: true, description: true },
+      }),
+    ])
+
     // Build invoice cash flow entries
     // For PARCIAL invoices, use remaining amount (total - already reconciled)
     const invoicesForCashFlow: InvoiceForCashFlow[] = invoices.map((inv) => {
@@ -252,6 +277,18 @@ export const GET = withFeatureAuth(
       }
     })
 
+    // Add unmatched credit bank transactions as additional inflows
+    for (const tx of unmatchedCreditTx) {
+      invoicesForCashFlow.push({
+        id: `bank-credit-${tx.id}`,
+        totalAmount: Number(tx.amount),
+        dueDate: tx.date,
+        paidAt: tx.date,
+        status: "PAGO",
+        patientName: `${tx.description} (banco)`,
+      })
+    }
+
     const expensesForCashFlow: ExpenseForCashFlow[] = [
       ...expenses.map((exp) => ({
         id: exp.id,
@@ -260,6 +297,15 @@ export const GET = withFeatureAuth(
         dueDate: exp.dueDate,
         paidAt: exp.paidAt,
         status: exp.status,
+      })),
+      // Add unmatched debit bank transactions as additional outflows
+      ...unmatchedDebitTx.map((tx) => ({
+        id: `bank-debit-${tx.id}`,
+        description: `${tx.description} (banco)`,
+        amount: Number(tx.amount),
+        dueDate: tx.date,
+        paidAt: tx.date,
+        status: "PAID",
       })),
       ...projectedFromRecurrences,
     ]
