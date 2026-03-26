@@ -17,5 +17,7 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
   { name: "Capacitação", color: "#06B6D4", icon: "graduation-cap" },
   { name: "Honorários Profissionais", color: "#84CC16", icon: "briefcase" },
   { name: "Impostos", color: "#EF4444", icon: "receipt" },
+  { name: "Gastos com Cartão", color: "#D946EF", icon: "credit-card" },
+  { name: "Lucros e Dividendos", color: "#059669", icon: "banknote" },
   { name: "Outros", color: "#6B7280", icon: "ellipsis" },
 ]

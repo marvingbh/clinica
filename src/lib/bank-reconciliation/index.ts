@@ -10,7 +10,7 @@ export {
   getSharedParent,
 } from "./matcher"
 export type { InvoiceWithParent } from "./matcher"
-export { fetchStatements, extractPayerName } from "./inter-client"
+export { fetchStatements, fetchBalance, extractPayerName } from "./inter-client"
 export type {
   TransactionForMatching,
   InvoiceForMatching,

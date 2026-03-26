@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
-import { fetchStatements } from "@/lib/bank-reconciliation"
+import { fetchStatements, fetchBalance } from "@/lib/bank-reconciliation"
 import type { InterConfig } from "@/lib/bank-reconciliation"
 
 export const POST = withFeatureAuth(
@@ -177,11 +177,24 @@ export const POST = withFeatureAuth(
       newDebitCount++
     }
 
+    // Fetch and store current account balance
+    let balance: number | null = null
+    try {
+      balance = await fetchBalance(config)
+      await prisma.bankIntegration.update({
+        where: { id: integration.id },
+        data: { lastKnownBalance: balance, balanceFetchedAt: new Date() },
+      })
+    } catch {
+      // Balance fetch is best-effort — don't fail the whole operation
+    }
+
     return NextResponse.json({
       creditsFetched: credits.length,
       debitsFetched: debits.length,
       newCredits: newCount,
       newDebits: newDebitCount,
+      balance,
       period: {
         start: formatDate(startDate),
         end: formatDate(endDate),
