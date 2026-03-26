@@ -100,4 +100,26 @@ describe("calculateProjection", () => {
     expect(day1.outflow).toBe(3500)
     expect(day1.details.expenses).toHaveLength(2)
   })
+
+  it("marks entries as projected when todayStr is provided", () => {
+    const invoices: InvoiceForCashFlow[] = [
+      { id: "inv-1", totalAmount: 1000, dueDate: new Date(2026, 2, 2), paidAt: new Date(2026, 2, 2), status: "PAGO" },
+      { id: "inv-2", totalAmount: 500, dueDate: new Date(2026, 2, 4), paidAt: null, status: "PENDENTE" },
+    ]
+    const result = calculateProjection(invoices, [], [], start, end, 0, "2026-03-03")
+
+    const day2 = result.entries.find((e) => e.date === "2026-03-02")!
+    expect(day2.isProjected).toBe(false) // on or before today
+
+    const day3 = result.entries.find((e) => e.date === "2026-03-03")!
+    expect(day3.isProjected).toBe(false) // today itself
+
+    const day4 = result.entries.find((e) => e.date === "2026-03-04")!
+    expect(day4.isProjected).toBe(true) // after today
+  })
+
+  it("does not set isProjected when todayStr is undefined", () => {
+    const result = calculateProjection([], [], [], start, end)
+    expect(result.entries[0].isProjected).toBeUndefined()
+  })
 })

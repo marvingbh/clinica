@@ -23,6 +23,7 @@ interface Entry {
 interface CashFlowChartProps {
   entries: Entry[]
   granularity: string
+  todayDivider?: string | null
 }
 
 function formatCurrency(value: number) {
@@ -50,7 +51,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   )
 }
 
-export function CashFlowChart({ entries, granularity }: CashFlowChartProps) {
+export function CashFlowChart({ entries, granularity, todayDivider }: CashFlowChartProps) {
   if (entries.length === 0) {
     return <div className="text-center py-12 text-muted-foreground">Sem dados para o período</div>
   }
@@ -72,6 +73,9 @@ export function CashFlowChart({ entries, granularity }: CashFlowChartProps) {
         />
         <Tooltip content={<CustomTooltip />} />
         <ReferenceLine y={0} stroke="#9CA3AF" strokeDasharray="3 3" />
+        {todayDivider && (
+          <ReferenceLine x={todayDivider} stroke="#6366F1" strokeDasharray="5 5" label={{ value: "Hoje", position: "top", fontSize: 11, fill: "#6366F1" }} />
+        )}
         <Area
           type="monotone"
           dataKey="inflow"

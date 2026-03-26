@@ -16,7 +16,8 @@ export function calculateProjection(
   repasse: RepasseForCashFlow[],
   startDate: Date,
   endDate: Date,
-  startingBalance: number = 0
+  startingBalance: number = 0,
+  todayStr?: string // YYYY-MM-DD — entries after this date are marked isProjected
 ): CashFlowProjection {
   const dayMap = new Map<string, {
     inflow: number
@@ -104,6 +105,7 @@ export function calculateProjection(
       outflow: bucket.outflow,
       net,
       runningBalance,
+      ...(todayStr !== undefined && { isProjected: key > todayStr }),
       details: {
         invoices: bucket.invoices,
         expenses: bucket.expenses,
