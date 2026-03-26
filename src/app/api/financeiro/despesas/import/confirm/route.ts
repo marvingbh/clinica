@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
-import { normalizeDescription } from "@/lib/expense-matcher"
+import { upsertCategoryPattern } from "@/lib/expense-matcher"
 
 const confirmSchema = z.object({
   transactions: z.array(z.object({
@@ -29,28 +29,8 @@ export const POST = withFeatureAuth(
 
     await prisma.$transaction(async (tx) => {
       for (const item of parsed.data.transactions) {
-        // Create or find bank transaction
-        const bankTx = await tx.bankTransaction.upsert({
-          where: {
-            clinicId_externalId: {
-              clinicId: user.clinicId,
-              externalId: item.externalId,
-            },
-          },
-          update: {},
-          create: {
-            clinicId: user.clinicId,
-            bankIntegrationId: "", // Imported via file, not API
-            externalId: item.externalId,
-            date: new Date(item.date),
-            amount: item.amount,
-            description: item.description,
-            type: "DEBIT",
-          },
-        })
-
-        // Create expense
-        const expense = await tx.expense.create({
+        // Create expense directly (file imports don't create bank transactions)
+        await tx.expense.create({
           data: {
             clinicId: user.clinicId,
             description: item.description,
@@ -60,18 +40,8 @@ export const POST = withFeatureAuth(
             dueDate: new Date(item.date),
             status: "PAID",
             paidAt: new Date(item.date),
+            notes: `Importado de arquivo - Ref: ${item.externalId}`,
             createdByUserId: user.id,
-          },
-        })
-
-        // Link expense to bank transaction
-        await tx.expenseReconciliationLink.create({
-          data: {
-            clinicId: user.clinicId,
-            transactionId: bankTx.id,
-            expenseId: expense.id,
-            amount: item.amount,
-            reconciledByUserId: user.id,
           },
         })
 
@@ -79,30 +49,8 @@ export const POST = withFeatureAuth(
 
         // Upsert pattern for future matching
         if (item.categoryId || item.supplierName) {
-          const normalized = normalizeDescription(item.description)
-          if (normalized) {
-            await tx.expenseCategoryPattern.upsert({
-              where: {
-                clinicId_normalizedDescription: {
-                  clinicId: user.clinicId,
-                  normalizedDescription: normalized,
-                },
-              },
-              update: {
-                categoryId: item.categoryId ?? undefined,
-                supplierName: item.supplierName ?? undefined,
-                matchCount: { increment: 1 },
-              },
-              create: {
-                clinicId: user.clinicId,
-                normalizedDescription: normalized,
-                categoryId: item.categoryId ?? null,
-                supplierName: item.supplierName ?? null,
-                matchCount: 1,
-              },
-            })
-            patternsUpserted++
-          }
+          await upsertCategoryPattern(tx, user.clinicId, item.description, item.categoryId, item.supplierName)
+          patternsUpserted++
         }
       }
     })

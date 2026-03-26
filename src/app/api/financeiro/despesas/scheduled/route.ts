@@ -1,10 +1,22 @@
 import { NextResponse } from "next/server"
+import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { fetchScheduledPayments } from "@/lib/bank-reconciliation"
-import { normalizeDescription, suggestCategory } from "@/lib/expense-matcher"
+import { suggestCategory, upsertCategoryPattern } from "@/lib/expense-matcher"
 import type { InterConfig } from "@/lib/bank-reconciliation"
 import type { StoredPattern } from "@/lib/expense-matcher"
+
+const importSchema = z.object({
+  payments: z.array(z.object({
+    codigoTransacao: z.string().min(1),
+    dataVencimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    valor: z.number().positive(),
+    descricao: z.string().min(1).max(500),
+    categoryId: z.string().nullable().optional(),
+    supplierName: z.string().nullable().optional(),
+  })).min(1),
+})
 
 /**
  * GET /api/financeiro/despesas/scheduled
@@ -106,18 +118,12 @@ export const POST = withFeatureAuth(
   { feature: "expenses", minAccess: "WRITE" },
   async (req, { user }) => {
     const body = await req.json()
-    const payments: {
-      codigoTransacao: string
-      dataVencimento: string
-      valor: number
-      descricao: string
-      categoryId?: string | null
-      supplierName?: string | null
-    }[] = body.payments ?? []
-
-    if (payments.length === 0) {
-      return NextResponse.json({ error: "Nenhum pagamento selecionado" }, { status: 400 })
+    const parsed = importSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Dados inválidos", details: parsed.error.flatten() }, { status: 400 })
     }
+
+    const payments = parsed.data.payments
 
     let created = 0
     for (const p of payments) {
@@ -136,28 +142,8 @@ export const POST = withFeatureAuth(
       })
 
       // Learn pattern
-      const normalized = normalizeDescription(p.descricao)
-      if (normalized && (p.categoryId || p.supplierName)) {
-        await prisma.expenseCategoryPattern.upsert({
-          where: {
-            clinicId_normalizedDescription: {
-              clinicId: user.clinicId,
-              normalizedDescription: normalized,
-            },
-          },
-          update: {
-            categoryId: p.categoryId ?? undefined,
-            supplierName: p.supplierName ?? undefined,
-            matchCount: { increment: 1 },
-          },
-          create: {
-            clinicId: user.clinicId,
-            normalizedDescription: normalized,
-            categoryId: p.categoryId ?? null,
-            supplierName: p.supplierName ?? null,
-            matchCount: 1,
-          },
-        })
+      if (p.categoryId || p.supplierName) {
+        await upsertCategoryPattern(prisma, user.clinicId, p.descricao, p.categoryId, p.supplierName)
       }
 
       created++

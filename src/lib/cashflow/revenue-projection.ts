@@ -15,11 +15,6 @@ interface AppointmentForProjection {
   sessionGroupId: string | null
 }
 
-interface PatientFee {
-  id: string
-  sessionFee: number | null
-}
-
 interface ProfessionalInfo {
   id: string
   repassePercentage: number

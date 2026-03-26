@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { ofxParser, createCsvParser } from "@/lib/bank-statement-parser"
-import { suggestCategory, normalizeDescription } from "@/lib/expense-matcher"
+import { suggestCategory } from "@/lib/expense-matcher"
 import type { NormalizedTransaction } from "@/lib/bank-statement-parser"
 import type { StoredPattern } from "@/lib/expense-matcher"
 
@@ -10,11 +10,17 @@ export const POST = withFeatureAuth(
   { feature: "expenses", minAccess: "WRITE" },
   async (req, { user }) => {
     const formData = await req.formData()
-    const file = formData.get("file") as File | null
+    const raw = formData.get("file")
+    if (!raw || typeof raw === "string") {
+      return NextResponse.json({ error: "Arquivo não enviado" }, { status: 400 })
+    }
+    const file = raw
     const format = formData.get("format") as string | null
 
-    if (!file) {
-      return NextResponse.json({ error: "Arquivo não enviado" }, { status: 400 })
+    const allowedExtensions = [".ofx", ".csv", ".txt"]
+    const fileName = file.name.toLowerCase()
+    if (!allowedExtensions.some(ext => fileName.endsWith(ext))) {
+      return NextResponse.json({ error: "Tipo de arquivo não suportado. Use OFX ou CSV." }, { status: 400 })
     }
 
     if (file.size > 4 * 1024 * 1024) {

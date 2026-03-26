@@ -5,6 +5,8 @@ import type { NormalizedTransaction, BankStatementProvider } from "./types"
  * Parse OFX 2.x (XML-based) bank statement format.
  * Extracts transactions from <STMTTRN> elements.
  */
+const MAX_TRANSACTIONS = 5000
+
 export const ofxParser: BankStatementProvider = {
   parse(data: string): NormalizedTransaction[] {
     const transactions: NormalizedTransaction[] = []
@@ -14,6 +16,7 @@ export const ofxParser: BankStatementProvider = {
     let match
 
     while ((match = trnRegex.exec(data)) !== null) {
+      if (transactions.length >= MAX_TRANSACTIONS) break
       const block = match[1]
 
       const amount = extractTag(block, "TRNAMT")
