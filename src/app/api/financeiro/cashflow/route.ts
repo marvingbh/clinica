@@ -23,10 +23,19 @@ export const GET = withFeatureAuth(
     const mode = url.searchParams.get("mode") ?? "realizado"
 
     const now = new Date()
-    const startDate = startDateStr ? new Date(startDateStr) : new Date(now.getFullYear(), now.getMonth(), 1)
-    const endDate = endDateStr ? new Date(endDateStr) : new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
+    // Parse date strings as LOCAL dates (not UTC) to avoid timezone issues.
+    // new Date("2026-04-01") creates UTC midnight which is March 31 in UTC-3.
+    // Instead, split the string and use new Date(y, m-1, d) for local midnight.
+    function parseLocalDate(str: string): Date {
+      const [y, m, d] = str.split("-").map(Number)
+      return new Date(y, m - 1, d)
+    }
+
+    const startDate = startDateStr ? parseLocalDate(startDateStr) : new Date(now.getFullYear(), now.getMonth(), 1)
+    const endDate = endDateStr ? parseLocalDate(endDateStr) : new Date(now.getFullYear(), now.getMonth() + 1, 0)
     const isProjetado = mode === "projetado"
-    const todayStr = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().split("T")[0]
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
 
     // Bank integration for balance display
     const bankIntegration = await prisma.bankIntegration.findFirst({
@@ -227,7 +236,11 @@ export const GET = withFeatureAuth(
     }
 
     // --- BUILD PROJECTION (no starting balance — pure in/out for the month) ---
-    const totalExpenses = expensesForCF.reduce((s, e) => s + e.amount, 0)
+    // Calculate expenses total excluding tax and repasse (they're shown separately)
+    const recurringAndOpenExpenses = expensesForCF.filter(
+      (e) => !e.id.startsWith("projected-tax") && !e.id.startsWith("repasse-")
+    )
+    const totalProjectedExpenses = recurringAndOpenExpenses.reduce((s, e) => s + e.amount, 0)
     const projection = calculateProjection(invoicesForCF, expensesForCF, [], startDate, endDate, 0, todayStr)
     let entries = projection.entries
     if (granularity === "weekly") entries = aggregateByWeek(entries)
@@ -250,7 +263,7 @@ export const GET = withFeatureAuth(
         actualRevenue: 0,
       },
       taxEstimate: taxEstimateData,
-      projectedExpenses: totalExpenses - taxEstimateData.totalTax - totalUnpaidRepasse,
+      projectedExpenses: totalProjectedExpenses,
     })
   }
 )
