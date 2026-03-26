@@ -140,6 +140,19 @@ enum BankProvider {
   INTER
 }
 
+enum ExpenseStatus {
+  DRAFT
+  OPEN
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum ExpenseFrequency {
+  MONTHLY
+  YEARLY
+}
+
 // ============================================================================
 // SAAS MODELS
 // ============================================================================
@@ -235,6 +248,11 @@ model Clinic {
   nfseConfig             NfseConfig?
   intakeSubmissions      IntakeSubmission[]
   repassePayments        RepassePayment[]
+  expenses               Expense[]
+  expenseCategories      ExpenseCategory[]
+  expenseRecurrences     ExpenseRecurrence[]
+  expenseReconciliationLinks ExpenseReconciliationLink[]
+  expenseCategoryPatterns    ExpenseCategoryPattern[]
 
   @@index([slug])
   @@index([isActive])
@@ -261,6 +279,8 @@ model User {
   reconciliationLinks    ReconciliationLink[]
   dismissedTransactions  BankTransaction[]    @relation("DismissedTransactions")
   reviewedIntakeSubmissions IntakeSubmission[]
+  createdExpenses            Expense[]                    @relation("CreatedExpenses")
+  reconciledExpenseLinks     ExpenseReconciliationLink[]  @relation("ReconciledExpenses")
 
   @@unique([clinicId, email])
   @@index([clinicId])
@@ -1030,6 +1050,8 @@ model BankIntegration {
 enum TransactionDismissReason {
   DUPLICATE
   NOT_PATIENT
+  PERSONAL_EXPENSE
+  TRANSFER
 }
 
 /// Bank transaction fetched from bank API
@@ -1052,6 +1074,7 @@ model BankTransaction {
   bankIntegration     BankIntegration      @relation(fields: [bankIntegrationId], references: [id], onDelete: Cascade)
   dismissedByUser     User?                @relation("DismissedTransactions", fields: [dismissedByUserId], references: [id], onDelete: SetNull)
   reconciliationLinks ReconciliationLink[]
+  expenseReconciliationLinks ExpenseReconciliationLink[]
 
   @@unique([clinicId, externalId])
   @@index([clinicId])
@@ -1136,4 +1159,121 @@ model AdnLog {
 
   @@index([clinicId, createdAt])
   @@index([invoiceId])
+}
+
+// ============================================================================
+// ACCOUNTS PAYABLE (EXPENSE) MODELS
+// ============================================================================
+
+/// Configurable expense categories per clinic (seeded with defaults)
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  clinicId  String
+  name      String
+  color     String   @default("#6B7280")
+  icon      String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic   Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+  patterns ExpenseCategoryPattern[]
+
+  @@unique([clinicId, name])
+  @@index([clinicId])
+}
+
+/// Individual expense (bill, obligation, recurring cost)
+model Expense {
+  id              String        @id @default(cuid())
+  clinicId        String
+  categoryId      String?
+  recurrenceId    String?
+  description     String
+  supplierName    String?
+  amount          Decimal       @db.Decimal(10, 2)
+  dueDate         DateTime      @db.Date
+  paidAt          DateTime?
+  status          ExpenseStatus @default(OPEN)
+  paymentMethod   String?
+  notes           String?
+  createdByUserId String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  clinic              Clinic                       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  category            ExpenseCategory?             @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  recurrence          ExpenseRecurrence?           @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  createdByUser       User?                        @relation("CreatedExpenses", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  reconciliationLinks ExpenseReconciliationLink[]
+
+  @@index([clinicId])
+  @@index([clinicId, status])
+  @@index([clinicId, dueDate])
+  @@index([clinicId, categoryId])
+  @@index([recurrenceId])
+}
+
+/// Template for automatically generating recurring expenses
+model ExpenseRecurrence {
+  id                String           @id @default(cuid())
+  clinicId          String
+  categoryId        String?
+  description       String
+  supplierName      String?
+  amount            Decimal          @db.Decimal(10, 2)
+  paymentMethod     String?
+  frequency         ExpenseFrequency @default(MONTHLY)
+  dayOfMonth        Int              @default(1)
+  startDate         DateTime         @db.Date
+  endDate           DateTime?        @db.Date
+  lastGeneratedDate DateTime?        @db.Date
+  active            Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  clinic   Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+
+  @@index([clinicId])
+  @@index([clinicId, active])
+}
+
+/// Links bank transactions (DEBIT) to expenses for reconciliation
+model ExpenseReconciliationLink {
+  id                 String   @id @default(cuid())
+  clinicId           String
+  transactionId      String
+  expenseId          String
+  amount             Decimal  @db.Decimal(10, 2)
+  reconciledAt       DateTime @default(now())
+  reconciledByUserId String?
+
+  clinic           Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  transaction      BankTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  expense          Expense         @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  reconciledByUser User?           @relation("ReconciledExpenses", fields: [reconciledByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([transactionId, expenseId])
+  @@index([expenseId])
+  @@index([clinicId])
+}
+
+/// Learned patterns for auto-categorizing expenses from bank descriptions
+model ExpenseCategoryPattern {
+  id                    String   @id @default(cuid())
+  clinicId              String
+  categoryId            String?
+  normalizedDescription String
+  supplierName          String?
+  matchCount            Int      @default(1)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  clinic   Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  category ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@unique([clinicId, normalizedDescription])
+  @@index([clinicId])
 }

@@ -162,6 +162,7 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     availability_own: "WRITE",
     availability_others: "WRITE",
     finances: "WRITE",
+    expenses: "WRITE",
   },
   PROFESSIONAL: {
     agenda_own: "WRITE",
@@ -176,6 +177,7 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     availability_own: "WRITE",
     availability_others: "NONE",
     finances: "WRITE",
+    expenses: "NONE",
   },
 }
 
