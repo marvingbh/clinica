@@ -7,6 +7,7 @@ import {
   aggregateByWeek,
   aggregateByMonth,
 } from "@/lib/cashflow"
+import { generateExpensesFromRecurrence } from "@/lib/expenses"
 import type { InvoiceForCashFlow, ExpenseForCashFlow, RepasseForCashFlow, Granularity } from "@/lib/cashflow"
 
 export const GET = withFeatureAuth(
@@ -23,7 +24,7 @@ export const GET = withFeatureAuth(
     const endDate = endDateStr ? new Date(endDateStr) : new Date(now.getFullYear(), now.getMonth() + 3, 0)
 
     // Parallel queries
-    const [invoices, expenses, repassePayments] = await Promise.all([
+    const [invoices, expenses, repassePayments, activeRecurrences] = await Promise.all([
       prisma.invoice.findMany({
         where: {
           clinicId: user.clinicId,
@@ -58,6 +59,7 @@ export const GET = withFeatureAuth(
           dueDate: true,
           paidAt: true,
           status: true,
+          recurrenceId: true,
         },
       }),
       prisma.repassePayment.findMany({
@@ -78,7 +80,40 @@ export const GET = withFeatureAuth(
           professionalProfile: { select: { user: { select: { name: true } } } },
         },
       }),
+      prisma.expenseRecurrence.findMany({
+        where: { clinicId: user.clinicId, active: true },
+      }),
     ])
+
+    // Generate projected expenses from active recurrences that don't yet have
+    // materialized expenses in the window. This fills gaps beyond the cron's
+    // 3-month generation horizon.
+    const existingRecurrenceExpenseDates = new Set(
+      expenses
+        .filter((e) => e.recurrenceId)
+        .map((e) => `${e.recurrenceId}-${e.dueDate.toISOString().split("T")[0]}`)
+    )
+
+    const projectedFromRecurrences: ExpenseForCashFlow[] = []
+    for (const rec of activeRecurrences) {
+      const generated = generateExpensesFromRecurrence(
+        { ...rec, amount: Number(rec.amount) },
+        endDate
+      )
+      for (const g of generated) {
+        const key = `${rec.id}-${g.dueDate.toISOString().split("T")[0]}`
+        if (!existingRecurrenceExpenseDates.has(key)) {
+          projectedFromRecurrences.push({
+            id: `projected-${rec.id}-${g.dueDate.toISOString().split("T")[0]}`,
+            description: `${g.description} (projetado)`,
+            amount: g.amount,
+            dueDate: g.dueDate,
+            paidAt: null,
+            status: "PROJECTED",
+          })
+        }
+      }
+    }
 
     const invoicesForCashFlow: InvoiceForCashFlow[] = invoices.map((inv) => ({
       id: inv.id,
@@ -89,14 +124,17 @@ export const GET = withFeatureAuth(
       patientName: inv.patient?.name,
     }))
 
-    const expensesForCashFlow: ExpenseForCashFlow[] = expenses.map((exp) => ({
-      id: exp.id,
-      description: exp.description,
-      amount: Number(exp.amount),
-      dueDate: exp.dueDate,
-      paidAt: exp.paidAt,
-      status: exp.status,
-    }))
+    const expensesForCashFlow: ExpenseForCashFlow[] = [
+      ...expenses.map((exp) => ({
+        id: exp.id,
+        description: exp.description,
+        amount: Number(exp.amount),
+        dueDate: exp.dueDate,
+        paidAt: exp.paidAt,
+        status: exp.status,
+      })),
+      ...projectedFromRecurrences,
+    ]
 
     const repasseForCashFlow: RepasseForCashFlow[] = repassePayments.map((rep) => ({
       id: rep.id,
