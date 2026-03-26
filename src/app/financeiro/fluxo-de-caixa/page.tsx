@@ -43,7 +43,9 @@ export default function FluxoDeCaixaPage() {
   } | null>(null)
   const [taxEstimate, setTaxEstimate] = useState<{
     regime: string; totalTax: number; effectiveRate: number;
-    breakdown: { name: string; amount: number; rate: number }[];
+    monthlyTotal: number; quarterlyTotal: number; quarterlyDueThisMonth: boolean;
+    nextQuarterlyDueMonth?: number;
+    breakdown: { name: string; amount: number; rate: number; period: string }[];
   } | null>(null)
   const [projectedExpenses, setProjectedExpenses] = useState<number>(0)
   const [todayDivider, setTodayDivider] = useState<string | null>(null)
@@ -274,10 +276,23 @@ export default function FluxoDeCaixaPage() {
                 <p className="text-2xl font-bold text-red-600">{formatCurrency(taxEstimate.totalTax)}</p>
                 <div className="text-xs text-muted-foreground space-y-1">
                   <p>Regime: {taxEstimate.regime}</p>
-                  <p>Alíquota efetiva: {(taxEstimate.effectiveRate * 100).toFixed(1)}%</p>
-                  {taxEstimate.breakdown.map((b) => (
-                    <p key={b.name}>{b.name}: {formatCurrency(b.amount)} ({(b.rate * 100).toFixed(2)}%)</p>
+                  <p className="font-medium mt-1">Mensais: {formatCurrency(taxEstimate.monthlyTotal)}</p>
+                  {taxEstimate.breakdown.filter(b => b.period === "mensal").map((b) => (
+                    <p key={b.name} className="ml-2">{b.name}: {formatCurrency(b.amount)}</p>
                   ))}
+                  {taxEstimate.quarterlyDueThisMonth ? (
+                    <>
+                      <p className="font-medium mt-1">Trimestrais (vence este mês): {formatCurrency(taxEstimate.quarterlyTotal)}</p>
+                      {taxEstimate.breakdown.filter(b => b.period === "trimestral").map((b) => (
+                        <p key={b.name} className="ml-2">{b.name}: {formatCurrency(b.amount)}</p>
+                      ))}
+                    </>
+                  ) : taxEstimate.nextQuarterlyDueMonth ? (
+                    <p className="mt-1">IRPJ + CSLL: próximo vencimento em {
+                      ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+                       "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][taxEstimate.nextQuarterlyDueMonth]
+                    }</p>
+                  ) : null}
                 </div>
               </div>
             )}

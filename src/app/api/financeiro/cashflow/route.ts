@@ -209,12 +209,24 @@ export const GET = withFeatureAuth(
     }))._sum.totalAmount ?? 0)
     const regime = nfseConfig?.regimeTributario ?? "3"
     const issRate = nfseConfig?.aliquotaIss ? Number(nfseConfig.aliquotaIss) / 100 : 0.05
-    const taxEstimateData = estimateTax(regime, revProjection.projectedRevenue, rbt12, issRate)
+    // Pass month (1-12) and estimated quarter revenue for proper periodicity
+    const projMonth = startDate.getMonth() + 1
+    const quarterRevenue = revProjection.projectedRevenue * 3 // estimate
+    const taxEstimateData = estimateTax(regime, revProjection.projectedRevenue, projMonth, quarterRevenue, rbt12, issRate)
 
-    if (taxEstimateData.totalTax > 0) {
+    // Add monthly taxes (PIS + COFINS + ISS) — always due
+    if (taxEstimateData.monthlyTotal > 0) {
       const taxDate = new Date(startDate.getFullYear(), startDate.getMonth(), 20)
       if (taxDate >= startDate && taxDate <= endDate) {
-        expensesForCF.push({ id: "projected-tax", description: `Impostos (${taxEstimateData.regime})`, amount: taxEstimateData.totalTax, dueDate: taxDate, paidAt: null, status: "PROJECTED" })
+        expensesForCF.push({ id: "projected-tax-monthly", description: `Impostos mensais (ISS + PIS + COFINS)`, amount: taxEstimateData.monthlyTotal, dueDate: taxDate, paidAt: null, status: "PROJECTED" })
+      }
+    }
+
+    // Add quarterly taxes (IRPJ + CSLL) — only in quarter payment months
+    if (taxEstimateData.quarterlyDueThisMonth && taxEstimateData.quarterlyTotal > 0) {
+      const taxDate = new Date(startDate.getFullYear(), startDate.getMonth(), 20)
+      if (taxDate >= startDate && taxDate <= endDate) {
+        expensesForCF.push({ id: "projected-tax-quarterly", description: `IRPJ + CSLL (trimestral)`, amount: taxEstimateData.quarterlyTotal, dueDate: taxDate, paidAt: null, status: "PROJECTED" })
       }
     }
 
@@ -238,7 +250,7 @@ export const GET = withFeatureAuth(
     // --- BUILD PROJECTION (no starting balance — pure in/out for the month) ---
     // Calculate expenses total excluding tax and repasse (they're shown separately)
     const recurringAndOpenExpenses = expensesForCF.filter(
-      (e) => !e.id.startsWith("projected-tax") && !e.id.startsWith("repasse-")
+      (e) => !e.id.startsWith("projected-tax-") && !e.id.startsWith("repasse-")
     )
     const totalProjectedExpenses = recurringAndOpenExpenses.reduce((s, e) => s + e.amount, 0)
     const projection = calculateProjection(invoicesForCF, expensesForCF, [], startDate, endDate, 0, todayStr)
