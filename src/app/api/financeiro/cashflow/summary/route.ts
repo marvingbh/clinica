@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 
 export const GET = withFeatureAuth(
-  { feature: "expenses", minAccess: "READ" },
+  { feature: "finances", minAccess: "READ" },
   async (req, { user }) => {
     const now = new Date()
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
