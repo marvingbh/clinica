@@ -245,6 +245,7 @@ export const GET = withFeatureAuth(
       alerts,
       summary: projection.summary,
       balanceSource,
+      lastKnownBalance: bankIntegration?.lastKnownBalance ? Number(bankIntegration.lastKnownBalance) : null,
       balanceFetchedAt: bankIntegration?.balanceFetchedAt ?? null,
     })
   }
