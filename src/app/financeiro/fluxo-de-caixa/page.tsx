@@ -39,13 +39,14 @@ export default function FluxoDeCaixaPage() {
   const [balanceFetchedAt, setBalanceFetchedAt] = useState<string | null>(null)
   const [revenueProjection, setRevenueProjection] = useState<{
     totalAppointments: number; grossRevenue: number; cancellationRate: number;
-    projectedRevenue: number; totalEstimatedRepasse: number;
+    projectedRevenue: number; totalEstimatedRepasse: number; actualRevenue: number;
   } | null>(null)
   const [taxEstimate, setTaxEstimate] = useState<{
     regime: string; totalTax: number; effectiveRate: number;
     breakdown: { name: string; amount: number; rate: number }[];
   } | null>(null)
   const [projectedExpenses, setProjectedExpenses] = useState<number>(0)
+  const [todayDivider, setTodayDivider] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
 
   const loadData = useCallback(async () => {
@@ -86,6 +87,7 @@ export default function FluxoDeCaixaPage() {
       setRevenueProjection(data.revenueProjection ?? null)
       setTaxEstimate(data.taxEstimate ?? null)
       setProjectedExpenses(data.projectedExpenses ?? 0)
+      setTodayDivider(data.todayDivider ?? null)
     } catch (err) {
       console.error("Cashflow fetch error:", err)
     }
@@ -244,11 +246,16 @@ export default function FluxoDeCaixaPage() {
         <div className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="rounded-lg border p-4 space-y-2">
-              <h3 className="text-sm font-medium">Receita Projetada</h3>
-              <p className="text-2xl font-bold text-green-600">{formatCurrency(revenueProjection.projectedRevenue)}</p>
+              <h3 className="text-sm font-medium">Receita do Mês</h3>
+              <p className="text-2xl font-bold text-green-600">
+                {formatCurrency((revenueProjection.actualRevenue ?? 0) + revenueProjection.projectedRevenue)}
+              </p>
               <div className="text-xs text-muted-foreground space-y-1">
-                <p>{revenueProjection.totalAppointments} sessões agendadas</p>
-                <p>Receita bruta: {formatCurrency(revenueProjection.grossRevenue)}</p>
+                {revenueProjection.actualRevenue > 0 && (
+                  <p>Recebido até hoje: {formatCurrency(revenueProjection.actualRevenue)}</p>
+                )}
+                <p>Projetado restante: {formatCurrency(revenueProjection.projectedRevenue)}</p>
+                <p>{revenueProjection.totalAppointments} sessões futuras agendadas</p>
                 <p>Taxa de cancelamento: {(revenueProjection.cancellationRate * 100).toFixed(1)}%</p>
               </div>
             </div>
@@ -301,9 +308,9 @@ export default function FluxoDeCaixaPage() {
 
       {/* Chart or Table */}
       {viewMode === "chart" ? (
-        <CashFlowChart entries={entries} granularity={granularity} />
+        <CashFlowChart entries={entries} granularity={granularity} todayDivider={cashFlowView === "projetado" ? todayDivider : null} />
       ) : (
-        <CashFlowTable entries={entries} granularity={granularity} />
+        <CashFlowTable entries={entries} granularity={granularity} todayDivider={cashFlowView === "projetado" ? todayDivider : null} />
       )}
     </div>
   )

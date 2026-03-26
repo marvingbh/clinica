@@ -11,6 +11,7 @@ interface Entry {
 interface CashFlowTableProps {
   entries: Entry[]
   granularity: string
+  todayDivider?: string | null
 }
 
 function formatCurrency(value: number) {
@@ -24,7 +25,7 @@ function formatDate(dateStr: string, granularity: string) {
   return `${d}/${m}/${y}`
 }
 
-export function CashFlowTable({ entries, granularity }: CashFlowTableProps) {
+export function CashFlowTable({ entries, granularity, todayDivider }: CashFlowTableProps) {
   if (entries.length === 0) {
     return <div className="text-center py-8 text-muted-foreground">Sem dados para o período</div>
   }
@@ -47,8 +48,18 @@ export function CashFlowTable({ entries, granularity }: CashFlowTableProps) {
           </tr>
         </thead>
         <tbody className="divide-y">
-          {filtered.map((entry) => (
-            <tr key={entry.date} className="hover:bg-muted/30">
+          {filtered.map((entry, i) => {
+            const isProjected = todayDivider ? entry.date > todayDivider : false
+            const showDivider = todayDivider && i > 0 && filtered[i - 1].date <= todayDivider && entry.date > todayDivider
+            return (<>
+            {showDivider && (
+              <tr key={`divider-${entry.date}`} className="bg-indigo-50">
+                <td colSpan={5} className="px-4 py-1 text-xs text-center text-indigo-600 font-medium">
+                  Hoje — abaixo: projetado
+                </td>
+              </tr>
+            )}
+            <tr key={entry.date} className={`hover:bg-muted/30 ${isProjected ? "bg-muted/10 text-muted-foreground" : ""}`}>
               <td className="px-4 py-2">{formatDate(entry.date, granularity)}</td>
               <td className="px-4 py-2 text-right text-green-700">
                 {entry.inflow > 0 ? formatCurrency(entry.inflow) : "—"}
@@ -63,7 +74,7 @@ export function CashFlowTable({ entries, granularity }: CashFlowTableProps) {
                 {formatCurrency(entry.runningBalance)}
               </td>
             </tr>
-          ))}
+          </>)})}
         </tbody>
       </table>
     </div>

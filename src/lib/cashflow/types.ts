@@ -4,6 +4,7 @@ export interface CashFlowEntry {
   outflow: number
   net: number
   runningBalance: number
+  isProjected?: boolean // true for dates after today in projetado mode
   details: {
     invoices: { id: string; description: string; amount: number; status: string }[]
     expenses: { id: string; description: string; amount: number; status: string }[]
