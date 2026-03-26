@@ -54,25 +54,16 @@ export default function FluxoDeCaixaPage() {
     let startDate: string
     let endDate: string
 
-    if (cashFlowView === "projetado") {
-      // Projected: from start of selected month/year forward 90 days
-      const start = month
-        ? new Date(year, month - 1, 1)
-        : new Date(year, 0, 1)
-      const end = new Date(start.getTime() + 90 * 24 * 60 * 60 * 1000)
+    // Both modes use the same date window from the month/year filter.
+    // The difference is what data is included (realizado = paid only, projetado = includes projections).
+    if (month) {
+      const start = new Date(year, month - 1, 1)
+      const end = new Date(year, month, 0) // last day of month
       startDate = start.toISOString().split("T")[0]
       endDate = end.toISOString().split("T")[0]
     } else {
-      // Realized: exact selected period
-      if (month) {
-        const start = new Date(year, month - 1, 1)
-        const end = new Date(year, month, 0)
-        startDate = start.toISOString().split("T")[0]
-        endDate = end.toISOString().split("T")[0]
-      } else {
-        startDate = `${year}-01-01`
-        endDate = `${year}-12-31`
-      }
+      startDate = `${year}-01-01`
+      endDate = `${year}-12-31`
     }
 
     const params = new URLSearchParams({ startDate, endDate, granularity, mode: cashFlowView })
