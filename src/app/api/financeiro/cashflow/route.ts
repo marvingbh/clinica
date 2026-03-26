@@ -309,17 +309,48 @@ export const GET = withFeatureAuth(
         }
       }
 
-      // Remaining repasse estimate
-      const repasseAlreadyPaid = repassePayments.filter((r) => r.paidAt && r.paidAt <= today).reduce((s, r) => s + Number(r.repasseAmount), 0)
-      const totalEstRepasse = revProjection.totalEstimatedRepasse
-      const remainingRepasse = Math.max(0, totalEstRepasse - repasseAlreadyPaid)
+      // Remaining repasse: only for professionals who DON'T have a RepassePayment
+      // for this month yet (i.e., not yet paid)
+      const paidProfIds = new Set(
+        repassePayments
+          .filter((r) => r.referenceMonth === (startDate.getMonth() + 1) && r.referenceYear === startDate.getFullYear())
+          .map((r) => r.professionalProfile?.user?.name ?? r.id) // use name for display
+      )
+      const paidProfProfileIds = new Set(
+        (await prisma.repassePayment.findMany({
+          where: {
+            clinicId: user.clinicId,
+            referenceMonth: startDate.getMonth() + 1,
+            referenceYear: startDate.getFullYear(),
+          },
+          select: { professionalProfileId: true },
+        })).map((r) => r.professionalProfileId)
+      )
 
-      if (remainingRepasse > 0) {
-        const repasseDate = new Date(startDate.getFullYear(), startDate.getMonth(), 15)
-        const effectiveDate = repasseDate > today ? repasseDate : new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate())
-        if (effectiveDate <= endDate) {
-          expensesForCashFlow.push({ id: "projected-repasse", description: "Repasse profissional (projetado)", amount: remainingRepasse, dueDate: effectiveDate, paidAt: null, status: "PROJECTED" })
+      const unpaidRepasse = revProjection.byProfessional
+        .filter((p) => !paidProfProfileIds.has(p.professionalId))
+
+      for (const prof of unpaidRepasse) {
+        if (prof.estimatedRepasse > 0) {
+          const repasseDate = new Date(startDate.getFullYear(), startDate.getMonth(), 15)
+          const effectiveDate = repasseDate > today ? repasseDate : new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate())
+          if (effectiveDate <= endDate) {
+            expensesForCashFlow.push({
+              id: `projected-repasse-${prof.professionalId}`,
+              description: "Repasse profissional (projetado)",
+              amount: prof.estimatedRepasse,
+              dueDate: effectiveDate,
+              paidAt: null,
+              status: "PROJECTED",
+            })
+          }
         }
+      }
+
+      // Update the total for the response
+      revenueProjectionData = {
+        ...revProjection,
+        totalEstimatedRepasse: unpaidRepasse.reduce((s, p) => s + p.estimatedRepasse, 0),
       }
     }
 
