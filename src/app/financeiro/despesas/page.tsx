@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Plus, Upload, Building2, Repeat } from "lucide-react"
+import { Plus, Upload, Building2, Repeat, PieChart } from "lucide-react"
 import Link from "next/link"
 import { useFinanceiroContext } from "../context/FinanceiroContext"
 import { ExpenseStatusBadge } from "./components/ExpenseStatusBadge"
@@ -136,6 +136,12 @@ export default function DespesasPage() {
           </select>
         </div>
         <div className="flex gap-2">
+          <Link
+            href="/financeiro/despesas/analise"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-input hover:bg-muted"
+          >
+            <PieChart className="h-4 w-4" /> Análise
+          </Link>
           <Link
             href="/financeiro/despesas/recorrencias"
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-input hover:bg-muted"
