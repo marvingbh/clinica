@@ -24,18 +24,29 @@ export const GET = withFeatureAuth(
 
     const now = new Date()
 
-    // Parse date strings as LOCAL dates (not UTC) to avoid timezone issues.
-    // new Date("2026-04-01") creates UTC midnight which is March 31 in UTC-3.
-    // Instead, split the string and use new Date(y, m-1, d) for local midnight.
+    // Two date representations needed:
+    // 1. UTC dates for Prisma queries (paidAt is stored as UTC timestamps)
+    // 2. Local dates for recurrence generation (uses new Date(y, m, d))
+    function parseUTCDate(str: string): Date {
+      return new Date(str + "T00:00:00.000Z")
+    }
     function parseLocalDate(str: string): Date {
       const [y, m, d] = str.split("-").map(Number)
       return new Date(y, m - 1, d)
     }
 
-    const startDate = startDateStr ? parseLocalDate(startDateStr) : new Date(now.getFullYear(), now.getMonth(), 1)
-    const endDate = endDateStr ? parseLocalDate(endDateStr) : new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    // For Prisma queries: UTC midnight
+    const startDate = startDateStr ? parseUTCDate(startDateStr) : new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1))
+    const endDate = endDateStr ? parseUTCDate(endDateStr) : new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0))
+    // For recurrence and date logic: local dates
+    const localStartDate = startDateStr ? parseLocalDate(startDateStr) : new Date(now.getFullYear(), now.getMonth(), 1)
+    const localEndDate = endDateStr ? parseLocalDate(endDateStr) : new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
     const isProjetado = mode === "projetado"
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+    // Month/year from local date (for tax, repasse, recurrence logic)
+    const selectedMonth = localStartDate.getMonth() + 1 // 1-12
+    const selectedYear = localStartDate.getFullYear()
 
     // Bank integration for balance display
     const bankIntegration = await prisma.bankIntegration.findFirst({
@@ -134,7 +145,7 @@ export const GET = withFeatureAuth(
       }),
       // Which professionals already got paid for this month
       prisma.repassePayment.findMany({
-        where: { clinicId: user.clinicId, referenceMonth: startDate.getMonth() + 1, referenceYear: startDate.getFullYear() },
+        where: { clinicId: user.clinicId, referenceMonth: selectedMonth, referenceYear: selectedYear },
         select: { professionalProfileId: true },
       }),
     ])
@@ -182,8 +193,8 @@ export const GET = withFeatureAuth(
     }
 
     // Use local dates for recurrence generation to avoid UTC/local timezone mismatch
-    const localStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
-    const localEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate())
+    const localStart = localStartDate
+    const localEnd = localEndDate
     const dayBeforeStart = new Date(localStart)
     dayBeforeStart.setDate(dayBeforeStart.getDate() - 1)
 
@@ -208,12 +219,12 @@ export const GET = withFeatureAuth(
     // - Quarterly taxes due in April → based on Q1 (Jan-Mar) revenue
     const regime = nfseConfig?.regimeTributario ?? "3"
     const issRate = nfseConfig?.aliquotaIss ? Number(nfseConfig.aliquotaIss) / 100 : 0.05
-    const projMonth = startDate.getMonth() + 1
-    const projYear = startDate.getFullYear()
+    const projMonth = selectedMonth
+    const projYear = selectedYear
 
     // Previous month revenue (for monthly taxes)
-    const prevMonthStart = new Date(projYear, projMonth - 2, 1) // month is 1-indexed, Date uses 0-indexed
-    const prevMonthEnd = new Date(projYear, projMonth - 1, 0) // last day of prev month
+    const prevMonthStart = new Date(Date.UTC(projYear, projMonth - 2, 1))
+    const prevMonthEnd = new Date(Date.UTC(projYear, projMonth - 1, 0)) // last day of prev month
     const prevMonthRevenue = Number((await prisma.invoice.aggregate({
       where: { clinicId: user.clinicId, status: "PAGO", paidAt: { gte: prevMonthStart, lte: prevMonthEnd } },
       _sum: { totalAmount: true },
@@ -231,8 +242,8 @@ export const GET = withFeatureAuth(
     if (quarterMap[projMonth]) {
       const [qStartMonth, qEndMonth] = quarterMap[projMonth]
       const qYear = projMonth === 1 ? projYear - 1 : projYear
-      const qStart = new Date(qYear, qStartMonth, 1)
-      const qEnd = new Date(qYear, qEndMonth + 1, 0) // last day
+      const qStart = new Date(Date.UTC(qYear, qStartMonth, 1))
+      const qEnd = new Date(Date.UTC(qYear, qEndMonth + 1, 0))
       prevQuarterRevenue = Number((await prisma.invoice.aggregate({
         where: { clinicId: user.clinicId, status: "PAGO", paidAt: { gte: qStart, lte: qEnd } },
         _sum: { totalAmount: true },
@@ -249,7 +260,7 @@ export const GET = withFeatureAuth(
 
     // Add monthly taxes (PIS + COFINS + ISS) — always due
     if (taxEstimateData.monthlyTotal > 0) {
-      const taxDate = new Date(startDate.getFullYear(), startDate.getMonth(), 20)
+      const taxDate = new Date(Date.UTC(projYear, projMonth - 1, 20))
       if (taxDate >= startDate && taxDate <= endDate) {
         expensesForCF.push({ id: "projected-tax-monthly", description: `Impostos mensais (ISS + PIS + COFINS)`, amount: taxEstimateData.monthlyTotal, dueDate: taxDate, paidAt: null, status: "PROJECTED" })
       }
@@ -257,7 +268,7 @@ export const GET = withFeatureAuth(
 
     // Add quarterly taxes (IRPJ + CSLL) — only in quarter payment months
     if (taxEstimateData.quarterlyDueThisMonth && taxEstimateData.quarterlyTotal > 0) {
-      const taxDate = new Date(startDate.getFullYear(), startDate.getMonth(), 20)
+      const taxDate = new Date(Date.UTC(projYear, projMonth - 1, 20))
       if (taxDate >= startDate && taxDate <= endDate) {
         expensesForCF.push({ id: "projected-tax-quarterly", description: `IRPJ + CSLL (trimestral)`, amount: taxEstimateData.quarterlyTotal, dueDate: taxDate, paidAt: null, status: "PROJECTED" })
       }
@@ -274,7 +285,7 @@ export const GET = withFeatureAuth(
           id: `repasse-${prof.professionalId}`,
           description: "Repasse profissional (estimado)",
           amount: prof.estimatedRepasse,
-          dueDate: new Date(startDate.getFullYear(), startDate.getMonth(), 15),
+          dueDate: new Date(Date.UTC(projYear, projMonth - 1, 15)),
           paidAt: null, status: "PROJECTED",
         })
       }
