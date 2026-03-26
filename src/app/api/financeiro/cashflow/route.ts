@@ -203,16 +203,49 @@ export const GET = withFeatureAuth(
     }
 
     // --- TAX estimate ---
+    // Taxes are always on PREVIOUS period revenue:
+    // - Monthly taxes due in April → based on March revenue
+    // - Quarterly taxes due in April → based on Q1 (Jan-Mar) revenue
+    const regime = nfseConfig?.regimeTributario ?? "3"
+    const issRate = nfseConfig?.aliquotaIss ? Number(nfseConfig.aliquotaIss) / 100 : 0.05
+    const projMonth = startDate.getMonth() + 1
+    const projYear = startDate.getFullYear()
+
+    // Previous month revenue (for monthly taxes)
+    const prevMonthStart = new Date(projYear, projMonth - 2, 1) // month is 1-indexed, Date uses 0-indexed
+    const prevMonthEnd = new Date(projYear, projMonth - 1, 0) // last day of prev month
+    const prevMonthRevenue = Number((await prisma.invoice.aggregate({
+      where: { clinicId: user.clinicId, status: "PAGO", paidAt: { gte: prevMonthStart, lte: prevMonthEnd } },
+      _sum: { totalAmount: true },
+    }))._sum.totalAmount ?? 0) || revProjection.projectedRevenue // fallback to projection if no actual data
+
+    // Previous quarter revenue (for quarterly taxes)
+    // Q1 payment (Apr) → Jan-Mar, Q2 (Jul) → Apr-Jun, Q3 (Oct) → Jul-Sep, Q4 (Jan) → Oct-Dec
+    const quarterMap: Record<number, [number, number]> = {
+      4: [0, 2],   // Apr: Jan(0)-Mar(2)
+      7: [3, 5],   // Jul: Apr(3)-Jun(5)
+      10: [6, 8],  // Oct: Jul(6)-Sep(8)
+      1: [9, 11],  // Jan: Oct(9)-Dec(11) of prev year
+    }
+    let prevQuarterRevenue: number | undefined
+    if (quarterMap[projMonth]) {
+      const [qStartMonth, qEndMonth] = quarterMap[projMonth]
+      const qYear = projMonth === 1 ? projYear - 1 : projYear
+      const qStart = new Date(qYear, qStartMonth, 1)
+      const qEnd = new Date(qYear, qEndMonth + 1, 0) // last day
+      prevQuarterRevenue = Number((await prisma.invoice.aggregate({
+        where: { clinicId: user.clinicId, status: "PAGO", paidAt: { gte: qStart, lte: qEnd } },
+        _sum: { totalAmount: true },
+      }))._sum.totalAmount ?? 0) || revProjection.projectedRevenue * 3 // fallback
+    }
+
+    // RBT12 for Simples Nacional
     const rbt12 = Number((await prisma.invoice.aggregate({
       where: { clinicId: user.clinicId, status: "PAGO", paidAt: { gte: new Date(now.getFullYear() - 1, now.getMonth(), 1), lt: now } },
       _sum: { totalAmount: true },
     }))._sum.totalAmount ?? 0)
-    const regime = nfseConfig?.regimeTributario ?? "3"
-    const issRate = nfseConfig?.aliquotaIss ? Number(nfseConfig.aliquotaIss) / 100 : 0.05
-    // Pass month (1-12) and estimated quarter revenue for proper periodicity
-    const projMonth = startDate.getMonth() + 1
-    const quarterRevenue = revProjection.projectedRevenue * 3 // estimate
-    const taxEstimateData = estimateTax(regime, revProjection.projectedRevenue, projMonth, quarterRevenue, rbt12, issRate)
+
+    const taxEstimateData = estimateTax(regime, prevMonthRevenue, projMonth, prevQuarterRevenue, rbt12, issRate)
 
     // Add monthly taxes (PIS + COFINS + ISS) — always due
     if (taxEstimateData.monthlyTotal > 0) {
