@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react"
 import { toast } from "sonner"
-import { Building2, RefreshCw, Check, X, Repeat, CheckCircle2 } from "lucide-react"
+import { Building2, RefreshCw, Check, X, Repeat, CheckCircle2, Calendar, Clock } from "lucide-react"
 
 interface DebitTransaction {
   id: string
@@ -33,13 +33,24 @@ interface Suggestion {
   expense: { id: string; description: string; dueDate: string; amount: string } | null
 }
 
+interface ScheduledPayment {
+  codigoTransacao: string
+  dataVencimento: string
+  valor: number
+  descricao: string
+  alreadyImported: boolean
+  suggestion: { categoryId: string | null; categoryName: string | null; supplierName: string | null; confidence: string } | null
+}
+
 export default function InterImportPage() {
   const [transactions, setTransactions] = useState<DebitTransaction[]>([])
   const [autoReconciled, setAutoReconciled] = useState<AutoReconciledItem[]>([])
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [scheduledPayments, setScheduledPayments] = useState<ScheduledPayment[]>([])
   const [loaded, setLoaded] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [creating, setCreating] = useState<string | null>(null)
+  const [importingScheduled, setImportingScheduled] = useState(false)
 
   const loadTransactions = useCallback(async () => {
     const res = await fetch("/api/financeiro/conciliacao/debit-transactions")
@@ -74,12 +85,77 @@ export default function InterImportPage() {
       if (reconcileData.suggestions?.length > 0) parts.push(`${reconcileData.suggestions.length} sugestões`)
       toast.success(parts.join(", ") || "Nenhum débito encontrado")
 
-      // 3. Reload unmatched transactions
+      // 3. Fetch scheduled payments
+      const scheduledRes = await fetch("/api/financeiro/despesas/scheduled")
+      if (scheduledRes.ok) {
+        const scheduledData = await scheduledRes.json()
+        setScheduledPayments(scheduledData.payments?.filter((p: ScheduledPayment) => !p.alreadyImported) ?? [])
+        if (scheduledData.pending > 0) parts.push(`${scheduledData.pending} agendados`)
+      }
+
+      toast.success(parts.join(", ") || "Nenhuma transação encontrada")
+
+      // 4. Reload unmatched transactions
       loadTransactions()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao buscar do Inter")
     } finally {
       setFetching(false)
+    }
+  }
+
+  async function handleImportScheduled(payment: ScheduledPayment) {
+    setCreating(payment.codigoTransacao)
+    try {
+      const res = await fetch("/api/financeiro/despesas/scheduled", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payments: [{
+            codigoTransacao: payment.codigoTransacao,
+            dataVencimento: payment.dataVencimento,
+            valor: payment.valor,
+            descricao: payment.descricao,
+            categoryId: payment.suggestion?.categoryId ?? null,
+            supplierName: payment.suggestion?.supplierName ?? null,
+          }],
+        }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error)
+      toast.success("Despesa criada a partir do agendamento")
+      setScheduledPayments((prev) => prev.filter((p) => p.codigoTransacao !== payment.codigoTransacao))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao importar agendamento")
+    } finally {
+      setCreating(null)
+    }
+  }
+
+  async function handleImportAllScheduled() {
+    setImportingScheduled(true)
+    try {
+      const res = await fetch("/api/financeiro/despesas/scheduled", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payments: scheduledPayments.map((p) => ({
+            codigoTransacao: p.codigoTransacao,
+            dataVencimento: p.dataVencimento,
+            valor: p.valor,
+            descricao: p.descricao,
+            categoryId: p.suggestion?.categoryId ?? null,
+            supplierName: p.suggestion?.supplierName ?? null,
+          })),
+        }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error)
+      const data = await res.json()
+      toast.success(`${data.created} despesas criadas a partir de agendamentos`)
+      setScheduledPayments([])
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao importar agendamentos")
+    } finally {
+      setImportingScheduled(false)
     }
   }
 
@@ -232,6 +308,50 @@ export default function InterImportPage() {
                 className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-md bg-green-100 text-green-700 hover:bg-green-200 shrink-0"
               >
                 <Check className="h-3.5 w-3.5" /> Confirmar
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Scheduled payments from Inter */}
+      {scheduledPayments.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-medium flex items-center gap-1.5">
+              <Clock className="h-4 w-4 text-amber-600" />
+              Pagamentos Agendados ({scheduledPayments.length})
+            </h3>
+            <button
+              onClick={handleImportAllScheduled}
+              disabled={importingScheduled}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-md bg-amber-100 text-amber-700 hover:bg-amber-200 disabled:opacity-50"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              {importingScheduled ? "Importando..." : "Importar Todos"}
+            </button>
+          </div>
+          {scheduledPayments.map((p) => (
+            <div key={p.codigoTransacao} className="border border-amber-200 bg-amber-50 rounded-lg p-3 flex flex-col md:flex-row md:items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-medium">{formatDate(p.dataVencimento)}</span>
+                  <span className="text-lg font-semibold text-amber-700">{formatCurrency(p.valor)}</span>
+                </div>
+                <p className="text-sm text-muted-foreground truncate">{p.descricao}</p>
+                {p.suggestion && (
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${confidenceLabel(p.suggestion.confidence).className}`}>
+                    {p.suggestion.categoryName ?? "Sem categoria"}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => handleImportScheduled(p)}
+                disabled={creating === p.codigoTransacao}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-md bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50 shrink-0"
+              >
+                <Check className="h-3.5 w-3.5" />
+                {creating === p.codigoTransacao ? "Importando..." : "Criar Despesa"}
               </button>
             </div>
           ))}

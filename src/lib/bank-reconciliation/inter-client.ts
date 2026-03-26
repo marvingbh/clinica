@@ -131,6 +131,74 @@ export async function fetchBalance(config: InterConfig): Promise<number> {
   })
 }
 
+export interface ScheduledPayment {
+  codigoTransacao: string
+  dataAgendamento: string // YYYY-MM-DD
+  dataVencimento: string  // YYYY-MM-DD
+  valor: number
+  descricao: string
+  statusPagamento: string // AGENDADO, REALIZADO, CANCELADO, etc.
+  codigoBarras?: string
+  linhaDigitavel?: string
+}
+
+/**
+ * Fetch scheduled (AGENDADO) payments from Inter API.
+ * Returns future payments that haven't been executed yet.
+ */
+export async function fetchScheduledPayments(
+  config: InterConfig,
+  startDate: string,
+  endDate: string
+): Promise<ScheduledPayment[]> {
+  const token = await getAccessToken(config)
+  const agent = createAgent(config)
+
+  const url = `https://cdpj.partners.bancointer.com.br/banking/v2/pagamentos?dataInicio=${startDate}&dataFim=${endDate}&filtrarDataPor=AGENDAMENTO`
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, {
+      method: "GET",
+      agent,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }, (res) => {
+      let data = ""
+      res.on("data", (chunk) => (data += chunk))
+      res.on("end", () => {
+        if (res.statusCode !== 200) {
+          reject(new Error(`Inter scheduled payments fetch failed: ${res.statusCode} ${data}`))
+          return
+        }
+        try {
+          const parsed = JSON.parse(data)
+          const payments: ScheduledPayment[] = (parsed.pagamentos ?? parsed.data ?? parsed ?? [])
+            .filter((p: Record<string, unknown>) =>
+              p.statusPagamento === "AGENDADO" || p.status === "AGENDADO"
+            )
+            .map((p: Record<string, unknown>) => ({
+              codigoTransacao: String(p.codigoTransacao ?? p.id ?? ""),
+              dataAgendamento: String(p.dataAgendamento ?? p.dataInclusao ?? ""),
+              dataVencimento: String(p.dataVencimento ?? p.dataAgendamento ?? ""),
+              valor: Number(p.valor ?? p.valorPagamento ?? 0),
+              descricao: String(p.descricao ?? p.nomeDestinatario ?? p.nomeBeneficiario ?? "Pagamento agendado"),
+              statusPagamento: String(p.statusPagamento ?? p.status ?? "AGENDADO"),
+              codigoBarras: p.codigoBarras ? String(p.codigoBarras) : undefined,
+              linhaDigitavel: p.linhaDigitavel ? String(p.linhaDigitavel) : undefined,
+            }))
+          resolve(payments)
+        } catch {
+          reject(new Error(`Inter scheduled payments returned invalid JSON: ${data.slice(0, 200)}`))
+        }
+      })
+    })
+    req.on("error", reject)
+    req.end()
+  })
+}
+
 /**
  * Fetch bank statement from Inter API.
  * Date range max 90 days per Inter API limitation.
