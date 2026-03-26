@@ -35,6 +35,7 @@ export default function FluxoDeCaixaPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("chart")
   const [cashFlowView, setCashFlowView] = useState<CashFlowView>("realizado")
   const [balanceSource, setBalanceSource] = useState<string>("none")
+  const [lastKnownBalance, setLastKnownBalance] = useState<number | null>(null)
   const [balanceFetchedAt, setBalanceFetchedAt] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
 
@@ -80,6 +81,7 @@ export default function FluxoDeCaixaPage() {
       setSummary(data.summary)
       setAlerts(data.alerts)
       setBalanceSource(data.balanceSource)
+      setLastKnownBalance(data.lastKnownBalance)
       setBalanceFetchedAt(data.balanceFetchedAt)
     } catch (err) {
       console.error("Cashflow fetch error:", err)
@@ -177,6 +179,22 @@ export default function FluxoDeCaixaPage() {
           </span>
         )}
       </div>
+
+      {/* Current Bank Balance */}
+      {lastKnownBalance !== null && (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-green-700 font-medium">Saldo atual — Banco Inter</p>
+            <p className="text-2xl font-bold text-green-800">{formatCurrency(lastKnownBalance)}</p>
+          </div>
+          {balanceFetchedAt && (
+            <p className="text-xs text-green-600">
+              Atualizado em {new Date(balanceFetchedAt).toLocaleDateString("pt-BR")}{" "}
+              às {new Date(balanceFetchedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Summary Cards */}
       {summary && (
