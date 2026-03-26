@@ -85,22 +85,28 @@ export default function InterImportPage() {
       if (reconcileData.suggestions?.length > 0) parts.push(`${reconcileData.suggestions.length} sugestões`)
       toast.success(parts.join(", ") || "Nenhum débito encontrado")
 
-      // 3. Fetch scheduled payments
-      const scheduledRes = await fetch("/api/financeiro/despesas/scheduled")
-      if (scheduledRes.ok) {
-        const scheduledData = await scheduledRes.json()
-        setScheduledPayments(scheduledData.payments?.filter((p: ScheduledPayment) => !p.alreadyImported) ?? [])
-        if (scheduledData.pending > 0) parts.push(`${scheduledData.pending} agendados`)
-      }
-
-      toast.success(parts.join(", ") || "Nenhuma transação encontrada")
-
-      // 4. Reload unmatched transactions
+      // 3. Reload unmatched transactions
       loadTransactions()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao buscar do Inter")
     } finally {
       setFetching(false)
+    }
+  }
+
+  async function handleFetchScheduled() {
+    try {
+      const res = await fetch("/api/financeiro/despesas/scheduled")
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Erro ao buscar agendamentos" }))
+        toast.error(err.error)
+        return
+      }
+      const data = await res.json()
+      setScheduledPayments(data.payments?.filter((p: ScheduledPayment) => !p.alreadyImported) ?? [])
+      toast.success(`${data.pending ?? 0} pagamento(s) agendado(s) encontrado(s)`)
+    } catch {
+      toast.error("Erro ao buscar pagamentos agendados")
     }
   }
 
@@ -278,6 +284,12 @@ export default function InterImportPage() {
         >
           <RefreshCw className={`h-4 w-4 ${fetching ? "animate-spin" : ""}`} />
           {fetching ? "Buscando..." : "Buscar Transações"}
+        </button>
+        <button
+          onClick={handleFetchScheduled}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-amber-300 text-amber-700 hover:bg-amber-50"
+        >
+          <Clock className="h-4 w-4" /> Agendamentos
         </button>
       </div>
 
