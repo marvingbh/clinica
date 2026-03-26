@@ -38,8 +38,16 @@ export const GET = withFeatureAuth(
     try {
       payments = await fetchScheduledPayments(config, formatDate(today), formatDate(futureDate))
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Erro ao buscar pagamentos agendados"
-      return NextResponse.json({ error: message }, { status: 502 })
+      // Scheduled payments endpoint may not be available for all Inter accounts
+      // Return empty list instead of error so the UI degrades gracefully
+      return NextResponse.json({
+        payments: [],
+        total: 0,
+        alreadyImported: 0,
+        pending: 0,
+        unavailable: true,
+        reason: err instanceof Error ? err.message : "Endpoint não disponível",
+      })
     }
 
     // Check which ones already have matching expenses (by amount + date proximity)
