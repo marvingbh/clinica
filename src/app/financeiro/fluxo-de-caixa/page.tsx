@@ -67,7 +67,7 @@ export default function FluxoDeCaixaPage() {
       }
     }
 
-    const params = new URLSearchParams({ startDate, endDate, granularity })
+    const params = new URLSearchParams({ startDate, endDate, granularity, mode: cashFlowView })
 
     try {
       const res = await fetch(`/api/financeiro/cashflow?${params}`)
