@@ -17,26 +17,35 @@ export const GET = withFeatureAuth(
     const startDateStr = url.searchParams.get("startDate")
     const endDateStr = url.searchParams.get("endDate")
     const granularity = (url.searchParams.get("granularity") ?? "daily") as Granularity
+    const mode = url.searchParams.get("mode") ?? "realizado" // "realizado" or "projetado"
 
     const now = new Date()
     const startDate = startDateStr ? new Date(startDateStr) : new Date(now.getFullYear(), now.getMonth(), 1)
     const endDate = endDateStr ? new Date(endDateStr) : new Date(now.getFullYear(), now.getMonth() + 3, 0)
 
+    // Realizado: only confirmed/paid transactions (what actually happened)
+    // Projetado: includes open invoices, open expenses, and recurring projections
+    const isProjetado = mode === "projetado"
+
     // Parallel queries — fetch everything we need
     const [invoices, expenses, repassePayments, activeRecurrences, bankIntegration] = await Promise.all([
-      // Invoices: ALL non-cancelled within the window (past paid + future expected)
       prisma.invoice.findMany({
         where: {
           clinicId: user.clinicId,
-          status: { in: ["PENDENTE", "ENVIADO", "PARCIAL", "PAGO"] },
-          OR: [
-            // Paid within window
-            { paidAt: { gte: startDate, lte: endDate } },
-            // Due within window (future expected inflows)
-            { dueDate: { gte: startDate, lte: endDate } },
-            // Overdue invoices still pending (no dueDate filter, just status)
-            { status: { in: ["PENDENTE", "ENVIADO"] }, dueDate: { lt: startDate } },
-          ],
+          ...(isProjetado
+            ? {
+                status: { in: ["PENDENTE", "ENVIADO", "PARCIAL", "PAGO"] },
+                OR: [
+                  { paidAt: { gte: startDate, lte: endDate } },
+                  { dueDate: { gte: startDate, lte: endDate } },
+                  { status: { in: ["PENDENTE", "ENVIADO"] }, dueDate: { lt: startDate } },
+                ],
+              }
+            : {
+                // Realizado: only PAGO invoices with paidAt in window
+                status: "PAGO",
+                paidAt: { gte: startDate, lte: endDate },
+              }),
         },
         select: {
           id: true,
@@ -48,15 +57,22 @@ export const GET = withFeatureAuth(
           reconciliationLinks: { select: { amount: true } },
         },
       }),
-      // Expenses: ALL non-cancelled within the window
       prisma.expense.findMany({
         where: {
           clinicId: user.clinicId,
-          status: { in: ["OPEN", "OVERDUE", "PAID"] },
-          OR: [
-            { paidAt: { gte: startDate, lte: endDate } },
-            { dueDate: { gte: startDate, lte: endDate } },
-          ],
+          ...(isProjetado
+            ? {
+                status: { in: ["OPEN", "OVERDUE", "PAID"] },
+                OR: [
+                  { paidAt: { gte: startDate, lte: endDate } },
+                  { dueDate: { gte: startDate, lte: endDate } },
+                ],
+              }
+            : {
+                // Realizado: only PAID expenses with paidAt in window
+                status: "PAID",
+                paidAt: { gte: startDate, lte: endDate },
+              }),
         },
         select: {
           id: true,
@@ -203,7 +219,7 @@ export const GET = withFeatureAuth(
     )
 
     const projectedFromRecurrences: ExpenseForCashFlow[] = []
-    for (const rec of activeRecurrences) {
+    for (const rec of isProjetado ? activeRecurrences : []) {
       // For projection, generate from startDate to endDate (ignoring lastGeneratedDate)
       const projectionTemplate = {
         ...rec,
