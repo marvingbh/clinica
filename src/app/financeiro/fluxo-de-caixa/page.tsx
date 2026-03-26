@@ -37,6 +37,14 @@ export default function FluxoDeCaixaPage() {
   const [balanceSource, setBalanceSource] = useState<string>("none")
   const [lastKnownBalance, setLastKnownBalance] = useState<number | null>(null)
   const [balanceFetchedAt, setBalanceFetchedAt] = useState<string | null>(null)
+  const [revenueProjection, setRevenueProjection] = useState<{
+    totalAppointments: number; grossRevenue: number; cancellationRate: number;
+    projectedRevenue: number; totalEstimatedRepasse: number;
+  } | null>(null)
+  const [taxEstimate, setTaxEstimate] = useState<{
+    regime: string; totalTax: number; effectiveRate: number;
+    breakdown: { name: string; amount: number; rate: number }[];
+  } | null>(null)
   const [loaded, setLoaded] = useState(false)
 
   const loadData = useCallback(async () => {
@@ -83,6 +91,8 @@ export default function FluxoDeCaixaPage() {
       setBalanceSource(data.balanceSource)
       setLastKnownBalance(data.lastKnownBalance)
       setBalanceFetchedAt(data.balanceFetchedAt)
+      setRevenueProjection(data.revenueProjection ?? null)
+      setTaxEstimate(data.taxEstimate ?? null)
     } catch (err) {
       console.error("Cashflow fetch error:", err)
     }
@@ -232,6 +242,52 @@ export default function FluxoDeCaixaPage() {
             <p className={`text-lg font-semibold ${summary.projectedEndBalance >= 0 ? "" : "text-red-600"}`}>
               {formatCurrency(summary.projectedEndBalance)}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Projection Breakdown (projetado mode only) */}
+      {cashFlowView === "projetado" && revenueProjection && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="rounded-lg border p-4 space-y-2">
+            <h3 className="text-sm font-medium">Receita Projetada</h3>
+            <p className="text-2xl font-bold text-green-600">{formatCurrency(revenueProjection.projectedRevenue)}</p>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>{revenueProjection.totalAppointments} sessões agendadas</p>
+              <p>Receita bruta: {formatCurrency(revenueProjection.grossRevenue)}</p>
+              <p>Taxa de cancelamento: {(revenueProjection.cancellationRate * 100).toFixed(1)}%</p>
+            </div>
+          </div>
+
+          {taxEstimate && taxEstimate.totalTax > 0 && (
+            <div className="rounded-lg border p-4 space-y-2">
+              <h3 className="text-sm font-medium">Impostos Estimados</h3>
+              <p className="text-2xl font-bold text-red-600">{formatCurrency(taxEstimate.totalTax)}</p>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>Regime: {taxEstimate.regime}</p>
+                <p>Alíquota efetiva: {(taxEstimate.effectiveRate * 100).toFixed(1)}%</p>
+                {taxEstimate.breakdown.map((b) => (
+                  <p key={b.name}>{b.name}: {formatCurrency(b.amount)} ({(b.rate * 100).toFixed(2)}%)</p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-lg border p-4 space-y-2">
+            <h3 className="text-sm font-medium">Repasse Estimado</h3>
+            <p className="text-2xl font-bold text-amber-600">{formatCurrency(revenueProjection.totalEstimatedRepasse)}</p>
+            <div className="text-xs text-muted-foreground">
+              <p>
+                Sobra clínica estimada:{" "}
+                <span className="font-medium text-foreground">
+                  {formatCurrency(
+                    revenueProjection.projectedRevenue -
+                    (taxEstimate?.totalTax ?? 0) -
+                    revenueProjection.totalEstimatedRepasse
+                  )}
+                </span>
+              </p>
+            </div>
           </div>
         </div>
       )}

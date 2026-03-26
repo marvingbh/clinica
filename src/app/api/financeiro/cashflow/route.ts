@@ -6,6 +6,9 @@ import {
   detectAlerts,
   aggregateByWeek,
   aggregateByMonth,
+  estimateTax,
+  calculateCancellationRate,
+  projectRevenue,
 } from "@/lib/cashflow"
 import { generateExpensesFromRecurrence } from "@/lib/expenses"
 import type { InvoiceForCashFlow, ExpenseForCashFlow, RepasseForCashFlow, Granularity } from "@/lib/cashflow"
@@ -243,6 +246,167 @@ export const GET = withFeatureAuth(
       }
     }
 
+    // Build mutable arrays for cash flow entries
+    const invoicesForCashFlow: InvoiceForCashFlow[] = invoices.map((inv) => {
+      const totalAmount = Number(inv.totalAmount)
+      const reconciledAmount = inv.reconciliationLinks?.reduce(
+        (sum, l) => sum + Number(l.amount), 0
+      ) ?? 0
+      const effectiveAmount = inv.status === "PARCIAL"
+        ? totalAmount - reconciledAmount
+        : totalAmount
+      return {
+        id: inv.id,
+        totalAmount: effectiveAmount,
+        dueDate: inv.dueDate ?? new Date(),
+        paidAt: inv.paidAt,
+        status: inv.status,
+        patientName: inv.patient?.name,
+      }
+    })
+
+    const expensesForCashFlow: ExpenseForCashFlow[] = [
+      ...expenses.map((exp) => ({
+        id: exp.id,
+        description: exp.description,
+        amount: Number(exp.amount),
+        dueDate: exp.dueDate,
+        paidAt: exp.paidAt,
+        status: exp.status,
+      })),
+      ...projectedFromRecurrences,
+    ]
+
+    const round2 = (n: number) => Math.round(n * 100) / 100
+
+    // For projetado: project revenue from scheduled appointments + tax + repasse
+    let revenueProjectionData = null
+    let taxEstimateData = null
+
+    if (isProjetado) {
+      // Fetch scheduled appointments in window, patient fees, professionals, cancellation history
+      const [scheduledAppointments, patients, profProfiles, historicalApts, clinic, nfseConfig] = await Promise.all([
+        prisma.appointment.findMany({
+          where: {
+            clinicId: user.clinicId,
+            scheduledAt: { gte: startDate, lte: endDate },
+            type: { in: ["CONSULTA", "REUNIAO"] },
+            status: { in: ["AGENDADO", "CONFIRMADO"] },
+          },
+          select: {
+            id: true, scheduledAt: true, price: true, type: true, status: true,
+            patientId: true, professionalProfileId: true, attendingProfessionalId: true,
+            groupId: true, sessionGroupId: true,
+          },
+        }),
+        prisma.patient.findMany({
+          where: { clinicId: user.clinicId, sessionFee: { not: null } },
+          select: { id: true, sessionFee: true },
+        }),
+        prisma.professionalProfile.findMany({
+          where: { user: { clinicId: user.clinicId } },
+          select: { id: true, repassePercentage: true },
+        }),
+        // Last 6 months of appointments for cancellation rate
+        prisma.appointment.findMany({
+          where: {
+            clinicId: user.clinicId,
+            type: "CONSULTA",
+            scheduledAt: { gte: new Date(now.getFullYear(), now.getMonth() - 6, 1), lt: now },
+          },
+          select: { status: true, type: true },
+        }),
+        prisma.clinic.findUnique({
+          where: { id: user.clinicId },
+          select: { taxPercentage: true },
+        }),
+        prisma.nfseConfig.findFirst({
+          where: { clinicId: user.clinicId },
+          select: { regimeTributario: true, aliquotaIss: true },
+        }),
+      ])
+
+      const patientFeeMap = new Map(patients.map((p) => [p.id, Number(p.sessionFee)]))
+      const profMap = new Map(profProfiles.map((p) => [p.id, { id: p.id, repassePercentage: Number(p.repassePercentage) }]))
+      const cancellationRate = calculateCancellationRate(historicalApts)
+      const clinicTaxPct = Number(clinic?.taxPercentage ?? 0)
+
+      const revProjection = projectRevenue(
+        scheduledAppointments.map((a) => ({
+          ...a,
+          price: a.price ? Number(a.price) : null,
+        })),
+        patientFeeMap,
+        profMap,
+        cancellationRate,
+        clinicTaxPct
+      )
+
+      revenueProjectionData = revProjection
+
+      // Add projected appointment revenue as inflows (spread across the month by appointment date)
+      for (const apt of scheduledAppointments) {
+        const fee = apt.price ? Number(apt.price) : (apt.patientId ? patientFeeMap.get(apt.patientId) ?? 0 : 0)
+        const adjustedFee = round2(fee * (1 - cancellationRate))
+        if (adjustedFee > 0) {
+          invoicesForCashFlow.push({
+            id: `projected-apt-${apt.id}`,
+            totalAmount: adjustedFee,
+            dueDate: apt.scheduledAt,
+            paidAt: null,
+            status: "PROJECTED",
+            patientName: "Sessão projetada",
+          })
+        }
+      }
+
+      // Estimate tax
+      // Get RBT12 for Simples Nacional
+      const twelveMonthsAgo = new Date(now.getFullYear() - 1, now.getMonth(), 1)
+      const rbt12Result = await prisma.invoice.aggregate({
+        where: { clinicId: user.clinicId, status: "PAGO", paidAt: { gte: twelveMonthsAgo, lt: now } },
+        _sum: { totalAmount: true },
+      })
+      const rbt12 = Number(rbt12Result._sum.totalAmount ?? 0)
+
+      const regime = nfseConfig?.regimeTributario ?? "3"
+      const issRate = nfseConfig?.aliquotaIss ? Number(nfseConfig.aliquotaIss) / 100 : 0.05
+
+      taxEstimateData = estimateTax(regime, revProjection.projectedRevenue, rbt12, issRate)
+
+      // Add tax as an outflow (on the 20th of the month, typical DAS/DARF due date)
+      if (taxEstimateData.totalTax > 0) {
+        const taxDate = new Date(startDate.getFullYear(), startDate.getMonth(), 20)
+        if (taxDate >= startDate && taxDate <= endDate) {
+          expensesForCashFlow.push({
+            id: "projected-tax",
+            description: `Impostos estimados (${taxEstimateData.regime})`,
+            amount: taxEstimateData.totalTax,
+            dueDate: taxDate,
+            paidAt: null,
+            status: "PROJECTED",
+          })
+        }
+      }
+
+      // Add projected repasse as outflows (on the 15th, typical repasse date)
+      for (const prof of revProjection.byProfessional) {
+        if (prof.estimatedRepasse > 0) {
+          const repasseDate = new Date(startDate.getFullYear(), startDate.getMonth(), 15)
+          if (repasseDate >= startDate && repasseDate <= endDate) {
+            expensesForCashFlow.push({
+              id: `projected-repasse-${prof.professionalId}`,
+              description: "Repasse profissional (projetado)",
+              amount: prof.estimatedRepasse,
+              dueDate: repasseDate,
+              paidAt: null,
+              status: "PROJECTED",
+            })
+          }
+        }
+      }
+    }
+
     // Fetch unmatched bank transactions in the window to include in entries
     // These are real flows that aren't tracked as invoices/expenses (refunds, fees, transfers)
     const [unmatchedDebitTx, unmatchedCreditTx] = await Promise.all([
@@ -268,31 +432,6 @@ export const GET = withFeatureAuth(
       }),
     ])
 
-    // Build invoice cash flow entries
-    // For PARCIAL invoices, use remaining amount (total - already reconciled)
-    const invoicesForCashFlow: InvoiceForCashFlow[] = invoices.map((inv) => {
-      const totalAmount = Number(inv.totalAmount)
-      const reconciledAmount = inv.reconciliationLinks?.reduce(
-        (sum, l) => sum + Number(l.amount), 0
-      ) ?? 0
-
-      // For PAGO, use full amount on paidAt date
-      // For PARCIAL, use remaining on dueDate
-      // For PENDENTE/ENVIADO, use full amount on dueDate
-      const effectiveAmount = inv.status === "PARCIAL"
-        ? totalAmount - reconciledAmount
-        : totalAmount
-
-      return {
-        id: inv.id,
-        totalAmount: effectiveAmount,
-        dueDate: inv.dueDate ?? new Date(),
-        paidAt: inv.paidAt,
-        status: inv.status,
-        patientName: inv.patient?.name,
-      }
-    })
-
     // Add unmatched credit bank transactions as additional inflows
     for (const tx of unmatchedCreditTx) {
       invoicesForCashFlow.push({
@@ -305,26 +444,17 @@ export const GET = withFeatureAuth(
       })
     }
 
-    const expensesForCashFlow: ExpenseForCashFlow[] = [
-      ...expenses.map((exp) => ({
-        id: exp.id,
-        description: exp.description,
-        amount: Number(exp.amount),
-        dueDate: exp.dueDate,
-        paidAt: exp.paidAt,
-        status: exp.status,
-      })),
-      // Add unmatched debit bank transactions as additional outflows
-      ...unmatchedDebitTx.map((tx) => ({
+    // Add unmatched debit bank transactions as additional outflows
+    for (const tx of unmatchedDebitTx) {
+      expensesForCashFlow.push({
         id: `bank-debit-${tx.id}`,
         description: `${tx.description} (banco)`,
         amount: Number(tx.amount),
         dueDate: tx.date,
         paidAt: tx.date,
         status: "PAID",
-      })),
-      ...projectedFromRecurrences,
-    ]
+      })
+    }
 
     const repasseForCashFlow: RepasseForCashFlow[] = repassePayments.map((rep) => ({
       id: rep.id,
@@ -358,6 +488,17 @@ export const GET = withFeatureAuth(
       balanceSource,
       lastKnownBalance: bankIntegration?.lastKnownBalance ? Number(bankIntegration.lastKnownBalance) : null,
       balanceFetchedAt: bankIntegration?.balanceFetchedAt ?? null,
+      // Projection details (only in projetado mode)
+      ...(isProjetado && revenueProjectionData && {
+        revenueProjection: {
+          totalAppointments: revenueProjectionData.totalAppointments,
+          grossRevenue: revenueProjectionData.grossRevenue,
+          cancellationRate: revenueProjectionData.cancellationRate,
+          projectedRevenue: revenueProjectionData.projectedRevenue,
+          totalEstimatedRepasse: revenueProjectionData.totalEstimatedRepasse,
+        },
+        taxEstimate: taxEstimateData,
+      }),
     })
   }
 )
