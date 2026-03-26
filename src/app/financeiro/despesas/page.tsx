@@ -3,7 +3,8 @@
 import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Plus } from "lucide-react"
+import { Plus, Upload, Building2 } from "lucide-react"
+import Link from "next/link"
 import { useFinanceiroContext } from "../context/FinanceiroContext"
 import { ExpenseStatusBadge } from "./components/ExpenseStatusBadge"
 import { ExpenseForm } from "./components/ExpenseForm"
@@ -101,7 +102,7 @@ export default function DespesasPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap justify-between items-center gap-2">
         <div className="flex gap-2">
           <select
             value={statusFilter}
@@ -115,12 +116,26 @@ export default function DespesasPage() {
             <option value="CANCELLED">Cancelado</option>
           </select>
         </div>
-        <button
-          onClick={() => { setEditingExpense(null); setShowForm(true) }}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" /> Nova Despesa
-        </button>
+        <div className="flex gap-2">
+          <Link
+            href="/financeiro/despesas/import"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-input hover:bg-muted"
+          >
+            <Upload className="h-4 w-4" /> Importar Extrato
+          </Link>
+          <Link
+            href="/financeiro/despesas/inter"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-input hover:bg-muted"
+          >
+            <Building2 className="h-4 w-4" /> Importar do Inter
+          </Link>
+          <button
+            onClick={() => { setEditingExpense(null); setShowForm(true) }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" /> Nova Despesa
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
