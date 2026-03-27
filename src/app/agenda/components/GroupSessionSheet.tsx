@@ -10,6 +10,8 @@ import type { GroupSession, AppointmentStatus, Professional } from "../lib/types
 import type { CancelContext, CancelVariant } from "./group-session/types"
 import { GroupSessionHeader, GroupProfessionalEdit, GroupParticipantList, GroupMemberActions } from "./group-session"
 
+type SheetTab = "session" | "members"
+
 interface GroupSessionSheetProps {
   isOpen: boolean
   onClose: () => void
@@ -28,11 +30,15 @@ export function GroupSessionSheet({
   professionals = [],
   isAdmin = false,
 }: GroupSessionSheetProps) {
+  const [activeTab, setActiveTab] = useState<SheetTab>("session")
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [isBulkUpdating, setIsBulkUpdating] = useState(false)
   const [cancelContext, setCancelContext] = useState<CancelContext | null>(null)
 
   if (!session) return null
+
+  // Only show members tab for recurring groups (have groupId)
+  const showMembersTab = !!session.groupId
 
   const handleUpdateStatus = async (appointmentId: string, newStatus: string, patientName: string) => {
     setUpdatingId(appointmentId)
@@ -95,33 +101,68 @@ export function GroupSessionSheet({
         onBulkUpdateStatus={handleBulkUpdateStatus}
       />
 
-      {/* Member management — only for recurring groups (have groupId) */}
-      {session.groupId && (
-        <GroupMemberActions
-          session={session}
-          onMemberChanged={onStatusUpdated}
+      {/* Tabs — only show if recurring group */}
+      {showMembersTab && (
+        <div className="px-4 pt-3">
+          <div className="flex rounded-xl bg-muted/60 p-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab("session")}
+              className={`flex-1 h-9 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === "session"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Sessao
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("members")}
+              className={`flex-1 h-9 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === "members"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Membros
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Session tab — attendance management */}
+      {(activeTab === "session" || !showMembersTab) && (
+        <GroupParticipantList
+          participants={session.participants}
+          updatingId={updatingId}
+          isBulkUpdating={isBulkUpdating}
+          onUpdateStatus={handleUpdateStatus}
+          onOpenCancel={openIndividualCancel}
         />
       )}
 
-      {isAdmin && professionals.length > 1 && (
-        <GroupProfessionalEdit
-          session={session}
-          professionals={professionals}
-          onStatusUpdated={onStatusUpdated}
-        />
-      )}
+      {/* Members tab — member management + professionals */}
+      {activeTab === "members" && showMembersTab && (
+        <>
+          <GroupMemberActions
+            session={session}
+            onMemberChanged={onStatusUpdated}
+          />
 
-      <GroupParticipantList
-        participants={session.participants}
-        updatingId={updatingId}
-        isBulkUpdating={isBulkUpdating}
-        onUpdateStatus={handleUpdateStatus}
-        onOpenCancel={openIndividualCancel}
-      />
+          {isAdmin && professionals.length > 1 && (
+            <GroupProfessionalEdit
+              session={session}
+              professionals={professionals}
+              onStatusUpdated={onStatusUpdated}
+            />
+          )}
+        </>
+      )}
 
       {/* Footer */}
       <div className="px-4 py-3 border-t border-border">
-        <button type="button" onClick={onClose} className="w-full h-10 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted">
+        <button type="button" onClick={onClose} className="w-full h-10 rounded-xl border border-input bg-background text-foreground text-sm font-medium hover:bg-muted transition-colors">
           Fechar
         </button>
       </div>
