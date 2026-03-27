@@ -2,31 +2,13 @@
 
 import { useState } from "react"
 import { Sheet } from "./Sheet"
-import { UsersIcon, ClockIcon, CheckCircleIcon, XIcon, CheckIcon, PencilIcon } from "@/shared/components/ui/icons"
-import { STATUS_LABELS, STATUS_COLORS, CANCELLED_STATUSES } from "../lib/constants"
-import { updateStatus, updateAppointment, updateGroupSessionStatus, rescheduleGroupSession } from "../services/appointmentService"
+import { updateStatus, updateGroupSessionStatus } from "../services/appointmentService"
 import { CancelConfirmDialog } from "./CancelConfirmDialog"
-import { getCancelVariant, type CancelVariant } from "@/lib/appointments/status-transitions"
+import { getCancelVariant } from "@/lib/appointments/status-transitions"
 import { toast } from "sonner"
 import type { GroupSession, AppointmentStatus, Professional } from "../lib/types"
-import { DateInput } from "./DateInput"
-import { TimeInput } from "./TimeInput"
-
-const PARTICIPANT_STATUS_LABELS: Record<string, string> = {
-  AGENDADO: "Agendado",
-  CONFIRMADO: "Confirmado",
-  FINALIZADO: "Compareceu",
-  CANCELADO_ACORDADO: "Desmarcou",
-  CANCELADO_FALTA: "Faltou",
-  CANCELADO_PROFISSIONAL: "Sem cobrança",
-}
-
-interface CancelContext {
-  variant: CancelVariant
-  isBulk: boolean
-  appointmentId?: string
-  patientName?: string
-}
+import type { CancelContext, CancelVariant } from "./group-session/types"
+import { GroupSessionHeader, GroupProfessionalEdit, GroupParticipantList } from "./group-session"
 
 interface GroupSessionSheetProps {
   isOpen: boolean
@@ -35,34 +17,6 @@ interface GroupSessionSheetProps {
   onStatusUpdated: () => void
   professionals?: Professional[]
   isAdmin?: boolean
-}
-
-function formatDateTime(isoString: string): { date: string; time: string } {
-  const dateObj = new Date(isoString)
-  return {
-    date: dateObj.toLocaleDateString("pt-BR", {
-      weekday: "long",
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    }),
-    time: dateObj.toLocaleTimeString("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-  }
-}
-
-function formatTimeRange(startIso: string, endIso: string): string {
-  const start = new Date(startIso).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-  const end = new Date(endIso).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-  return `${start} - ${end}`
 }
 
 // Parent must use key={session?.id} to reset this component
@@ -76,106 +30,17 @@ export function GroupSessionSheet({
 }: GroupSessionSheetProps) {
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [isBulkUpdating, setIsBulkUpdating] = useState(false)
-  const [sessionProfIds, setSessionProfIds] = useState<string[]>(
-    () => session?.additionalProfessionals?.map(ap => ap.professionalProfileId) || []
-  )
-  const [isSavingProfs, setIsSavingProfs] = useState(false)
-  const [isEditingProfs, setIsEditingProfs] = useState(false)
   const [cancelContext, setCancelContext] = useState<CancelContext | null>(null)
-  const [isEditingDateTime, setIsEditingDateTime] = useState(false)
-  const [editDate, setEditDate] = useState(() => {
-    if (!session) return ""
-    const d = new Date(session.scheduledAt)
-    const dd = String(d.getDate()).padStart(2, "0")
-    const mm = String(d.getMonth() + 1).padStart(2, "0")
-    const yyyy = d.getFullYear()
-    return `${dd}/${mm}/${yyyy}`
-  })
-  const [editTime, setEditTime] = useState(() => {
-    if (!session) return ""
-    const d = new Date(session.scheduledAt)
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
-  })
-  const [isSavingDateTime, setIsSavingDateTime] = useState(false)
 
   if (!session) return null
 
-  const handleSaveSessionProfessionals = async () => {
-    if (!session) return
-    setIsSavingProfs(true)
-    try {
-      // PATCH all appointments in this session with new additional professionals
-      const results = await Promise.all(
-        session.participants.map(p =>
-          updateAppointment(p.appointmentId, {
-            additionalProfessionalIds: sessionProfIds,
-          })
-        )
-      )
-      const hasError = results.find(r => r.error)
-      if (hasError) {
-        toast.error(hasError.error)
-      } else {
-        toast.success("Profissionais da sessão atualizados")
-        setIsEditingProfs(false)
-        onStatusUpdated()
-      }
-    } catch {
-      toast.error("Erro ao atualizar profissionais")
-    } finally {
-      setIsSavingProfs(false)
-    }
-  }
-
-  const handleSaveDateTime = async () => {
-    if (!session?.sessionGroupId) return
-    // Parse BR date DD/MM/YYYY
-    const dateMatch = editDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
-    const timeMatch = editTime.match(/^(\d{2}):(\d{2})$/)
-    if (!dateMatch || !timeMatch) {
-      toast.error("Data ou horário inválido")
-      return
-    }
-    const isoDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`
-    const newStart = new Date(`${isoDate}T${editTime}:00`)
-    const origStart = new Date(session.scheduledAt)
-    const origEnd = new Date(session.endAt)
-    const durationMs = origEnd.getTime() - origStart.getTime()
-    const newEnd = new Date(newStart.getTime() + durationMs)
-
-    setIsSavingDateTime(true)
-    const result = await rescheduleGroupSession(
-      session.sessionGroupId,
-      session.scheduledAt,
-      newStart.toISOString(),
-      newEnd.toISOString()
-    )
-    setIsSavingDateTime(false)
-
-    if (result.error) {
-      toast.error(result.error)
-    } else {
-      toast.success("Sessão reagendada")
-      setIsEditingDateTime(false)
-      onStatusUpdated()
-    }
-  }
-
-  const { date } = formatDateTime(session.scheduledAt)
-  const timeRange = formatTimeRange(session.scheduledAt, session.endAt)
-
-  const handleUpdateStatus = async (
-    appointmentId: string,
-    newStatus: AppointmentStatus,
-    patientName: string
-  ) => {
+  const handleUpdateStatus = async (appointmentId: string, newStatus: string, patientName: string) => {
     setUpdatingId(appointmentId)
     try {
       const result = await updateStatus(appointmentId, newStatus)
-      if (result.error) {
-        toast.error(result.error)
-      } else {
-        const statusMessages: Record<string, string> = {
+      if (result.error) { toast.error(result.error) }
+      else {
+        const msgs: Record<string, string> = {
           FINALIZADO: `${patientName} marcado como compareceu`,
           CANCELADO_FALTA: `${patientName} marcado como falta`,
           CANCELADO_ACORDADO: `${patientName} marcado como desmarcou`,
@@ -183,65 +48,36 @@ export function GroupSessionSheet({
           CONFIRMADO: `${patientName} confirmado`,
           AGENDADO: `${patientName} reagendado`,
         }
-        toast.success(statusMessages[newStatus] || "Status atualizado")
+        toast.success(msgs[newStatus] || "Status atualizado")
         onStatusUpdated()
       }
-    } catch {
-      toast.error("Erro ao atualizar status")
-    } finally {
-      setUpdatingId(null)
-    }
+    } catch { toast.error("Erro ao atualizar status") }
+    finally { setUpdatingId(null) }
   }
 
   const handleBulkUpdateStatus = async (newStatus: AppointmentStatus) => {
-    if (!session) return
-
-    // For cancel statuses, open the confirmation dialog
     const cancelVariant = getCancelVariant(newStatus)
-    if (cancelVariant) {
-      setCancelContext({ variant: cancelVariant, isBulk: true })
-      return
-    }
+    if (cancelVariant) { setCancelContext({ variant: cancelVariant, isBulk: true }); return }
 
-    // For non-cancel statuses (CONFIRMADO, FINALIZADO), use simple confirm
-    const statusMessages: Record<string, string> = {
-      CONFIRMADO: "Confirmar todos os participantes",
-      FINALIZADO: "Marcar todos como compareceram",
-    }
-    const message = statusMessages[newStatus] || "Atualizar todos"
-    if (!window.confirm(`${message}?`)) return
-
+    const msgs: Record<string, string> = { CONFIRMADO: "Confirmar todos os participantes", FINALIZADO: "Marcar todos como compareceram" }
+    if (!window.confirm(`${msgs[newStatus] || "Atualizar todos"}?`)) return
     await executeBulkUpdate(newStatus)
   }
 
   const executeBulkUpdate = async (newStatus: string) => {
-    if (!session) return
     setIsBulkUpdating(true)
     try {
-      const result = await updateGroupSessionStatus(
-        session.groupId,
-        session.scheduledAt,
-        newStatus,
-        session.sessionGroupId
-      )
-      if (result.error) {
-        toast.error(result.error)
-      } else {
-        toast.success(`${result.updatedCount} participantes atualizados`)
-        onStatusUpdated()
-      }
-    } catch {
-      toast.error("Erro ao atualizar status do grupo")
-    } finally {
-      setIsBulkUpdating(false)
-    }
+      const result = await updateGroupSessionStatus(session.groupId, session.scheduledAt, newStatus, session.sessionGroupId)
+      if (result.error) { toast.error(result.error) }
+      else { toast.success(`${result.updatedCount} participantes atualizados`); onStatusUpdated() }
+    } catch { toast.error("Erro ao atualizar status do grupo") }
+    finally { setIsBulkUpdating(false) }
   }
 
   const handleCancelConfirm = async (status: string, _reason: string) => {
     if (!cancelContext) return
-    if (cancelContext.isBulk) {
-      await executeBulkUpdate(status)
-    } else if (cancelContext.appointmentId && cancelContext.patientName) {
+    if (cancelContext.isBulk) { await executeBulkUpdate(status) }
+    else if (cancelContext.appointmentId && cancelContext.patientName) {
       await handleUpdateStatus(cancelContext.appointmentId, status as AppointmentStatus, cancelContext.patientName)
     }
   }
@@ -250,414 +86,38 @@ export function GroupSessionSheet({
     setCancelContext({ variant, isBulk: false, appointmentId, patientName })
   }
 
-  // Count statuses for summary
-  const statusCounts = session.participants.reduce(
-    (acc, p) => {
-      acc[p.status] = (acc[p.status] || 0) + 1
-      return acc
-    },
-    {} as Record<string, number>
-  )
-
-  const allSameStatus = session.participants.length > 0 &&
-    session.participants.every(p => p.status === session.participants[0].status)
-  const derivedStatus = allSameStatus ? session.participants[0].status : null
-
   return (
     <Sheet isOpen={isOpen} onClose={onClose} title={session.groupName}>
-      {/* Session Header */}
-      <div className="px-4 py-3 bg-purple-50 dark:bg-purple-950/30 border-b border-purple-200/50 dark:border-purple-800/50">
-        <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 mb-2">
-          <UsersIcon className="w-5 h-5" />
-          <span className="font-medium">Sessão em Grupo</span>
-        </div>
+      <GroupSessionHeader
+        session={session}
+        onStatusUpdated={onStatusUpdated}
+        isBulkUpdating={isBulkUpdating}
+        onBulkUpdateStatus={handleBulkUpdateStatus}
+      />
 
-        <div className="space-y-1 text-sm text-muted-foreground">
-          {isEditingDateTime && session.sessionGroupId ? (
-            <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <DateInput
-                  value={editDate}
-                  onChange={(e) => setEditDate(e.target.value)}
-                  className="h-9 px-3 rounded-lg border border-input bg-background text-foreground text-sm"
-                />
-                <TimeInput
-                  value={editTime}
-                  onChange={(e) => setEditTime(e.target.value)}
-                  placeholder="HH:MM"
-                  className="h-9 px-3 rounded-lg border border-input bg-background text-foreground text-sm"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleSaveDateTime}
-                  disabled={isSavingDateTime}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                >
-                  {isSavingDateTime ? "..." : "Salvar"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsEditingDateTime(false)}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-2">
-                <p className="capitalize">{date}</p>
-                {session.sessionGroupId && (
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingDateTime(true)}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                    title="Alterar data/horário"
-                  >
-                    <PencilIcon className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5">
-                <ClockIcon className="w-4 h-4" />
-                <span>{timeRange}</span>
-              </div>
-            </>
-          )}
-          <p className="text-foreground font-medium mt-2">
-            {session.professionalName}
-          </p>
-        </div>
-
-        {/* Derived session status or per-status counts */}
-        <div className="flex flex-wrap gap-2 mt-3">
-          {derivedStatus ? (
-            <span className={`text-sm px-3 py-1.5 rounded-full font-medium ${
-              STATUS_COLORS[derivedStatus as AppointmentStatus] || "bg-gray-100 text-gray-800"
-            }`}>
-              {PARTICIPANT_STATUS_LABELS[derivedStatus] || derivedStatus}
-            </span>
-          ) : (
-            Object.entries(statusCounts).map(([status, count]) => (
-              <span
-                key={status}
-                className={`text-xs px-2 py-1 rounded-full font-medium ${
-                  STATUS_COLORS[status as AppointmentStatus] || "bg-gray-100 text-gray-800"
-                }`}
-              >
-                {count} {PARTICIPANT_STATUS_LABELS[status] || status}
-              </span>
-            ))
-          )}
-        </div>
-
-        {/* Bulk actions */}
-        <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-          <button
-            type="button"
-            onClick={() => handleBulkUpdateStatus("CONFIRMADO")}
-            disabled={isBulkUpdating}
-            className="h-7 px-3 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {isBulkUpdating ? "..." : "Confirmar Todos"}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleBulkUpdateStatus("FINALIZADO")}
-            disabled={isBulkUpdating}
-            className="h-7 px-3 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-          >
-            {isBulkUpdating ? "..." : "Todos Compareceram"}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleBulkUpdateStatus("CANCELADO_ACORDADO")}
-            disabled={isBulkUpdating}
-            className="h-7 px-2 rounded border border-teal-200 dark:border-teal-700 text-[11px] font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/30 disabled:opacity-50 transition-colors"
-          >
-            Desmarcou
-          </button>
-          <button
-            type="button"
-            onClick={() => handleBulkUpdateStatus("CANCELADO_FALTA")}
-            disabled={isBulkUpdating}
-            className="h-7 px-2 rounded border border-amber-200 dark:border-amber-700 text-[11px] font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30 disabled:opacity-50 transition-colors"
-          >
-            Faltou
-          </button>
-          <button
-            type="button"
-            onClick={() => handleBulkUpdateStatus("CANCELADO_PROFISSIONAL")}
-            disabled={isBulkUpdating}
-            className="h-7 px-2 rounded border border-red-200 dark:border-red-700 text-[11px] font-medium text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 transition-colors"
-          >
-            Sem cobrança
-          </button>
-        </div>
-      </div>
-
-      {/* Additional Professionals */}
       {isAdmin && professionals.length > 1 && (
-        <div className="px-4 py-3 border-b border-border">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-muted-foreground">
-              Profissionais adicionais
-            </h3>
-            {!isEditingProfs ? (
-              <button
-                type="button"
-                onClick={() => setIsEditingProfs(true)}
-                className="text-xs text-primary hover:underline"
-              >
-                Editar
-              </button>
-            ) : (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleSaveSessionProfessionals}
-                  disabled={isSavingProfs}
-                  className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                >
-                  {isSavingProfs ? "..." : "Salvar"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSessionProfIds(
-                      session.additionalProfessionals?.map(ap => ap.professionalProfileId) || []
-                    )
-                    setIsEditingProfs(false)
-                  }}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  Cancelar
-                </button>
-              </div>
-            )}
-          </div>
-
-          {isEditingProfs ? (
-            <div className="space-y-2 p-2 rounded-lg border border-input bg-background">
-              {professionals
-                .filter(p => p.professionalProfile?.id && p.professionalProfile.id !== session.professionalProfileId)
-                .map(prof => (
-                  <label key={prof.id} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={sessionProfIds.includes(prof.professionalProfile!.id)}
-                      onChange={() => {
-                        const profId = prof.professionalProfile!.id
-                        setSessionProfIds(prev =>
-                          prev.includes(profId)
-                            ? prev.filter(id => id !== profId)
-                            : [...prev, profId]
-                        )
-                      }}
-                      className="w-4 h-4 rounded border-input text-primary focus:ring-ring/40"
-                    />
-                    <span className="text-sm">{prof.name}</span>
-                  </label>
-                ))}
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-1">
-              {session.additionalProfessionals && session.additionalProfessionals.length > 0 ? (
-                session.additionalProfessionals.map(ap => (
-                  <span
-                    key={ap.professionalProfileId}
-                    className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200"
-                  >
-                    {ap.professionalName}
-                  </span>
-                ))
-              ) : (
-                <span className="text-xs text-muted-foreground">Nenhum</span>
-              )}
-            </div>
-          )}
-        </div>
+        <GroupProfessionalEdit
+          session={session}
+          professionals={professionals}
+          onStatusUpdated={onStatusUpdated}
+        />
       )}
 
-      {/* Participants List */}
-      <div className="px-4 pt-3 pb-2">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-          Participantes ({session.participants.length})
-        </h3>
-
-        <div className="divide-y divide-border">
-          {session.participants.map((participant) => {
-            const isUpdating = updatingId === participant.appointmentId || isBulkUpdating
-            const isCancelled = CANCELLED_STATUSES.includes(
-              participant.status
-            )
-            const canMarkStatus = ["AGENDADO", "CONFIRMADO"].includes(participant.status)
-            const canConfirm = participant.status === "AGENDADO"
-            const isFinalized = participant.status === "FINALIZADO"
-
-            return (
-              <div
-                key={participant.appointmentId}
-                className={`py-2.5 ${isCancelled ? "opacity-60" : ""}`}
-              >
-                {/* Name row */}
-                <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-sm text-foreground truncate ${isFinalized || isCancelled ? "" : "font-medium"}`}>
-                      {participant.patientName}
-                    </p>
-                  </div>
-                  {/* Status badge for terminal states */}
-                  {(isFinalized || isCancelled) && (
-                    <span
-                      className={`flex-shrink-0 text-[11px] px-2 py-0.5 rounded-full font-medium ${
-                        STATUS_COLORS[participant.status as AppointmentStatus] || "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {PARTICIPANT_STATUS_LABELS[participant.status] || participant.status}
-                    </span>
-                  )}
-                </div>
-
-                {/* Action buttons for active appointments */}
-                {canMarkStatus && (
-                  <div className="flex items-center gap-1 mt-2 flex-wrap">
-                    {/* Primary action: Confirmar (AGENDADO) or Compareceu (CONFIRMADO) */}
-                    {canConfirm ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStatus(participant.appointmentId, "CONFIRMADO", participant.patientName)}
-                          disabled={isUpdating}
-                          title="Confirmar"
-                          className="h-7 px-3 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                        >
-                          {isUpdating ? "..." : <>
-                            <CheckIcon className="w-3.5 h-3.5 inline mr-1" />Confirmar
-                          </>}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStatus(participant.appointmentId, "FINALIZADO", participant.patientName)}
-                          disabled={isUpdating}
-                          title="Compareceu"
-                          className="h-7 px-3 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                        >
-                          {isUpdating ? "..." : <>
-                            <CheckCircleIcon className="w-3.5 h-3.5 inline mr-1" />Compareceu
-                          </>}
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateStatus(participant.appointmentId, "FINALIZADO", participant.patientName)}
-                        disabled={isUpdating}
-                        title="Compareceu"
-                        className="h-7 px-3 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                      >
-                        {isUpdating ? "..." : <>
-                          <CheckCircleIcon className="w-3.5 h-3.5 inline mr-1" />Compareceu
-                        </>}
-                      </button>
-                    )}
-                    {/* Cancel actions */}
-                    <button
-                      type="button"
-                      onClick={() => openIndividualCancel("desmarcou", participant.appointmentId, participant.patientName)}
-                      disabled={isUpdating}
-                      title="Desmarcou (gera crédito)"
-                      className="h-7 px-2 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-teal-600 hover:border-teal-300 hover:bg-teal-50 dark:hover:text-teal-400 dark:hover:border-teal-700 dark:hover:bg-teal-950/30 disabled:opacity-50 transition-colors"
-                    >
-                      Desmarcou
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openIndividualCancel("faltou", participant.appointmentId, participant.patientName)}
-                      disabled={isUpdating}
-                      title="Faltou (cobra normalmente)"
-                      className="h-7 px-2 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 dark:hover:text-amber-400 dark:hover:border-amber-700 dark:hover:bg-amber-950/30 disabled:opacity-50 transition-colors"
-                    >
-                      Faltou
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openIndividualCancel("sem_cobranca", participant.appointmentId, participant.patientName)}
-                      disabled={isUpdating}
-                      title="Sem cobrança (não cobra)"
-                      className="h-7 px-2 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-red-600 hover:border-red-300 hover:bg-red-50 dark:hover:text-red-400 dark:hover:border-red-700 dark:hover:bg-red-950/30 disabled:opacity-50 transition-colors"
-                    >
-                      Sem cobrança
-                    </button>
-                  </div>
-                )}
-
-                {/* Status change buttons for cancelled appointments */}
-                {isCancelled && (
-                  <div className="flex items-center gap-1 mt-2 flex-wrap">
-                    <span className="text-[10px] text-muted-foreground mr-1">Alterar:</span>
-                    {participant.status !== "CANCELADO_ACORDADO" && (
-                      <button
-                        type="button"
-                        onClick={() => openIndividualCancel("desmarcou", participant.appointmentId, participant.patientName)}
-                        disabled={isUpdating}
-                        className="h-6 px-2 rounded border border-teal-200 dark:border-teal-800 text-[10px] font-medium text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/30 disabled:opacity-50 transition-colors"
-                      >
-                        Desmarcou
-                      </button>
-                    )}
-                    {participant.status !== "CANCELADO_FALTA" && (
-                      <button
-                        type="button"
-                        onClick={() => openIndividualCancel("faltou", participant.appointmentId, participant.patientName)}
-                        disabled={isUpdating}
-                        className="h-6 px-2 rounded border border-amber-200 dark:border-amber-800 text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 disabled:opacity-50 transition-colors"
-                      >
-                        Faltou
-                      </button>
-                    )}
-                    {participant.status !== "CANCELADO_PROFISSIONAL" && (
-                      <button
-                        type="button"
-                        onClick={() => openIndividualCancel("sem_cobranca", participant.appointmentId, participant.patientName)}
-                        disabled={isUpdating}
-                        className="h-6 px-2 rounded border border-red-200 dark:border-red-800 text-[10px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 transition-colors"
-                      >
-                        Sem cobrança
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateStatus(participant.appointmentId, "AGENDADO", participant.patientName)}
-                      disabled={isUpdating}
-                      title="Reverter para Agendado"
-                      className="h-6 px-2 rounded border border-blue-200 dark:border-blue-800 text-[10px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 disabled:opacity-50 transition-colors"
-                    >
-                      Reagendar
-                    </button>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
+      <GroupParticipantList
+        participants={session.participants}
+        updatingId={updatingId}
+        isBulkUpdating={isBulkUpdating}
+        onUpdateStatus={handleUpdateStatus}
+        onOpenCancel={openIndividualCancel}
+      />
 
       {/* Footer */}
       <div className="px-4 py-3 border-t border-border">
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-full h-10 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted"
-        >
+        <button type="button" onClick={onClose} className="w-full h-10 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted">
           Fechar
         </button>
       </div>
 
-      {/* Cancel confirmation dialog */}
       {cancelContext && (
         <CancelConfirmDialog
           isOpen={!!cancelContext}
