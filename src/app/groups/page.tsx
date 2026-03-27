@@ -19,8 +19,6 @@ import { usePermission, useRequireAuth, useHasMounted, useMountEffect, useDeboun
 import {
   GroupCard,
   MembersTab,
-  SessionsTab,
-  SessionGenerationPanel,
   GroupForm,
   AddMemberForm,
   MemberCard,
@@ -28,10 +26,8 @@ import {
 import {
   TherapyGroup,
   GroupDetails,
-  GroupSessionItem,
   Professional,
   GroupFormData,
-  ViewTab,
   groupSchema,
 } from "./components/types"
 import { DAY_OF_WEEK_LABELS, RECURRENCE_TYPE_LABELS, getTodayISO } from "./components/constants"
@@ -49,22 +45,10 @@ export default function GroupsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingDetails, setIsLoadingDetails] = useState(false)
 
-  // View tab state
-  const [viewTab, setViewTab] = useState<ViewTab>("members")
-  const [groupSessions, setGroupSessions] = useState<GroupSessionItem[]>([])
-  const [isLoadingSessions, setIsLoadingSessions] = useState(false)
-  const [sessionFilter, setSessionFilter] = useState<"upcoming" | "past">("upcoming")
-  const [sessionPage, setSessionPage] = useState(1)
-  const [sessionTotal, setSessionTotal] = useState(0)
-  const [sessionGoToDate, setSessionGoToDate] = useState("")
-  const SESSION_PAGE_SIZE = 10
+  // View tab state (members only — sessions managed in agenda)
+  const [viewTab] = useState<"members">("members")
 
   // Session generation state
-  const [isGeneratingOpen, setIsGeneratingOpen] = useState(false)
-  const [generateStartDate, setGenerateStartDate] = useState("")
-  const [generateEndDate, setGenerateEndDate] = useState("")
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [generateMode, setGenerateMode] = useState<"generate" | "regenerate" | "reschedule">("generate")
 
   // Member management state
   const [isAddingMember, setIsAddingMember] = useState(false)
@@ -142,25 +126,6 @@ export default function GroupsPage() {
     }
   }, [])
 
-  const fetchGroupSessions = useCallback(async (groupId: string, filter: string, page: number, referenceDate?: string) => {
-    setIsLoadingSessions(true)
-    try {
-      let url = `/api/group-sessions?groupId=${groupId}&filter=${filter}&page=${page}&limit=${SESSION_PAGE_SIZE}`
-      if (referenceDate) url += `&referenceDate=${referenceDate}`
-      const response = await fetch(url)
-      if (!response.ok) {
-        throw new Error("Failed to fetch sessions")
-      }
-      const data = await response.json()
-      setGroupSessions(data.groupSessions)
-      setSessionTotal(data.total ?? 0)
-    } catch {
-      toast.error("Erro ao carregar sessões")
-    } finally {
-      setIsLoadingSessions(false)
-    }
-  }, [])
-
   useMountEffect(() => {
     fetchGroups()
     fetchProfessionals()
@@ -201,8 +166,6 @@ export default function GroupsPage() {
 
   function openViewSheet(group: TherapyGroup) {
     setEditingGroup(null)
-    setViewTab("members")
-    setGroupSessions([])
     fetchGroupDetails(group.id)
     setIsSheetOpen(true)
   }
@@ -211,13 +174,6 @@ export default function GroupsPage() {
     setIsSheetOpen(false)
     setEditingGroup(null)
     setViewingGroup(null)
-    setIsGeneratingOpen(false)
-    setViewTab("members")
-    setGroupSessions([])
-    setSessionFilter("upcoming")
-    setSessionPage(1)
-    setSessionTotal(0)
-    setSessionGoToDate("")
     resetAddMemberState()
   }
 
@@ -298,76 +254,6 @@ export default function GroupsPage() {
       fetchGroups()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao reativar grupo")
-    }
-  }
-
-  async function handleGenerateSessions() {
-    if (!viewingGroup) return
-
-    let startDateISO: string
-    let endDateISO: string
-
-    if (generateMode === "regenerate") {
-      // For regenerate mode, API will query actual date range from database
-      // Just send a wide range - API will handle it efficiently
-      startDateISO = getTodayISO()
-      const farFuture = new Date()
-      farFuture.setFullYear(farFuture.getFullYear() + 5)
-      endDateISO = farFuture.toISOString().split("T")[0]
-    } else {
-      // For generate and reschedule modes, require date inputs
-      if (!generateStartDate || !generateEndDate) {
-        toast.error("Selecione as datas de início e fim")
-        return
-      }
-      startDateISO = generateStartDate
-      endDateISO = generateEndDate
-    }
-
-    setIsGenerating(true)
-    try {
-      const response = await fetch(`/api/groups/${viewingGroup.id}/sessions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          startDate: startDateISO,
-          endDate: endDateISO,
-          mode: generateMode,
-        }),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to generate sessions")
-      }
-
-      if (generateMode === "regenerate") {
-        const added = result.regeneratedCount || 0
-        const cancelled = result.cancelledCount || 0
-        if (added > 0 || cancelled > 0) {
-          toast.success(result.message)
-        } else {
-          toast.info("Todas as sessões já estão atualizadas")
-        }
-      } else if (generateMode === "reschedule") {
-        toast.success(result.message)
-      } else {
-        toast.success(`${result.sessionsCreated} sessões geradas com ${result.appointmentsCreated} agendamentos`)
-      }
-      setIsGeneratingOpen(false)
-      setGenerateStartDate("")
-      setGenerateEndDate("")
-      setGenerateMode("generate")
-      // Refresh sessions tab if it's active
-      if (viewTab === "sessions") {
-        setSessionPage(1)
-        fetchGroupSessions(viewingGroup.id, sessionFilter, 1)
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao gerar sessões")
-    } finally {
-      setIsGenerating(false)
     }
   }
 
@@ -637,59 +523,24 @@ export default function GroupsPage() {
                         </div>
 
                         {/* Session Generation */}
-                        {canWrite && viewingGroup.isActive && (
-                          <SessionGenerationPanel
-                            isGeneratingOpen={isGeneratingOpen}
-                            generateMode={generateMode}
-                            generateStartDate={generateStartDate}
-                            generateEndDate={generateEndDate}
-                            isGenerating={isGenerating}
-                            onOpenGenerating={() => setIsGeneratingOpen(true)}
-                            onCloseGenerating={() => {
-                              setIsGeneratingOpen(false)
-                              setGenerateMode("generate")
-                            }}
-                            onModeChange={setGenerateMode}
-                            onStartDateChange={setGenerateStartDate}
-                            onEndDateChange={setGenerateEndDate}
-                            onGenerate={handleGenerateSessions}
-                          />
-                        )}
+                        {/* Ver na Agenda link */}
+                        <a
+                          href={`/agenda/weekly`}
+                          className="flex items-center justify-center gap-2 h-10 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 text-sm font-medium hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
+                        >
+                          <CalendarIcon className="w-4 h-4" />
+                          Ver na Agenda
+                        </a>
 
-                        {/* Tabs */}
-                        <div className="flex rounded-lg border border-input overflow-hidden">
-                          <button
-                            type="button"
-                            onClick={() => setViewTab("members")}
-                            className={`flex-1 h-10 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                              viewTab === "members"
-                                ? "bg-purple-600 text-white"
-                                : "bg-background text-foreground hover:bg-muted"
-                            }`}
-                          >
-                            <UsersIcon className="w-4 h-4" />
+                        {/* Members section header */}
+                        <div className="flex items-center gap-2">
+                          <UsersIcon className="w-4 h-4 text-muted-foreground" />
+                          <h3 className="text-sm font-semibold text-foreground">
                             Membros ({viewingGroup.memberships.filter(m => !m.leaveDate).length})
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setViewTab("sessions")
-                              if (groupSessions.length === 0 && !isLoadingSessions) {
-                                fetchGroupSessions(viewingGroup.id, sessionFilter, sessionPage)
-                              }
-                            }}
-                            className={`flex-1 h-10 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                              viewTab === "sessions"
-                                ? "bg-purple-600 text-white"
-                                : "bg-background text-foreground hover:bg-muted"
-                            }`}
-                          >
-                            <CalendarIcon className="w-4 h-4" />
-                            Sessões
-                          </button>
+                          </h3>
                         </div>
 
-                        {/* Members Tab */}
+                        {/* Members */}
                         {viewTab === "members" && (
                           <MembersTab
                             viewingGroup={viewingGroup}
@@ -712,27 +563,6 @@ export default function GroupsPage() {
                             onAddMember={handleAddMember}
                             onCancelAddMember={resetAddMemberState}
                             onRemoveMember={handleRemoveMember}
-                          />
-                        )}
-
-                        {/* Sessions Tab */}
-                        {viewTab === "sessions" && (
-                          <SessionsTab
-                            groupId={viewingGroup.id}
-                            isActive={viewingGroup.isActive}
-                            canWrite={canWrite}
-                            sessionFilter={sessionFilter}
-                            groupSessions={groupSessions}
-                            isLoadingSessions={isLoadingSessions}
-                            sessionPage={sessionPage}
-                            sessionTotal={sessionTotal}
-                            sessionPageSize={SESSION_PAGE_SIZE}
-                            sessionGoToDate={sessionGoToDate}
-                            onFilterChange={setSessionFilter}
-                            onPageChange={setSessionPage}
-                            onGoToDateChange={setSessionGoToDate}
-                            onClearGoToDate={() => setSessionGoToDate("")}
-                            onFetchSessions={fetchGroupSessions}
                           />
                         )}
 
