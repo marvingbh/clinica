@@ -8,7 +8,7 @@ import { getCancelVariant } from "@/lib/appointments/status-transitions"
 import { toast } from "sonner"
 import type { GroupSession, AppointmentStatus, Professional } from "../lib/types"
 import type { CancelContext, CancelVariant } from "./group-session/types"
-import { GroupSessionHeader, GroupProfessionalEdit, GroupParticipantList } from "./group-session"
+import { GroupSessionHeader, GroupProfessionalEdit, GroupParticipantList, GroupMemberActions } from "./group-session"
 
 interface GroupSessionSheetProps {
   isOpen: boolean
@@ -94,6 +94,14 @@ export function GroupSessionSheet({
         isBulkUpdating={isBulkUpdating}
         onBulkUpdateStatus={handleBulkUpdateStatus}
       />
+
+      {/* Member management — only for recurring groups (have groupId) */}
+      {session.groupId && (
+        <GroupMemberActions
+          session={session}
+          onMemberChanged={onStatusUpdated}
+        />
+      )}
 
       {isAdmin && professionals.length > 1 && (
         <GroupProfessionalEdit
