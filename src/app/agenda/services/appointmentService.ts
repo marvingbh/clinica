@@ -374,6 +374,69 @@ export async function updateGroupSessionStatus(
 }
 
 // ============================================================================
+// Group Member Management
+// ============================================================================
+
+export async function addGroupMember(
+  groupId: string,
+  patientId: string,
+  joinDate: string
+): Promise<{ error?: string }> {
+  const response = await fetch(`/api/groups/${groupId}/members`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ patientId, joinDate }),
+  })
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({}))
+    return { error: result.error || "Erro ao adicionar membro" }
+  }
+  return {}
+}
+
+export async function removeGroupMember(
+  groupId: string,
+  patientId: string,
+  leaveDate: string
+): Promise<{ error?: string }> {
+  // Find the membership ID first
+  const groupRes = await fetch(`/api/groups/${groupId}`)
+  if (!groupRes.ok) return { error: "Erro ao buscar grupo" }
+  const groupData = await groupRes.json()
+
+  const membership = groupData.group?.memberships?.find(
+    (m: { patientId: string; leaveDate: string | null }) => m.patientId === patientId && !m.leaveDate
+  )
+  if (!membership) return { error: "Membro não encontrado no grupo" }
+
+  const response = await fetch(`/api/groups/${groupId}/members/${membership.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ leaveDate }),
+  })
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({}))
+    return { error: result.error || "Erro ao remover membro" }
+  }
+  return {}
+}
+
+export async function regenerateGroupSessions(
+  groupId: string
+): Promise<{ error?: string }> {
+  const response = await fetch(`/api/groups/${groupId}/sessions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode: "regenerate" }),
+  })
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({}))
+    return { error: result.error || "Erro ao atualizar sessões" }
+  }
+  return {}
+}
+
+// ============================================================================
 // Bulk Cancel
 // ============================================================================
 
