@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { UsersIcon, ClockIcon, PencilIcon } from "@/shared/components/ui/icons"
+import { ClockIcon, PencilIcon, ChevronDownIcon } from "@/shared/components/ui/icons"
 import { STATUS_COLORS } from "../../lib/constants"
 import { DateInput } from "../DateInput"
 import { TimeInput } from "../TimeInput"
@@ -38,11 +38,11 @@ export function GroupSessionHeader({
     return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
   })
   const [isSavingDateTime, setIsSavingDateTime] = useState(false)
+  const [showBulkMenu, setShowBulkMenu] = useState(false)
 
   const { date } = formatDateTime(session.scheduledAt)
   const timeRange = formatTimeRange(session.scheduledAt, session.endAt)
 
-  // Count statuses for summary
   const statusCounts = session.participants.reduce(
     (acc, p) => { acc[p.status] = (acc[p.status] || 0) + 1; return acc },
     {} as Record<string, number>
@@ -56,93 +56,108 @@ export function GroupSessionHeader({
     const dateMatch = editDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
     const timeMatch = editTime.match(/^(\d{2}):(\d{2})$/)
     if (!dateMatch || !timeMatch) { toast.error("Data ou horário inválido"); return }
-
     const isoDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`
     const newStart = new Date(`${isoDate}T${editTime}:00`)
     const origStart = new Date(session.scheduledAt)
     const origEnd = new Date(session.endAt)
     const newEnd = new Date(newStart.getTime() + (origEnd.getTime() - origStart.getTime()))
-
     setIsSavingDateTime(true)
     const result = await rescheduleGroupSession(session.sessionGroupId, session.scheduledAt, newStart.toISOString(), newEnd.toISOString())
     setIsSavingDateTime(false)
-
     if (result.error) { toast.error(result.error) }
     else { toast.success("Sessão reagendada"); setIsEditingDateTime(false); onStatusUpdated() }
   }
 
-  return (
-    <div className="px-4 py-3 bg-purple-50 dark:bg-purple-950/30 border-b border-purple-200/50 dark:border-purple-800/50">
-      <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 mb-2">
-        <UsersIcon className="w-5 h-5" />
-        <span className="font-medium">Sessão em Grupo</span>
-      </div>
+  const handleBulkAction = (status: AppointmentStatus) => {
+    setShowBulkMenu(false)
+    onBulkUpdateStatus(status)
+  }
 
-      <div className="space-y-1 text-sm text-muted-foreground">
+  return (
+    <div className="px-4 py-3 border-b border-border">
+      {/* Date/time + professional */}
+      <div className="text-sm text-muted-foreground">
         {isEditingDateTime && session.sessionGroupId ? (
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
-              <DateInput value={editDate} onChange={(e) => setEditDate(e.target.value)} className="h-9 px-3 rounded-lg border border-input bg-background text-foreground text-sm" />
-              <TimeInput value={editTime} onChange={(e) => setEditTime(e.target.value)} placeholder="HH:MM" className="h-9 px-3 rounded-lg border border-input bg-background text-foreground text-sm" />
+              <DateInput value={editDate} onChange={(e) => setEditDate(e.target.value)} className="h-9 px-3 rounded-xl border border-input bg-background text-foreground text-sm" />
+              <TimeInput value={editTime} onChange={(e) => setEditTime(e.target.value)} placeholder="HH:MM" className="h-9 px-3 rounded-xl border border-input bg-background text-foreground text-sm" />
             </div>
             <div className="flex gap-2">
-              <button type="button" onClick={handleSaveDateTime} disabled={isSavingDateTime} className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
+              <button type="button" onClick={handleSaveDateTime} disabled={isSavingDateTime} className="text-xs px-3 py-1.5 rounded-xl bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
                 {isSavingDateTime ? "..." : "Salvar"}
               </button>
               <button type="button" onClick={() => setIsEditingDateTime(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancelar</button>
             </div>
           </div>
         ) : (
-          <>
-            <div className="flex items-center gap-2">
-              <p className="capitalize">{date}</p>
-              {session.sessionGroupId && (
-                <button type="button" onClick={() => setIsEditingDateTime(true)} className="text-muted-foreground hover:text-foreground transition-colors" title="Alterar data/horário">
-                  <PencilIcon className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <ClockIcon className="w-4 h-4" />
-              <span>{timeRange}</span>
-            </div>
-          </>
+          <div className="flex items-center gap-2">
+            <ClockIcon className="w-4 h-4 flex-shrink-0" />
+            <span className="capitalize">{date}</span>
+            <span className="opacity-40">|</span>
+            <span>{timeRange}</span>
+            {session.sessionGroupId && (
+              <button type="button" onClick={() => setIsEditingDateTime(true)} className="text-muted-foreground hover:text-foreground ml-1">
+                <PencilIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         )}
-        <p className="text-foreground font-medium mt-2">{session.professionalName}</p>
+        <p className="text-foreground font-medium mt-1">{session.professionalName}</p>
       </div>
 
-      {/* Derived session status or per-status counts */}
-      <div className="flex flex-wrap gap-2 mt-3">
-        {derivedStatus ? (
-          <span className={`text-sm px-3 py-1.5 rounded-full font-medium ${STATUS_COLORS[derivedStatus as AppointmentStatus] || "bg-gray-100 text-gray-800"}`}>
-            {PARTICIPANT_STATUS_LABELS[derivedStatus] || derivedStatus}
-          </span>
-        ) : (
-          Object.entries(statusCounts).map(([status, count]) => (
-            <span key={status} className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_COLORS[status as AppointmentStatus] || "bg-gray-100 text-gray-800"}`}>
-              {count} {PARTICIPANT_STATUS_LABELS[status] || status}
+      {/* Status summary + bulk action */}
+      <div className="flex items-center justify-between mt-3">
+        <div className="flex flex-wrap gap-1.5">
+          {derivedStatus ? (
+            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_COLORS[derivedStatus as AppointmentStatus] || "bg-gray-100 text-gray-800"}`}>
+              {PARTICIPANT_STATUS_LABELS[derivedStatus] || derivedStatus}
             </span>
-          ))
-        )}
-      </div>
+          ) : (
+            Object.entries(statusCounts).map(([status, count]) => (
+              <span key={status} className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_COLORS[status as AppointmentStatus] || "bg-gray-100 text-gray-800"}`}>
+                {count} {PARTICIPANT_STATUS_LABELS[status] || status}
+              </span>
+            ))
+          )}
+        </div>
 
-      {/* Bulk actions */}
-      <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-        <button type="button" onClick={() => onBulkUpdateStatus("CONFIRMADO" as AppointmentStatus)} disabled={isBulkUpdating} className="h-7 px-3 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
-          {isBulkUpdating ? "..." : "Confirmar Todos"}
-        </button>
-        <button type="button" onClick={() => onBulkUpdateStatus("FINALIZADO" as AppointmentStatus)} disabled={isBulkUpdating} className="h-7 px-3 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
-          {isBulkUpdating ? "..." : "Todos Compareceram"}
-        </button>
-        <button type="button" onClick={() => onBulkUpdateStatus("CANCELADO_ACORDADO" as AppointmentStatus)} disabled={isBulkUpdating} className="h-7 px-2 rounded border border-teal-200 dark:border-teal-700 text-[11px] font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/30 disabled:opacity-50 transition-colors">
-          Desmarcou
-        </button>
-        <button type="button" onClick={() => onBulkUpdateStatus("CANCELADO_FALTA" as AppointmentStatus)} disabled={isBulkUpdating} className="h-7 px-2 rounded border border-amber-200 dark:border-amber-700 text-[11px] font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30 disabled:opacity-50 transition-colors">
-          Faltou
-        </button>
-        <button type="button" onClick={() => onBulkUpdateStatus("CANCELADO_PROFISSIONAL" as AppointmentStatus)} disabled={isBulkUpdating} className="h-7 px-2 rounded border border-red-200 dark:border-red-700 text-[11px] font-medium text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 transition-colors">
-          Sem cobrança
-        </button>
+        {/* Single bulk action trigger */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowBulkMenu(!showBulkMenu)}
+            disabled={isBulkUpdating}
+            className="h-8 px-3 rounded-xl bg-muted text-xs font-medium text-foreground hover:bg-muted/80 disabled:opacity-50 transition-colors flex items-center gap-1"
+          >
+            {isBulkUpdating ? "..." : "Marcar todos"}
+            <ChevronDownIcon className="w-3.5 h-3.5" />
+          </button>
+
+          {showBulkMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowBulkMenu(false)} />
+              <div className="absolute right-0 top-full mt-1 z-50 w-48 bg-popover border border-border rounded-xl shadow-lg overflow-hidden">
+                <button type="button" onClick={() => handleBulkAction("CONFIRMADO" as AppointmentStatus)} className="w-full px-3 py-2.5 text-left text-sm hover:bg-muted transition-colors text-blue-600 dark:text-blue-400">
+                  Confirmar Todos
+                </button>
+                <button type="button" onClick={() => handleBulkAction("FINALIZADO" as AppointmentStatus)} className="w-full px-3 py-2.5 text-left text-sm hover:bg-muted transition-colors text-green-600 dark:text-green-400">
+                  Todos Compareceram
+                </button>
+                <div className="border-t border-border" />
+                <button type="button" onClick={() => handleBulkAction("CANCELADO_ACORDADO" as AppointmentStatus)} className="w-full px-3 py-2.5 text-left text-sm hover:bg-muted transition-colors text-teal-600 dark:text-teal-400">
+                  Desmarcou
+                </button>
+                <button type="button" onClick={() => handleBulkAction("CANCELADO_FALTA" as AppointmentStatus)} className="w-full px-3 py-2.5 text-left text-sm hover:bg-muted transition-colors text-amber-600 dark:text-amber-400">
+                  Faltou
+                </button>
+                <button type="button" onClick={() => handleBulkAction("CANCELADO_PROFISSIONAL" as AppointmentStatus)} className="w-full px-3 py-2.5 text-left text-sm hover:bg-muted transition-colors text-red-600 dark:text-red-400">
+                  Sem cobrança
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
