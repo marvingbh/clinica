@@ -11,6 +11,7 @@ import {
   AppointmentEditor, GroupSessionSheet, CalendarEntrySheet,
   CreateAppointmentSheet, AgendaFabMenu,
 } from "../components"
+import { BulkCancelDialog } from "../components/BulkCancelDialog"
 import { CreateGroupSessionSheet } from "../components/CreateGroupSessionSheet"
 import { AgendaDndWrapper } from "../components/AgendaDndWrapper"
 
@@ -21,6 +22,7 @@ import {
 import { useWeeklyAvailability } from "./hooks/useWeeklyAvailability"
 import { useWeeklyData } from "./hooks/useWeeklyData"
 import { useAgendaContext } from "../context/AgendaContext"
+import { usePermission } from "@/shared/hooks"
 
 import { WeeklyGrid, WeeklyHeader } from "./components"
 import { createProfessionalColorMap } from "../lib/professional-colors"
@@ -51,6 +53,9 @@ function WeeklyAgendaPageContent() {
     professionals, appointmentDuration, availabilityRules, availabilityExceptions,
     biweeklyHints, birthdayPatients, isLoading, isDataLoading, refetchAppointments,
   } = data
+
+  const { canWrite: canWriteOthersAgenda } = usePermission("agenda_others")
+  const currentProfessionalProfileId = session?.user?.professionalProfileId
 
   // ============================================================================
   // Week Navigation
@@ -143,6 +148,11 @@ function WeeklyAgendaPageContent() {
   const openGroupSessionSheet = useCallback(() => setIsGroupSessionSheetOpen(true), [])
   const closeGroupSessionSheet = useCallback(() => setIsGroupSessionSheetOpen(false), [])
   const fabMenu = useFabMenu(create.openCreateSheet, entry.openSheet, openGroupSessionSheet)
+
+  // Bulk cancel dialog
+  const [isBulkCancelOpen, setIsBulkCancelOpen] = useState(false)
+  const openBulkCancel = useCallback(() => setIsBulkCancelOpen(true), [])
+  const closeBulkCancel = useCallback(() => setIsBulkCancelOpen(false), [])
   const { handleAlternateWeekClick } = useBiweeklyHandlers(create.openCreateSheet, edit.openEditSheet)
 
   const handleAvailabilitySlotClick = useCallback((date: string, time: string) => {
@@ -197,6 +207,7 @@ function WeeklyAgendaPageContent() {
         onToday={goToToday}
         onSelectProfessional={setSelectedProfessionalId}
         professionalColorMap={professionalColorMap}
+        onBulkCancel={canWriteAgenda ? openBulkCancel : undefined}
       />
 
       <SwipeContainer onSwipeLeft={goToNextWeek} onSwipeRight={goToPreviousWeek} className="max-w-6xl mx-auto px-4 pt-4">
@@ -370,6 +381,17 @@ function WeeklyAgendaPageContent() {
         onDismissAvailabilityWarning={entry.clearAvailabilityWarning}
         isSaving={entry.isSaving}
         onSubmit={entry.onSubmit}
+      />
+
+      <BulkCancelDialog
+        isOpen={isBulkCancelOpen}
+        onClose={closeBulkCancel}
+        onSuccess={refetchAppointments}
+        initialDate={weekStart}
+        professionals={professionals}
+        canManageOthers={canWriteOthersAgenda}
+        userProfessionalId={currentProfessionalProfileId ?? null}
+        selectedProfessionalId={selectedProfessionalId}
       />
     </main>
   )

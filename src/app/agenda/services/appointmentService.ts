@@ -373,6 +373,84 @@ export async function updateGroupSessionStatus(
   return result
 }
 
+// ============================================================================
+// Bulk Cancel
+// ============================================================================
+
+export interface BulkCancelPreviewParams {
+  startDate: string
+  endDate: string
+  professionalProfileId?: string
+}
+
+export interface BulkCancelPreviewAppointment {
+  id: string
+  scheduledAt: string
+  type: string
+  status: string
+  patient: { id: string; name: string } | null
+  professionalName: string
+}
+
+export interface BulkCancelPreviewResponse {
+  appointments?: BulkCancelPreviewAppointment[]
+  summary?: {
+    total: number
+    byType: Record<string, number>
+    patients: Array<{ id: string; name: string }>
+  }
+  error?: string
+}
+
+export interface BulkCancelExecuteResponse {
+  success?: boolean
+  cancelledCount?: number
+  cancelledIds?: string[]
+  error?: string
+}
+
+export async function bulkCancelPreview(
+  params: BulkCancelPreviewParams
+): Promise<BulkCancelPreviewResponse> {
+  const response = await fetch("/api/appointments/bulk-cancel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode: "preview", ...params }),
+  })
+
+  const result = await response.json()
+
+  if (!response.ok) {
+    return { error: result.error || "Erro ao buscar agendamentos" }
+  }
+
+  return result
+}
+
+export async function bulkCancelExecute(
+  appointmentIds: string[],
+  reason: string
+): Promise<BulkCancelExecuteResponse> {
+  const response = await fetch("/api/appointments/bulk-cancel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode: "execute", appointmentIds, reason }),
+  })
+
+  let result
+  try {
+    result = await response.json()
+  } catch {
+    return { error: `Erro do servidor (${response.status})` }
+  }
+
+  if (!response.ok) {
+    return { error: result.error || "Erro ao cancelar agendamentos" }
+  }
+
+  return result
+}
+
 export async function rescheduleGroupSession(
   sessionGroupId: string,
   scheduledAt: string,

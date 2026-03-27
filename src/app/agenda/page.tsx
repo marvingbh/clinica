@@ -7,6 +7,7 @@ import {
   AppointmentEditor, AgendaHeader, AgendaTimeline, AgendaPageSkeleton,
   GroupSessionSheet, CalendarEntrySheet, AgendaFabMenu, CreateAppointmentSheet,
 } from "./components"
+import { BulkCancelDialog } from "./components/BulkCancelDialog"
 import { CreateGroupSessionSheet } from "./components/CreateGroupSessionSheet"
 import { AgendaDndWrapper } from "./components/AgendaDndWrapper"
 import type { Appointment } from "./lib/types"
@@ -23,7 +24,7 @@ import { DAILY_GRID_BASE } from "./lib/grid-config"
 export default function AgendaPage() {
   const { isReady, session } = useRequireAuth()
 
-  const { canRead: canReadOthersAgenda } = usePermission("agenda_others")
+  const { canRead: canReadOthersAgenda, canWrite: canWriteOthersAgenda } = usePermission("agenda_others")
   const { canWrite: canWriteAgenda } = usePermission("agenda_own")
   const isAdmin = canReadOthersAgenda
   const currentProfessionalProfileId = session?.user?.professionalProfileId
@@ -231,6 +232,11 @@ export default function AgendaPage() {
   const closeGroupSessionSheet = useCallback(() => setIsGroupSessionSheetOpen(false), [])
   const fabMenu = useFabMenu(openCreateSheet, openEntrySheet, openGroupSessionSheet)
 
+  // Bulk cancel dialog
+  const [isBulkCancelOpen, setIsBulkCancelOpen] = useState(false)
+  const openBulkCancel = useCallback(() => setIsBulkCancelOpen(true), [])
+  const closeBulkCancel = useCallback(() => setIsBulkCancelOpen(false), [])
+
   if (!isReady) {
     return <AgendaPageSkeleton />
   }
@@ -248,6 +254,7 @@ export default function AgendaPage() {
         onGoToNext={goToNextDay}
         onGoToToday={goToToday}
         professionalColorMap={professionalColorMap}
+        onBulkCancel={canWriteAgenda ? openBulkCancel : undefined}
       />
 
       <AgendaDndWrapper drag={drag}>
@@ -407,6 +414,17 @@ export default function AgendaPage() {
         onDismissAvailabilityWarning={clearEntryAvailabilityWarning}
         isSaving={isSavingEntry}
         onSubmit={onSubmitEntry}
+      />
+
+      <BulkCancelDialog
+        isOpen={isBulkCancelOpen}
+        onClose={closeBulkCancel}
+        onSuccess={refetchAppointments}
+        initialDate={selectedDate}
+        professionals={professionals}
+        canManageOthers={canWriteOthersAgenda}
+        userProfessionalId={currentProfessionalProfileId ?? null}
+        selectedProfessionalId={selectedProfessionalId}
       />
     </main>
   )

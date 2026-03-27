@@ -2,7 +2,7 @@
 
 import { useMemo, useRef } from "react"
 import Link from "next/link"
-import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from "@/shared/components/ui/icons"
+import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, BanIcon } from "@/shared/components/ui/icons"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { formatDateHeader, toDateString, toDisplayDateFromDate } from "../lib/utils"
 import type { Professional } from "../lib/types"
@@ -19,6 +19,7 @@ export interface AgendaHeaderProps {
   onGoToNext: () => void
   onGoToToday: () => void
   professionalColorMap?: ProfessionalColorMap
+  onBulkCancel?: () => void
 }
 
 const WEEKDAY_NAMES = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"]
@@ -58,6 +59,7 @@ export function AgendaHeader({
   onGoToNext,
   onGoToToday,
   professionalColorMap,
+  onBulkCancel,
 }: AgendaHeaderProps) {
   const dateInputRef = useRef<HTMLInputElement>(null)
   const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate])
@@ -87,13 +89,26 @@ export function AgendaHeader({
               {formatDateHeader(selectedDate)}
             </h1>
           </div>
-          <Link
-            href={`/agenda/weekly?date=${toDateString(selectedDate)}`}
-            className="h-10 px-4 rounded-xl border border-input bg-background text-sm font-medium hover:bg-muted transition-all duration-normal active:scale-[0.98] flex items-center gap-2 shadow-sm"
-          >
-            <CalendarIcon className="w-4 h-4" />
-            Semana
-          </Link>
+          <div className="flex items-center gap-2">
+            {onBulkCancel && (
+              <button
+                type="button"
+                onClick={onBulkCancel}
+                className="h-10 px-4 rounded-xl border border-input bg-background text-sm font-medium hover:bg-muted transition-all duration-normal active:scale-[0.98] flex items-center gap-2 shadow-sm text-red-600 dark:text-red-400"
+                title="Cancelar agendamentos do dia"
+              >
+                <BanIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Cancelar dia</span>
+              </button>
+            )}
+            <Link
+              href={`/agenda/weekly?date=${toDateString(selectedDate)}`}
+              className="h-10 px-4 rounded-xl border border-input bg-background text-sm font-medium hover:bg-muted transition-all duration-normal active:scale-[0.98] flex items-center gap-2 shadow-sm"
+            >
+              <CalendarIcon className="w-4 h-4" />
+              Semana
+            </Link>
+          </div>
         </div>
       </div>
 

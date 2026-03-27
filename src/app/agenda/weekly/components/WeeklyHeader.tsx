@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ListIcon } from "@/shared/components/ui"
+import { ListIcon, BanIcon } from "@/shared/components/ui"
 import { WeekNavigation } from "./WeekNavigation"
 import type { Professional } from "../../lib/types"
 import { PROFESSIONAL_COLORS, type ProfessionalColorMap } from "../../lib/professional-colors"
@@ -16,6 +16,7 @@ interface WeeklyHeaderProps {
   onToday: () => void
   onSelectProfessional: (id: string) => void
   professionalColorMap?: ProfessionalColorMap
+  onBulkCancel?: () => void
 }
 
 export function WeeklyHeader({
@@ -28,6 +29,7 @@ export function WeeklyHeader({
   onToday,
   onSelectProfessional,
   professionalColorMap,
+  onBulkCancel,
 }: WeeklyHeaderProps) {
   return (
     <header className="sticky top-0 bg-background/95 backdrop-blur border-b border-border z-30">
@@ -40,13 +42,26 @@ export function WeeklyHeader({
             onToday={onToday}
           />
 
-          <Link
-            href="/agenda"
-            className="flex items-center gap-2 h-10 px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-muted"
-          >
-            <ListIcon className="w-4 h-4" />
-            Dia
-          </Link>
+          <div className="flex items-center gap-2">
+            {onBulkCancel && (
+              <button
+                type="button"
+                onClick={onBulkCancel}
+                className="flex items-center gap-2 h-10 px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-muted text-red-600 dark:text-red-400"
+                title="Cancelar agendamentos"
+              >
+                <BanIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Cancelar</span>
+              </button>
+            )}
+            <Link
+              href="/agenda"
+              className="flex items-center gap-2 h-10 px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-muted"
+            >
+              <ListIcon className="w-4 h-4" />
+              Dia
+            </Link>
+          </div>
         </div>
 
         {isAdmin && professionals.length > 0 && (
