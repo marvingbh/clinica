@@ -4,19 +4,32 @@ const LARGE_EXPENSE_THRESHOLD = 5000 // R$ 5,000
 
 /**
  * Detect cash flow alerts from a projection.
+ * @param mode - "realizado" or "projetado" to adjust alert wording
+ * @param hasBankIntegration - when true in realizado mode, suppresses NEGATIVE_BALANCE
+ *   because invoice/expense paidAt dates may not match actual bank transaction dates
  */
-export function detectAlerts(projection: CashFlowProjection): CashFlowAlert[] {
+export function detectAlerts(
+  projection: CashFlowProjection,
+  mode: "realizado" | "projetado" = "projetado",
+  hasBankIntegration: boolean = false
+): CashFlowAlert[] {
   const alerts: CashFlowAlert[] = []
 
   // 1. Negative balance warning
-  const negativeEntry = projection.entries.find((e) => e.runningBalance < 0)
-  if (negativeEntry) {
-    alerts.push({
-      type: "NEGATIVE_BALANCE",
-      message: `Saldo projetado negativo em ${formatDateBR(negativeEntry.date)}: ${formatCurrency(negativeEntry.runningBalance)}`,
-      date: negativeEntry.date,
-      amount: negativeEntry.runningBalance,
-    })
+  // Skip in realizado mode with bank integration — invoice/expense paidAt dates
+  // don't perfectly match bank transaction dates, causing false negative dips.
+  const suppressNegativeAlert = mode === "realizado" && hasBankIntegration
+  if (!suppressNegativeAlert) {
+    const negativeEntry = projection.entries.find((e) => e.runningBalance < 0)
+    if (negativeEntry) {
+      const label = mode === "realizado" ? "Saldo negativo" : "Saldo projetado negativo"
+      alerts.push({
+        type: "NEGATIVE_BALANCE",
+        message: `${label} em ${formatDateBR(negativeEntry.date)}: ${formatCurrency(negativeEntry.runningBalance)}`,
+        date: negativeEntry.date,
+        amount: negativeEntry.runningBalance,
+      })
+    }
   }
 
   // 2. Large upcoming expenses (single-day outflow > threshold)

@@ -50,10 +50,11 @@ export const GET = withFeatureAuth(
     if (mode !== "projetado") {
       const { invoicesForCF, expensesForCF, startingBalance, balanceSource } = await buildRealized({
         clinicId: user.clinicId, startDate, endDate, interBalance,
+        balanceFetchedAt: bankIntegration?.balanceFetchedAt ?? null,
       })
 
       const projection = calculateProjection(invoicesForCF, expensesForCF, [], startDate, endDate, startingBalance)
-      const alerts = detectAlerts(projection)
+      const alerts = detectAlerts(projection, "realizado", interBalance !== null)
       let entries = projection.entries
       if (granularity === "weekly") entries = aggregateByWeek(entries)
       if (granularity === "monthly") entries = aggregateByMonth(entries)
@@ -76,7 +77,7 @@ export const GET = withFeatureAuth(
 
     return NextResponse.json({
       entries,
-      alerts: detectAlerts(projection),
+      alerts: detectAlerts(projection, "projetado"),
       summary: projection.summary,
       balanceSource: "none",
       lastKnownBalance: interBalance,

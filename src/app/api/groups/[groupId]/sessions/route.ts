@@ -300,18 +300,16 @@ export const POST = withFeatureAuth(
           }
         }
 
-        // Bulk cancel
+        // Delete removed members' appointments (any status) to match current membership exactly
         for (const { sessionTime, patientIds } of allPatientsToRemoveBySession) {
-          const cancelResult = await tx.appointment.updateMany({
+          const deleteResult = await tx.appointment.deleteMany({
             where: {
               groupId,
               scheduledAt: sessionTime,
               patientId: { in: patientIds },
-              status: { in: ["AGENDADO", "CONFIRMADO"] },
             },
-            data: { status: "CANCELADO_PROFISSIONAL" },
           })
-          cancelled += cancelResult.count
+          cancelled += deleteResult.count
         }
 
         // Bulk create appointments

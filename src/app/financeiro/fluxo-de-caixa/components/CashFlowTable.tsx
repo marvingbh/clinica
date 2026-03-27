@@ -2,12 +2,27 @@
 
 import React from "react"
 
+interface DetailItem {
+  id: string
+  description?: string
+  professionalName?: string
+  amount: number
+  status?: string
+}
+
+interface EntryDetails {
+  invoices: DetailItem[]
+  expenses: DetailItem[]
+  repasse: DetailItem[]
+}
+
 interface Entry {
   date: string
   inflow: number
   outflow: number
   net: number
   runningBalance: number
+  details?: EntryDetails
 }
 
 interface CashFlowTableProps {
@@ -25,6 +40,63 @@ function formatDate(dateStr: string, granularity: string) {
   if (granularity === "monthly") return `${m}/${y}`
   if (granularity === "weekly") return `Sem. ${d}/${m}/${y}`
   return `${d}/${m}/${y}`
+}
+
+function buildTooltipLines(items: DetailItem[], labelFn: (item: DetailItem) => string): string[] {
+  return items.map((item) => `${labelFn(item)}: ${formatCurrency(item.amount)}`)
+}
+
+function InflowCell({ entry }: { entry: Entry }) {
+  if (entry.inflow <= 0) return <span>—</span>
+
+  const lines = entry.details
+    ? buildTooltipLines(entry.details.invoices, (i) => i.description || "Fatura")
+    : []
+
+  return (
+    <span className="relative group cursor-default">
+      {formatCurrency(entry.inflow)}
+      {lines.length > 0 && <Tooltip lines={lines} />}
+    </span>
+  )
+}
+
+function OutflowCell({ entry }: { entry: Entry }) {
+  if (entry.outflow <= 0) return <span>—</span>
+
+  const lines: string[] = []
+  if (entry.details) {
+    lines.push(...buildTooltipLines(entry.details.expenses, (e) => e.description || "Despesa"))
+    lines.push(...buildTooltipLines(entry.details.repasse, (r) => `Repasse: ${r.professionalName}`))
+  }
+
+  return (
+    <span className="relative group cursor-default">
+      {formatCurrency(entry.outflow)}
+      {lines.length > 0 && <Tooltip lines={lines} />}
+    </span>
+  )
+}
+
+function Tooltip({ lines }: { lines: string[] }) {
+  const maxVisible = 8
+  const hasMore = lines.length > maxVisible
+  const visible = hasMore ? lines.slice(0, maxVisible) : lines
+
+  return (
+    <span className="absolute bottom-full right-0 mb-2 hidden group-hover:block z-50 pointer-events-none">
+      <span className="block bg-popover text-popover-foreground border border-border rounded-lg shadow-lg px-3 py-2 text-xs whitespace-nowrap max-w-xs">
+        {visible.map((line, i) => (
+          <span key={i} className="block truncate">{line}</span>
+        ))}
+        {hasMore && (
+          <span className="block text-muted-foreground mt-1">
+            + {lines.length - maxVisible} mais...
+          </span>
+        )}
+      </span>
+    </span>
+  )
 }
 
 export function CashFlowTable({ entries, granularity, todayDivider }: CashFlowTableProps) {
@@ -64,10 +136,10 @@ export function CashFlowTable({ entries, granularity, todayDivider }: CashFlowTa
             <tr key={entry.date} className={`hover:bg-muted/30 ${isProjected ? "bg-muted/10 text-muted-foreground" : ""}`}>
               <td className="px-4 py-2">{formatDate(entry.date, granularity)}</td>
               <td className="px-4 py-2 text-right text-green-700">
-                {entry.inflow > 0 ? formatCurrency(entry.inflow) : "—"}
+                <InflowCell entry={entry} />
               </td>
               <td className="px-4 py-2 text-right text-red-700">
-                {entry.outflow > 0 ? formatCurrency(entry.outflow) : "—"}
+                <OutflowCell entry={entry} />
               </td>
               <td className={`px-4 py-2 text-right font-medium ${entry.net >= 0 ? "text-green-700" : "text-red-700"}`}>
                 {formatCurrency(entry.net)}

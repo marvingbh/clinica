@@ -3,7 +3,7 @@ import { detectAlerts } from "./alerts"
 import type { CashFlowProjection } from "./types"
 
 describe("detectAlerts", () => {
-  it("detects negative balance", () => {
+  it("detects negative balance with projetado wording by default", () => {
     const projection: CashFlowProjection = {
       entries: [
         { date: "2026-03-01", inflow: 0, outflow: 10000, net: -10000, runningBalance: -5000, details: { invoices: [], expenses: [], repasse: [] } },
@@ -15,6 +15,35 @@ describe("detectAlerts", () => {
     const negative = alerts.find((a) => a.type === "NEGATIVE_BALANCE")
     expect(negative).toBeDefined()
     expect(negative!.date).toBe("2026-03-01")
+    expect(negative!.message).toContain("Saldo projetado negativo")
+  })
+
+  it("uses realizado wording when mode is realizado without bank integration", () => {
+    const projection: CashFlowProjection = {
+      entries: [
+        { date: "2026-03-01", inflow: 0, outflow: 10000, net: -10000, runningBalance: -5000, details: { invoices: [], expenses: [], repasse: [] } },
+      ],
+      summary: { totalInflow: 0, totalOutflow: 10000, netFlow: -10000, startingBalance: 5000, projectedEndBalance: -5000 },
+    }
+
+    const alerts = detectAlerts(projection, "realizado", false)
+    const negative = alerts.find((a) => a.type === "NEGATIVE_BALANCE")
+    expect(negative).toBeDefined()
+    expect(negative!.message).toContain("Saldo negativo")
+    expect(negative!.message).not.toContain("projetado")
+  })
+
+  it("suppresses negative balance alert in realizado mode with bank integration", () => {
+    const projection: CashFlowProjection = {
+      entries: [
+        { date: "2026-03-01", inflow: 0, outflow: 10000, net: -10000, runningBalance: -5000, details: { invoices: [], expenses: [], repasse: [] } },
+      ],
+      summary: { totalInflow: 0, totalOutflow: 10000, netFlow: -10000, startingBalance: 5000, projectedEndBalance: -5000 },
+    }
+
+    const alerts = detectAlerts(projection, "realizado", true)
+    const negative = alerts.find((a) => a.type === "NEGATIVE_BALANCE")
+    expect(negative).toBeUndefined()
   })
 
   it("detects large upcoming expenses", () => {
