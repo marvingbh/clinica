@@ -11,7 +11,7 @@ import { TimeInput } from "./TimeInput"
 import { DateInput } from "./DateInput"
 import { InlineAlert } from "./InlineAlert"
 import { calculateEndTime } from "../lib/utils"
-import { createGroupSession } from "../services/appointmentService"
+import { createGroupSession, addGroupMember, regenerateGroupSessions } from "../services/appointmentService"
 import { toast } from "sonner"
 import type { Patient, Professional } from "../lib/types"
 
@@ -73,6 +73,8 @@ export function CreateGroupSessionSheet({
   const [apiError, setApiError] = useState<string | null>(null)
   const [availabilityWarning, setAvailabilityWarning] = useState<string | null>(null)
   const [skipAvailability, setSkipAvailability] = useState(false)
+  const [isRecurring, setIsRecurring] = useState(false)
+  const [recurrenceType, setRecurrenceType] = useState<"WEEKLY" | "BIWEEKLY" | "MONTHLY">("WEEKLY")
 
   const form = useForm<GroupSessionFormData>({
     resolver: zodResolver(groupSessionSchema),
@@ -112,6 +114,15 @@ export function CreateGroupSessionSheet({
     setApiError(null)
 
     const isoDate = brDateToISO(data.date)
+
+    if (isRecurring) {
+      await submitRecurringGroup(data, isoDate)
+    } else {
+      await submitOneOffSession(data, isoDate)
+    }
+  }
+
+  const submitOneOffSession = async (data: GroupSessionFormData, isoDate: string) => {
     const result = await createGroupSession({
       patientIds: selectedPatients.map(p => p.id),
       title: data.title,
@@ -128,18 +139,86 @@ export function CreateGroupSessionSheet({
     setIsSubmitting(false)
 
     if (result.error) {
-      if (result.availabilityWarning) {
-        setAvailabilityWarning(result.error)
-      } else {
-        setApiError(result.error)
-      }
+      if (result.availabilityWarning) { setAvailabilityWarning(result.error) }
+      else { setApiError(result.error) }
       return
     }
 
     toast.success(`Sessão em grupo criada com ${selectedPatients.length} pacientes`)
+    resetAndClose()
+  }
+
+  const submitRecurringGroup = async (data: GroupSessionFormData, isoDate: string) => {
+    try {
+      // Derive dayOfWeek from date
+      const dateObj = new Date(isoDate + "T12:00:00")
+      const dayOfWeek = dateObj.getDay()
+
+      // 1. Create TherapyGroup
+      const groupRes = await fetch("/api/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: data.title,
+          dayOfWeek,
+          startTime: data.startTime,
+          duration: data.duration || appointmentDuration,
+          recurrenceType,
+          professionalProfileId: createProfessionalId || undefined,
+          additionalProfessionalIds: additionalProfessionalIds.length > 0 ? additionalProfessionalIds : undefined,
+        }),
+      })
+      if (!groupRes.ok) {
+        const err = await groupRes.json().catch(() => ({}))
+        setApiError(err.error || "Erro ao criar grupo")
+        setIsSubmitting(false)
+        return
+      }
+      const { group } = await groupRes.json()
+      const groupId = group.id
+
+      // 2. Add members
+      for (const patient of selectedPatients) {
+        const result = await addGroupMember(groupId, patient.id, isoDate)
+        if (result.error) {
+          setApiError(`Erro ao adicionar ${patient.name}: ${result.error}`)
+          setIsSubmitting(false)
+          return
+        }
+      }
+
+      // 3. Generate sessions (6 months from start date)
+      const endDate = new Date(dateObj)
+      endDate.setMonth(endDate.getMonth() + 6)
+      const endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`
+
+      const sessionsRes = await fetch(`/api/groups/${groupId}/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startDate: isoDate, endDate: endDateStr, mode: "generate" }),
+      })
+      if (!sessionsRes.ok) {
+        const err = await sessionsRes.json().catch(() => ({}))
+        setApiError(err.error || "Grupo criado, mas erro ao gerar sessões. Tente novamente em /groups.")
+        setIsSubmitting(false)
+        return
+      }
+
+      const sessionsData = await sessionsRes.json()
+      toast.success(`Grupo "${data.title}" criado com ${sessionsData.sessionsCreated} sessões`)
+      resetAndClose()
+    } catch {
+      setApiError("Erro ao criar grupo recorrente")
+      setIsSubmitting(false)
+    }
+  }
+
+  const resetAndClose = () => {
     setSelectedPatients([])
     form.reset()
     setSkipAvailability(false)
+    setIsRecurring(false)
+    setRecurrenceType("WEEKLY")
     onCreated()
     onClose()
   }
@@ -155,6 +234,8 @@ export function CreateGroupSessionSheet({
     setApiError(null)
     setAvailabilityWarning(null)
     setSkipAvailability(false)
+    setIsRecurring(false)
+    setRecurrenceType("WEEKLY")
     form.reset()
     onClose()
   }
@@ -184,6 +265,44 @@ export function CreateGroupSessionSheet({
           />
           {errors.title && <p className="text-xs text-destructive mt-1">{errors.title.message}</p>}
         </div>
+
+        {/* Recurrence toggle */}
+        <div className="flex items-center justify-between p-3 rounded-xl border border-input bg-muted/30">
+          <div>
+            <p className="text-sm font-medium text-foreground">Grupo recorrente</p>
+            <p className="text-xs text-muted-foreground">Cria sessões automaticamente</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsRecurring(!isRecurring)}
+            className={`relative w-11 h-6 rounded-full transition-colors ${isRecurring ? "bg-primary" : "bg-muted"}`}
+          >
+            <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${isRecurring ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+          </button>
+        </div>
+
+        {/* Recurrence type */}
+        {isRecurring && (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Frequência</label>
+            <div className="grid grid-cols-3 gap-2">
+              {([["WEEKLY", "Semanal"], ["BIWEEKLY", "Quinzenal"], ["MONTHLY", "Mensal"]] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setRecurrenceType(value)}
+                  className={`h-10 rounded-xl border text-sm font-medium transition-colors ${
+                    recurrenceType === value
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-input bg-background text-muted-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Date & Time */}
         <div className="grid grid-cols-2 gap-3">
@@ -309,7 +428,9 @@ export function CreateGroupSessionSheet({
           disabled={isSubmitting || selectedPatients.length < 2}
           className="w-full h-12 rounded-xl bg-purple-600 text-white font-semibold text-sm hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {isSubmitting ? "Criando..." : `Criar Sessão em Grupo (${selectedPatients.length} pacientes)`}
+          {isSubmitting ? "Criando..." : isRecurring
+            ? `Criar Grupo Recorrente (${selectedPatients.length} pacientes)`
+            : `Criar Sessão em Grupo (${selectedPatients.length} pacientes)`}
         </button>
       </form>
     </Sheet>
