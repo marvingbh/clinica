@@ -67,21 +67,16 @@ export const PATCH = withFeatureAuth(
     if (leaveDate) {
       const leaveDateObj = new Date(leaveDate + "T00:00:00")
 
-      // Cancel all future group appointments for this patient
-      const cancelResult = await prisma.appointment.updateMany({
+      // Delete all future group appointments for this patient
+      const deleteResult = await prisma.appointment.deleteMany({
         where: {
           groupId,
           patientId: existingMembership.patientId,
           scheduledAt: { gte: leaveDateObj },
-          status: { notIn: ["CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL", "FINALIZADO"] },
-        },
-        data: {
-          status: "CANCELADO_PROFISSIONAL",
-          cancellationReason: "Paciente removido do grupo",
-          cancelledAt: new Date(),
+          status: { notIn: ["FINALIZADO"] },
         },
       })
-      cancelledAppointmentsCount = cancelResult.count
+      cancelledAppointmentsCount = deleteResult.count
     }
 
     // Update the membership

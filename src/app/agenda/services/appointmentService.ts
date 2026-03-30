@@ -399,15 +399,23 @@ export async function removeGroupMember(
   patientId: string,
   leaveDate: string
 ): Promise<{ error?: string }> {
-  // Find the membership ID first
+  // Find the membership ID by querying group details
   const groupRes = await fetch(`/api/groups/${groupId}`)
   if (!groupRes.ok) return { error: "Erro ao buscar grupo" }
   const groupData = await groupRes.json()
 
-  const membership = groupData.group?.memberships?.find(
-    (m: { patientId: string; leaveDate: string | null }) => m.patientId === patientId && !m.leaveDate
+  // Search through memberships — check both patientId field and nested patient.id
+  const memberships = groupData.group?.memberships || []
+  const membership = memberships.find(
+    (m: { id: string; patientId?: string; patient?: { id: string }; leaveDate?: string | null }) => {
+      const mPatientId = m.patientId || m.patient?.id
+      return mPatientId === patientId && !m.leaveDate
+    }
   )
-  if (!membership) return { error: "Membro não encontrado no grupo" }
+
+  if (!membership) {
+    return { error: "Membro não encontrado no grupo" }
+  }
 
   const response = await fetch(`/api/groups/${groupId}/members/${membership.id}`, {
     method: "PATCH",
@@ -427,7 +435,11 @@ export async function regenerateGroupSessions(
   const response = await fetch(`/api/groups/${groupId}/sessions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mode: "regenerate" }),
+    body: JSON.stringify({
+      mode: "regenerate",
+      startDate: new Date().toISOString().split("T")[0],
+      endDate: "2030-12-31",
+    }),
   })
   if (!response.ok) {
     const result = await response.json().catch(() => ({}))
