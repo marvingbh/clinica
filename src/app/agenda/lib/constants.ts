@@ -1,4 +1,4 @@
-import { AppointmentStatus, CalendarEntryType, GroupSession } from "./types"
+import { AppointmentStatus, CalendarEntryType } from "./types"
 
 export const CANCELLED_STATUSES: AppointmentStatus[] = [
   "CANCELADO_ACORDADO",
