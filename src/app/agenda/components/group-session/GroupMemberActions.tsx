@@ -81,10 +81,20 @@ export function GroupMemberActions({ session, onMemberChanged }: GroupMemberActi
       toast.success(`${patient.name} adicionado a esta sessão`)
     } else {
       const addResult = await addGroupMember(session.groupId!, patient.id, sessionDateStr)
-      if (addResult.error) { toast.error(addResult.error); return }
-      const regenResult = await regenerateGroupSessions(session.groupId!)
-      if (regenResult.error) { toast.error(regenResult.error); return }
-      toast.success(`${patient.name} adicionado ao grupo`)
+      if (addResult.error) {
+        // If already a member, just regenerate to sync sessions
+        if (addResult.error.includes("já é membro")) {
+          const regenResult = await regenerateGroupSessions(session.groupId!)
+          if (regenResult.error) { toast.error(regenResult.error); return }
+          toast.success(`${patient.name} já é membro — sessões atualizadas`)
+        } else {
+          toast.error(addResult.error); return
+        }
+      } else {
+        const regenResult = await regenerateGroupSessions(session.groupId!)
+        if (regenResult.error) { toast.error(regenResult.error); return }
+        toast.success(`${patient.name} adicionado ao grupo`)
+      }
     }
     onMemberChanged()
   }
@@ -96,8 +106,18 @@ export function GroupMemberActions({ session, onMemberChanged }: GroupMemberActi
       toast.success(`${patient.name} removido desta sessão`)
     } else {
       const result = await removeGroupMember(session.groupId!, patient.id, sessionDateStr)
-      if (result.error) { toast.error(result.error); return }
-      toast.success(`${patient.name} removido do grupo`)
+      if (result.error) {
+        // If no membership found, fall back to deleting just this appointment
+        if (result.error.includes("não encontrado")) {
+          const delResult = await deleteAppointment(appointmentId)
+          if (delResult.error) { toast.error(delResult.error); return }
+          toast.success(`${patient.name} removido desta sessão`)
+        } else {
+          toast.error(result.error); return
+        }
+      } else {
+        toast.success(`${patient.name} removido do grupo`)
+      }
     }
     onMemberChanged()
   }

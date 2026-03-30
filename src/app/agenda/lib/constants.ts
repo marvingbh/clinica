@@ -108,12 +108,9 @@ export const ENTRY_TYPE_COLORS: Record<CalendarEntryType, {
   },
 }
 
-/** Filter out group sessions where every participant is cancelled (e.g. after reschedule) */
+/** Keep all group sessions — cancelled ones render in grayscale */
 export function filterActiveGroupSessions(sessions: GroupSession[]): GroupSession[] {
-  return sessions.filter(s =>
-    s.participants.length === 0 ||
-    !s.participants.every(p => CANCELLED_STATUSES.includes(p.status))
-  )
+  return sessions
 }
 
 export const TIME_BLOCKING_TYPES: CalendarEntryType[] = ["CONSULTA", "TAREFA", "REUNIAO"]
