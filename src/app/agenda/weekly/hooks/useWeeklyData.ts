@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import type { Appointment, GroupSession, Professional, AvailabilityRule, AvailabilityException, BiweeklyHint } from "../../lib/types"
 import { toDateString, getWeekEnd } from "../../lib/utils"
 import { fetchGroupSessions } from "../../services/groupSessionService"
-import { DEFAULT_APPOINTMENT_DURATION, filterActiveGroupSessions } from "../../lib/constants"
+import { DEFAULT_APPOINTMENT_DURATION } from "../../lib/constants"
 import { usePermission } from "@/shared/hooks/usePermission"
 import { useAgendaContext } from "../../context/AgendaContext"
 
@@ -144,7 +144,7 @@ export function useWeeklyData(weekStart: Date): UseWeeklyDataReturn {
         if (abortController.signal.aborted) return
 
         setAppointments(appointmentsData.appointments)
-        setGroupSessions(filterActiveGroupSessions(groupSessionsData.groupSessions))
+        setGroupSessions(groupSessionsData.groupSessions)
         setBiweeklyHints(appointmentsData.biweeklyHints || [])
         setBirthdayPatients(appointmentsData.birthdayPatients || [])
 

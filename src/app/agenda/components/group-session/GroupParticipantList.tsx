@@ -3,19 +3,13 @@
 import { useState } from "react"
 import { STATUS_COLORS, CANCELLED_STATUSES } from "../../lib/constants"
 import { PARTICIPANT_STATUS_LABELS, type AppointmentStatus, type CancelVariant } from "./types"
-
-interface Participant {
-  appointmentId: string
-  patientId: string
-  patientName: string
-  status: string
-}
+import type { GroupSessionParticipant } from "../../lib/types"
 
 interface GroupParticipantListProps {
-  participants: Participant[]
+  participants: GroupSessionParticipant[]
   updatingId: string | null
   isBulkUpdating: boolean
-  onUpdateStatus: (appointmentId: string, status: string, patientName: string) => void
+  onUpdateStatus: (appointmentId: string, status: AppointmentStatus, patientName: string) => void
   onOpenCancel: (variant: CancelVariant, appointmentId: string, patientName: string) => void
 }
 
@@ -58,14 +52,14 @@ function ParticipantRow({
   onUpdateStatus,
   onOpenCancel,
 }: {
-  participant: Participant
+  participant: GroupSessionParticipant
   isExpanded: boolean
   onToggle: () => void
   isUpdating: boolean
-  onUpdateStatus: (appointmentId: string, status: string, patientName: string) => void
+  onUpdateStatus: (appointmentId: string, status: AppointmentStatus, patientName: string) => void
   onOpenCancel: (variant: CancelVariant, appointmentId: string, patientName: string) => void
 }) {
-  const isCancelled = CANCELLED_STATUSES.includes(participant.status as AppointmentStatus)
+  const isCancelled = CANCELLED_STATUSES.includes(participant.status)
   const isTerminal = isCancelled || participant.status === "FINALIZADO"
   const initial = participant.patientName.charAt(0).toUpperCase()
 
@@ -92,7 +86,7 @@ function ParticipantRow({
           {participant.patientName}
         </span>
         <span className={`flex-shrink-0 text-[11px] px-2 py-0.5 rounded-full font-medium ${
-          STATUS_COLORS[participant.status as AppointmentStatus] || "bg-gray-100 text-gray-800"
+          STATUS_COLORS[participant.status] || "bg-gray-100 text-gray-800"
         }`}>
           {PARTICIPANT_STATUS_LABELS[participant.status] || participant.status}
         </span>

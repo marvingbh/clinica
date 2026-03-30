@@ -40,7 +40,7 @@ export function GroupSessionSheet({
   // Only show members tab for recurring groups (have groupId)
   const showMembersTab = !!session.groupId
 
-  const handleUpdateStatus = async (appointmentId: string, newStatus: string, patientName: string) => {
+  const handleUpdateStatus = async (appointmentId: string, newStatus: AppointmentStatus, patientName: string) => {
     setUpdatingId(appointmentId)
     try {
       const result = await updateStatus(appointmentId, newStatus)

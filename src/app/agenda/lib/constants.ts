@@ -108,10 +108,6 @@ export const ENTRY_TYPE_COLORS: Record<CalendarEntryType, {
   },
 }
 
-/** Keep all group sessions — cancelled ones render in grayscale */
-export function filterActiveGroupSessions(sessions: GroupSession[]): GroupSession[] {
-  return sessions
-}
 
 export const TIME_BLOCKING_TYPES: CalendarEntryType[] = ["CONSULTA", "TAREFA", "REUNIAO"]
 export const NON_BLOCKING_TYPES: CalendarEntryType[] = ["LEMBRETE", "NOTA"]

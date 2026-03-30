@@ -3,7 +3,7 @@ import type { GroupSession, AppointmentStatus, Professional } from "../../lib/ty
 
 export type { GroupSession, AppointmentStatus, Professional, CancelVariant }
 
-export const PARTICIPANT_STATUS_LABELS: Record<string, string> = {
+export const PARTICIPANT_STATUS_LABELS: Record<AppointmentStatus, string> = {
   AGENDADO: "Agendado",
   CONFIRMADO: "Confirmado",
   FINALIZADO: "Compareceu",

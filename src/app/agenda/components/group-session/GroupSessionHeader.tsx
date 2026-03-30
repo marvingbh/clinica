@@ -116,7 +116,7 @@ export function GroupSessionHeader({
           ) : (
             Object.entries(statusCounts).map(([status, count]) => (
               <span key={status} className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_COLORS[status as AppointmentStatus] || "bg-gray-100 text-gray-800"}`}>
-                {count} {PARTICIPANT_STATUS_LABELS[status] || status}
+                {count} {PARTICIPANT_STATUS_LABELS[status as AppointmentStatus] || status}
               </span>
             ))
           )}
