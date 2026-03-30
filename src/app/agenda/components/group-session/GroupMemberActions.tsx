@@ -5,13 +5,8 @@ import { PlusIcon, XIcon } from "@/shared/components/ui/icons"
 import { toast } from "sonner"
 import { PatientSearch } from "../PatientSearch"
 import { MemberScopeDialog, type MemberScope } from "./MemberScopeDialog"
-import {
-  addGroupMember,
-  removeGroupMember,
-  regenerateGroupSessions,
-  createAppointment,
-  deleteAppointment,
-} from "../../services/appointmentService"
+import { createAppointment, deleteAppointment } from "../../services/appointmentService"
+import { addGroupMember, removeGroupMember, regenerateGroupSessions } from "../../services/groupService"
 import type { GroupSession } from "./types"
 import type { Patient } from "../../lib/types"
 
@@ -20,11 +15,9 @@ interface GroupMemberActionsProps {
   onMemberChanged: () => void
 }
 
-interface PendingAction {
-  type: "add" | "remove"
-  patient: { id: string; name: string }
-  appointmentId?: string
-}
+type PendingAction =
+  | { type: "add"; patient: { id: string; name: string } }
+  | { type: "remove"; patient: { id: string; name: string }; appointmentId: string }
 
 export function GroupMemberActions({ session, onMemberChanged }: GroupMemberActionsProps) {
   const [isAdding, setIsAdding] = useState(false)
@@ -56,7 +49,7 @@ export function GroupMemberActions({ session, onMemberChanged }: GroupMemberActi
       if (pendingAction.type === "add") {
         await executeAdd(scope, pendingAction.patient)
       } else {
-        await executeRemove(scope, pendingAction.patient, pendingAction.appointmentId!)
+        await executeRemove(scope, pendingAction.patient, pendingAction.appointmentId)
       }
     } finally {
       setIsProcessing(false)
@@ -121,9 +114,6 @@ export function GroupMemberActions({ session, onMemberChanged }: GroupMemberActi
     }
     onMemberChanged()
   }
-
-  // Existing participant IDs to filter from search
-  const existingPatientIds = new Set(session.participants.map(p => p.patientId))
 
   return (
     <div className="px-4 py-3 border-b border-border">

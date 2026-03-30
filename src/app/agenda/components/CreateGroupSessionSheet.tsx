@@ -11,7 +11,8 @@ import { TimeInput } from "./TimeInput"
 import { DateInput } from "./DateInput"
 import { InlineAlert } from "./InlineAlert"
 import { calculateEndTime } from "../lib/utils"
-import { createGroupSession, addGroupMember, regenerateGroupSessions } from "../services/appointmentService"
+import { createGroupSession } from "../services/appointmentService"
+import { addGroupMember, createTherapyGroup, generateGroupSessions } from "../services/groupService"
 import { toast } from "sonner"
 import type { Patient, Professional } from "../lib/types"
 
@@ -150,66 +151,44 @@ export function CreateGroupSessionSheet({
 
   const submitRecurringGroup = async (data: GroupSessionFormData, isoDate: string) => {
     try {
-      // Derive dayOfWeek from date
       const dateObj = new Date(isoDate + "T12:00:00")
-      const dayOfWeek = dateObj.getDay()
 
       // 1. Create TherapyGroup
-      const groupRes = await fetch("/api/groups", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: data.title,
-          dayOfWeek,
-          startTime: data.startTime,
-          duration: data.duration || appointmentDuration,
-          recurrenceType,
-          professionalProfileId: createProfessionalId || undefined,
-          additionalProfessionalIds: additionalProfessionalIds.length > 0 ? additionalProfessionalIds : undefined,
-        }),
+      const groupResult = await createTherapyGroup({
+        name: data.title,
+        dayOfWeek: dateObj.getDay(),
+        startTime: data.startTime,
+        duration: data.duration || appointmentDuration,
+        recurrenceType,
+        professionalProfileId: createProfessionalId || undefined,
+        additionalProfessionalIds: additionalProfessionalIds.length > 0 ? additionalProfessionalIds : undefined,
       })
-      if (!groupRes.ok) {
-        const err = await groupRes.json().catch(() => ({}))
-        setApiError(err.error || "Erro ao criar grupo")
-        setIsSubmitting(false)
-        return
+      if (groupResult.error || !groupResult.groupId) {
+        setApiError(groupResult.error || "Erro ao criar grupo"); setIsSubmitting(false); return
       }
-      const { group } = await groupRes.json()
-      const groupId = group.id
 
       // 2. Add members
       for (const patient of selectedPatients) {
-        const result = await addGroupMember(groupId, patient.id, isoDate)
+        const result = await addGroupMember(groupResult.groupId, patient.id, isoDate)
         if (result.error) {
-          setApiError(`Erro ao adicionar ${patient.name}: ${result.error}`)
-          setIsSubmitting(false)
-          return
+          setApiError(`Erro ao adicionar ${patient.name}: ${result.error}`); setIsSubmitting(false); return
         }
       }
 
-      // 3. Generate sessions (6 months from start date)
+      // 3. Generate sessions (6 months)
       const endDate = new Date(dateObj)
       endDate.setMonth(endDate.getMonth() + 6)
       const endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`
 
-      const sessionsRes = await fetch(`/api/groups/${groupId}/sessions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startDate: isoDate, endDate: endDateStr, mode: "generate" }),
-      })
-      if (!sessionsRes.ok) {
-        const err = await sessionsRes.json().catch(() => ({}))
-        setApiError(err.error || "Grupo criado, mas erro ao gerar sessões. Tente novamente em /groups.")
-        setIsSubmitting(false)
-        return
+      const sessionsResult = await generateGroupSessions(groupResult.groupId, isoDate, endDateStr)
+      if (sessionsResult.error) {
+        setApiError(sessionsResult.error); setIsSubmitting(false); return
       }
 
-      const sessionsData = await sessionsRes.json()
-      toast.success(`Grupo "${data.title}" criado com ${sessionsData.sessionsCreated} sessões`)
+      toast.success(`Grupo "${data.title}" criado com ${sessionsResult.sessionsCreated} sessões`)
       resetAndClose()
     } catch {
-      setApiError("Erro ao criar grupo recorrente")
-      setIsSubmitting(false)
+      setApiError("Erro ao criar grupo recorrente"); setIsSubmitting(false)
     }
   }
 

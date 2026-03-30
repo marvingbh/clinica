@@ -61,23 +61,3 @@ export interface GroupDetails extends TherapyGroup {
   }>
 }
 
-export interface GroupSessionItem {
-  groupId: string
-  groupName: string
-  scheduledAt: string
-  endAt: string
-  professionalProfileId: string
-  professionalName: string
-  additionalProfessionals?: Array<{
-    professionalProfileId: string
-    professionalName: string
-  }>
-  participants: Array<{
-    appointmentId: string
-    patientId: string
-    patientName: string
-    status: string
-  }>
-}
-
-export type ViewTab = "members" | "sessions"

@@ -45,11 +45,6 @@ export default function GroupsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingDetails, setIsLoadingDetails] = useState(false)
 
-  // View tab state (members only — sessions managed in agenda)
-  const [viewTab] = useState<"members">("members")
-
-  // Session generation state
-
   // Member management state
   const [isAddingMember, setIsAddingMember] = useState(false)
   const [patientSearch, setPatientSearch] = useState("")
@@ -522,7 +517,6 @@ export default function GroupsPage() {
                           </div>
                         </div>
 
-                        {/* Session Generation */}
                         {/* Ver na Agenda link */}
                         <a
                           href={`/agenda/weekly`}
@@ -541,8 +535,7 @@ export default function GroupsPage() {
                         </div>
 
                         {/* Members */}
-                        {viewTab === "members" && (
-                          <MembersTab
+                        <MembersTab
                             viewingGroup={viewingGroup}
                             canWrite={canWrite}
                             isAddingMember={isAddingMember}
@@ -564,7 +557,6 @@ export default function GroupsPage() {
                             onCancelAddMember={resetAddMemberState}
                             onRemoveMember={handleRemoveMember}
                           />
-                        )}
 
                         <div className="pt-4">
                           <button
