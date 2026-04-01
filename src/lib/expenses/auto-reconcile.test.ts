@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { findAutoReconcileMatches } from "./auto-reconcile"
+import { findAutoReconcileMatches, findRecurrenceCreationCandidates } from "./auto-reconcile"
 
 describe("findAutoReconcileMatches", () => {
   const baseExpense = {
@@ -95,5 +95,111 @@ describe("findAutoReconcileMatches", () => {
     expect(matches).toHaveLength(1)
     expect(matches[0].confidence).toBe("auto")
     expect(matches[0].expenseId).toBe("exp-1")
+  })
+})
+
+describe("findRecurrenceCreationCandidates", () => {
+  const baseTx = {
+    amount: 831.68,
+    date: new Date(2026, 3, 1), // April 1
+    description: "PIX ENVIADO INTERNO - 00019 70802165 ARTHUR OLIVEIRA",
+  }
+
+  const pattern = {
+    normalizedDescription: "interno - 00019 70802165 arthur oliveira",
+    categoryId: null,
+    supplierName: null,
+    matchCount: 1,
+    recurrenceId: "rec-1",
+  }
+
+  const activeRecurrences = new Map([["rec-1", { amount: 831.68 }]])
+
+  it("returns candidate when pattern has recurrenceId, recurrence active, amount matches", () => {
+    const candidates = findRecurrenceCreationCandidates(
+      [{ id: "tx-1", ...baseTx }],
+      [pattern],
+      new Set(),
+      activeRecurrences
+    )
+
+    expect(candidates).toHaveLength(1)
+    expect(candidates[0].transactionId).toBe("tx-1")
+    expect(candidates[0].recurrenceId).toBe("rec-1")
+    expect(candidates[0].amount).toBe(831.68)
+  })
+
+  it("skips already-matched transactions", () => {
+    const candidates = findRecurrenceCreationCandidates(
+      [{ id: "tx-1", ...baseTx }],
+      [pattern],
+      new Set(["tx-1"]),
+      activeRecurrences
+    )
+
+    expect(candidates).toHaveLength(0)
+  })
+
+  it("skips when pattern has no recurrenceId", () => {
+    const candidates = findRecurrenceCreationCandidates(
+      [{ id: "tx-1", ...baseTx }],
+      [{ ...pattern, recurrenceId: null }],
+      new Set(),
+      activeRecurrences
+    )
+
+    expect(candidates).toHaveLength(0)
+  })
+
+  it("skips when recurrence is inactive (not in map)", () => {
+    const candidates = findRecurrenceCreationCandidates(
+      [{ id: "tx-1", ...baseTx }],
+      [pattern],
+      new Set(),
+      new Map() // empty = no active recurrences
+    )
+
+    expect(candidates).toHaveLength(0)
+  })
+
+  it("skips when amount does not match recurrence", () => {
+    const candidates = findRecurrenceCreationCandidates(
+      [{ id: "tx-1", ...baseTx, amount: 900 }],
+      [pattern],
+      new Set(),
+      activeRecurrences
+    )
+
+    expect(candidates).toHaveLength(0)
+  })
+
+  it("skips transactions with no matching pattern", () => {
+    const candidates = findRecurrenceCreationCandidates(
+      [{ id: "tx-1", ...baseTx, description: "SOMETHING ELSE" }],
+      [pattern],
+      new Set(),
+      activeRecurrences
+    )
+
+    expect(candidates).toHaveLength(0)
+  })
+
+  it("returns multiple candidates for different recurrences", () => {
+    const candidates = findRecurrenceCreationCandidates(
+      [
+        { id: "tx-1", ...baseTx },
+        { id: "tx-2", amount: 500, date: new Date(2026, 3, 5), description: "PIX NETFLIX ASSINATURA" },
+      ],
+      [
+        pattern,
+        { normalizedDescription: "netflix assinatura", categoryId: "cat-2", supplierName: "Netflix", matchCount: 5, recurrenceId: "rec-2" },
+      ],
+      new Set(),
+      new Map([["rec-1", { amount: 831.68 }], ["rec-2", { amount: 500 }]])
+    )
+
+    expect(candidates).toHaveLength(2)
+    expect(candidates[0].recurrenceId).toBe("rec-1")
+    expect(candidates[1].recurrenceId).toBe("rec-2")
   })
 })

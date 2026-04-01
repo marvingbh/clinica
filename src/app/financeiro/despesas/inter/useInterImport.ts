@@ -52,6 +52,12 @@ export function useInterImport() {
 
   useEffect(() => { loadTransactions() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function runAutoReconcile() {
+    const reconcileRes = await fetch("/api/financeiro/despesas/auto-reconcile", { method: "POST" })
+    if (!reconcileRes.ok) return { autoReconciled: 0, suggestions: [] }
+    return reconcileRes.json()
+  }
+
   async function handleFetchFromInter() {
     setFetching(true)
     try {
@@ -59,8 +65,7 @@ export function useInterImport() {
       if (!fetchRes.ok) throw new Error((await fetchRes.json()).error || "Erro ao buscar transações")
       const fetchData = await fetchRes.json()
 
-      const reconcileRes = await fetch("/api/financeiro/despesas/auto-reconcile", { method: "POST" })
-      const reconcileData = reconcileRes.ok ? await reconcileRes.json() : { autoReconciled: 0, suggestions: [] }
+      const reconcileData = await runAutoReconcile()
 
       setAutoReconciled(reconcileData.autoReconciled > 0 ? Array(reconcileData.autoReconciled).fill(null) : [])
       setSuggestions(reconcileData.suggestions || [])
@@ -75,6 +80,27 @@ export function useInterImport() {
       toast.error(err instanceof Error ? err.message : "Erro ao buscar do Inter")
     } finally {
       setFetching(false)
+    }
+  }
+
+  const [reconciling, setReconciling] = useState(false)
+
+  async function handleReconcile() {
+    setReconciling(true)
+    try {
+      const data = await runAutoReconcile()
+      setAutoReconciled(data.autoReconciled > 0 ? Array(data.autoReconciled).fill(null) : [])
+      setSuggestions(data.suggestions || [])
+
+      const parts = []
+      if (data.autoReconciled > 0) parts.push(`${data.autoReconciled} reconciliados automaticamente`)
+      if (data.suggestions?.length > 0) parts.push(`${data.suggestions.length} sugestões`)
+      toast.success(parts.join(", ") || "Nenhuma reconciliação encontrada")
+      loadTransactions()
+    } catch {
+      toast.error("Erro ao reconciliar")
+    } finally {
+      setReconciling(false)
     }
   }
 
@@ -185,10 +211,10 @@ export function useInterImport() {
 
   return {
     transactions, autoReconciled, suggestions, scheduledPayments,
-    loaded, fetching, creating, importingScheduled,
+    loaded, fetching, creating, importingScheduled, reconciling,
     handleFetchFromInter, handleFetchScheduled,
     handleImportScheduled, handleImportAllScheduled,
     handleCreateExpense, handleCreateWithRecurrence,
-    handleConfirmSuggestion, handleDismiss,
+    handleConfirmSuggestion, handleDismiss, handleReconcile,
   }
 }

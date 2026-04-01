@@ -1,76 +1,52 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
-import { findAutoReconcileMatches } from "@/lib/expenses"
+import { findAutoReconcileMatches, findRecurrenceCreationCandidates } from "@/lib/expenses"
 
 /**
  * POST /api/financeiro/despesas/auto-reconcile
  * Finds and applies auto-reconcile matches between unmatched DEBIT
  * transactions and open recurring expenses.
  *
- * Returns auto-matched (applied) and suggested (pending user confirmation).
+ * Also auto-creates expenses from recurrence templates when a transaction
+ * matches a known pattern linked to an active recurrence.
  */
 export const POST = withFeatureAuth(
   { feature: "expenses", minAccess: "WRITE" },
   async (req, { user }) => {
-    // Fetch unmatched DEBIT transactions
-    const unmatchedTx = await prisma.bankTransaction.findMany({
-      where: {
-        clinicId: user.clinicId,
-        type: "DEBIT",
-        expenseReconciliationLinks: { none: {} },
-        dismissReason: null,
-      },
-    })
+    const [unmatchedTx, openExpenses, patterns, activeRecurrences] = await Promise.all([
+      prisma.bankTransaction.findMany({
+        where: {
+          clinicId: user.clinicId,
+          type: "DEBIT",
+          expenseReconciliationLinks: { none: {} },
+          dismissReason: null,
+        },
+      }),
+      prisma.expense.findMany({
+        where: {
+          clinicId: user.clinicId,
+          status: { in: ["OPEN", "OVERDUE"] },
+        },
+        select: { id: true, amount: true, dueDate: true, description: true, recurrenceId: true, status: true },
+      }),
+      prisma.expenseCategoryPattern.findMany({
+        where: { clinicId: user.clinicId },
+        include: { category: { select: { name: true } } },
+      }),
+      prisma.expenseRecurrence.findMany({
+        where: { clinicId: user.clinicId, active: true },
+        select: { id: true, amount: true, description: true, supplierName: true, categoryId: true, paymentMethod: true },
+      }),
+    ])
 
-    // Fetch open expenses (from recurrences primarily, but any open expense)
-    const openExpenses = await prisma.expense.findMany({
-      where: {
-        clinicId: user.clinicId,
-        status: { in: ["OPEN", "OVERDUE"] },
-      },
-      select: {
-        id: true,
-        amount: true,
-        dueDate: true,
-        description: true,
-        recurrenceId: true,
-        status: true,
-      },
-    })
+    const mappedTx = unmatchedTx.map((tx) => ({ id: tx.id, amount: Number(tx.amount), date: tx.date, description: tx.description }))
+    const mappedExpenses = openExpenses.map((e) => ({ id: e.id, amount: Number(e.amount), dueDate: e.dueDate, description: e.description, recurrenceId: e.recurrenceId, status: e.status }))
+    const mappedPatterns = patterns.map((p) => ({ normalizedDescription: p.normalizedDescription, categoryId: p.categoryId, categoryName: p.category?.name ?? null, supplierName: p.supplierName, matchCount: p.matchCount, recurrenceId: p.recurrenceId }))
 
-    // Fetch patterns with recurrenceId
-    const patterns = await prisma.expenseCategoryPattern.findMany({
-      where: { clinicId: user.clinicId },
-      include: { category: { select: { name: true } } },
-    })
+    // Phase 1: Match transactions to existing open expenses
+    const matches = findAutoReconcileMatches(mappedTx, mappedExpenses, mappedPatterns)
 
-    const matches = findAutoReconcileMatches(
-      unmatchedTx.map((tx) => ({
-        id: tx.id,
-        amount: Number(tx.amount),
-        date: tx.date,
-        description: tx.description,
-      })),
-      openExpenses.map((e) => ({
-        id: e.id,
-        amount: Number(e.amount),
-        dueDate: e.dueDate,
-        description: e.description,
-        recurrenceId: e.recurrenceId,
-        status: e.status,
-      })),
-      patterns.map((p) => ({
-        normalizedDescription: p.normalizedDescription,
-        categoryId: p.categoryId,
-        categoryName: p.category?.name ?? null,
-        supplierName: p.supplierName,
-        matchCount: p.matchCount,
-        recurrenceId: p.recurrenceId,
-      }))
-    )
-
-    // Apply auto matches
     const autoMatches = matches.filter((m) => m.confidence === "auto")
     const suggestions = matches.filter((m) => m.confidence === "suggested")
 
@@ -78,18 +54,55 @@ export const POST = withFeatureAuth(
     for (const match of autoMatches) {
       await prisma.$transaction(async (tx) => {
         await tx.expenseReconciliationLink.create({
+          data: { clinicId: user.clinicId, transactionId: match.transactionId, expenseId: match.expenseId, amount: match.amount, reconciledByUserId: user.id },
+        })
+        await tx.expense.update({ where: { id: match.expenseId }, data: { status: "PAID", paidAt: new Date() } })
+      })
+      autoReconciled++
+    }
+
+    // Phase 2: Auto-create expenses from recurrence templates
+    const matchedTxIds = new Set(matches.map((m) => m.transactionId))
+    const recurrenceMap = new Map(activeRecurrences.map((r) => [r.id, { amount: Number(r.amount) }]))
+
+    const candidates = findRecurrenceCreationCandidates(mappedTx, mappedPatterns, matchedTxIds, recurrenceMap)
+
+    for (const candidate of candidates) {
+      const txRecord = unmatchedTx.find((t) => t.id === candidate.transactionId)!
+      const recurrence = activeRecurrences.find((r) => r.id === candidate.recurrenceId)!
+
+      // Prevent duplicates: check if expense already exists for this recurrence in the same month
+      // Use UTC methods — Prisma @db.Date returns UTC midnight, local timezone would shift the month
+      const txDate = txRecord.date
+      const monthStart = new Date(Date.UTC(txDate.getUTCFullYear(), txDate.getUTCMonth(), 1))
+      const monthEnd = new Date(Date.UTC(txDate.getUTCFullYear(), txDate.getUTCMonth() + 1, 0))
+
+      const existing = await prisma.expense.findFirst({
+        where: { clinicId: user.clinicId, recurrenceId: candidate.recurrenceId, dueDate: { gte: monthStart, lte: monthEnd } },
+      })
+      if (existing) continue
+
+      await prisma.$transaction(async (tx) => {
+        const expense = await tx.expense.create({
           data: {
             clinicId: user.clinicId,
-            transactionId: match.transactionId,
-            expenseId: match.expenseId,
-            amount: match.amount,
-            reconciledByUserId: user.id,
+            description: recurrence.description,
+            supplierName: recurrence.supplierName,
+            categoryId: recurrence.categoryId,
+            amount: candidate.amount,
+            dueDate: txDate,
+            status: "PAID",
+            paidAt: txDate,
+            paymentMethod: recurrence.paymentMethod,
+            recurrenceId: candidate.recurrenceId,
           },
         })
-
-        await tx.expense.update({
-          where: { id: match.expenseId },
-          data: { status: "PAID", paidAt: new Date() },
+        await tx.expenseReconciliationLink.create({
+          data: { clinicId: user.clinicId, transactionId: candidate.transactionId, expenseId: expense.id, amount: candidate.amount, reconciledByUserId: user.id },
+        })
+        await tx.expenseCategoryPattern.updateMany({
+          where: { clinicId: user.clinicId, recurrenceId: candidate.recurrenceId },
+          data: { matchCount: { increment: 1 } },
         })
       })
       autoReconciled++
@@ -106,9 +119,6 @@ export const POST = withFeatureAuth(
       })
     )
 
-    return NextResponse.json({
-      autoReconciled,
-      suggestions: enrichedSuggestions,
-    })
+    return NextResponse.json({ autoReconciled, suggestions: enrichedSuggestions })
   }
 )

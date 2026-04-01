@@ -1,6 +1,6 @@
 "use client"
 
-import { RefreshCw, CheckCircle2, Clock } from "lucide-react"
+import { RefreshCw, CheckCircle2, Clock, Zap } from "lucide-react"
 import { ScheduledPayments } from "./components/ScheduledPayments"
 import { UnmatchedTransactions } from "./components/UnmatchedTransactions"
 import { ReconcileSuggestions } from "./components/ReconcileSuggestions"
@@ -21,11 +21,11 @@ const confidenceLabel = (c: string) => {
 export default function InterImportPage() {
   const {
     transactions, autoReconciled, suggestions, scheduledPayments,
-    loaded, fetching, creating, importingScheduled,
+    loaded, fetching, creating, importingScheduled, reconciling,
     handleFetchFromInter, handleFetchScheduled,
     handleImportScheduled, handleImportAllScheduled,
     handleCreateExpense, handleCreateWithRecurrence,
-    handleConfirmSuggestion, handleDismiss,
+    handleConfirmSuggestion, handleDismiss, handleReconcile,
   } = useInterImport()
 
   if (!loaded) return <div className="text-sm text-muted-foreground">Carregando...</div>
@@ -42,12 +42,24 @@ export default function InterImportPage() {
           <RefreshCw className={`h-4 w-4 ${fetching ? "animate-spin" : ""}`} />
           {fetching ? "Buscando..." : "Buscar Transações"}
         </button>
-        <button
-          onClick={handleFetchScheduled}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-amber-300 text-amber-700 hover:bg-amber-50"
-        >
-          <Clock className="h-4 w-4" /> Agendamentos
-        </button>
+        <div className="flex gap-2">
+          {transactions.length > 0 && (
+            <button
+              onClick={handleReconcile}
+              disabled={reconciling}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              <Zap className={`h-4 w-4 ${reconciling ? "animate-pulse" : ""}`} />
+              {reconciling ? "Reconciliando..." : "Reconciliar"}
+            </button>
+          )}
+          <button
+            onClick={handleFetchScheduled}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-amber-300 text-amber-700 hover:bg-amber-50"
+          >
+            <Clock className="h-4 w-4" /> Agendamentos
+          </button>
+        </div>
       </div>
 
       {autoReconciled.length > 0 && (

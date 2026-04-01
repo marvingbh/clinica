@@ -115,3 +115,55 @@ export function findAutoReconcileMatches(
 
   return matches
 }
+
+// --- Recurrence-based auto-creation ---
+
+export interface RecurrenceCreationCandidate {
+  transactionId: string
+  recurrenceId: string
+  amount: number
+  reason: string
+}
+
+/**
+ * Find transactions that match a known pattern linked to an active recurrence
+ * but have no existing open expense to reconcile against.
+ *
+ * These transactions should have an expense auto-created from the recurrence
+ * template and be reconciled immediately.
+ */
+export function findRecurrenceCreationCandidates(
+  transactions: DebitTransaction[],
+  patterns: (StoredPattern & { recurrenceId?: string | null })[],
+  alreadyMatchedTxIds: Set<string>,
+  activeRecurrences: Map<string, { amount: number }>
+): RecurrenceCreationCandidate[] {
+  const candidates: RecurrenceCreationCandidate[] = []
+
+  const patternMap = new Map<string, (typeof patterns)[number]>()
+  for (const p of patterns) {
+    patternMap.set(p.normalizedDescription, p)
+  }
+
+  for (const tx of transactions) {
+    if (alreadyMatchedTxIds.has(tx.id)) continue
+
+    const normalized = normalizeDescription(tx.description)
+    const pattern = patternMap.get(normalized)
+    if (!pattern?.recurrenceId) continue
+
+    const recurrence = activeRecurrences.get(pattern.recurrenceId)
+    if (!recurrence) continue
+
+    if (Math.abs(tx.amount - recurrence.amount) >= 0.01) continue
+
+    candidates.push({
+      transactionId: tx.id,
+      recurrenceId: pattern.recurrenceId,
+      amount: tx.amount,
+      reason: `Recorrência conhecida: "${pattern.supplierName || normalized}" (${pattern.matchCount}x)`,
+    })
+  }
+
+  return candidates
+}
