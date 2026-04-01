@@ -28,12 +28,6 @@ export interface Professional {
   } | null
 }
 
-export interface EditingBlock {
-  dayOfWeek: number
-  index: number | null
-  block: TimeBlock
-}
-
 export interface EditingException {
   id?: string
   date: string
@@ -47,11 +41,11 @@ export interface EditingException {
 }
 
 export const DAYS_OF_WEEK = [
-  { value: 0, label: "Domingo", short: "Dom" },
   { value: 1, label: "Segunda", short: "Seg" },
   { value: 2, label: "Terça", short: "Ter" },
   { value: 3, label: "Quarta", short: "Qua" },
   { value: 4, label: "Quinta", short: "Qui" },
   { value: 5, label: "Sexta", short: "Sex" },
   { value: 6, label: "Sábado", short: "Sáb" },
+  { value: 0, label: "Domingo", short: "Dom" },
 ]

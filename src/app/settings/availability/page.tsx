@@ -1,28 +1,55 @@
 "use client"
 
-import { Suspense, useState } from "react"
+import { Suspense, useState, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
-import { SkeletonPage } from "@/shared/components/ui"
+import { SkeletonPage, SlotPicker } from "@/shared/components/ui"
+import type { DayData } from "@/shared/components/ui"
 import { useRequireAuth, useHasMounted, usePermission } from "@/shared/hooks"
 
 // eslint-disable-next-line no-restricted-imports
 import { useEffect } from "react"
-import {
-  WeeklyScheduleGrid,
-  ExceptionsList,
-  TimeBlockEditorModal,
-  ExceptionEditorModal,
-} from "./components"
+import { ExceptionsList, ExceptionEditorModal } from "./components"
 import type {
   TimeBlock,
   AvailabilityException,
   Professional,
-  EditingBlock,
   EditingException,
 } from "./components"
+import { DAYS_OF_WEEK } from "./components"
 
-// Date utilities for Brazilian format
+// --- Data conversion: TimeBlock[] <-> DayData[] ---
+
+function rulesToDays(rules: TimeBlock[]): DayData[] {
+  return DAYS_OF_WEEK.map((day) => {
+    const dayRules = rules.filter((r) => r.dayOfWeek === day.value)
+    return {
+      id: String(day.value),
+      label: day.label,
+      shortLabel: day.short,
+      enabled: dayRules.length > 0 && dayRules.some((r) => r.isActive),
+      slots: dayRules.map((r) => ({
+        id: r.id || crypto.randomUUID(),
+        from: r.startTime,
+        to: r.endTime,
+      })),
+    }
+  })
+}
+
+function daysToRules(days: DayData[]): TimeBlock[] {
+  return days.flatMap((day) =>
+    day.slots.map((slot) => ({
+      dayOfWeek: Number(day.id),
+      startTime: slot.from,
+      endTime: slot.to,
+      isActive: day.enabled,
+    }))
+  )
+}
+
+// --- Date utilities for Brazilian format ---
+
 function toDisplayDateFromDate(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0")
   const month = String(date.getMonth() + 1).padStart(2, "0")
@@ -73,9 +100,8 @@ function AvailabilitySettingsContent() {
   const [isSaving, setIsSaving] = useState(false)
   const isMounted = useHasMounted()
   const [rules, setRules] = useState<TimeBlock[]>([])
-  const [editingBlock, setEditingBlock] = useState<EditingBlock | null>(null)
 
-  // Exceptions state (date-specific only)
+  // Exceptions state
   const [exceptions, setExceptions] = useState<AvailabilityException[]>([])
   const [editingException, setEditingException] = useState<EditingException | null>(null)
   const [isDeletingException, setIsDeletingException] = useState<string | null>(null)
@@ -88,9 +114,14 @@ function AvailabilitySettingsContent() {
   const { canRead: canReadOthersAvail } = usePermission("availability_others")
   const isAdmin = canReadOthersAvail
 
-  // Data fetch with AbortController: depends on auth readiness, admin status,
-  // and URL params — must remain an effect to handle cancellation properly
-   
+  // Derive DayData[] from rules for SlotPicker
+  const days = rulesToDays(rules)
+
+  const handleScheduleUpdate = useCallback((updatedDays: DayData[]) => {
+    setRules(daysToRules(updatedDays))
+  }, [])
+
+  // Data fetch
   useEffect(() => {
     if (!isReady) return
 
@@ -101,7 +132,6 @@ function AvailabilitySettingsContent() {
       try {
         let professionalsData: Professional[] = []
 
-        // Fetch professionals if admin
         if (isAdmin) {
           const profResponse = await fetch("/api/professionals?isActive=true", { signal })
           if (signal.aborted) return
@@ -112,7 +142,6 @@ function AvailabilitySettingsContent() {
           }
         }
 
-        // Determine which profile to fetch availability for
         let profileId: string | undefined
 
         if (isAdmin && professionalIdParam) {
@@ -125,11 +154,8 @@ function AvailabilitySettingsContent() {
 
         if (signal.aborted) return
 
-        // Fetch availability
         const params = new URLSearchParams()
-        if (profileId) {
-          params.set("professionalProfileId", profileId)
-        }
+        if (profileId) params.set("professionalProfileId", profileId)
 
         const [availResponse, exceptionsResponse] = await Promise.all([
           fetch(`/api/availability?${params.toString()}`, { signal }),
@@ -154,7 +180,6 @@ function AvailabilitySettingsContent() {
 
         if (signal.aborted) return
 
-        // Filter to only date-specific exceptions (ignore recurring)
         const dateExceptions = (exceptionsData.exceptions || []).filter(
           (ex: AvailabilityException) => !ex.isRecurring
         )
@@ -165,42 +190,31 @@ function AvailabilitySettingsContent() {
         if (signal.aborted) return
         toast.error("Erro ao carregar disponibilidade")
       } finally {
-        if (!signal.aborted) {
-          setIsLoading(false)
-        }
+        if (!signal.aborted) setIsLoading(false)
       }
     }
 
     loadData()
-
-    // Cleanup: abort fetch when effect re-runs or component unmounts
-    return () => {
-      abortController.abort()
-    }
+    return () => { abortController.abort() }
   }, [isReady, isAdmin, professionalIdParam, router])
 
   async function fetchAvailabilityForProfessional(profileId?: string | null) {
     try {
       const params = new URLSearchParams()
-      if (profileId) {
-        params.set("professionalProfileId", profileId)
-      }
+      if (profileId) params.set("professionalProfileId", profileId)
 
       const [availResponse, exceptionsResponse] = await Promise.all([
         fetch(`/api/availability?${params.toString()}`),
         fetch(`/api/availability/exceptions?${params.toString()}`),
       ])
 
-      if (!availResponse.ok) {
-        throw new Error("Failed to fetch availability")
-      }
+      if (!availResponse.ok) throw new Error("Failed to fetch availability")
 
       const [availData, exceptionsData] = await Promise.all([
         availResponse.json(),
         exceptionsResponse.ok ? exceptionsResponse.json() : { exceptions: [] },
       ])
 
-      // Filter to only date-specific exceptions (ignore recurring)
       const dateExceptions = (exceptionsData.exceptions || []).filter(
         (ex: AvailabilityException) => !ex.isRecurring
       )
@@ -217,7 +231,6 @@ function AvailabilitySettingsContent() {
   async function handleProfessionalChange(professionalId: string) {
     setSelectedProfessionalId(professionalId)
     setIsLoading(true)
-
     const prof = professionals.find((p) => p.id === professionalId)
     if (prof?.professionalProfile?.id) {
       await fetchAvailabilityForProfessional(prof.professionalProfile.id)
@@ -230,10 +243,8 @@ function AvailabilitySettingsContent() {
 
   async function saveAvailability() {
     setIsSaving(true)
-
     try {
       let professionalProfileId: string | undefined
-
       if (isAdmin && selectedProfessionalId) {
         const prof = professionals.find((p) => p.id === selectedProfessionalId)
         professionalProfileId = prof?.professionalProfile?.id
@@ -242,10 +253,7 @@ function AvailabilitySettingsContent() {
       const response = await fetch("/api/availability", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          professionalProfileId,
-          rules,
-        }),
+        body: JSON.stringify({ professionalProfileId, rules }),
       })
 
       if (!response.ok) {
@@ -263,110 +271,7 @@ function AvailabilitySettingsContent() {
     }
   }
 
-  function getRulesForDay(dayOfWeek: number): TimeBlock[] {
-    return rules.filter((r) => r.dayOfWeek === dayOfWeek)
-  }
-
-  function toggleDayActive(dayOfWeek: number) {
-    const dayRules = getRulesForDay(dayOfWeek)
-
-    if (dayRules.length === 0) {
-      // Add default time block for this day
-      setRules([
-        ...rules,
-        {
-          dayOfWeek,
-          startTime: "08:00",
-          endTime: "18:00",
-          isActive: true,
-        },
-      ])
-    } else {
-      // Toggle isActive for all blocks on this day
-      const allActive = dayRules.every((r) => r.isActive)
-      setRules(
-        rules.map((r) =>
-          r.dayOfWeek === dayOfWeek ? { ...r, isActive: !allActive } : r
-        )
-      )
-    }
-  }
-
-  function openBlockEditor(dayOfWeek: number, index: number | null = null) {
-    const dayRules = getRulesForDay(dayOfWeek)
-    const block =
-      index !== null
-        ? dayRules[index]
-        : { dayOfWeek, startTime: "08:00", endTime: "18:00", isActive: true }
-
-    setEditingBlock({ dayOfWeek, index, block })
-  }
-
-  function closeBlockEditor() {
-    setEditingBlock(null)
-  }
-
-  function saveBlock() {
-    if (!editingBlock) return
-
-    const { dayOfWeek, index, block } = editingBlock
-
-    // Validate times
-    if (block.startTime >= block.endTime) {
-      toast.error("O horário de início deve ser anterior ao horário de término")
-      return
-    }
-
-    if (index !== null) {
-      // Update existing block
-      let blockIndex = 0
-      setRules(
-        rules.map((r) => {
-          if (r.dayOfWeek === dayOfWeek) {
-            if (blockIndex === index) {
-              blockIndex++
-              return { ...block }
-            }
-            blockIndex++
-          }
-          return r
-        })
-      )
-    } else {
-      // Add new block
-      setRules([...rules, { ...block }])
-    }
-
-    closeBlockEditor()
-  }
-
-  function deleteBlock() {
-    if (!editingBlock || editingBlock.index === null) return
-
-    const { dayOfWeek, index } = editingBlock
-    let blockIndex = 0
-
-    setRules(
-      rules.filter((r) => {
-        if (r.dayOfWeek === dayOfWeek) {
-          if (blockIndex === index) {
-            blockIndex++
-            return false
-          }
-          blockIndex++
-        }
-        return true
-      })
-    )
-
-    closeBlockEditor()
-  }
-
-  function removeAllBlocksForDay(dayOfWeek: number) {
-    setRules(rules.filter((r) => r.dayOfWeek !== dayOfWeek))
-  }
-
-  // Exception handlers (date-specific only)
+  // Exception handlers
   function openExceptionEditor(exception?: AvailabilityException) {
     if (exception) {
       setEditingException({
@@ -381,11 +286,8 @@ function AvailabilitySettingsContent() {
         targetProfessionalId: exception.isClinicWide ? null : selectedProfessionalId,
       })
     } else {
-      // New exception - default to block (unavailable) for specific date
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
-      // For admins, default to clinic-wide; for professionals, default to their own
-      const defaultTargetType = isAdmin ? "clinic" : "professional"
       setEditingException({
         date: toDisplayDateFromDate(tomorrow),
         isAvailable: false,
@@ -393,14 +295,10 @@ function AvailabilitySettingsContent() {
         endTime: null,
         reason: null,
         isFullDay: true,
-        targetType: defaultTargetType,
-        targetProfessionalId: isAdmin ? null : null, // will use user's own profile
+        targetType: isAdmin ? "clinic" : "professional",
+        targetProfessionalId: null,
       })
     }
-  }
-
-  function closeExceptionEditor() {
-    setEditingException(null)
   }
 
   async function saveException() {
@@ -408,43 +306,20 @@ function AvailabilitySettingsContent() {
 
     const { date, isAvailable, startTime, endTime, reason, isFullDay, targetType, targetProfessionalId } = editingException
 
-    // Validate exception has date
-    if (!date) {
-      toast.error("Selecione a data")
-      return
-    }
-
-    // Validate time range if not full day
+    if (!date) { toast.error("Selecione a data"); return }
     if (!isFullDay) {
-      if (!startTime || !endTime) {
-        toast.error("Selecione os horários de início e término")
-        return
-      }
-      if (startTime >= endTime) {
-        toast.error("O horário de início deve ser anterior ao horário de término")
-        return
-      }
+      if (!startTime || !endTime) { toast.error("Selecione os horários de início e término"); return }
+      if (startTime >= endTime) { toast.error("O horário de início deve ser anterior ao horário de término"); return }
     }
-
-    // Validate professional selection for professional-specific exceptions
-    if (targetType === "professional" && isAdmin && !targetProfessionalId) {
-      toast.error("Selecione um profissional")
-      return
-    }
+    if (targetType === "professional" && isAdmin && !targetProfessionalId) { toast.error("Selecione um profissional"); return }
 
     setIsSaving(true)
-
     try {
       let professionalProfileId: string | undefined
       const isClinicWide = targetType === "clinic"
-
-      if (!isClinicWide) {
-        // Professional-specific exception
-        if (isAdmin && targetProfessionalId) {
-          const prof = professionals.find((p) => p.id === targetProfessionalId)
-          professionalProfileId = prof?.professionalProfile?.id
-        }
-        // For non-admins, the API will use the user's own profile
+      if (!isClinicWide && isAdmin && targetProfessionalId) {
+        const prof = professionals.find((p) => p.id === targetProfessionalId)
+        professionalProfileId = prof?.professionalProfile?.id
       }
 
       const response = await fetch("/api/availability/exceptions", {
@@ -471,7 +346,7 @@ function AvailabilitySettingsContent() {
       const data = await response.json()
       setExceptions([...exceptions, data.exception])
       toast.success(isAvailable ? "Disponibilidade extra adicionada" : "Bloqueio adicionado")
-      closeExceptionEditor()
+      setEditingException(null)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao salvar exceção")
     } finally {
@@ -481,17 +356,12 @@ function AvailabilitySettingsContent() {
 
   async function deleteException(id: string) {
     setIsDeletingException(id)
-
     try {
-      const response = await fetch(`/api/availability/exceptions/${id}`, {
-        method: "DELETE",
-      })
-
+      const response = await fetch(`/api/availability/exceptions/${id}`, { method: "DELETE" })
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || "Erro ao excluir exceção")
       }
-
       setExceptions(exceptions.filter((e) => e.id !== id))
       toast.success("Exceção removida")
     } catch (error) {
@@ -502,96 +372,76 @@ function AvailabilitySettingsContent() {
   }
 
   function formatExceptionDate(dateStr: string): string {
-    // Extract just the date part (YYYY-MM-DD) to avoid timezone issues
     const datePart = dateStr.split("T")[0]
-    // Parse as local time by appending time component
     const date = new Date(datePart + "T12:00:00")
-    return date.toLocaleDateString("pt-BR", {
-      weekday: "short",
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    })
+    return date.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })
   }
 
-  if (status === "loading" || isLoading) {
-    return <LoadingState />
-  }
+  const activeCount = days.filter((d) => d.enabled).length
+
+  if (status === "loading" || isLoading) return <LoadingState />
 
   return (
     <main className="min-h-screen bg-background pb-20">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="mb-6">
+      <div className="max-w-lg md:max-w-3xl mx-auto px-4 py-6 sm:py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
           <button
             onClick={() => router.back()}
-            className="min-h-[44px] min-w-[44px] flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors touch-manipulation"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors touch-manipulation"
+            aria-label="Voltar"
           >
-            &larr; Voltar
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           </button>
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <h1 className="text-2xl font-semibold text-foreground">
-            Disponibilidade Semanal
-          </h1>
+          <h1 className="text-lg font-semibold text-foreground tracking-[-0.02em]">Disponibilidade</h1>
           <button
             onClick={saveAvailability}
             disabled={isSaving || (isAdmin && !selectedProfessionalId)}
-            className="h-10 px-4 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+            className="h-9 px-4 rounded-xl bg-primary text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40 transition-opacity"
           >
             {isSaving ? "Salvando..." : "Salvar"}
           </button>
         </div>
 
-        {/* ADMIN: Professional selector */}
+        {/* Admin: Professional selector */}
         {isAdmin && professionals.length > 0 && (
-          <div className="mb-6">
-            <label
-              htmlFor="professional"
-              className="block text-sm font-medium text-foreground mb-2"
-            >
-              Profissional
-            </label>
+          <div className="mb-5">
             <select
               id="professional"
               value={selectedProfessionalId || ""}
               onChange={(e) => handleProfessionalChange(e.target.value)}
-              className="w-full sm:w-auto min-w-[250px] h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+              className="w-full h-11 px-3 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
             >
               <option value="">Selecione um profissional</option>
               {professionals.map((prof) => (
-                <option key={prof.id} value={prof.id}>
-                  {prof.name}
-                </option>
+                <option key={prof.id} value={prof.id}>{prof.name}</option>
               ))}
             </select>
           </div>
         )}
 
-        {/* Weekly Grid */}
         {isAdmin && !selectedProfessionalId ? (
-          <div className="bg-card border border-border rounded-lg p-6 text-center">
-            <p className="text-muted-foreground">
-              Selecione um profissional acima para gerenciar a disponibilidade.
-            </p>
+          <div className="rounded-2xl bg-muted/50 border border-transparent px-5 py-10 text-center">
+            <p className="text-sm text-muted-foreground">Selecione um profissional para gerenciar a disponibilidade.</p>
           </div>
         ) : (
-          <WeeklyScheduleGrid
-            rules={rules}
-            onToggleDay={toggleDayActive}
-            onOpenBlockEditor={openBlockEditor}
-            onRemoveAllBlocks={removeAllBlocksForDay}
-          />
+          <>
+            {/* Summary pill */}
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-[13px] text-muted-foreground">
+                {activeCount === 0
+                  ? "Nenhum dia ativo"
+                  : `${activeCount} dia${activeCount > 1 ? "s" : ""} ativo${activeCount > 1 ? "s" : ""}`}
+              </span>
+              <span className="text-[13px] text-muted-foreground/50">&middot;</span>
+              <span className="text-[13px] text-muted-foreground">
+                {days.reduce((n, d) => n + (d.enabled ? d.slots.length : 0), 0)} horário(s)
+              </span>
+            </div>
+            <SlotPicker days={days} onUpdate={handleScheduleUpdate} />
+          </>
         )}
 
-        {(!isAdmin || selectedProfessionalId) && (
-          <p className="text-sm text-muted-foreground mt-6">
-            Configure os horários em que você está disponível para atendimentos.
-            Você pode adicionar múltiplos blocos de horário por dia.
-          </p>
-        )}
-
-        {/* Exceptions Section */}
         <ExceptionsList
           exceptions={exceptions}
           isDeletingException={isDeletingException}
@@ -601,19 +451,6 @@ function AvailabilitySettingsContent() {
         />
       </div>
 
-      {/* Time Block Editor Modal */}
-      {editingBlock && isMounted && (
-        <TimeBlockEditorModal
-          editingBlock={editingBlock}
-          isSaving={isSaving}
-          onSave={saveBlock}
-          onDelete={deleteBlock}
-          onClose={closeBlockEditor}
-          onChange={setEditingBlock}
-        />
-      )}
-
-      {/* Exception Editor Modal */}
       {editingException && isMounted && (
         <ExceptionEditorModal
           editingException={editingException}
@@ -622,7 +459,7 @@ function AvailabilitySettingsContent() {
           isAdmin={isAdmin}
           isSaving={isSaving}
           onSave={saveException}
-          onClose={closeExceptionEditor}
+          onClose={() => setEditingException(null)}
           onChange={setEditingException}
         />
       )}
