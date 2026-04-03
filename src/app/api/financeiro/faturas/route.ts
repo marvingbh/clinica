@@ -36,9 +36,9 @@ export const GET = withFeatureAuth(
         SELECT id FROM "Patient"
         WHERE "clinicId" = ${user.clinicId}
         AND (
-          unaccent("name") ILIKE '%' || unaccent(${patientSearch}) || '%'
-          OR unaccent(COALESCE("motherName", '')) ILIKE '%' || unaccent(${patientSearch}) || '%'
-          OR unaccent(COALESCE("fatherName", '')) ILIKE '%' || unaccent(${patientSearch}) || '%'
+          unaccent("name") ILIKE unaccent('%' || ${patientSearch} || '%')
+          OR unaccent(COALESCE("motherName", '')) ILIKE unaccent('%' || ${patientSearch} || '%')
+          OR unaccent(COALESCE("fatherName", '')) ILIKE unaccent('%' || ${patientSearch} || '%')
         )
       `
       where.patientId = { in: matchingPatients.map(p => p.id) }

@@ -36,6 +36,7 @@ export default function FaturasPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [generateProgress, setGenerateProgress] = useState<{ current: number; total: number; patient: string } | null>(null)
   const [markingEnviado, setMarkingEnviado] = useState(false)
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [selectedProfessionalId, setSelectedProfessionalId] = useState("")
@@ -101,6 +102,7 @@ export default function FaturasPage() {
 
   async function handleGenerate() {
     setGenerating(true)
+    setGenerateProgress(null)
     try {
       const generateMonth = month ?? new Date().getMonth() + 1
       const res = await fetch("/api/financeiro/faturas/gerar", {
@@ -112,19 +114,51 @@ export default function FaturasPage() {
           ...(selectedProfessionalId ? { professionalProfileId: selectedProfessionalId } : {}),
         }),
       })
-      const data = await res.json()
+
       if (!res.ok) {
+        const data = await res.json()
         toast.error(data.error || "Erro ao gerar faturas")
         return
       }
-      const parts = []
-      if (data.generated) parts.push(`${data.generated} gerada(s)`)
-      if (data.updated) parts.push(`${data.updated} atualizada(s)`)
-      if (data.skipped) parts.push(`${data.skipped} mantida(s)`)
-      toast.success(parts.join(", ") || "Nenhuma fatura gerada")
+
+      // Read NDJSON stream for progress
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ""
+      let finalResult: { generated?: number; updated?: number; skipped?: number } | null = null
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split("\n")
+          buffer = lines.pop() || ""
+          for (const line of lines) {
+            if (!line.trim()) continue
+            try {
+              const event = JSON.parse(line)
+              if (event.type === "progress") {
+                setGenerateProgress({ current: event.current, total: event.total, patient: event.patient })
+              } else if (event.type === "done") {
+                finalResult = event
+              }
+            } catch { /* skip malformed lines */ }
+          }
+        }
+      }
+
+      if (finalResult) {
+        const parts = []
+        if (finalResult.generated) parts.push(`${finalResult.generated} gerada(s)`)
+        if (finalResult.updated) parts.push(`${finalResult.updated} atualizada(s)`)
+        if (finalResult.skipped) parts.push(`${finalResult.skipped} mantida(s)`)
+        toast.success(parts.join(", ") || "Nenhuma fatura gerada")
+      }
       fetchInvoices()
     } finally {
       setGenerating(false)
+      setGenerateProgress(null)
     }
   }
 
@@ -444,6 +478,34 @@ export default function FaturasPage() {
           onClose={() => setDetailInvoiceId(null)}
           onUpdate={fetchInvoices}
         />
+      )}
+
+      {/* Invoice generation progress overlay */}
+      {generating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+          <div className="bg-background border border-border rounded-2xl shadow-lg px-8 py-6 max-w-sm w-full mx-4 text-center">
+            <div className="w-8 h-8 border-[3px] border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-base font-semibold text-foreground mb-1">Gerando faturas...</p>
+            {generateProgress ? (
+              <>
+                <p className="text-sm text-muted-foreground mb-3 truncate">
+                  {generateProgress.patient}
+                </p>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden mb-2">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all duration-300"
+                    style={{ width: `${Math.round((generateProgress.current / generateProgress.total) * 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {generateProgress.current} de {generateProgress.total} pacientes
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Preparando...</p>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )
