@@ -77,42 +77,18 @@ export const POST = withFeatureAuth(
       },
     })
 
-    // Step 4: Group by patientId + professionalProfileId (one invoice per combination)
-    const byPatientAndProfessional = new Map<string, typeof allAppointments>()
+    // Step 4: Group by patientId only (one consolidated invoice per patient)
+    // All sessions go into one invoice under the patient's reference professional.
+    const byPatient = new Map<string, typeof allAppointments>()
     for (const apt of allAppointments) {
       if (!apt.patientId) continue
-      const key = `${apt.patientId}|${apt.professionalProfileId}`
-      const list = byPatientAndProfessional.get(key) || []
+      const list = byPatient.get(apt.patientId) || []
       list.push(apt)
-      byPatientAndProfessional.set(key, list)
+      byPatient.set(apt.patientId, list)
     }
 
-    // Step 4b: Fetch uninvoiced prior appointments for all patients (across ALL professionals)
-    // This catches cross-professional group sessions from prior months that were not yet invoiced.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const priorAptsBulk = await fetchUninvoicedPriorAppointmentsBulk(prisma as any, {
-      clinicId: user.clinicId,
-      patientIds,
-      beforeDate: startDate,
-    })
-    for (const apt of priorAptsBulk) {
-      if (!apt.patientId) continue
-      const key = `${apt.patientId}|${apt.professionalProfileId}`
-      const list = byPatientAndProfessional.get(key) || []
-      // Avoid duplicates (prior apts may overlap with per-combo fetch later)
-      if (!list.some(a => a.id === apt.id)) {
-        list.push(apt)
-        byPatientAndProfessional.set(key, list)
-      }
-    }
-
-    // Collect unique professional IDs for name lookup
-    const profIds = new Set<string>()
-    for (const apts of byPatientAndProfessional.values()) {
-      for (const a of apts) profIds.add(a.professionalProfileId)
-    }
-
-    const [patients, clinic, professionals] = await Promise.all([
+    // Load patient + clinic data early (needed for cleanup step)
+    const [patients, clinic] = await Promise.all([
       prisma.patient.findMany({
         where: { id: { in: patientIds } },
         select: {
@@ -126,19 +102,68 @@ export const POST = withFeatureAuth(
         where: { id: user.clinicId },
         select: { invoiceDueDay: true, invoiceMessageTemplate: true, billingMode: true, invoiceGrouping: true },
       }),
-      prisma.professionalProfile.findMany({
-        where: { id: { in: Array.from(profIds) } },
-        select: { id: true, user: { select: { name: true } } },
-      }),
     ])
 
-    const patientMap = new Map(patients.map(p => [p.id, p]))
-    const profMap = new Map(professionals.map(p => [p.id, p]))
+    // Step 4b: Clean up orphaned invoices from old per-professional grouping.
+    // Delete PENDENTE invoices under a different professional than the billing professional.
+    // This must run BEFORE fetching uninvoiced prior appointments so freed items are detected.
+    for (const p of patients) {
+      const billingProfId = p.referenceProfessionalId || allAppointments.find(a => a.patientId === p.id)?.professionalProfileId
+      if (!billingProfId) continue
+      await prisma.invoice.deleteMany({
+        where: {
+          clinicId: user.clinicId,
+          patientId: p.id,
+          referenceMonth: month,
+          referenceYear: year,
+          professionalProfileId: { not: billingProfId },
+          status: "PENDENTE",
+        },
+      })
+    }
 
+    // Step 4c: Fetch uninvoiced prior appointments (now includes items freed by cleanup above)
+    // Also includes appointments only invoiced in PENDENTE invoices for this month (will be rebuilt)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const priorAptsBulk = await fetchUninvoicedPriorAppointmentsBulk(prisma as any, {
+      clinicId: user.clinicId,
+      patientIds,
+      beforeDate: startDate,
+      targetMonth: month,
+      targetYear: year,
+    })
+    for (const apt of priorAptsBulk) {
+      if (!apt.patientId) continue
+      const list = byPatient.get(apt.patientId) || []
+      if (!list.some(a => a.id === apt.id)) {
+        list.push(apt)
+        byPatient.set(apt.patientId, list)
+      }
+    }
+
+    // Collect unique professional IDs for name lookup (from appointments + reference professionals)
+    const profIds = new Set<string>()
+    for (const apts of byPatient.values()) {
+      for (const a of apts) profIds.add(a.professionalProfileId)
+    }
+
+    const patientMap = new Map(patients.map(p => [p.id, p]))
     const clinicDueDay = clinic?.invoiceDueDay ?? 15
 
+    // Ensure reference professional IDs are also fetched for name lookup
+    for (const p of patients) {
+      if (p.referenceProfessionalId) profIds.add(p.referenceProfessionalId)
+    }
+
+    // Fetch all professionals (session + reference) for name lookup
+    const allProfessionals = await prisma.professionalProfile.findMany({
+      where: { id: { in: Array.from(profIds) } },
+      select: { id: true, user: { select: { name: true } } },
+    })
+    const profMap = new Map(allProfessionals.map(p => [p.id, p]))
+
     // Stream progress as each patient is processed
-    const total = byPatientAndProfessional.size
+    const total = byPatient.size
     const encoder = new TextEncoder()
 
     const stream = new ReadableStream({
@@ -148,10 +173,12 @@ export const POST = withFeatureAuth(
         let skipped = 0
         let current = 0
 
-        for (const [key, patientApts] of byPatientAndProfessional) {
-          const [patientId, profId] = key.split("|")
+        for (const [patientId, patientApts] of byPatient) {
           const patient = patientMap.get(patientId)
           if (!patient || !patient.sessionFee) { current++; continue }
+
+          // Resolve billing professional: reference professional > first appointment's professional
+          const billingProfId = patient.referenceProfessionalId || patientApts[0].professionalProfileId
 
           current++
           controller.enqueue(encoder.encode(
@@ -163,6 +190,7 @@ export const POST = withFeatureAuth(
             patient.invoiceGrouping
           )
 
+          // Always set attendingProfessionalId to the actual session professional
           const mappedApts = patientApts.map(a => ({
             id: a.id,
             scheduledAt: a.scheduledAt,
@@ -173,7 +201,7 @@ export const POST = withFeatureAuth(
             groupId: a.groupId,
             sessionGroupId: a.sessionGroupId,
             price: a.price ? Number(a.price) : null,
-            attendingProfessionalId: a.attendingProfessionalId ?? null,
+            attendingProfessionalId: a.attendingProfessionalId ?? a.professionalProfileId,
           }))
 
           try {
@@ -182,7 +210,7 @@ export const POST = withFeatureAuth(
                 const result = await generatePerSessionInvoices(tx, {
                   clinicId: user.clinicId,
                   patientId,
-                  profId,
+                  profId: billingProfId,
                   month,
                   year,
                   appointments: mappedApts,
@@ -190,7 +218,7 @@ export const POST = withFeatureAuth(
                   patientTemplate: patient.invoiceMessageTemplate,
                   clinicTemplate: clinic?.invoiceMessageTemplate ?? null,
                   clinicPaymentInfo: null,
-                  profName: profMap.get(profId)?.user?.name || "",
+                  profName: profMap.get(billingProfId)?.user?.name || "",
                   patientName: patient.name,
                   motherName: patient.motherName,
                   fatherName: patient.fatherName,
@@ -206,13 +234,13 @@ export const POST = withFeatureAuth(
                 const result = await generateMonthlyInvoice(tx, {
                   clinicId: user.clinicId,
                   patientId,
-                  professionalProfileId: profId,
+                  professionalProfileId: billingProfId,
                   month,
                   year,
                   dueDate,
                   sessionFee: Number(patient.sessionFee),
                   showAppointmentDays: patient.showAppointmentDaysOnInvoice,
-                  profName: profMap.get(profId)?.user?.name || "",
+                  profName: profMap.get(billingProfId)?.user?.name || "",
                   billingMode: clinic?.billingMode ?? null,
                   patient: {
                     name: patient.name,

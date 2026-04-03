@@ -59,11 +59,35 @@ export async function fetchUninvoicedPriorAppointmentsBulk(
     clinicId: string
     patientIds: string[]
     beforeDate: Date
+    /** Also include appointments invoiced only in PENDENTE invoices for this month/year (will be rebuilt) */
+    targetMonth?: number
+    targetYear?: number
   }
 ): Promise<(AppointmentSelect & { patientId: string | null; professionalProfileId: string })[]> {
-  const { clinicId, patientIds, beforeDate } = params
+  const { clinicId, patientIds, beforeDate, targetMonth, targetYear } = params
   const lookbackDate = new Date(beforeDate)
   lookbackDate.setMonth(lookbackDate.getMonth() - LOOKBACK_MONTHS)
+
+  // Include appointments that are either uninvoiced OR only invoiced in PENDENTE invoices
+  // for the target month (since those invoices will be regenerated)
+  const invoiceItemFilter = targetMonth && targetYear
+    ? {
+        OR: [
+          { invoiceItems: { none: {} } },
+          {
+            invoiceItems: {
+              every: {
+                invoice: {
+                  referenceMonth: targetMonth,
+                  referenceYear: targetYear,
+                  status: "PENDENTE",
+                },
+              },
+            },
+          },
+        ],
+      }
+    : { invoiceItems: { none: {} } }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (client as any).appointment.findMany({
@@ -73,7 +97,7 @@ export async function fetchUninvoicedPriorAppointmentsBulk(
       scheduledAt: { gte: lookbackDate, lt: beforeDate },
       type: { in: INVOICEABLE_TYPES },
       status: { in: BILLABLE_STATUSES },
-      invoiceItems: { none: {} },
+      ...invoiceItemFilter,
     },
     select: {
       ...appointmentSelect,
