@@ -130,9 +130,13 @@ export default function GroupsPage() {
     setEditingGroup(null)
     setViewingGroup(null)
     setAdditionalProfessionalIds([])
+    // Auto-select professional if only one available
+    const defaultProfId = professionals.length === 1
+      ? professionals[0].professionalProfile?.id || ""
+      : ""
     reset({
       name: "",
-      professionalProfileId: "",
+      professionalProfileId: defaultProfId,
       dayOfWeek: 1,
       startTime: "",
       duration: 90,

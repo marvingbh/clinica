@@ -213,4 +213,7 @@ export interface GroupSession {
     professionalName: string
   }>
   participants: GroupSessionParticipant[]
+  // Recurrence fields (only for recurring groups with groupId)
+  recurrenceType?: string
+  isActive?: boolean
 }

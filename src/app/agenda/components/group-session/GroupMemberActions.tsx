@@ -32,17 +32,39 @@ export function GroupMemberActions({ session, onMemberChanged }: GroupMemberActi
   const durationMs = new Date(session.endAt).getTime() - sessionDate.getTime()
   const durationMin = Math.round(durationMs / 60000)
 
+  const isRecurring = !!session.groupId
+
   const handleSelectPatient = useCallback((patient: Patient) => {
     setSelectedPatient(patient)
-    setPendingAction({ type: "add", patient: { id: patient.id, name: patient.name } })
-  }, [])
+    const action: PendingAction = { type: "add", patient: { id: patient.id, name: patient.name } }
+    if (isRecurring) {
+      setPendingAction(action)
+    } else {
+      // One-off sessions: add directly to this session, skip scope dialog
+      setIsProcessing(true)
+      executeAdd("this_only", action.patient).finally(() => {
+        setIsProcessing(false)
+        setSelectedPatient(null)
+        setPatientSearch("")
+        setIsAdding(false)
+      })
+    }
+  }, [isRecurring]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRemoveClick = useCallback((appointmentId: string, patientId: string, patientName: string) => {
-    setPendingAction({ type: "remove", patient: { id: patientId, name: patientName }, appointmentId })
-  }, [])
+    if (isRecurring) {
+      setPendingAction({ type: "remove", patient: { id: patientId, name: patientName }, appointmentId })
+    } else {
+      // One-off sessions: remove directly, skip scope dialog
+      setIsProcessing(true)
+      executeRemove("this_only", { id: patientId, name: patientName }, appointmentId).finally(() => {
+        setIsProcessing(false)
+      })
+    }
+  }, [isRecurring]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleScopeSelect = async (scope: MemberScope) => {
-    if (!pendingAction || !session.groupId) return
+    if (!pendingAction) return
     setIsProcessing(true)
 
     try {

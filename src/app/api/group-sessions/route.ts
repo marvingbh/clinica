@@ -22,6 +22,8 @@ interface SessionEntry {
     patientName: string
     status: string
   }>
+  recurrenceType?: string
+  isActive?: boolean
 }
 
 /**
@@ -161,6 +163,8 @@ export const GET = withFeatureAuth(
           select: {
             id: true,
             name: true,
+            recurrenceType: true,
+            isActive: true,
             professionalProfile: {
               select: {
                 id: true,
@@ -215,6 +219,10 @@ export const GET = withFeatureAuth(
           professionalName: profName,
           additionalProfessionals: addlProfs,
           participants: [],
+          ...(apt.group && {
+            recurrenceType: apt.group.recurrenceType,
+            isActive: apt.group.isActive,
+          }),
         })
       }
 

@@ -8,9 +8,9 @@ import { getCancelVariant } from "@/lib/appointments/status-transitions"
 import { toast } from "sonner"
 import type { GroupSession, AppointmentStatus, Professional } from "../lib/types"
 import type { CancelContext, CancelVariant } from "./group-session/types"
-import { GroupSessionHeader, GroupProfessionalEdit, GroupParticipantList, GroupMemberActions } from "./group-session"
+import { GroupSessionHeader, GroupProfessionalEdit, GroupParticipantList, GroupMemberActions, GroupRecurrenceTab } from "./group-session"
 
-type SheetTab = "session" | "members"
+type SheetTab = "session" | "members" | "recurrence"
 
 interface GroupSessionSheetProps {
   isOpen: boolean
@@ -37,8 +37,15 @@ export function GroupSessionSheet({
 
   if (!session) return null
 
-  // Only show members tab for recurring groups (have groupId)
-  const showMembersTab = !!session.groupId
+  const isRecurring = !!session.groupId
+
+  const tabs: Array<{ key: SheetTab; label: string }> = [
+    { key: "session", label: "Sessão" },
+    { key: "members", label: "Membros" },
+  ]
+  if (isRecurring) {
+    tabs.push({ key: "recurrence", label: "Recorrência" })
+  }
 
   const handleUpdateStatus = async (appointmentId: string, newStatus: AppointmentStatus, patientName: string) => {
     setUpdatingId(appointmentId)
@@ -97,42 +104,33 @@ export function GroupSessionSheet({
       <GroupSessionHeader
         session={session}
         onStatusUpdated={onStatusUpdated}
+        onDeleted={() => { onStatusUpdated(); onClose() }}
         isBulkUpdating={isBulkUpdating}
         onBulkUpdateStatus={handleBulkUpdateStatus}
       />
 
-      {/* Tabs — only show if recurring group */}
-      {showMembersTab && (
-        <div className="px-4 pt-3">
-          <div className="flex rounded-xl bg-muted/60 p-1">
+      {/* Tabs */}
+      <div className="px-4 pt-3">
+        <div className="flex rounded-xl bg-muted/60 p-1">
+          {tabs.map((tab) => (
             <button
+              key={tab.key}
               type="button"
-              onClick={() => setActiveTab("session")}
+              onClick={() => setActiveTab(tab.key)}
               className={`flex-1 h-9 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === "session"
+                activeTab === tab.key
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Sessao
+              {tab.label}
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("members")}
-              className={`flex-1 h-9 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === "members"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Membros
-            </button>
-          </div>
+          ))}
         </div>
-      )}
+      </div>
 
       {/* Session tab — attendance management */}
-      {(activeTab === "session" || !showMembersTab) && (
+      {activeTab === "session" && (
         <GroupParticipantList
           participants={session.participants}
           updatingId={updatingId}
@@ -143,7 +141,7 @@ export function GroupSessionSheet({
       )}
 
       {/* Members tab — member management + professionals */}
-      {activeTab === "members" && showMembersTab && (
+      {activeTab === "members" && (
         <>
           <GroupMemberActions
             session={session}
@@ -158,6 +156,11 @@ export function GroupSessionSheet({
             />
           )}
         </>
+      )}
+
+      {/* Recurrence tab — for recurring groups */}
+      {activeTab === "recurrence" && isRecurring && (
+        <GroupRecurrenceTab session={session} onSaved={onStatusUpdated} />
       )}
 
       {/* Footer */}
