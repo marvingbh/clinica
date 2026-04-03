@@ -79,15 +79,26 @@ export function GroupSessionHeader({
   }
 
   const handleSaveTitle = async () => {
-    if (!session.sessionGroupId || !editTitle.trim()) return
+    if (!editTitle.trim()) return
     setIsSavingTitle(true)
     try {
-      const res = await fetch("/api/group-sessions/update", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionGroupId: session.sessionGroupId, scheduledAt: session.scheduledAt, title: editTitle.trim() }),
-      })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
+      if (session.groupId) {
+        // Recurring group: update the TherapyGroup name
+        const res = await fetch(`/api/groups/${session.groupId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: editTitle.trim() }),
+        })
+        if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
+      } else if (session.sessionGroupId) {
+        // One-off session: update appointment titles
+        const res = await fetch("/api/group-sessions/update", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionGroupId: session.sessionGroupId, scheduledAt: session.scheduledAt, title: editTitle.trim() }),
+        })
+        if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
+      }
       toast.success("Título atualizado")
       setIsEditingTitle(false)
       onStatusUpdated()
@@ -99,13 +110,16 @@ export function GroupSessionHeader({
   }
 
   const handleDelete = async () => {
-    if (!session.sessionGroupId) return
+    if (!session.sessionGroupId && !session.groupId) return
     if (!window.confirm("Excluir esta sessão em grupo? Todos os agendamentos dos participantes serão removidos.")) return
     setIsDeleting(true)
     try {
-      const params = new URLSearchParams({ sessionGroupId: session.sessionGroupId, scheduledAt: session.scheduledAt })
-      const res = await fetch(`/api/group-sessions/update?${params}`, { method: "DELETE" })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
+      // Delete all appointments for this session date
+      const appointmentIds = session.participants.map(p => p.appointmentId)
+      for (const id of appointmentIds) {
+        const res = await fetch(`/api/appointments/${id}`, { method: "DELETE" })
+        if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
+      }
       toast.success("Sessão excluída")
       onDeleted?.()
     } catch (err) {
@@ -123,7 +137,7 @@ export function GroupSessionHeader({
   return (
     <div className="px-4 py-3 border-b border-border">
       {/* Title — editable */}
-      {session.sessionGroupId && (
+      {(session.sessionGroupId || session.groupId) && (
         <div className="mb-2">
           {isEditingTitle ? (
             <div className="flex items-center gap-2">
@@ -200,7 +214,7 @@ export function GroupSessionHeader({
 
         <div className="flex items-center gap-1.5">
           {/* Delete session */}
-          {session.sessionGroupId && (
+          {(session.sessionGroupId || session.groupId) && (
             <button
               type="button"
               onClick={handleDelete}

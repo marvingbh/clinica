@@ -154,13 +154,14 @@ export function CreateGroupSessionSheet({
       const dateObj = new Date(isoDate + "T12:00:00")
 
       // 1. Create TherapyGroup
+      const effectiveProfId = createProfessionalId || selectedProfessionalId || undefined
       const groupResult = await createTherapyGroup({
         name: data.title,
         dayOfWeek: dateObj.getDay(),
         startTime: data.startTime,
         duration: data.duration || appointmentDuration,
         recurrenceType,
-        professionalProfileId: createProfessionalId || undefined,
+        professionalProfileId: effectiveProfId,
         additionalProfessionalIds: additionalProfessionalIds.length > 0 ? additionalProfessionalIds : undefined,
       })
       if (groupResult.error || !groupResult.groupId) {

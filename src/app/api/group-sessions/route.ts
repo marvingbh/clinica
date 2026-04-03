@@ -24,6 +24,9 @@ interface SessionEntry {
   }>
   recurrenceType?: string
   isActive?: boolean
+  dayOfWeek?: number
+  startTime?: string
+  duration?: number
 }
 
 /**
@@ -165,6 +168,9 @@ export const GET = withFeatureAuth(
             name: true,
             recurrenceType: true,
             isActive: true,
+            dayOfWeek: true,
+            startTime: true,
+            duration: true,
             professionalProfile: {
               select: {
                 id: true,
@@ -222,6 +228,9 @@ export const GET = withFeatureAuth(
           ...(apt.group && {
             recurrenceType: apt.group.recurrenceType,
             isActive: apt.group.isActive,
+            dayOfWeek: apt.group.dayOfWeek,
+            startTime: apt.group.startTime,
+            duration: apt.group.duration,
           }),
         })
       }

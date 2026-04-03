@@ -160,7 +160,7 @@ export function GroupSessionSheet({
 
       {/* Recurrence tab — for recurring groups */}
       {activeTab === "recurrence" && isRecurring && (
-        <GroupRecurrenceTab session={session} onSaved={onStatusUpdated} />
+        <GroupRecurrenceTab session={session} onSaved={onStatusUpdated} onClose={onClose} />
       )}
 
       {/* Footer */}

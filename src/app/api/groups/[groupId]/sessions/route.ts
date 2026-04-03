@@ -45,8 +45,8 @@ export const POST = withFeatureAuth(
       )
     }
 
-    // Limit to 1 year max (only for generate mode, regenerate updates existing sessions)
-    if (mode !== "regenerate") {
+    // Limit to 1 year max (only for generate mode; regenerate/reschedule work on existing sessions)
+    if (mode === "generate") {
       const oneYearMs = 365 * 24 * 60 * 60 * 1000
       if (end.getTime() - start.getTime() > oneYearMs) {
         return NextResponse.json(

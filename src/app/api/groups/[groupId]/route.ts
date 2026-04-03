@@ -13,6 +13,7 @@ const updateGroupSchema = z.object({
   recurrenceType: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]).optional(),
   isActive: z.boolean().optional(),
   additionalProfessionalIds: z.array(z.string()).optional(),
+  applyTo: z.enum(["future"]).optional(),
 })
 
 /**
@@ -117,10 +118,13 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { additionalProfessionalIds, ...updateData } = validation.data
+    const { additionalProfessionalIds, applyTo, ...updateData } = validation.data
+
+    const scheduleChanged = updateData.dayOfWeek !== undefined || updateData.startTime !== undefined ||
+      updateData.duration !== undefined || updateData.recurrenceType !== undefined
 
     // Update the group with additional professionals in a transaction
-    const group = await prisma.$transaction(async (tx) => {
+    const { group, rescheduledCount } = await prisma.$transaction(async (tx) => {
       // Update group fields
       await tx.therapyGroup.update({
         where: { id: groupId },
@@ -133,7 +137,6 @@ export const PATCH = withFeatureAuth(
           id => id !== existingGroup.professionalProfileId
         )
 
-        // Validate additional professionals belong to clinic
         let validIds: string[] = []
         if (newIds.length > 0) {
           const validProfs = await tx.professionalProfile.findMany({
@@ -146,28 +149,59 @@ export const PATCH = withFeatureAuth(
           validIds = validProfs.map(p => p.id)
         }
 
-        // Delete existing + recreate
-        await tx.therapyGroupProfessional.deleteMany({
-          where: { groupId },
-        })
+        await tx.therapyGroupProfessional.deleteMany({ where: { groupId } })
         if (validIds.length > 0) {
           await tx.therapyGroupProfessional.createMany({
-            data: validIds.map(profId => ({
-              groupId,
-              professionalProfileId: profId,
-            })),
+            data: validIds.map(profId => ({ groupId, professionalProfileId: profId })),
           })
         }
       }
 
-      return tx.therapyGroup.findUniqueOrThrow({
+      // Apply schedule changes to future sessions
+      let rescheduled = 0
+      if (applyTo === "future" && scheduleChanged) {
+        const now = new Date()
+        now.setHours(0, 0, 0, 0)
+
+        // Get the updated group for new values
+        const updated = await tx.therapyGroup.findUniqueOrThrow({ where: { id: groupId } })
+        const newDayOfWeek = updated.dayOfWeek
+        const [newH, newM] = updated.startTime.split(":").map(Number)
+        const newDuration = updated.duration
+
+        // Get all future sessions
+        const futureAppts = await tx.appointment.findMany({
+          where: {
+            groupId,
+            scheduledAt: { gte: now },
+            status: { in: ["AGENDADO", "CONFIRMADO"] },
+          },
+          select: { id: true, scheduledAt: true },
+        })
+
+        // Move each appointment to the new day/time
+        for (const appt of futureAppts) {
+          const oldDate = appt.scheduledAt
+          const currentDay = oldDate.getDay()
+          const dayDiff = newDayOfWeek - currentDay
+          const newDate = new Date(oldDate)
+          newDate.setDate(newDate.getDate() + dayDiff)
+          newDate.setHours(newH, newM, 0, 0)
+          const newEnd = new Date(newDate.getTime() + newDuration * 60000)
+
+          await tx.appointment.update({
+            where: { id: appt.id },
+            data: { scheduledAt: newDate, endAt: newEnd },
+          })
+          rescheduled++
+        }
+      }
+
+      const result = await tx.therapyGroup.findUniqueOrThrow({
         where: { id: groupId },
         include: {
           professionalProfile: {
-            select: {
-              id: true,
-              user: { select: { name: true } },
-            },
+            select: { id: true, user: { select: { name: true } } },
           },
           additionalProfessionals: {
             select: {
@@ -178,9 +212,15 @@ export const PATCH = withFeatureAuth(
           },
         },
       })
-    })
 
-    return NextResponse.json({ group })
+      return { group: result, rescheduledCount: rescheduled }
+    }, { timeout: 30000 })
+
+    const message = rescheduledCount > 0
+      ? `Grupo atualizado. ${rescheduledCount} sessão(ões) futura(s) reagendada(s).`
+      : "Grupo atualizado com sucesso"
+
+    return NextResponse.json({ group, message, rescheduledCount })
   }
 )
 

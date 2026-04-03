@@ -216,4 +216,7 @@ export interface GroupSession {
   // Recurrence fields (only for recurring groups with groupId)
   recurrenceType?: string
   isActive?: boolean
+  dayOfWeek?: number
+  startTime?: string
+  duration?: number
 }
