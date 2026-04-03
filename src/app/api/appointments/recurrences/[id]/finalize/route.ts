@@ -106,13 +106,8 @@ export const POST = withFeatureAuth(
       )
     }
 
-    // Only allow finalizing INDEFINITE recurrences
-    if (recurrence.recurrenceEndType !== RecurrenceEndType.INDEFINITE) {
-      return NextResponse.json(
-        { error: "Apenas recorrencias indefinidas podem ser finalizadas" },
-        { status: 400 }
-      )
-    }
+    // Allow finalizing any active recurrence (INDEFINITE or BY_DATE)
+    // BY_OCCURRENCES can also be finalized early
 
     const oldValues = {
       recurrenceEndType: recurrence.recurrenceEndType,

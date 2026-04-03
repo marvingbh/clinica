@@ -293,6 +293,23 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
           </div>
         )}
 
+        {/* Finalize recurrence */}
+        <div className="pt-2 border-t border-border">
+          <button
+            type="button"
+            onClick={() => {
+              setFinalizeDate(toDisplayDateFromDate(new Date()))
+              setIsFinalizeDialogOpen(true)
+            }}
+            className="w-full h-11 rounded-md border border-orange-500 bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 font-medium hover:bg-orange-100 dark:hover:bg-orange-950/50 transition-colors"
+          >
+            Finalizar recorrencia
+          </button>
+          <p className="text-xs text-muted-foreground mt-1 text-center">
+            Define uma data de fim e remove agendamentos futuros.
+          </p>
+        </div>
+
         {/* Time + Duration + End Time */}
         <div className="grid grid-cols-3 gap-3">
           <div>
@@ -498,25 +515,6 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
             Se marcado, o horario e modalidade serao atualizados nos proximos agendamentos.
           </p>
         </div>
-
-        {/* Finalize button for INDEFINITE recurrences */}
-        {isIndefinite && (
-          <div className="pt-4 border-t border-border">
-            <button
-              type="button"
-              onClick={() => {
-                setFinalizeDate(toDisplayDateFromDate(new Date()))
-                setIsFinalizeDialogOpen(true)
-              }}
-              className="w-full h-11 rounded-md border border-orange-500 bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 font-medium hover:bg-orange-100 dark:hover:bg-orange-950/50 transition-colors"
-            >
-              Finalizar recorrencia
-            </button>
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              Define uma data de fim para parar de gerar novos agendamentos.
-            </p>
-          </div>
-        )}
 
         {/* Actions */}
         <div className="flex gap-3 pt-4">
