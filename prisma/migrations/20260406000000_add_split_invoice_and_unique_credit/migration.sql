@@ -1,5 +1,5 @@
 -- AlterTable: Add splitInvoiceByProfessional to Patient
-ALTER TABLE "Patient" ADD COLUMN "splitInvoiceByProfessional" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Patient" ADD COLUMN IF NOT EXISTS "splitInvoiceByProfessional" BOOLEAN NOT NULL DEFAULT false;
 
 -- CreateIndex: Unique constraint on SessionCredit.originAppointmentId to prevent duplicate credits
 -- First clean up any existing duplicates (keep the first one per originAppointmentId)
@@ -12,4 +12,4 @@ WHERE id IN (
   WHERE rn > 1
 );
 
-CREATE UNIQUE INDEX "SessionCredit_originAppointmentId_key" ON "SessionCredit"("originAppointmentId");
+CREATE UNIQUE INDEX IF NOT EXISTS "SessionCredit_originAppointmentId_key" ON "SessionCredit"("originAppointmentId");
