@@ -401,6 +401,7 @@ model Patient {
   showAppointmentDaysOnInvoice Boolean   @default(false)
   invoiceDueDay                Int? // Day of the month for due date (overrides clinic default)
   invoiceGrouping              InvoiceGrouping? // null = inherit from clinic
+  splitInvoiceByProfessional   Boolean  @default(false) // Generate separate invoices per professional
   invoiceMessageTemplate       String? // Overrides clinic default for invoice text
   nfseDescriptionTemplate      String? // Overrides clinic default for NFS-e description
   nfsePerAppointment           Boolean   @default(false) // Emit individual NFS-e per appointment instead of per invoice
@@ -957,6 +958,7 @@ model SessionCredit {
   originAppointment   Appointment         @relation(fields: [originAppointmentId], references: [id], onDelete: Cascade)
   consumedByInvoice   Invoice?            @relation(fields: [consumedByInvoiceId], references: [id], onDelete: SetNull)
 
+  @@unique([originAppointmentId])
   @@index([clinicId])
   @@index([professionalProfileId])
   @@index([patientId])

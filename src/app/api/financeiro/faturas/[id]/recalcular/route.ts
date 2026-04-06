@@ -6,7 +6,7 @@ import { recalculateInvoice } from "@/lib/financeiro/recalculate-invoice"
 import { getMonthName } from "@/lib/financeiro/format"
 import { separateManualItems } from "@/lib/financeiro/invoice-generation"
 import { resolveGrouping } from "@/lib/financeiro/invoice-grouping"
-import { fetchUninvoicedPriorAppointments } from "@/lib/financeiro/uninvoiced-appointments"
+import { fetchUninvoicedPriorAppointmentsBulk } from "@/lib/financeiro/uninvoiced-appointments"
 import {
   recalculatePerSession,
   handleGroupingTransition,
@@ -53,7 +53,8 @@ export const POST = withFeatureAuth(
         id: true, name: true, motherName: true, fatherName: true,
         sessionFee: true, showAppointmentDaysOnInvoice: true,
         invoiceDueDay: true, invoiceMessageTemplate: true,
-        invoiceGrouping: true,
+        invoiceGrouping: true, splitInvoiceByProfessional: true,
+        referenceProfessionalId: true,
       },
     })
 
@@ -80,6 +81,29 @@ export const POST = withFeatureAuth(
     const invoiceIsMonthly = invoice.invoiceType !== "PER_SESSION"
     const groupingChanged = (invoiceIsMonthly && currentGrouping === "PER_SESSION")
       || (!invoiceIsMonthly && currentGrouping === "MONTHLY")
+
+    // Check if split-by-professional setting requires regeneration.
+    // If invoice is consolidated (reference prof) but patient now wants split, or vice versa,
+    // the user should regenerate via "Gerar Faturas" to create/consolidate properly.
+    const isSplitByProf = patient.splitInvoiceByProfessional
+    const billingProfForConsolidated = patient.referenceProfessionalId || invoice.professionalProfileId
+    const isCurrentlyConsolidated = !isSplitByProf && invoice.professionalProfileId === billingProfForConsolidated
+    const needsSplitRegeneration = isSplitByProf && invoice.professionalProfileId === billingProfForConsolidated
+      && await prisma.appointment.count({
+        where: {
+          clinicId: user.clinicId,
+          patientId: invoice.patientId,
+          professionalProfileId: { not: invoice.professionalProfileId },
+          scheduledAt: { gte: new Date(invoice.referenceYear, invoice.referenceMonth - 1, 1), lt: new Date(invoice.referenceYear, invoice.referenceMonth, 1) },
+          type: { in: ["CONSULTA", "REUNIAO"] },
+        },
+      }) > 0
+
+    if (needsSplitRegeneration) {
+      return NextResponse.json({
+        error: "Este paciente tem 'Faturar separado por profissional' ativo. Use 'Gerar Faturas do Mês' para regenerar as faturas separadas.",
+      }, { status: 400 })
+    }
 
     // Grouping transition: cancel old invoice, regenerate with new type
     if (groupingChanged) {
@@ -129,25 +153,27 @@ export const POST = withFeatureAuth(
     const startDate = new Date(invoice.referenceYear, invoice.referenceMonth - 1, 1)
     const endDate = new Date(invoice.referenceYear, invoice.referenceMonth, 1)
 
-    const [monthAppointments, uninvoicedPriorApts, professional] = await Promise.all([
+    // When consolidated (not split), fetch ALL professionals' appointments for this patient.
+    // When split by professional, only fetch this invoice's professional.
+    const profFilter = isSplitByProf
+      ? { professionalProfileId: invoice.professionalProfileId }
+      : {}
+
+    // Fetch month appointments + uninvoiced prior using the same logic as "Gerar Faturas"
+    const [monthAppointments, professional] = await Promise.all([
       prisma.appointment.findMany({
         where: {
           clinicId: user.clinicId,
           patientId: invoice.patientId,
-          professionalProfileId: invoice.professionalProfileId,
+          ...profFilter,
           scheduledAt: { gte: startDate, lt: endDate },
           type: { in: ["CONSULTA", "REUNIAO"] },
         },
         select: {
           id: true, scheduledAt: true, status: true, type: true, title: true,
           recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
+          professionalProfileId: true, attendingProfessionalId: true,
         },
-      }),
-      fetchUninvoicedPriorAppointments(prisma, {
-        clinicId: user.clinicId,
-        patientId: invoice.patientId,
-        professionalProfileId: invoice.professionalProfileId,
-        beforeDate: startDate,
       }),
       prisma.professionalProfile.findUnique({
         where: { id: invoice.professionalProfileId },
@@ -155,7 +181,23 @@ export const POST = withFeatureAuth(
       }),
     ])
 
-    const appointments = [...monthAppointments, ...uninvoicedPriorApts]
+    // Use bulk prior fetch with targetMonth/targetYear (same as gerar route)
+    // This finds appointments invoiced only in PENDENTE invoices for this month (will be rebuilt)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const uninvoicedPriorApts = await fetchUninvoicedPriorAppointmentsBulk(prisma as any, {
+      clinicId: user.clinicId,
+      patientIds: [invoice.patientId],
+      beforeDate: startDate,
+      targetMonth: invoice.referenceMonth,
+      targetYear: invoice.referenceYear,
+    })
+
+    // Filter prior appointments to match the professional scope of this invoice
+    const filteredPrior = isSplitByProf
+      ? uninvoicedPriorApts.filter(a => a.professionalProfileId === invoice.professionalProfileId)
+      : uninvoicedPriorApts
+
+    const appointments = [...monthAppointments, ...filteredPrior]
 
     const sessionFee = Number(patient.sessionFee)
     const showDays = patient.showAppointmentDaysOnInvoice
@@ -171,9 +213,15 @@ export const POST = withFeatureAuth(
     const invoicedElsewhereIds = new Set(alreadyInvoiced.map(i => i.appointmentId))
     const availableAppointments = appointments.filter(a => !invoicedElsewhereIds.has(a.id))
 
-    const classified = classifyAppointments(
-      availableAppointments.map(a => ({ ...a, price: a.price ? Number(a.price) : null }))
-    )
+    // For consolidated invoices, set attendingProfessionalId to the actual session professional
+    const aptsWithAttending = availableAppointments.map(a => ({
+      ...a,
+      price: a.price ? Number(a.price) : null,
+      attendingProfessionalId: (("attendingProfessionalId" in a ? a.attendingProfessionalId : null)
+        ?? ("professionalProfileId" in a ? a.professionalProfileId : null)) as string | null,
+    }))
+
+    const classified = classifyAppointments(aptsWithAttending)
 
     await prisma.$transaction(async (tx) => {
       const consumedCredits = await tx.sessionCredit.findMany({
@@ -214,6 +262,7 @@ export const POST = withFeatureAuth(
           data: {
             invoiceId: invoice.id,
             appointmentId: item.appointmentId,
+            attendingProfessionalId: item.attendingProfessionalId ?? null,
             type: item.type,
             description: item.description,
             quantity: item.quantity,

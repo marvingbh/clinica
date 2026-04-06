@@ -105,7 +105,7 @@ export const GET = withFeatureAuth(
           p."addressStreet", p."addressNumber", p."addressNeighborhood",
           p."addressCity", p."addressState", p."addressZip",
           p."firstAppointmentDate", p."lastFeeAdjustmentDate",
-          p."sessionFee", p."invoiceDueDay", p."invoiceGrouping", p."therapeuticProject",
+          p."sessionFee", p."invoiceDueDay", p."invoiceGrouping", p."splitInvoiceByProfessional", p."therapeuticProject",
           p."isActive", p."lastVisitAt",
           p."consentWhatsApp", p."consentWhatsAppAt",
           p."consentEmail", p."consentEmailAt",

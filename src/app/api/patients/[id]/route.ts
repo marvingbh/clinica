@@ -50,6 +50,7 @@ const updatePatientSchema = z.object({
   showAppointmentDaysOnInvoice: z.boolean().optional(),
   invoiceDueDay: z.number().int().min(1).max(28).nullable().optional(),
   invoiceGrouping: z.enum(["MONTHLY", "PER_SESSION"]).nullable().optional(),
+  splitInvoiceByProfessional: z.boolean().optional(),
   invoiceMessageTemplate: z.string().nullable().optional(),
   additionalPhones: z.array(additionalPhoneSchema).max(4, "Máximo de 4 telefones adicionais").optional(),
 })
@@ -116,6 +117,7 @@ export const GET = withFeatureAuth(
           showAppointmentDaysOnInvoice: true,
           invoiceDueDay: true,
           invoiceGrouping: true,
+          splitInvoiceByProfessional: true,
           invoiceMessageTemplate: true,
           createdAt: true,
           updatedAt: true,
@@ -274,6 +276,7 @@ export const PATCH = withFeatureAuth(
       }
       updateData.invoiceGrouping = data.invoiceGrouping
     }
+    if (data.splitInvoiceByProfessional !== undefined) updateData.splitInvoiceByProfessional = data.splitInvoiceByProfessional
     if (data.invoiceMessageTemplate !== undefined) updateData.invoiceMessageTemplate = data.invoiceMessageTemplate || null
 
     // Handle phone update with duplicate check
@@ -421,6 +424,7 @@ export const PATCH = withFeatureAuth(
         showAppointmentDaysOnInvoice: true,
         invoiceDueDay: true,
         invoiceGrouping: true,
+        splitInvoiceByProfessional: true,
         invoiceMessageTemplate: true,
         createdAt: true,
         updatedAt: true,

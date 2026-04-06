@@ -134,6 +134,12 @@ export async function generateMonthlyInvoice(
     })
   }
 
+  // Don't create empty invoices (no billable appointments)
+  const billableItems = items.filter(i => i.type !== "CREDITO")
+  if (billableItems.length === 0) {
+    return "skipped"
+  }
+
   return createNewInvoice(tx, items, {
     clinicId, patientId, professionalProfileId, month, year, dueDate,
     sessionFee, showAppointmentDays, profName, billingMode,

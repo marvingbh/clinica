@@ -77,6 +77,7 @@ export interface Patient {
   showAppointmentDaysOnInvoice?: boolean
   invoiceDueDay?: number | null
   invoiceGrouping?: string | null
+  splitInvoiceByProfessional?: boolean
   invoiceMessageTemplate?: string | null
   referenceProfessionalId: string | null
   referenceProfessional: ReferenceProfessional | null

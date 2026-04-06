@@ -77,17 +77,7 @@ export const POST = withFeatureAuth(
       },
     })
 
-    // Step 4: Group by patientId only (one consolidated invoice per patient)
-    // All sessions go into one invoice under the patient's reference professional.
-    const byPatient = new Map<string, typeof allAppointments>()
-    for (const apt of allAppointments) {
-      if (!apt.patientId) continue
-      const list = byPatient.get(apt.patientId) || []
-      list.push(apt)
-      byPatient.set(apt.patientId, list)
-    }
-
-    // Load patient + clinic data early (needed for cleanup step)
+    // Load patient + clinic data early (needed for grouping decision)
     const [patients, clinic] = await Promise.all([
       prisma.patient.findMany({
         where: { id: { in: patientIds } },
@@ -95,7 +85,7 @@ export const POST = withFeatureAuth(
           id: true, name: true, motherName: true, fatherName: true,
           sessionFee: true, showAppointmentDaysOnInvoice: true,
           invoiceDueDay: true, invoiceMessageTemplate: true, referenceProfessionalId: true,
-          invoiceGrouping: true,
+          invoiceGrouping: true, splitInvoiceByProfessional: true,
         },
       }),
       prisma.clinic.findUnique({
@@ -104,25 +94,21 @@ export const POST = withFeatureAuth(
       }),
     ])
 
-    // Step 4b: Clean up orphaned invoices from old per-professional grouping.
-    // Delete PENDENTE invoices under a different professional than the billing professional.
-    // This must run BEFORE fetching uninvoiced prior appointments so freed items are detected.
-    for (const p of patients) {
-      const billingProfId = p.referenceProfessionalId || allAppointments.find(a => a.patientId === p.id)?.professionalProfileId
-      if (!billingProfId) continue
-      await prisma.invoice.deleteMany({
-        where: {
-          clinicId: user.clinicId,
-          patientId: p.id,
-          referenceMonth: month,
-          referenceYear: year,
-          professionalProfileId: { not: billingProfId },
-          status: "PENDENTE",
-        },
-      })
+    const patientMap = new Map(patients.map(p => [p.id, p]))
+
+    // Step 4: Group appointments — per patient (consolidated) or per patient+professional (split)
+    const byGroup = new Map<string, typeof allAppointments>()
+    for (const apt of allAppointments) {
+      if (!apt.patientId) continue
+      const patient = patientMap.get(apt.patientId)
+      const splitByProf = patient?.splitInvoiceByProfessional ?? false
+      const key = splitByProf ? `${apt.patientId}|${apt.professionalProfileId}` : apt.patientId
+      const list = byGroup.get(key) || []
+      list.push(apt)
+      byGroup.set(key, list)
     }
 
-    // Step 4c: Fetch uninvoiced prior appointments (now includes items freed by cleanup above)
+    // Step 4b: Fetch uninvoiced prior appointments first (needed for cleanup decisions)
     // Also includes appointments only invoiced in PENDENTE invoices for this month (will be rebuilt)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const priorAptsBulk = await fetchUninvoicedPriorAppointmentsBulk(prisma as any, {
@@ -134,20 +120,96 @@ export const POST = withFeatureAuth(
     })
     for (const apt of priorAptsBulk) {
       if (!apt.patientId) continue
-      const list = byPatient.get(apt.patientId) || []
+      const patient = patientMap.get(apt.patientId)
+      const splitByProf = patient?.splitInvoiceByProfessional ?? false
+      const key = splitByProf ? `${apt.patientId}|${apt.professionalProfileId}` : apt.patientId
+      const list = byGroup.get(key) || []
       if (!list.some(a => a.id === apt.id)) {
         list.push(apt)
-        byPatient.set(apt.patientId, list)
+        byGroup.set(key, list)
+      }
+    }
+
+    // Step 4c: Clean up misplaced invoice items based on patient's split setting.
+    // Now we have ALL appointments (current month + prior) to make correct decisions.
+    for (const p of patients) {
+      if (p.splitInvoiceByProfessional) {
+        // For split patients: find items in non-PAGO invoices where the invoice's professional
+        // doesn't match the appointment's professional, and remove them.
+        const misplacedItems = await prisma.invoiceItem.findMany({
+          where: {
+            invoice: {
+              clinicId: user.clinicId,
+              patientId: p.id,
+              referenceMonth: month,
+              referenceYear: year,
+              status: { notIn: ["PAGO"] },
+            },
+            appointment: { isNot: null },
+          },
+          select: {
+            id: true,
+            appointment: { select: { id: true, professionalProfileId: true } },
+            invoice: { select: { id: true, professionalProfileId: true } },
+          },
+        })
+
+        const toDelete: string[] = []
+        const affectedInvoiceIds = new Set<string>()
+        for (const item of misplacedItems) {
+          if (!item.appointment) continue
+          if (item.appointment.professionalProfileId !== item.invoice.professionalProfileId) {
+            toDelete.push(item.id)
+            affectedInvoiceIds.add(item.invoice.id)
+          }
+        }
+
+        if (toDelete.length > 0) {
+          for (const invId of affectedInvoiceIds) {
+            await prisma.sessionCredit.updateMany({
+              where: { consumedByInvoiceId: invId },
+              data: { consumedByInvoiceId: null, consumedAt: null },
+            })
+          }
+          await prisma.invoiceItem.deleteMany({ where: { id: { in: toDelete } } })
+          for (const invId of affectedInvoiceIds) {
+            const remaining = await prisma.invoiceItem.count({ where: { invoiceId: invId } })
+            if (remaining === 0) {
+              await prisma.invoice.delete({ where: { id: invId } })
+            } else {
+              const totals = await prisma.invoiceItem.aggregate({ where: { invoiceId: invId }, _sum: { total: true } })
+              await prisma.invoice.update({
+                where: { id: invId },
+                data: {
+                  totalAmount: totals._sum.total ?? 0,
+                  totalSessions: await prisma.invoiceItem.count({ where: { invoiceId: invId, type: { not: "CREDITO" } } }),
+                },
+              })
+            }
+          }
+        }
+      } else {
+        // Consolidated patients: delete orphaned invoices under wrong professional
+        const billingProfId = p.referenceProfessionalId || allAppointments.find(a => a.patientId === p.id)?.professionalProfileId
+        if (!billingProfId) continue
+        await prisma.invoice.deleteMany({
+          where: {
+            clinicId: user.clinicId,
+            patientId: p.id,
+            referenceMonth: month,
+            referenceYear: year,
+            professionalProfileId: { not: billingProfId },
+            status: "PENDENTE",
+          },
+        })
       }
     }
 
     // Collect unique professional IDs for name lookup (from appointments + reference professionals)
     const profIds = new Set<string>()
-    for (const apts of byPatient.values()) {
+    for (const apts of byGroup.values()) {
       for (const a of apts) profIds.add(a.professionalProfileId)
     }
-
-    const patientMap = new Map(patients.map(p => [p.id, p]))
     const clinicDueDay = clinic?.invoiceDueDay ?? 15
 
     // Ensure reference professional IDs are also fetched for name lookup
@@ -162,8 +224,8 @@ export const POST = withFeatureAuth(
     })
     const profMap = new Map(allProfessionals.map(p => [p.id, p]))
 
-    // Stream progress as each patient is processed
-    const total = byPatient.size
+    // Stream progress as each group is processed
+    const total = byGroup.size
     const encoder = new TextEncoder()
 
     const stream = new ReadableStream({
@@ -173,12 +235,16 @@ export const POST = withFeatureAuth(
         let skipped = 0
         let current = 0
 
-        for (const [patientId, patientApts] of byPatient) {
+        for (const [groupKey, patientApts] of byGroup) {
+          const patientId = groupKey.split("|")[0]
           const patient = patientMap.get(patientId)
           if (!patient || !patient.sessionFee) { current++; continue }
 
-          // Resolve billing professional: reference professional > first appointment's professional
-          const billingProfId = patient.referenceProfessionalId || patientApts[0].professionalProfileId
+          // Resolve billing professional based on split flag
+          const splitByProf = patient.splitInvoiceByProfessional
+          const billingProfId = splitByProf
+            ? patientApts[0].professionalProfileId
+            : (patient.referenceProfessionalId || patientApts[0].professionalProfileId)
 
           current++
           controller.enqueue(encoder.encode(

@@ -234,20 +234,26 @@ export const PATCH = withFeatureAuth(
 
     // Credit management for ACORDADO/FALTA transitions
     if (targetStatus === AppointmentStatus.CANCELADO_ACORDADO && existing.patientId) {
-      // Only create credit if not already generated
+      // Atomic: check + create + flag in one transaction to prevent duplicate credits from race conditions
       if (!existing.creditGenerated) {
-        await prisma.sessionCredit.create({
-          data: {
-            clinicId: user.clinicId,
-            professionalProfileId: existing.professionalProfileId,
-            patientId: existing.patientId,
-            originAppointmentId: existing.id,
-            reason: `Desmarcou - ${new Date(existing.scheduledAt).toLocaleDateString("pt-BR")}`,
-          },
-        })
-        await prisma.appointment.update({
-          where: { id: existing.id },
-          data: { creditGenerated: true },
+        await prisma.$transaction(async (tx) => {
+          // Re-check inside transaction to prevent race condition
+          const fresh = await tx.appointment.findUnique({ where: { id: existing.id }, select: { creditGenerated: true } })
+          if (fresh?.creditGenerated) return
+
+          await tx.sessionCredit.create({
+            data: {
+              clinicId: user.clinicId,
+              professionalProfileId: existing.professionalProfileId,
+              patientId: existing.patientId!,
+              originAppointmentId: existing.id,
+              reason: `Desmarcou - ${new Date(existing.scheduledAt).toLocaleDateString("pt-BR")}`,
+            },
+          })
+          await tx.appointment.update({
+            where: { id: existing.id },
+            data: { creditGenerated: true },
+          })
         })
       }
     }

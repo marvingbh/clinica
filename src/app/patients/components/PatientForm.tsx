@@ -30,6 +30,7 @@ export interface PatientFormData {
   lastFeeAdjustmentDate?: string | undefined
   invoiceDueDay?: string | undefined
   invoiceGrouping?: string | undefined
+  splitInvoiceByProfessional: boolean
   nfsePerAppointment: boolean
   nfseObs?: string | undefined
   therapeuticProject?: string | undefined
@@ -265,6 +266,14 @@ export function PatientForm({
                 </select>
               </div>
             </div>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" {...register("splitInvoiceByProfessional")} className="w-4 h-4 rounded border-input text-primary focus:ring-primary" />
+              <div>
+                <span className="text-sm font-medium text-foreground">Faturar separado por profissional</span>
+                <p className="text-xs text-muted-foreground">Gera uma fatura por profissional quando há sessões com múltiplos profissionais</p>
+              </div>
+            </label>
 
             {isEditing && usualPayers.length > 0 && (
               <div className="border border-border rounded-lg p-4">
