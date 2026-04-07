@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { DownloadIcon, PlusIcon } from "@/shared/components/ui/icons"
 import { useFinanceiroContext } from "../context/FinanceiroContext"
 import { InvoiceDetailModal } from "./InvoiceDetailModal"
+import { NfseEmitWrapper } from "./NfseEmitWrapper"
 import { InvoiceTableBody, STATUS_LABELS, STATUS_COLORS } from "./InvoiceTableBody"
 import {
   type Invoice,
@@ -47,7 +48,9 @@ export default function FaturasPage() {
   const [recalculatingGroupKey, setRecalculatingGroupKey] = useState<string | null>(null)
   const [downloadingZip, setDownloadingZip] = useState(false)
   const [downloadingXmlZip, setDownloadingXmlZip] = useState(false)
+  const [downloadingNfsePdfZip, setDownloadingNfsePdfZip] = useState(false)
   const [detailInvoiceId, setDetailInvoiceId] = useState<string | null>(null)
+  const [emitNfseInvoiceId, setEmitNfseInvoiceId] = useState<string | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
@@ -303,6 +306,31 @@ export default function FaturasPage() {
     }
   }
 
+  async function handleDownloadNfsePdfZip() {
+    if (month === null) { toast.error("Selecione um mês"); return }
+    setDownloadingNfsePdfZip(true)
+    try {
+      const dlParams = new URLSearchParams({ month: String(month), year: String(year) })
+      const res = await fetch(`/api/financeiro/faturas/download-nfse-pdf?${dlParams}`)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || "Erro ao gerar arquivo")
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || `nfse-pdf-${month}-${year}.zip`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error("Erro ao baixar NFS-e PDFs")
+    } finally {
+      setDownloadingNfsePdfZip(false)
+    }
+  }
+
   const allInvoicesForFooter = useMemo(() => collectAllInvoices(displayRows), [displayRows])
   const hasPendentes = allInvoicesForFooter.some(i => i.status === "PENDENTE")
 
@@ -400,6 +428,14 @@ export default function FaturasPage() {
             {downloadingXmlZip ? "Baixando..." : "Baixar XMLs"}
           </button>
           <button
+            onClick={handleDownloadNfsePdfZip}
+            disabled={downloadingNfsePdfZip || month === null || invoices.length === 0}
+            className="px-4 py-2 border border-input bg-background text-foreground rounded-lg text-sm font-medium hover:bg-muted disabled:opacity-50 transition-colors flex items-center gap-1.5"
+          >
+            <DownloadIcon className="h-4 w-4" />
+            {downloadingNfsePdfZip ? "Baixando..." : "Baixar NFS-e PDFs"}
+          </button>
+          <button
             onClick={handleBulkMarkEnviado}
             disabled={markingEnviado || !hasPendentes}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
@@ -449,6 +485,7 @@ export default function FaturasPage() {
                 onRecalcular={handleRecalcular}
                 onRecalcularGrupo={handleRecalcularGrupo}
                 onViewDetail={setDetailInvoiceId}
+                onEmitNfse={setEmitNfseInvoiceId}
               />
             </tbody>
             <tfoot>
@@ -477,6 +514,14 @@ export default function FaturasPage() {
           invoiceId={detailInvoiceId}
           onClose={() => setDetailInvoiceId(null)}
           onUpdate={fetchInvoices}
+        />
+      )}
+
+      {emitNfseInvoiceId && (
+        <NfseEmitWrapper
+          invoiceId={emitNfseInvoiceId}
+          onClose={() => setEmitNfseInvoiceId(null)}
+          onSuccess={fetchInvoices}
         />
       )}
 

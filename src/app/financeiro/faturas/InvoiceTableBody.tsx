@@ -124,14 +124,28 @@ function ActionButtons({
   recalculatingId,
   onRecalcular,
   onViewDetail,
+  onEmitNfse,
 }: {
   invoice: Invoice
   recalculatingId: string | null
   onRecalcular: (id: string) => void
   onViewDetail: (id: string) => void
+  onEmitNfse?: (id: string) => void
 }) {
+  const canEmit = (invoice.status === "PAGO" || invoice.status === "ENVIADO")
+    && (!invoice.nfseStatus || invoice.nfseStatus === "ERRO")
+
   return (
     <div className="flex items-center justify-end gap-1">
+      {canEmit && onEmitNfse && (
+        <button
+          onClick={() => onEmitNfse(invoice.id)}
+          className="p-1.5 rounded-md text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+          title="Emitir NFS-e"
+        >
+          <FileTextIcon className="w-4 h-4" />
+        </button>
+      )}
       {(invoice.status === "PENDENTE" || invoice.status === "ENVIADO" || invoice.status === "PARCIAL") && (
         <button
           onClick={() => onRecalcular(invoice.id)}
@@ -186,6 +200,7 @@ function IndividualRow({
   onMarkPaid,
   onRecalcular,
   onViewDetail,
+  onEmitNfse,
   indent,
 }: {
   invoice: Invoice
@@ -193,6 +208,7 @@ function IndividualRow({
   onMarkPaid: (id: string) => void
   onRecalcular: (id: string) => void
   onViewDetail: (id: string) => void
+  onEmitNfse?: (id: string) => void
   indent?: boolean
 }) {
   return (
@@ -229,6 +245,7 @@ function IndividualRow({
           recalculatingId={recalculatingId}
           onRecalcular={onRecalcular}
           onViewDetail={onViewDetail}
+          onEmitNfse={onEmitNfse}
         />
       </td>
     </tr>
@@ -313,6 +330,7 @@ interface InvoiceTableBodyProps {
   onRecalcular: (id: string) => void
   onRecalcularGrupo: (group: { patientId: string; professionalProfileId: string; referenceMonth: number; referenceYear: number; key: string }) => void
   onViewDetail: (id: string) => void
+  onEmitNfse?: (id: string) => void
 }
 
 export function InvoiceTableBody({
@@ -325,6 +343,7 @@ export function InvoiceTableBody({
   onRecalcular,
   onRecalcularGrupo,
   onViewDetail,
+  onEmitNfse,
 }: InvoiceTableBodyProps) {
   return (
     <>
@@ -338,6 +357,7 @@ export function InvoiceTableBody({
               onMarkPaid={onMarkPaid}
               onRecalcular={onRecalcular}
               onViewDetail={onViewDetail}
+              onEmitNfse={onEmitNfse}
             />
           )
         }
@@ -386,6 +406,7 @@ export function InvoiceTableBody({
                     recalculatingId={recalculatingId}
                     onRecalcular={onRecalcular}
                     onViewDetail={onViewDetail}
+                    onEmitNfse={onEmitNfse}
                   />
                 </td>
               </tr>
