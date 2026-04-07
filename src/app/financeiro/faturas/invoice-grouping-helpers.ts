@@ -17,7 +17,7 @@ export interface Invoice {
   nfseStatus?: string | null
   nfseNumero?: string | null
   nfseErro?: string | null
-  patient: { id: string; name: string; motherName: string | null; fatherName: string | null }
+  patient: { id: string; name: string; motherName: string | null; fatherName: string | null; email: string | null }
   professionalProfile: { id: string; user: { name: string } }
   _count: { items: number }
 }

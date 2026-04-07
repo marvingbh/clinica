@@ -12,6 +12,7 @@ import {
   ChevronRightIcon,
   ChevronDownIcon,
   FileTextIcon,
+  MailIcon,
 } from "@/shared/components/ui/icons"
 import type { Invoice, InvoiceRow } from "./invoice-grouping-helpers"
 import { STATUS_LABELS, STATUS_COLORS } from "./invoice-status"
@@ -125,12 +126,14 @@ function ActionButtons({
   onRecalcular,
   onViewDetail,
   onEmitNfse,
+  onSendNfseEmail,
 }: {
   invoice: Invoice
   recalculatingId: string | null
   onRecalcular: (id: string) => void
   onViewDetail: (id: string) => void
   onEmitNfse?: (id: string) => void
+  onSendNfseEmail?: (invoice: Invoice) => void
 }) {
   const canEmit = (invoice.status === "PAGO" || invoice.status === "ENVIADO")
     && (!invoice.nfseStatus || invoice.nfseStatus === "ERRO")
@@ -171,15 +174,26 @@ function ActionButtons({
         <SquarePenIcon className="w-4 h-4" />
       </Link>
       {invoice.nfseStatus === "EMITIDA" && (
-        <a
-          href={`/api/financeiro/faturas/${invoice.id}/nfse/pdf`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="p-1.5 rounded-md text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors"
-          title="Baixar NFS-e PDF"
-        >
-          <FileTextIcon className="w-4 h-4" />
-        </a>
+        <>
+          {onSendNfseEmail && (
+            <button
+              onClick={() => onSendNfseEmail(invoice)}
+              className="p-1.5 rounded-md text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+              title="Enviar NFS-e por e-mail"
+            >
+              <MailIcon className="w-4 h-4" />
+            </button>
+          )}
+          <a
+            href={`/api/financeiro/faturas/${invoice.id}/nfse/pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-1.5 rounded-md text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors"
+            title="Baixar NFS-e PDF"
+          >
+            <FileTextIcon className="w-4 h-4" />
+          </a>
+        </>
       )}
       <a
         href={`/api/financeiro/faturas/${invoice.id}/pdf`}
@@ -201,6 +215,7 @@ function IndividualRow({
   onRecalcular,
   onViewDetail,
   onEmitNfse,
+  onSendNfseEmail,
   indent,
 }: {
   invoice: Invoice
@@ -209,6 +224,7 @@ function IndividualRow({
   onRecalcular: (id: string) => void
   onViewDetail: (id: string) => void
   onEmitNfse?: (id: string) => void
+  onSendNfseEmail?: (invoice: Invoice) => void
   indent?: boolean
 }) {
   return (
@@ -246,6 +262,7 @@ function IndividualRow({
           onRecalcular={onRecalcular}
           onViewDetail={onViewDetail}
           onEmitNfse={onEmitNfse}
+          onSendNfseEmail={onSendNfseEmail}
         />
       </td>
     </tr>
@@ -331,6 +348,7 @@ interface InvoiceTableBodyProps {
   onRecalcularGrupo: (group: { patientId: string; professionalProfileId: string; referenceMonth: number; referenceYear: number; key: string }) => void
   onViewDetail: (id: string) => void
   onEmitNfse?: (id: string) => void
+  onSendNfseEmail?: (invoice: Invoice) => void
 }
 
 export function InvoiceTableBody({
@@ -344,6 +362,7 @@ export function InvoiceTableBody({
   onRecalcularGrupo,
   onViewDetail,
   onEmitNfse,
+  onSendNfseEmail,
 }: InvoiceTableBodyProps) {
   return (
     <>
@@ -358,6 +377,7 @@ export function InvoiceTableBody({
               onRecalcular={onRecalcular}
               onViewDetail={onViewDetail}
               onEmitNfse={onEmitNfse}
+              onSendNfseEmail={onSendNfseEmail}
             />
           )
         }
@@ -407,6 +427,7 @@ export function InvoiceTableBody({
                     onRecalcular={onRecalcular}
                     onViewDetail={onViewDetail}
                     onEmitNfse={onEmitNfse}
+                    onSendNfseEmail={onSendNfseEmail}
                   />
                 </td>
               </tr>

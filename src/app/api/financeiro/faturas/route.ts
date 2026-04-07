@@ -47,7 +47,7 @@ export const GET = withFeatureAuth(
     const invoices = await prisma.invoice.findMany({
       where,
       include: {
-        patient: { select: { id: true, name: true, motherName: true, fatherName: true } },
+        patient: { select: { id: true, name: true, motherName: true, fatherName: true, email: true } },
         professionalProfile: { select: { id: true, user: { select: { name: true } } } },
         _count: { select: { items: true } },
         reconciliationLinks: { select: { id: true, transaction: { select: { payerName: true, date: true } } }, take: 1 },

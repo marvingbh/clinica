@@ -11,6 +11,7 @@ import { DownloadIcon, PlusIcon } from "@/shared/components/ui/icons"
 import { useFinanceiroContext } from "../context/FinanceiroContext"
 import { InvoiceDetailModal } from "./InvoiceDetailModal"
 import { NfseEmitWrapper } from "./NfseEmitWrapper"
+import NfseEmailDialog from "./[id]/NfseEmailDialog"
 import { InvoiceTableBody, STATUS_LABELS, STATUS_COLORS } from "./InvoiceTableBody"
 import {
   type Invoice,
@@ -51,6 +52,7 @@ export default function FaturasPage() {
   const [downloadingNfsePdfZip, setDownloadingNfsePdfZip] = useState(false)
   const [detailInvoiceId, setDetailInvoiceId] = useState<string | null>(null)
   const [emitNfseInvoiceId, setEmitNfseInvoiceId] = useState<string | null>(null)
+  const [emailNfseInvoice, setEmailNfseInvoice] = useState<{ id: string; patientEmail: string | null; patientName: string; nfseNumero: string } | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
@@ -486,6 +488,12 @@ export default function FaturasPage() {
                 onRecalcularGrupo={handleRecalcularGrupo}
                 onViewDetail={setDetailInvoiceId}
                 onEmitNfse={setEmitNfseInvoiceId}
+                onSendNfseEmail={(inv) => setEmailNfseInvoice({
+                  id: inv.id,
+                  patientEmail: inv.patient.email,
+                  patientName: inv.patient.name,
+                  nfseNumero: inv.nfseNumero || "",
+                })}
               />
             </tbody>
             <tfoot>
@@ -521,6 +529,17 @@ export default function FaturasPage() {
         <NfseEmitWrapper
           invoiceId={emitNfseInvoiceId}
           onClose={() => setEmitNfseInvoiceId(null)}
+          onSuccess={fetchInvoices}
+        />
+      )}
+
+      {emailNfseInvoice && (
+        <NfseEmailDialog
+          invoiceId={emailNfseInvoice.id}
+          patientEmail={emailNfseInvoice.patientEmail}
+          patientName={emailNfseInvoice.patientName}
+          nfseNumero={emailNfseInvoice.nfseNumero}
+          onClose={() => setEmailNfseInvoice(null)}
           onSuccess={fetchInvoices}
         />
       )}
