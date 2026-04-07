@@ -11,6 +11,7 @@ import {
   SquarePenIcon,
   ChevronRightIcon,
   ChevronDownIcon,
+  FileTextIcon,
 } from "@/shared/components/ui/icons"
 import type { Invoice, InvoiceRow } from "./invoice-grouping-helpers"
 import { STATUS_LABELS, STATUS_COLORS } from "./invoice-status"
@@ -155,6 +156,17 @@ function ActionButtons({
       >
         <SquarePenIcon className="w-4 h-4" />
       </Link>
+      {invoice.nfseStatus === "EMITIDA" && (
+        <a
+          href={`/api/financeiro/faturas/${invoice.id}/nfse/pdf`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-1.5 rounded-md text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors"
+          title="Baixar NFS-e PDF"
+        >
+          <FileTextIcon className="w-4 h-4" />
+        </a>
+      )}
       <a
         href={`/api/financeiro/faturas/${invoice.id}/pdf`}
         target="_blank"
