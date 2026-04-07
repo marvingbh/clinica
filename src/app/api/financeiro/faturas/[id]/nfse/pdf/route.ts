@@ -118,58 +118,44 @@ export const GET = withFeatureAuth(
 
     const filename = `NFS-e-${invoice.nfseNumero || "sem-numero"}-${patientName}.pdf`
 
-    // Try local PDF generation first (unless forced ADN)
-    const danfseData = !forceAdn ? buildDanfseData(invoice) : null
+    // source=adn → Gov.br (public + ADN endpoints)
+    // default → local DANFSE generation
+    if (forceAdn) {
+      const nfseConfig = invoice.clinic.nfseConfig
+      if (!nfseConfig) {
+        return NextResponse.json({ error: "Configuracao NFS-e nao encontrada" }, { status: 400 })
+      }
+      try {
+        const adnConfig: AdnConfig = {
+          clinicId: user.clinicId, invoiceId: invoice.id,
+          certificatePem: nfseConfig.certificatePem, privateKeyPem: nfseConfig.privateKeyPem,
+          useSandbox: nfseConfig.useSandbox,
+        }
+        const pdfBuffer = await fetchDanfse(invoice.nfseChaveAcesso, adnConfig)
+        return new NextResponse(new Uint8Array(pdfBuffer), {
+          headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${filename}"` },
+        })
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : "Erro desconhecido"
+        return NextResponse.json({ error: `Erro ao baixar DANFSE do Gov.br: ${msg}` }, { status: 500 })
+      }
+    }
+
+    // Local DANFSE generation
+    const danfseData = buildDanfseData(invoice)
     if (danfseData) {
       try {
-        // Generate QR code as data URI
         const QRCode = await import("qrcode")
         danfseData.qrCodeDataUri = await QRCode.toDataURL(danfseData.verificacaoUrl, { width: 120, margin: 1 })
-
         const buffer = await renderToBuffer(createDanfseDocument(danfseData))
         return new NextResponse(new Uint8Array(buffer), {
-          headers: {
-            "Content-Type": "application/pdf",
-            "Content-Disposition": `attachment; filename="${filename}"`,
-          },
+          headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${filename}"` },
         })
       } catch {
-        // Local generation failed — fall through to ADN
+        // Local generation failed
       }
     }
 
-    // Fallback: fetch from ADN
-    const nfseConfig = invoice.clinic.nfseConfig
-    if (!nfseConfig) {
-      return NextResponse.json({ error: "Configuracao NFS-e nao encontrada" }, { status: 400 })
-    }
-
-    try {
-      const adnConfig: AdnConfig = {
-        clinicId: user.clinicId,
-        invoiceId: invoice.id,
-        certificatePem: nfseConfig.certificatePem,
-        privateKeyPem: nfseConfig.privateKeyPem,
-        useSandbox: nfseConfig.useSandbox,
-      }
-
-      const pdfBuffer = await fetchDanfse(invoice.nfseChaveAcesso, adnConfig)
-
-      return new NextResponse(new Uint8Array(pdfBuffer), {
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${filename}"`,
-        },
-      })
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Erro desconhecido"
-      const isAdnUnavailable = msg.includes("502") || msg.includes("503") || msg.includes("504")
-      return NextResponse.json(
-        { error: isAdnUnavailable
-          ? "O servidor do ADN esta temporariamente indisponivel para gerar o PDF. Tente novamente em alguns minutos."
-          : `Erro ao baixar DANFSE: ${msg}` },
-        { status: isAdnUnavailable ? 503 : 500 }
-      )
-    }
+    return NextResponse.json({ error: "Nao foi possivel gerar o PDF local." }, { status: 500 })
   }
 )

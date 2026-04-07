@@ -11,6 +11,7 @@ import { DownloadIcon, PlusIcon } from "@/shared/components/ui/icons"
 import { useFinanceiroContext } from "../context/FinanceiroContext"
 import { InvoiceDetailModal } from "./InvoiceDetailModal"
 import { NfseEmitWrapper } from "./NfseEmitWrapper"
+import { NfsePreviewReport } from "./NfsePreviewReport"
 import NfseEmailDialog from "./[id]/NfseEmailDialog"
 import { InvoiceTableBody, STATUS_LABELS, STATUS_COLORS } from "./InvoiceTableBody"
 import {
@@ -43,6 +44,7 @@ export default function FaturasPage() {
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [selectedProfessionalId, setSelectedProfessionalId] = useState("")
   const [patientSearch, setPatientSearch] = useState("")
+  const [nfseFilter, setNfseFilter] = useState<"" | "SEM_NFSE" | "COM_NFSE">("")
   const [patientSearchInput, setPatientSearchInput] = useState("")
   const [sortBy, setSortBy] = useState<"name" | "recurrence">("name")
   const [recalculatingId, setRecalculatingId] = useState<string | null>(null)
@@ -53,6 +55,7 @@ export default function FaturasPage() {
   const [detailInvoiceId, setDetailInvoiceId] = useState<string | null>(null)
   const [emitNfseInvoiceId, setEmitNfseInvoiceId] = useState<string | null>(null)
   const [emailNfseInvoice, setEmailNfseInvoice] = useState<{ id: string; patientEmail: string | null; patientName: string; nfseNumero: string } | null>(null)
+  const [showNfsePreview, setShowNfsePreview] = useState(false)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
@@ -76,8 +79,12 @@ export default function FaturasPage() {
   // Build grouped rows from invoices, then apply status filter client-side
   const displayRows = useMemo(() => {
     const allRows = buildInvoiceRows(invoices)
-    return filterRowsByStatus(allRows, statusFilter)
-  }, [invoices, statusFilter])
+    let filtered = filterRowsByStatus(allRows, statusFilter)
+    if (nfseFilter) {
+      filtered = filterRowsByStatus(filtered, nfseFilter)
+    }
+    return filtered
+  }, [invoices, statusFilter, nfseFilter])
 
   function handlePatientSearchChange(value: string) {
     setPatientSearchInput(value)
@@ -370,6 +377,24 @@ export default function FaturasPage() {
             </button>
           ))}
         </div>
+        <div className="flex gap-1">
+          {([
+            { label: "Sem NFS-e", value: "SEM_NFSE" as const },
+            { label: "Com NFS-e", value: "COM_NFSE" as const },
+          ]).map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setNfseFilter(nfseFilter === opt.value ? "" : opt.value)}
+              className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
+                nfseFilter === opt.value
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
 
         <div className="flex gap-1">
           {([
@@ -436,6 +461,13 @@ export default function FaturasPage() {
           >
             <DownloadIcon className="h-4 w-4" />
             {downloadingNfsePdfZip ? "Baixando..." : "Baixar NFS-e PDFs"}
+          </button>
+          <button
+            onClick={() => setShowNfsePreview(true)}
+            disabled={month === null || invoices.length === 0}
+            className="px-4 py-2 border border-input bg-background text-foreground rounded-lg text-sm font-medium hover:bg-muted disabled:opacity-50 transition-colors"
+          >
+            Preview NFS-e
           </button>
           <button
             onClick={handleBulkMarkEnviado}
@@ -530,6 +562,15 @@ export default function FaturasPage() {
           invoiceId={emitNfseInvoiceId}
           onClose={() => setEmitNfseInvoiceId(null)}
           onSuccess={fetchInvoices}
+        />
+      )}
+
+      {showNfsePreview && month !== null && (
+        <NfsePreviewReport
+          month={month}
+          year={year}
+          invoiceIds={collectAllInvoices(displayRows).map(i => i.id)}
+          onClose={() => setShowNfsePreview(false)}
         />
       )}
 

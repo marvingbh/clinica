@@ -11,6 +11,7 @@ import {
   recalculatePerSession,
   handleGroupingTransition,
 } from "@/lib/financeiro/recalculate-dispatch"
+import { generateInvoicesForPatient } from "@/lib/financeiro/generate-patient-invoices"
 import { audit, AuditAction } from "@/lib/rbac/audit"
 
 export const POST = withFeatureAuth(
@@ -82,27 +83,57 @@ export const POST = withFeatureAuth(
     const groupingChanged = (invoiceIsMonthly && currentGrouping === "PER_SESSION")
       || (!invoiceIsMonthly && currentGrouping === "MONTHLY")
 
-    // Check if split-by-professional setting requires regeneration.
-    // If invoice is consolidated (reference prof) but patient now wants split, or vice versa,
-    // the user should regenerate via "Gerar Faturas" to create/consolidate properly.
     const isSplitByProf = patient.splitInvoiceByProfessional
-    const billingProfForConsolidated = patient.referenceProfessionalId || invoice.professionalProfileId
-    const isCurrentlyConsolidated = !isSplitByProf && invoice.professionalProfileId === billingProfForConsolidated
-    const needsSplitRegeneration = isSplitByProf && invoice.professionalProfileId === billingProfForConsolidated
-      && await prisma.appointment.count({
-        where: {
-          clinicId: user.clinicId,
-          patientId: invoice.patientId,
-          professionalProfileId: { not: invoice.professionalProfileId },
-          scheduledAt: { gte: new Date(invoice.referenceYear, invoice.referenceMonth - 1, 1), lt: new Date(invoice.referenceYear, invoice.referenceMonth, 1) },
-          type: { in: ["CONSULTA", "REUNIAO"] },
-        },
-      }) > 0
 
-    if (needsSplitRegeneration) {
-      return NextResponse.json({
-        error: "Este paciente tem 'Faturar separado por profissional' ativo. Use 'Gerar Faturas do Mês' para regenerar as faturas separadas.",
-      }, { status: 400 })
+    // If split setting changed (consolidated invoice needs splitting or vice versa),
+    // delete all non-PAGO invoices for this patient+month and regenerate properly.
+    const hasMultipleProfessionals = await prisma.appointment.groupBy({
+      by: ["professionalProfileId"],
+      where: {
+        clinicId: user.clinicId,
+        patientId: invoice.patientId,
+        scheduledAt: { gte: new Date(invoice.referenceYear, invoice.referenceMonth - 1, 1), lt: new Date(invoice.referenceYear, invoice.referenceMonth, 1) },
+        type: { in: ["CONSULTA", "REUNIAO"] },
+      },
+    })
+
+    const needsRegeneration = hasMultipleProfessionals.length > 1 && (
+      (isSplitByProf && !await prisma.invoice.findFirst({
+        where: { clinicId: user.clinicId, patientId: invoice.patientId, referenceMonth: invoice.referenceMonth, referenceYear: invoice.referenceYear, professionalProfileId: { not: invoice.professionalProfileId }, status: { not: "PAGO" } },
+      })) ||
+      (!isSplitByProf && await prisma.invoice.count({
+        where: { clinicId: user.clinicId, patientId: invoice.patientId, referenceMonth: invoice.referenceMonth, referenceYear: invoice.referenceYear, status: { not: "PAGO" } },
+      }) > 1)
+    )
+
+    if (needsRegeneration) {
+      const result = await generateInvoicesForPatient({
+        clinicId: user.clinicId,
+        patient: {
+          id: invoice.patientId,
+          name: patient.name,
+          motherName: patient.motherName,
+          fatherName: patient.fatherName,
+          sessionFee: Number(patient.sessionFee),
+          showAppointmentDaysOnInvoice: patient.showAppointmentDaysOnInvoice,
+          invoiceDueDay: patient.invoiceDueDay,
+          invoiceMessageTemplate: patient.invoiceMessageTemplate,
+          invoiceGrouping: patient.invoiceGrouping,
+          splitInvoiceByProfessional: patient.splitInvoiceByProfessional,
+          referenceProfessionalId: patient.referenceProfessionalId,
+        },
+        clinic: {
+          invoiceDueDay: clinic?.invoiceDueDay ?? null,
+          invoiceMessageTemplate: clinic?.invoiceMessageTemplate ?? null,
+          billingMode: clinic?.billingMode ?? null,
+          invoiceGrouping: clinic?.invoiceGrouping ?? null,
+        },
+        month: invoice.referenceMonth,
+        year: invoice.referenceYear,
+      })
+
+      audit.log({ user, action: AuditAction.INVOICE_RECALCULATED, entityType: "Invoice", entityId: invoice.id, newValues: { regenerated: true, ...result }, request: req }).catch(() => {})
+      return NextResponse.json({ success: true, message: `Faturas regeneradas: ${result.generated} criada(s)`, regenerated: true })
     }
 
     // Grouping transition: cancel old invoice, regenerate with new type

@@ -305,9 +305,16 @@ export async function fetchDanfse(
   chaveAcesso: string,
   config: AdnConfig
 ): Promise<Buffer> {
-  const baseUrl = getBaseUrl(config.useSandbox)
-  const agent = createAgent(config)
+  // Try public endpoint first (no certificate needed, more reliable)
+  try {
+    const publicBuffer = await fetchDanfsePublic(chaveAcesso)
+    if (publicBuffer.length > 0) return publicBuffer
+  } catch {
+    // Public endpoint failed, try authenticated ADN
+  }
 
+  // Fallback: authenticated ADN endpoint
+  const agent = createAgent(config)
   return new Promise((resolve, reject) => {
     const req = https.request(
       `${config.useSandbox ? "https://adn.producaorestrita.nfse.gov.br" : "https://adn.nfse.gov.br"}/danfse/${chaveAcesso}`,
@@ -322,11 +329,7 @@ export async function fetchDanfse(
         res.on("end", () => {
           const buffer = Buffer.concat(chunks)
           if (res.statusCode && res.statusCode >= 400) {
-            reject(
-              new Error(
-                `DANFSE fetch failed: ${res.statusCode} ${buffer.toString("utf-8").slice(0, 200)}`
-              )
-            )
+            reject(new Error(`DANFSE fetch failed: ${res.statusCode} ${buffer.toString("utf-8").slice(0, 200)}`))
             return
           }
           resolve(buffer)
@@ -334,6 +337,53 @@ export async function fetchDanfse(
       }
     )
     req.on("error", reject)
+    req.end()
+  })
+}
+
+/**
+ * Fetch DANFSE from the public NFS-e portal (no certificate required).
+ */
+async function fetchDanfsePublic(chaveAcesso: string): Promise<Buffer> {
+  const url = `https://www.nfse.gov.br/ConsultaPublica/danfse?chaveAcesso=${chaveAcesso}`
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, { method: "GET", headers: { Accept: "application/pdf" } }, (res) => {
+      // Handle redirects
+      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        https.get(res.headers.location, (redirectRes) => {
+          const chunks: Buffer[] = []
+          redirectRes.on("data", (chunk: Buffer) => chunks.push(chunk))
+          redirectRes.on("end", () => {
+            const buffer = Buffer.concat(chunks)
+            if (redirectRes.statusCode && redirectRes.statusCode >= 400) {
+              reject(new Error(`Public DANFSE redirect failed: ${redirectRes.statusCode}`))
+              return
+            }
+            resolve(buffer)
+          })
+        }).on("error", reject)
+        return
+      }
+
+      const chunks: Buffer[] = []
+      res.on("data", (chunk: Buffer) => chunks.push(chunk))
+      res.on("end", () => {
+        const buffer = Buffer.concat(chunks)
+        if (res.statusCode && res.statusCode >= 400) {
+          reject(new Error(`Public DANFSE fetch failed: ${res.statusCode}`))
+          return
+        }
+        // Verify it's actually a PDF (not an HTML error page)
+        if (buffer.length < 100 || !buffer.subarray(0, 5).toString().startsWith("%PDF")) {
+          reject(new Error("Public DANFSE response is not a PDF"))
+          return
+        }
+        resolve(buffer)
+      })
+    })
+    req.on("error", reject)
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error("Public DANFSE timeout")) })
     req.end()
   })
 }

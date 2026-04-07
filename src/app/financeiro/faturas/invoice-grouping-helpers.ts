@@ -118,6 +118,18 @@ export function buildInvoiceRows(invoices: Invoice[]): InvoiceRow[] {
  */
 export function filterRowsByStatus(rows: InvoiceRow[], status: string): InvoiceRow[] {
   if (!status) return rows
+  if (status === "SEM_NFSE") {
+    return rows.filter(row => {
+      if (row.type === "individual") return !row.invoice.nfseStatus
+      return row.group.invoices.some(i => !i.nfseStatus)
+    })
+  }
+  if (status === "COM_NFSE") {
+    return rows.filter(row => {
+      if (row.type === "individual") return row.invoice.nfseStatus === "EMITIDA"
+      return row.group.invoices.some(i => i.nfseStatus === "EMITIDA")
+    })
+  }
   return rows.filter(row => {
     if (row.type === "individual") return row.invoice.status === status
     return row.group.derivedStatus === status
