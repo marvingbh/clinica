@@ -21,7 +21,7 @@ describe("buildNfseDescription", () => {
       sessionDates: [date("2026-03-02"), date("2026-03-12"), date("2026-03-19"), date("2026-03-26")],
     })
     expect(result).toContain("consultas em psicoterapia")
-    expect(result).toContain("nos dias 02, 12, 19 e 26")
+    expect(result).toContain("02, 12, 19 e 26 de março de 2026")
     expect(result).toContain("Cada sessão com valor unitário de R$ 540,00")
   })
 
@@ -79,7 +79,72 @@ describe("buildNfseDescription", () => {
       ...baseData,
       sessionDates: [date("2026-03-26"), date("2026-03-02"), date("2026-03-12")],
     })
-    expect(result).toContain("nos dias 02, 12 e 26")
+    expect(result).toContain("02, 12 e 26 de março de 2026")
+  })
+
+  it("limits dates to billed sessions when credits reduce total", () => {
+    const result = buildNfseDescription({
+      ...baseData,
+      referenceMonth: 4,
+      referenceYear: 2026,
+      sessionDates: [date("2026-04-10"), date("2026-04-16"), date("2026-04-17"), date("2026-04-24")],
+      sessionFee: 510,
+      totalAmount: 1020, // 2 sessions billed (4 sessions - 2 credits)
+    })
+    // Should only show the 2 oldest dates
+    expect(result).toContain("10 e 16 de abril de 2026")
+    expect(result).not.toContain("17")
+    expect(result).not.toContain("24")
+  })
+
+  it("shows all dates when no credits", () => {
+    const result = buildNfseDescription({
+      ...baseData,
+      sessionDates: [date("2026-03-05"), date("2026-03-12")],
+      sessionFee: 540,
+      totalAmount: 1080, // matches all sessions
+    })
+    expect(result).toContain("05 e 12 de março de 2026")
+  })
+
+  it("formats cross-month dates correctly (same year)", () => {
+    const result = buildNfseDescription({
+      ...baseData,
+      referenceMonth: 4,
+      referenceYear: 2026,
+      sessionDates: [date("2026-03-14"), date("2026-03-23"), date("2026-04-07"), date("2026-04-21"), date("2026-04-28")],
+    })
+    expect(result).toContain("14 e 23 de março e 07, 21 e 28 de abril de 2026")
+  })
+
+  it("formats cross-year dates with both years shown", () => {
+    const result = buildNfseDescription({
+      ...baseData,
+      referenceMonth: 1,
+      referenceYear: 2026,
+      sessionDates: [date("2025-12-15"), date("2025-12-22"), date("2026-01-05"), date("2026-01-12")],
+    })
+    expect(result).toContain("15 e 22 de dezembro de 2025 e 05 e 12 de janeiro de 2026")
+  })
+
+  it("formats cross-year with multiple dates in each year", () => {
+    const result = buildNfseDescription({
+      ...baseData,
+      referenceMonth: 1,
+      referenceYear: 2026,
+      sessionDates: [date("2025-12-08"), date("2025-12-15"), date("2025-12-22"), date("2026-01-05"), date("2026-01-12"), date("2026-01-19")],
+    })
+    expect(result).toContain("08, 15 e 22 de dezembro de 2025 e 05, 12 e 19 de janeiro de 2026")
+  })
+
+  it("formats single cross-year date per month", () => {
+    const result = buildNfseDescription({
+      ...baseData,
+      referenceMonth: 1,
+      referenceYear: 2026,
+      sessionDates: [date("2025-12-29"), date("2026-01-05")],
+    })
+    expect(result).toContain("29 de dezembro de 2025 e 5 de janeiro de 2026")
   })
 
   it("handles custom template", () => {

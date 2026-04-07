@@ -44,13 +44,14 @@ export const GET = withFeatureAuth(
 
     // All-sessions description (used for per-invoice mode and as fallback)
     const allSessionDates = invoice.items
-      .filter(item => item.appointment?.scheduledAt)
+      .filter(item => item.appointment?.scheduledAt && item.type !== "CREDITO")
       .map(item => new Date(item.appointment!.scheduledAt))
 
     const descricao = buildNfseDescription({
       ...baseParams,
       sessionDates: allSessionDates,
       sessionFee: Number(invoice.patient.sessionFee || invoice.totalAmount),
+      totalAmount: Number(invoice.totalAmount),
     }, template)
 
     // Per-item mode: generate individual descriptions

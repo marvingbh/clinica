@@ -178,7 +178,7 @@ async function handlePerInvoiceEmission(ctx: EmissionContext) {
   }
 
   const sessionDates = invoice.items
-    .filter((item) => item.appointment?.scheduledAt)
+    .filter((item) => item.appointment?.scheduledAt && item.type !== "CREDITO")
     .map((item) => new Date(item.appointment!.scheduledAt))
   const autoDescription = buildNfseDescription({
     patientName: invoice.patient.name.replace(/\s*\(.*?\)\s*/g, "").trim(),
@@ -189,6 +189,7 @@ async function handlePerInvoiceEmission(ctx: EmissionContext) {
     referenceYear: invoice.referenceYear,
     sessionDates,
     sessionFee: Number(invoice.patient.sessionFee || invoice.totalAmount),
+    totalAmount: Number(invoice.totalAmount),
     taxPercentage: nfseConfig.nfseTaxPercentage ? Number(nfseConfig.nfseTaxPercentage) : undefined,
   }, invoice.patient.nfseDescriptionTemplate || nfseConfig.descricaoServico)
   const descricao = (overrides.descricao as string | undefined) || autoDescription
