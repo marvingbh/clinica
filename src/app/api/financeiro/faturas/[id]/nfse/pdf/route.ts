@@ -137,7 +137,9 @@ export const GET = withFeatureAuth(
         })
       } catch (error) {
         const msg = error instanceof Error ? error.message : "Erro desconhecido"
-        return NextResponse.json({ error: `Erro ao baixar DANFSE do Gov.br: ${msg}` }, { status: 500 })
+        return NextResponse.json({
+          error: `Erro ao baixar DANFSE do Gov.br: ${msg}. Acesse www.nfse.gov.br para baixar manualmente.`,
+        }, { status: 502 })
       }
     }
 

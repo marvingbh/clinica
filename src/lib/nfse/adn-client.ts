@@ -315,27 +315,20 @@ export async function fetchDanfse(
 
   // Fallback: authenticated ADN endpoint
   const agent = createAgent(config)
+  const adnUrl = `${config.useSandbox ? "https://adn.producaorestrita.nfse.gov.br" : "https://adn.nfse.gov.br"}/danfse/${chaveAcesso}`
   return new Promise((resolve, reject) => {
-    const req = https.request(
-      `${config.useSandbox ? "https://adn.producaorestrita.nfse.gov.br" : "https://adn.nfse.gov.br"}/danfse/${chaveAcesso}`,
-      {
-        method: "GET",
-        agent,
-        headers: { Accept: "application/pdf" },
-      },
-      (res) => {
-        const chunks: Buffer[] = []
-        res.on("data", (chunk: Buffer) => chunks.push(chunk))
-        res.on("end", () => {
-          const buffer = Buffer.concat(chunks)
-          if (res.statusCode && res.statusCode >= 400) {
-            reject(new Error(`DANFSE fetch failed: ${res.statusCode} ${buffer.toString("utf-8").slice(0, 200)}`))
-            return
-          }
-          resolve(buffer)
-        })
-      }
-    )
+    const req = https.request(adnUrl, { method: "GET", agent, headers: { Accept: "application/pdf" } }, (res) => {
+      const chunks: Buffer[] = []
+      res.on("data", (chunk: Buffer) => chunks.push(chunk))
+      res.on("end", () => {
+        const buffer = Buffer.concat(chunks)
+        if (res.statusCode && res.statusCode >= 400) {
+          reject(new Error(`DANFSE fetch failed: ${res.statusCode} ${buffer.toString("utf-8").slice(0, 200)}`))
+          return
+        }
+        resolve(buffer)
+      })
+    })
     req.on("error", reject)
     req.end()
   })
