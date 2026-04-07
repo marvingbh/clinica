@@ -40,7 +40,16 @@ export function NfseEmitWrapper({ invoiceId, onClose, onSuccess }: NfseEmitWrapp
     load()
   }, [invoiceId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!ready || !inv) return null
+  if (!ready || !inv) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+        <div className="bg-background border border-border rounded-2xl shadow-lg px-8 py-6 text-center">
+          <div className="w-7 h-7 border-[3px] border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Carregando NFS-e...</p>
+        </div>
+      </div>
+    )
+  }
 
   const p = inv.patient
 
