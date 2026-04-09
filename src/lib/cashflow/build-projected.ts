@@ -4,6 +4,7 @@ import { calculateCancellationRate, projectRevenue, estimateTax } from "./index"
 import type { InvoiceForCashFlow, ExpenseForCashFlow } from "./types"
 import type { TaxEstimate } from "./tax-estimate"
 import type { RevenueProjection } from "./revenue-projection"
+import { buildRealized } from "./build-realized"
 
 interface BuildProjectedParams {
   clinicId: string
@@ -13,6 +14,8 @@ interface BuildProjectedParams {
   localEndDate: Date
   selectedMonth: number
   selectedYear: number
+  interBalance: number | null
+  balanceFetchedAt: Date | null
 }
 
 interface BuildProjectedResult {
@@ -20,19 +23,30 @@ interface BuildProjectedResult {
   expensesForCF: ExpenseForCashFlow[]
   revenueProjectionData: RevenueProjection
   taxEstimateData: TaxEstimate
-  totalProjectedExpenses: number
   totalUnpaidRepasse: number
+  // Split metrics for cards
+  revenueReceived: number
+  revenueProjected: number
+  expensesPaid: number
+  expensesProjected: number
+  startingBalance: number
+  balanceSource: string
 }
 
 export async function buildProjected({
   clinicId, startDate, endDate, localStartDate, localEndDate,
-  selectedMonth, selectedYear,
+  selectedMonth, selectedYear, interBalance, balanceFetchedAt,
 }: BuildProjectedParams): Promise<BuildProjectedResult> {
   const now = new Date()
+
+  // Get starting balance from realized mode
+  const realized = await buildRealized({ clinicId, startDate, endDate, interBalance, balanceFetchedAt })
+  const { startingBalance, balanceSource } = realized
 
   const [
     scheduledAppointments, patients, profProfiles, historicalApts,
     clinic, nfseConfig, activeRecurrences, openExpenses, paidRepasseIds,
+    existingInvoices,
   ] = await Promise.all([
     prisma.appointment.findMany({
       where: {
@@ -60,6 +74,18 @@ export async function buildProjected({
       where: { clinicId, referenceMonth: selectedMonth, referenceYear: selectedYear },
       select: { professionalProfileId: true },
     }),
+    // Fetch existing invoices (paid + unpaid) in the date range
+    prisma.invoice.findMany({
+      where: {
+        clinicId,
+        status: { notIn: ["CANCELADO"] },
+        OR: [
+          { paidAt: { gte: startDate, lte: endDate } },
+          { dueDate: { gte: startDate, lte: endDate }, paidAt: null },
+        ],
+      },
+      select: { id: true, totalAmount: true, dueDate: true, paidAt: true, status: true, patientId: true, referenceMonth: true, referenceYear: true, patient: { select: { name: true } } },
+    }),
   ])
 
   const patientFeeMap = new Map(patients.map((p) => [p.id, Number(p.sessionFee)]))
@@ -73,7 +99,35 @@ export async function buildProjected({
     patientFeeMap, profMap, cancellationRate, clinicTaxPct
   )
 
-  const invoicesForCF: InvoiceForCashFlow[] = scheduledAppointments.map((apt) => {
+  // --- REVENUE: use existing invoices where available, appointments for the rest ---
+
+  // Track which patients+months are covered by existing invoices
+  const invoicedPatientMonths = new Set<string>()
+  for (const inv of existingInvoices) {
+    if (inv.patientId) {
+      invoicedPatientMonths.add(`${inv.patientId}-${inv.referenceMonth}-${inv.referenceYear}`)
+    }
+  }
+
+  // Real invoices → InvoiceForCashFlow (exact amounts, no cancellation discount)
+  const invoiceEntries: InvoiceForCashFlow[] = existingInvoices.map((inv) => ({
+    id: inv.id,
+    totalAmount: Number(inv.totalAmount),
+    dueDate: inv.paidAt ?? inv.dueDate,
+    paidAt: inv.paidAt,
+    status: inv.status,
+    patientName: inv.patient.name,
+  }))
+
+  // Synthetic projections only for appointments NOT covered by an invoice
+  const uncoveredAppointments = scheduledAppointments.filter((apt) => {
+    if (!apt.patientId) return true
+    const aptMonth = apt.scheduledAt.getMonth() + 1
+    const aptYear = apt.scheduledAt.getFullYear()
+    return !invoicedPatientMonths.has(`${apt.patientId}-${aptMonth}-${aptYear}`)
+  })
+
+  const syntheticEntries: InvoiceForCashFlow[] = uncoveredAppointments.map((apt) => {
     const fee = apt.price ? Number(apt.price) : (apt.patientId ? patientFeeMap.get(apt.patientId) ?? 0 : 0)
     const adjusted = round2(fee * (1 - cancellationRate))
     return {
@@ -82,22 +136,31 @@ export async function buildProjected({
     }
   })
 
-  // --- EXPENSES: open expenses + recurring projections (deduped) ---
-  const expensesForCF: ExpenseForCashFlow[] = openExpenses.map((exp) => ({
+  const invoicesForCF: InvoiceForCashFlow[] = [...invoiceEntries, ...syntheticEntries]
+
+  // --- EXPENSES: all expenses (paid + open/overdue) + recurring projections ---
+
+  // Fetch paid expenses in the range too (what already happened)
+  const paidExpenses = await prisma.expense.findMany({
+    where: { clinicId, status: "PAID", paidAt: { gte: startDate, lte: endDate } },
+    select: { id: true, description: true, amount: true, dueDate: true, paidAt: true, status: true, recurrenceId: true },
+  })
+
+  const allExpenses = [...openExpenses, ...paidExpenses]
+  const expensesForCF: ExpenseForCashFlow[] = allExpenses.map((exp) => ({
     id: exp.id, description: exp.description, amount: Number(exp.amount),
-    dueDate: exp.dueDate, paidAt: null, status: exp.status,
+    dueDate: exp.paidAt ?? exp.dueDate, paidAt: exp.paidAt, status: exp.status,
   }))
 
-  const existingDates = new Set(openExpenses.filter((e) => e.recurrenceId).map((e) => `${e.recurrenceId}-${e.dueDate.toISOString().split("T")[0]}`))
-  const paidRecExpenses = await prisma.expense.findMany({
-    where: { clinicId, status: "PAID", recurrenceId: { not: null }, dueDate: { gte: startDate, lte: endDate } },
-    select: { recurrenceId: true, dueDate: true },
-  })
-  paidRecExpenses.forEach((e) => existingDates.add(`${e.recurrenceId}-${e.dueDate.toISOString().split("T")[0]}`))
+  // Track which recurrence+date combos already have an expense (paid or open)
+  const existingDates = new Set(
+    allExpenses.filter((e) => e.recurrenceId).map((e) => `${e.recurrenceId}-${e.dueDate.toISOString().split("T")[0]}`)
+  )
 
   const dayBeforeStart = new Date(localStartDate)
   dayBeforeStart.setDate(dayBeforeStart.getDate() - 1)
 
+  // Only project recurring expenses that don't already exist (not yet paid/created)
   for (const rec of activeRecurrences) {
     const generated = generateExpensesFromRecurrence({ ...rec, amount: Number(rec.amount), lastGeneratedDate: dayBeforeStart }, localEndDate)
     for (const g of generated) {
@@ -116,29 +179,81 @@ export async function buildProjected({
   // --- TAX estimate ---
   const taxEstimateData = await buildTaxEstimate(clinicId, nfseConfig, selectedMonth, selectedYear, now, revProjection, startDate, endDate, expensesForCF)
 
-  // --- REPASSE estimate (only unpaid professionals) ---
+  // --- REPASSE: use actual invoice data when invoices exist, estimate otherwise ---
   const paidProfIds = new Set(paidRepasseIds.map((r) => r.professionalProfileId))
-  const unpaidRepasse = revProjection.byProfessional.filter((p) => !paidProfIds.has(p.professionalId))
-  const totalUnpaidRepasse = unpaidRepasse.reduce((s, p) => s + p.estimatedRepasse, 0)
+  let totalUnpaidRepasse = 0
 
-  for (const prof of unpaidRepasse) {
-    if (prof.estimatedRepasse > 0) {
-      expensesForCF.push({
-        id: `repasse-${prof.professionalId}`,
-        description: "Repasse profissional (estimado)",
-        amount: prof.estimatedRepasse,
-        dueDate: new Date(Date.UTC(selectedYear, selectedMonth - 1, 15)),
-        paidAt: null, status: "PROJECTED",
-      })
+  const hasInvoicesForMonth = existingInvoices.some(
+    (inv) => inv.referenceMonth === selectedMonth && inv.referenceYear === selectedYear
+  )
+
+  if (hasInvoicesForMonth) {
+    // Calculate repasse from actual invoice items (same logic as /api/financeiro/repasse)
+    const invoiceItems = await prisma.invoiceItem.findMany({
+      where: {
+        invoice: { clinicId, referenceMonth: selectedMonth, referenceYear: selectedYear, status: { notIn: ["CANCELADO"] } },
+        type: { not: "CREDITO" },
+      },
+      select: { total: true, attendingProfessionalId: true, invoice: { select: { professionalProfileId: true } } },
+    })
+
+    // Group by attending professional
+    const repasseByProf = new Map<string, number>()
+    for (const item of invoiceItems) {
+      const profId = item.attendingProfessionalId ?? item.invoice.professionalProfileId
+      const prof = profMap.get(profId)
+      if (!prof || paidProfIds.has(profId)) continue
+      const repassePct = prof.repassePercentage / 100
+      const afterTax = Number(item.total) * (1 - clinicTaxPct / 100)
+      const repasseAmount = round2(afterTax * repassePct)
+      repasseByProf.set(profId, (repasseByProf.get(profId) ?? 0) + repasseAmount)
+    }
+
+    for (const [profId, amount] of repasseByProf) {
+      if (amount > 0) {
+        totalUnpaidRepasse += amount
+        expensesForCF.push({
+          id: `repasse-${profId}`,
+          description: "Repasse profissional",
+          amount,
+          dueDate: new Date(Date.UTC(selectedYear, selectedMonth - 1, 15)),
+          paidAt: null, status: "PROJECTED",
+        })
+      }
+    }
+  } else {
+    // No invoices yet — use appointment-based estimate
+    const unpaidRepasse = revProjection.byProfessional.filter((p) => !paidProfIds.has(p.professionalId))
+    totalUnpaidRepasse = unpaidRepasse.reduce((s, p) => s + p.estimatedRepasse, 0)
+
+    for (const prof of unpaidRepasse) {
+      if (prof.estimatedRepasse > 0) {
+        expensesForCF.push({
+          id: `repasse-${prof.professionalId}`,
+          description: "Repasse profissional (estimado)",
+          amount: prof.estimatedRepasse,
+          dueDate: new Date(Date.UTC(selectedYear, selectedMonth - 1, 15)),
+          paidAt: null, status: "PROJECTED",
+        })
+      }
     }
   }
 
-  const recurringAndOpenExpenses = expensesForCF.filter(
+  // Split metrics for cards
+  const revenueReceived = invoicesForCF.filter(i => i.paidAt).reduce((s, i) => s + i.totalAmount, 0)
+  const revenueProjected = invoicesForCF.filter(i => !i.paidAt).reduce((s, i) => s + i.totalAmount, 0)
+
+  const nonTaxNonRepasseExpenses = expensesForCF.filter(
     (e) => !e.id.startsWith("projected-tax-") && !e.id.startsWith("repasse-")
   )
-  const totalProjectedExpenses = recurringAndOpenExpenses.reduce((s, e) => s + e.amount, 0)
+  const expensesPaid = nonTaxNonRepasseExpenses.filter(e => e.paidAt).reduce((s, e) => s + e.amount, 0)
+  const expensesProjected = nonTaxNonRepasseExpenses.filter(e => !e.paidAt).reduce((s, e) => s + e.amount, 0)
 
-  return { invoicesForCF, expensesForCF, revenueProjectionData: revProjection, taxEstimateData, totalProjectedExpenses, totalUnpaidRepasse }
+  return {
+    invoicesForCF, expensesForCF, revenueProjectionData: revProjection, taxEstimateData,
+    totalUnpaidRepasse, revenueReceived, revenueProjected, expensesPaid, expensesProjected,
+    startingBalance, balanceSource,
+  }
 }
 
 // --- Private helper: build tax estimate and push tax expenses into expensesForCF ---

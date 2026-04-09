@@ -53,6 +53,19 @@ export const GET = withFeatureAuth(
         balanceFetchedAt: bankIntegration?.balanceFetchedAt ?? null,
       })
 
+      // Pending invoices for the period (created but not yet paid)
+      const pendingInvoices = await prisma.invoice.aggregate({
+        where: {
+          clinicId: user.clinicId,
+          status: { in: ["PENDENTE", "ENVIADO", "PARCIAL"] },
+          dueDate: { gte: startDate, lte: endDate },
+        },
+        _sum: { totalAmount: true },
+        _count: true,
+      })
+      const pendingInvoicesTotal = Number(pendingInvoices._sum.totalAmount ?? 0)
+      const pendingInvoicesCount = pendingInvoices._count
+
       const projection = calculateProjection(invoicesForCF, expensesForCF, [], startDate, endDate, startingBalance)
       const alerts = detectAlerts(projection, "realizado", interBalance !== null)
       let entries = projection.entries
@@ -62,15 +75,16 @@ export const GET = withFeatureAuth(
       return NextResponse.json({
         entries, alerts, summary: projection.summary, balanceSource, todayDivider: todayStr,
         lastKnownBalance: interBalance, balanceFetchedAt: bankIntegration?.balanceFetchedAt ?? null,
+        pendingInvoices: { total: pendingInvoicesTotal, count: pendingInvoicesCount },
       })
     }
 
-    const { invoicesForCF, expensesForCF, revenueProjectionData, taxEstimateData, totalProjectedExpenses, totalUnpaidRepasse } = await buildProjected({
+    const projected = await buildProjected({
       clinicId: user.clinicId, startDate, endDate, localStartDate, localEndDate,
-      selectedMonth, selectedYear,
+      selectedMonth, selectedYear, interBalance, balanceFetchedAt: bankIntegration?.balanceFetchedAt ?? null,
     })
 
-    const projection = calculateProjection(invoicesForCF, expensesForCF, [], startDate, endDate, 0, todayStr)
+    const projection = calculateProjection(projected.invoicesForCF, projected.expensesForCF, [], startDate, endDate, projected.startingBalance, todayStr)
     let entries = projection.entries
     if (granularity === "weekly") entries = aggregateByWeek(entries)
     if (granularity === "monthly") entries = aggregateByMonth(entries)
@@ -79,20 +93,21 @@ export const GET = withFeatureAuth(
       entries,
       alerts: detectAlerts(projection, "projetado"),
       summary: projection.summary,
-      balanceSource: "none",
+      balanceSource: projected.balanceSource,
       lastKnownBalance: interBalance,
       balanceFetchedAt: bankIntegration?.balanceFetchedAt ?? null,
       todayDivider: todayStr,
       revenueProjection: {
-        totalAppointments: revenueProjectionData.totalAppointments,
-        grossRevenue: revenueProjectionData.grossRevenue,
-        cancellationRate: revenueProjectionData.cancellationRate,
-        projectedRevenue: revenueProjectionData.projectedRevenue,
-        totalEstimatedRepasse: totalUnpaidRepasse,
-        actualRevenue: 0,
+        totalAppointments: projected.revenueProjectionData.totalAppointments,
+        grossRevenue: projected.revenueProjectionData.grossRevenue,
+        cancellationRate: projected.revenueProjectionData.cancellationRate,
+        projectedRevenue: projected.revenueProjected,
+        totalEstimatedRepasse: projected.totalUnpaidRepasse,
+        actualRevenue: projected.revenueReceived,
       },
-      taxEstimate: taxEstimateData,
-      projectedExpenses: totalProjectedExpenses,
+      taxEstimate: projected.taxEstimateData,
+      projectedExpenses: projected.expensesProjected,
+      paidExpenses: projected.expensesPaid,
     })
   }
 )

@@ -51,7 +51,9 @@ export default function FluxoDeCaixaPage() {
     breakdown: { name: string; amount: number; rate: number; period: string }[];
   } | null>(null)
   const [projectedExpenses, setProjectedExpenses] = useState<number>(0)
+  const [paidExpenses, setPaidExpenses] = useState<number>(0)
   const [todayDivider, setTodayDivider] = useState<string | null>(null)
+  const [pendingInvoices, setPendingInvoices] = useState<{ total: number; count: number } | null>(null)
   const [loaded, setLoaded] = useState(false)
 
   const loadData = useCallback(async () => {
@@ -92,6 +94,8 @@ export default function FluxoDeCaixaPage() {
       setRevenueProjection(data.revenueProjection ?? null)
       setTaxEstimate(data.taxEstimate ?? null)
       setProjectedExpenses(data.projectedExpenses ?? 0)
+      setPaidExpenses(data.paidExpenses ?? 0)
+      setPendingInvoices(data.pendingInvoices ?? null)
       setTodayDivider(data.todayDivider ?? null)
     } catch (err) {
       console.error("Cashflow fetch error:", err)
@@ -154,12 +158,36 @@ export default function FluxoDeCaixaPage() {
         />
       )}
 
+      {/* Pending Invoices Card (realizado mode only) */}
+      {cashFlowView !== "projetado" && pendingInvoices && pendingInvoices.total > 0 && summary && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-1">
+            <h3 className="text-xs font-medium text-amber-700 dark:text-amber-400">Faturas Pendentes</h3>
+            <p className="text-xl font-bold text-amber-600">{formatCurrency(pendingInvoices.total)}</p>
+            <p className="text-[10px] text-amber-600/70">{pendingInvoices.count} fatura(s) aguardando pagamento</p>
+          </div>
+          <div className="rounded-lg border p-4 space-y-1">
+            <h3 className="text-xs font-medium text-muted-foreground">Fluxo Líquido (realizado)</h3>
+            <p className={`text-xl font-bold ${summary.netFlow >= 0 ? "text-green-600" : "text-red-600"}`}>
+              {formatCurrency(summary.netFlow)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-1">
+            <h3 className="text-xs font-medium text-muted-foreground">Fluxo Líquido + Pendentes</h3>
+            <p className={`text-xl font-bold ${summary.netFlow + pendingInvoices.total >= 0 ? "text-green-600" : "text-red-600"}`}>
+              {formatCurrency(summary.netFlow + pendingInvoices.total)}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Projection Breakdown (projetado mode only) */}
       {cashFlowView === "projetado" && revenueProjection && (
         <ProjectionBreakdown
           revenueProjection={revenueProjection}
           taxEstimate={taxEstimate}
           projectedExpenses={projectedExpenses}
+          paidExpenses={paidExpenses}
           formatCurrency={formatCurrency}
         />
       )}
