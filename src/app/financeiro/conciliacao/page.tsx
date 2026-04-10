@@ -101,9 +101,11 @@ export default function ConciliacaoPage() {
         throw new Error(data.error || "Erro ao buscar transações")
       }
       const data = await res.json()
-      setLastFetch({ fetched: data.fetched, newTransactions: data.newTransactions })
+      const totalFetched = (data.creditsFetched ?? 0) + (data.debitsFetched ?? 0)
+      const totalNew = (data.newCredits ?? 0) + (data.newDebits ?? 0)
+      setLastFetch({ fetched: totalFetched, newTransactions: totalNew })
       setConnStatus("ok")
-      toast.success(`${data.newTransactions} nova(s) transação(ões) importada(s)`)
+      toast.success(`${totalNew} nova(s) transação(ões) importada(s)`)
       fetchTransactions()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao buscar transações")
