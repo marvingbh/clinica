@@ -458,18 +458,15 @@ export function IntakeForm({ onSubmit, isSubmitting, errorMessage }: IntakeFormP
             className="mt-0.5 h-4 w-4 rounded border-input"
             {...register("consentSessionRecording")}
           />
-          <div className="text-sm text-foreground">
+          <div className="text-sm text-foreground space-y-2">
             <p>
-              Autorizo e declaro estar ciente da possibilidade de gravacao das sessoes
-              psicologicas, com a finalidade de supervisao da equipe e garantia da seguranca
-              do menor durante os atendimentos.
+              Autorizo e declaro estar ciente da possibilidade de gravação das sessões psicológicas, com a finalidade de supervisão da equipe e garantia da segurança do menor durante os atendimentos.
             </p>
-            <p className="text-muted-foreground mt-2 text-xs leading-relaxed">
-              Tal pratica e amparada pelo Codigo de Etica Profissional do Psicologo (Art. 9)
-              e tem como principio fundamental o respeito ao sigilo profissional. Declaro, ainda,
-              que apenas a psicologa responsavel tera acesso as gravacoes, comprometendo-se,
-              em conformidade com o Estatuto da Crianca e do Adolescente, a zelar pela
-              confidencialidade e protecao integral desse material.
+            <p>
+              Tal prática é amparada pelo Código de Ética Profissional do Psicólogo (Art. 9°) e tem como princípio fundamental o respeito ao sigilo profissional.
+            </p>
+            <p>
+              Declaro, ainda, que apenas a psicóloga <strong>Elena Sabino</strong> terá acesso às gravações, comprometendo-se, em conformidade com o <strong>Estatuto da Criança e do Adolescente</strong>, a zelar pela confidencialidade e proteção integral desse material.
             </p>
           </div>
         </label>
