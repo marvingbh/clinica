@@ -456,18 +456,6 @@ export function IntakeForm({ onSubmit, isSubmitting, errorMessage }: IntakeFormP
           <input
             type="checkbox"
             className="mt-0.5 h-4 w-4 rounded border-input"
-            {...register("consentPhotoVideo")}
-          />
-          <span className="text-sm text-foreground">
-            Autorizo o uso de fotos e/ou videos da minha crianca, de forma respeitosa e
-            responsavel, nas redes sociais da clinica.
-          </span>
-        </label>
-
-        <label className="flex items-start gap-3 cursor-pointer p-3 rounded-md border border-input hover:bg-muted/50 transition-colors">
-          <input
-            type="checkbox"
-            className="mt-0.5 h-4 w-4 rounded border-input"
             {...register("consentSessionRecording")}
           />
           <div className="text-sm text-foreground">
