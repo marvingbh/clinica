@@ -32,10 +32,49 @@ function PerInvoiceNfseSection({ invoice, nfseConfig, onRefresh }: NfseSectionPr
   const [showHistory, setShowHistory] = useState(false)
   const [historyLogs, setHistoryLogs] = useState<NfseLogEntry[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
+  const [markingExternal, setMarkingExternal] = useState(false)
 
   const canEmit =
     (invoice.status === "PAGO" || invoice.status === "ENVIADO") &&
     (invoice.nfseStatus === null || invoice.nfseStatus === "ERRO")
+
+  async function handleMarkExternal() {
+    setMarkingExternal(true)
+    try {
+      const res = await fetch(`/api/financeiro/faturas/${invoice.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nfseStatus: "EMITIDA_EXTERNA" }),
+      })
+      if (res.ok) {
+        toast.success("NFS-e marcada como emitida externamente")
+        onRefresh()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "Erro ao marcar NFS-e")
+      }
+    } catch { toast.error("Erro de rede") }
+    finally { setMarkingExternal(false) }
+  }
+
+  async function handleUnmarkExternal() {
+    setMarkingExternal(true)
+    try {
+      const res = await fetch(`/api/financeiro/faturas/${invoice.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nfseStatus: null }),
+      })
+      if (res.ok) {
+        toast.success("Marcação de NFS-e externa removida")
+        onRefresh()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "Erro ao desmarcar NFS-e")
+      }
+    } catch { toast.error("Erro de rede") }
+    finally { setMarkingExternal(false) }
+  }
 
   function loadHistory() {
     if (showHistory) { setShowHistory(false); return }
@@ -90,6 +129,20 @@ function PerInvoiceNfseSection({ invoice, nfseConfig, onRefresh }: NfseSectionPr
           </button>
         </div>
       )
+      case "EMITIDA_EXTERNA": return (
+        <div className="space-y-2">
+          <StatusBadge label="NFS-e emitida externamente" style="blue" />
+          <p className="text-xs text-muted-foreground">Emitida fora do sistema — sem XML/PDF disponivel no sistema.</p>
+          {invoice.nfseEmitidaAt && <p className="text-xs text-muted-foreground">Marcada em {new Date(invoice.nfseEmitidaAt).toLocaleDateString("pt-BR")}</p>}
+          <button
+            onClick={handleUnmarkExternal}
+            disabled={markingExternal}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+          >
+            {markingExternal ? "..." : "Desmarcar"}
+          </button>
+        </div>
+      )
       case "CANCELADA": return (
         <div className="space-y-1">
           <StatusBadge label="NFS-e Cancelada" style="muted" strikethrough />
@@ -108,9 +161,18 @@ function PerInvoiceNfseSection({ invoice, nfseConfig, onRefresh }: NfseSectionPr
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">NFS-e</h3>
         {canEmit && !invoice.nfseStatus && (
-          <button onClick={() => setShowDialog(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
-            Emitir NFS-e
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowDialog(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+              Emitir NFS-e
+            </button>
+            <button
+              onClick={handleMarkExternal}
+              disabled={markingExternal}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              {markingExternal ? "..." : "Já emitida externamente"}
+            </button>
+          </div>
         )}
       </div>
 

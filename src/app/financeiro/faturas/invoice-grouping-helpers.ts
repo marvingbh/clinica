@@ -126,8 +126,8 @@ export function filterRowsByStatus(rows: InvoiceRow[], status: string): InvoiceR
   }
   if (status === "COM_NFSE") {
     return rows.filter(row => {
-      if (row.type === "individual") return row.invoice.nfseStatus === "EMITIDA"
-      return row.group.invoices.some(i => i.nfseStatus === "EMITIDA")
+      if (row.type === "individual") return row.invoice.nfseStatus === "EMITIDA" || row.invoice.nfseStatus === "EMITIDA_EXTERNA"
+      return row.group.invoices.some(i => i.nfseStatus === "EMITIDA" || i.nfseStatus === "EMITIDA_EXTERNA")
     })
   }
   return rows.filter(row => {

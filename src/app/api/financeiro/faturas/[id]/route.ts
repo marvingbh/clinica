@@ -64,6 +64,7 @@ const updateSchema = z.object({
   notes: z.string().optional(),
   paidAt: z.string().datetime().optional().nullable(),
   notaFiscalEmitida: z.boolean().optional(),
+  nfseStatus: z.enum(["EMITIDA_EXTERNA"]).nullable().optional(),
   dueDate: z.string().optional(),
 })
 
@@ -93,7 +94,7 @@ export const PATCH = withFeatureAuth(
 
     // Guard: block status change to CANCELADO when NFS-e is emitted
     if (
-      invoice.nfseStatus === "EMITIDA" &&
+      (invoice.nfseStatus === "EMITIDA" || invoice.nfseStatus === "EMITIDA_EXTERNA") &&
       parsed.data.status === "CANCELADO"
     ) {
       return NextResponse.json(
@@ -119,6 +120,17 @@ export const PATCH = withFeatureAuth(
       updateData.notaFiscalEmitidaAt = null
       updateData.notaFiscalPdf = null
     }
+    if (parsed.data.nfseStatus === "EMITIDA_EXTERNA") {
+      updateData.nfseStatus = "EMITIDA_EXTERNA"
+      updateData.nfseEmitidaAt = new Date()
+      updateData.notaFiscalEmitida = true
+      updateData.notaFiscalEmitidaAt = new Date()
+    } else if (parsed.data.nfseStatus === null && "nfseStatus" in parsed.data) {
+      updateData.nfseStatus = null
+      updateData.nfseEmitidaAt = null
+      updateData.notaFiscalEmitida = false
+      updateData.notaFiscalEmitidaAt = null
+    }
 
     const updated = await prisma.invoice.update({
       where: { id: params.id },
@@ -136,6 +148,9 @@ export const PATCH = withFeatureAuth(
     }
     if (parsed.data.notes !== undefined && parsed.data.notes !== invoice.notes) {
       audit.log({ user, action: AuditAction.INVOICE_NOTES_UPDATED, entityType: "Invoice", entityId: params.id, oldValues: { notes: invoice.notes }, newValues: { notes: parsed.data.notes }, request: req }).catch(() => {})
+    }
+    if ("nfseStatus" in parsed.data) {
+      audit.log({ user, action: AuditAction.INVOICE_NF_CHANGED, entityType: "Invoice", entityId: params.id, oldValues: { nfseStatus: invoice.nfseStatus }, newValues: { nfseStatus: parsed.data.nfseStatus }, request: req }).catch(() => {})
     }
 
     return NextResponse.json(updated)
@@ -160,9 +175,9 @@ export const DELETE = withFeatureAuth(
       return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 })
     }
 
-    if (invoice.nfseStatus === "EMITIDA") {
+    if (invoice.nfseStatus === "EMITIDA" || invoice.nfseStatus === "EMITIDA_EXTERNA") {
       return NextResponse.json(
-        { error: "Nao e possivel excluir fatura com NFS-e emitida. Cancele a NFS-e primeiro." },
+        { error: "Nao e possivel excluir fatura com NFS-e emitida. Cancele/desmarque a NFS-e primeiro." },
         { status: 400 }
       )
     }
