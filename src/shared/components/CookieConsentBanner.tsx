@@ -6,7 +6,7 @@ import { useMountEffect } from "@/shared/hooks"
 const CONSENT_KEY = "cookie-consent"
 
 interface CookiePreferences {
-  necessary: true // always true, can't be disabled
+  necessary: true
   analytics: boolean
 }
 
@@ -29,7 +29,7 @@ function storeConsent(state: ConsentState, preferences: CookiePreferences) {
 export default function CookieConsentBanner() {
   const [visible, setVisible] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
-  const [analytics, setAnalytics] = useState(false) // disabled by default per ANPD
+  const [analytics, setAnalytics] = useState(false)
 
   useMountEffect(() => {
     const stored = getStoredConsent()
@@ -54,28 +54,41 @@ export default function CookieConsentBanner() {
   if (!visible) return null
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-end justify-center p-4 pointer-events-none">
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/20 pointer-events-auto" />
-
-      <div className="relative w-full max-w-lg bg-background border border-border rounded-xl shadow-2xl pointer-events-auto">
-        {!showSettings ? (
-          <FirstLevel
-            onAcceptAll={handleAcceptAll}
-            onRejectNonNecessary={handleRejectNonNecessary}
-            onConfigure={() => setShowSettings(true)}
-          />
-        ) : (
-          <SecondLevel
-            analytics={analytics}
-            onAnalyticsChange={setAnalytics}
-            onSave={handleSavePreferences}
-            onRejectNonNecessary={handleRejectNonNecessary}
-            onBack={() => setShowSettings(false)}
-          />
-        )}
+    <div className="fixed bottom-0 inset-x-0 z-50 p-3 sm:p-4 pointer-events-none">
+      <div className="max-w-xl mx-auto pointer-events-auto animate-slide-up">
+        <div className="bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+          {!showSettings ? (
+            <FirstLevel
+              onAcceptAll={handleAcceptAll}
+              onRejectNonNecessary={handleRejectNonNecessary}
+              onConfigure={() => setShowSettings(true)}
+            />
+          ) : (
+            <SecondLevel
+              analytics={analytics}
+              onAnalyticsChange={setAnalytics}
+              onSave={handleSavePreferences}
+              onRejectNonNecessary={handleRejectNonNecessary}
+              onBack={() => setShowSettings(false)}
+            />
+          )}
+        </div>
       </div>
     </div>
+  )
+}
+
+function CookieIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="8" cy="9" r="1" fill="currentColor" stroke="none" />
+      <circle cx="14" cy="7" r="1" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="13" r="1" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="14" r="1" fill="currentColor" stroke="none" />
+      <circle cx="6" cy="13" r="0.75" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="18" r="0.75" fill="currentColor" stroke="none" />
+    </svg>
   )
 }
 
@@ -89,45 +102,46 @@ function FirstLevel({
   onConfigure: () => void
 }) {
   return (
-    <div className="p-5 space-y-4">
-      <div>
-        <h3 className="text-sm font-semibold">Politica de Cookies</h3>
-        <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-          Utilizamos cookies necessarios para o funcionamento seguro do sistema,
-          como autenticacao e manutencao da sua sessao. Tambem podemos utilizar
-          cookies analiticos para melhorar nossos servicos. Voce pode aceitar todos,
-          rejeitar os nao necessarios ou configurar suas preferencias.
-        </p>
+    <div className="p-4 sm:p-5">
+      <div className="flex gap-3 items-start">
+        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0 mt-0.5">
+          <CookieIcon className="w-4 h-4 text-muted-foreground" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-foreground leading-snug">
+            Este sistema utiliza cookies
+          </p>
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+            Usamos cookies essenciais para autenticacao e seguranca, e cookies
+            analiticos opcionais para melhorar o sistema.{" "}
+            <button
+              onClick={onConfigure}
+              className="text-foreground underline underline-offset-2 hover:no-underline transition-colors"
+            >
+              Saiba mais
+            </button>
+          </p>
+        </div>
       </div>
 
-      <div className="text-xs text-muted-foreground">
-        <p>
-          Para mais informacoes sobre como tratamos seus dados, consulte nossa{" "}
-          <button onClick={onConfigure} className="underline text-primary hover:text-primary/80 transition-colors">
-            Politica de Cookies
-          </button>
-          , em conformidade com a Lei Geral de Protecao de Dados (LGPD — Lei n. 13.709/2018).
-        </p>
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-2">
+      <div className="flex items-center gap-2 mt-4 pl-11">
         <button
           onClick={onRejectNonNecessary}
-          className="flex-1 px-4 py-2.5 rounded-lg text-xs font-medium border border-border bg-background text-foreground hover:bg-muted transition-colors"
+          className="px-3.5 py-2 rounded-lg text-xs font-medium border border-border text-foreground hover:bg-muted transition-colors"
         >
-          Rejeitar nao necessarios
+          Apenas essenciais
         </button>
         <button
           onClick={onAcceptAll}
-          className="flex-1 px-4 py-2.5 rounded-lg text-xs font-medium border border-border bg-background text-foreground hover:bg-muted transition-colors"
+          className="px-3.5 py-2 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
         >
-          Aceitar todos os cookies
+          Aceitar todos
         </button>
         <button
           onClick={onConfigure}
-          className="flex-1 px-4 py-2.5 rounded-lg text-xs font-medium border border-border bg-background text-foreground hover:bg-muted transition-colors"
+          className="px-3.5 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          Configurar cookies
+          Configurar
         </button>
       </div>
     </div>
@@ -148,83 +162,83 @@ function SecondLevel({
   onBack: () => void
 }) {
   return (
-    <div className="p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Configuracao de Cookies</h3>
-        <button onClick={onBack} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+    <div className="divide-y divide-border">
+      {/* Header */}
+      <div className="px-4 sm:px-5 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center">
+            <CookieIcon className="w-3.5 h-3.5 text-muted-foreground" />
+          </div>
+          <span className="text-sm font-medium text-foreground">Preferencias de cookies</span>
+        </div>
+        <button
+          onClick={onBack}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
           Voltar
         </button>
       </div>
 
-      <p className="text-xs text-muted-foreground leading-relaxed">
-        Abaixo voce pode gerenciar suas preferencias de cookies por categoria.
-        Cookies necessarios nao podem ser desativados, pois sao essenciais para
-        o funcionamento do sistema.
-      </p>
-
-      {/* Necessary cookies - always active */}
-      <div className="rounded-lg border border-border p-3 space-y-1.5">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium">Cookies necessarios</span>
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-            Sempre ativos
+      {/* Cookie categories */}
+      <div className="px-4 sm:px-5 py-3 space-y-3">
+        {/* Necessary */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-foreground">Essenciais</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+              Autenticacao, sessao e seguranca. Sempre ativos.
+              Legit. interesse (art. 7, IX, LGPD).
+            </p>
+          </div>
+          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 mt-0.5">
+            Sempre ativo
           </span>
         </div>
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Essenciais para o funcionamento do sistema. Incluem cookies de autenticacao,
-          sessao e seguranca (CSRF). Sem eles, nao e possivel utilizar o sistema.
-          Base legal: legitimo interesse (art. 7, IX, LGPD).
-        </p>
-      </div>
 
-      {/* Analytics cookies - optional */}
-      <div className="rounded-lg border border-border p-3 space-y-1.5">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium">Cookies analiticos</span>
+        {/* Analytics */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-foreground">Analiticos</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+              Dados anonimos de uso para melhorias.
+              Consentimento (art. 7, I, LGPD).
+            </p>
+          </div>
           <button
             onClick={() => onAnalyticsChange(!analytics)}
-            className={`relative w-9 h-5 rounded-full transition-colors ${analytics ? "bg-primary" : "bg-muted"}`}
+            className={`relative w-8 h-[18px] rounded-full transition-colors shrink-0 mt-0.5 ${analytics ? "bg-primary" : "bg-gray-300 dark:bg-gray-600"}`}
             role="switch"
             aria-checked={analytics}
+            aria-label="Ativar cookies analiticos"
           >
             <span
-              className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${analytics ? "translate-x-4" : ""}`}
+              className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] rounded-full bg-white shadow-sm transition-transform duration-200 ${analytics ? "translate-x-[14px]" : ""}`}
             />
           </button>
         </div>
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Permitem coletar dados anonimos sobre como o sistema e utilizado,
-          ajudando a identificar melhorias. Nao identificam voce pessoalmente.
-          Base legal: consentimento (art. 7, I, LGPD).
-        </p>
       </div>
 
-      {/* Browser info */}
-      <p className="text-[11px] text-muted-foreground">
-        Voce tambem pode gerenciar cookies pelas configuracoes do seu navegador.
-        Note que desabilitar cookies necessarios pode afetar o funcionamento do sistema.
-      </p>
-
-      {/* Rights info */}
-      <p className="text-[11px] text-muted-foreground">
-        Conforme a LGPD, voce tem direito de acessar, corrigir, eliminar seus dados e
-        revogar o consentimento a qualquer momento. Para exercer esses direitos, entre
-        em contato com o responsavel pela clinica.
-      </p>
-
-      <div className="flex flex-col sm:flex-row gap-2">
-        <button
-          onClick={onRejectNonNecessary}
-          className="flex-1 px-4 py-2.5 rounded-lg text-xs font-medium border border-border bg-background text-foreground hover:bg-muted transition-colors"
-        >
-          Rejeitar nao necessarios
-        </button>
-        <button
-          onClick={onSave}
-          className="flex-1 px-4 py-2.5 rounded-lg text-xs font-medium border border-border bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-        >
-          Salvar preferencias
-        </button>
+      {/* Info + actions */}
+      <div className="px-4 sm:px-5 py-3">
+        <p className="text-[11px] text-muted-foreground leading-relaxed mb-3">
+          Voce pode revogar o consentimento a qualquer momento. Para exercer seus direitos
+          previstos na LGPD (acesso, correcao, eliminacao), entre em contato com o responsavel
+          pela clinica. Cookies tambem podem ser gerenciados pelo navegador.
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onRejectNonNecessary}
+            className="px-3.5 py-2 rounded-lg text-xs font-medium border border-border text-foreground hover:bg-muted transition-colors"
+          >
+            Apenas essenciais
+          </button>
+          <button
+            onClick={onSave}
+            className="px-3.5 py-2 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+          >
+            Salvar preferencias
+          </button>
+        </div>
       </div>
     </div>
   )
