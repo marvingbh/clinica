@@ -139,10 +139,16 @@ async function notifyClinicAdmins(
   childName: string,
   guardianName: string
 ) {
-  const admins = await prisma.user.findMany({
-    where: { clinicId, role: "ADMIN", isActive: true },
-    select: { email: true },
-  })
+  const [admins, clinic] = await Promise.all([
+    prisma.user.findMany({
+      where: { clinicId, role: "ADMIN", isActive: true },
+      select: { email: true },
+    }),
+    prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { emailBcc: true },
+    }),
+  ])
 
   const template = await getTemplate(
     clinicId,
@@ -154,14 +160,18 @@ async function notifyClinicAdmins(
   const content = renderTemplate(template.content, variables)
   const subject = template.subject ? renderTemplate(template.subject, variables) : undefined
 
+  const recipients = new Set<string>()
   for (const admin of admins) {
-    if (!admin.email) continue
+    if (admin.email) recipients.add(admin.email)
+  }
+  if (clinic?.emailBcc) recipients.add(clinic.emailBcc)
 
+  for (const email of recipients) {
     await createAndSendNotification({
       clinicId,
       type: NotificationType.INTAKE_FORM_SUBMITTED,
       channel: NotificationChannel.EMAIL,
-      recipient: admin.email,
+      recipient: email,
       subject,
       content,
     })
