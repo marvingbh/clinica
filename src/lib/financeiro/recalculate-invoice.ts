@@ -105,3 +105,6 @@ export async function recalculateInvoice(
     data: { totalSessions, creditsApplied, extrasAdded, totalAmount, messageBody },
   })
 }
+
+/** @internal */
+export const _internal = { descriptionWithDate }

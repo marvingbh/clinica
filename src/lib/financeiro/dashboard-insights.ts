@@ -325,3 +325,18 @@ function buildRevenueByWeekday(appointments: ApptSlim[]) {
 
   return weekdays
 }
+
+/** @internal — exported for testing only */
+export const _internal = {
+  buildInadimplencia,
+  buildPagamentoAtraso,
+  buildCollectionTime,
+  buildTicketMedio,
+  buildCancelamento,
+  buildConcentracao,
+  buildCreditsAging,
+  buildComparativo,
+  buildRevenueByWeekday,
+  periodDates,
+  prevPeriod,
+}
