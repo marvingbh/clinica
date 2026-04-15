@@ -2,6 +2,12 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { RecurrenceEndType, AppointmentStatus } from "@prisma/client"
 import { calculateNextWindowDates } from "@/lib/appointments"
+import {
+  needsExtension,
+  filterExceptions,
+  filterConflicts,
+  buildAppointmentData,
+} from "@/lib/jobs/extend-recurrences"
 
 /**
  * GET /api/jobs/extend-recurrences
@@ -61,24 +67,22 @@ export async function GET(req: Request) {
           continue
         }
 
-        // Check if we need to extend (if lastGeneratedDate is within 2 months from now)
+        // Check if we need to extend
         const now = new Date()
-        const twoMonthsFromNow = new Date(now)
-        twoMonthsFromNow.setMonth(twoMonthsFromNow.getMonth() + 2)
-
         const lastGenerated = recurrence.lastGeneratedDate
           ? new Date(recurrence.lastGeneratedDate)
-          : new Date(recurrence.startDate)
+          : null
+        const startDate = new Date(recurrence.startDate)
 
-        // Only extend if the last generated date is less than 2 months away
-        if (lastGenerated > twoMonthsFromNow) {
+        if (!needsExtension(lastGenerated, startDate, now)) {
           results.recurrencesSkipped++
           continue
         }
 
         // Calculate new appointment dates (next 3 months from lastGeneratedDate)
+        const effectiveDate = lastGenerated ?? startDate
         const newDates = calculateNextWindowDates(
-          lastGenerated,
+          effectiveDate,
           recurrence.startTime,
           recurrence.duration,
           recurrence.recurrenceType,
@@ -92,9 +96,7 @@ export async function GET(req: Request) {
         }
 
         // Filter out dates that are in the exceptions list
-        const validDates = newDates.filter(
-          (d) => !recurrence.exceptions.includes(d.date)
-        )
+        const validDates = filterExceptions(newDates, recurrence.exceptions)
 
         if (validDates.length === 0) {
           results.recurrencesSkipped++
@@ -120,16 +122,12 @@ export async function GET(req: Request) {
         })
 
         // Filter out dates that conflict with existing appointments
-        const bufferMs = (recurrence.professionalProfile.bufferBetweenSlots || 0) * 60 * 1000
-        const nonConflictingDates = validDates.filter((newDate) => {
-          return !existingAppointments.some((existing) => {
-            const existingStart = new Date(existing.scheduledAt).getTime() - bufferMs
-            const existingEnd = new Date(existing.endAt).getTime() + bufferMs
-            const newStart = newDate.scheduledAt.getTime()
-            const newEnd = newDate.endAt.getTime()
-            return newStart < existingEnd && newEnd > existingStart
-          })
-        })
+        const bufferMinutes = recurrence.professionalProfile.bufferBetweenSlots || 0
+        const nonConflictingDates = filterConflicts(
+          validDates,
+          existingAppointments,
+          bufferMinutes
+        )
 
         if (nonConflictingDates.length === 0) {
           // Update lastGeneratedDate even if no appointments created (to prevent re-checking)
@@ -143,24 +141,20 @@ export async function GET(req: Request) {
           continue
         }
 
-        // Bulk create new appointments in a transaction
+        // Build appointment data and bulk create in a transaction
+        const appointmentData = buildAppointmentData(nonConflictingDates, {
+          id: recurrence.id,
+          clinicId: recurrence.clinicId,
+          professionalProfileId: recurrence.professionalProfileId,
+          patientId: recurrence.patientId,
+          modality: recurrence.modality,
+        })
+
         await prisma.$transaction(async (tx) => {
-          // Bulk create all appointments
-          await tx.appointment.createMany({
-            data: nonConflictingDates.map(dateInfo => ({
-              clinicId: recurrence.clinicId,
-              professionalProfileId: recurrence.professionalProfileId,
-              patientId: recurrence.patientId,
-              recurrenceId: recurrence.id,
-              scheduledAt: dateInfo.scheduledAt,
-              endAt: dateInfo.endAt,
-              modality: recurrence.modality,
-              status: AppointmentStatus.AGENDADO,
-            })),
-          })
+          await tx.appointment.createMany({ data: appointmentData })
 
           // Fetch created appointment IDs for token creation
-          const createdAppointments = await tx.appointment.findMany({
+          await tx.appointment.findMany({
             where: {
               recurrenceId: recurrence.id,
               scheduledAt: {

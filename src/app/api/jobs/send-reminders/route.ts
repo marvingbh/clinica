@@ -8,6 +8,13 @@ import {
 import { createNotification, processPendingNotifications, getPatientPhoneNumbers } from "@/lib/notifications"
 import { getTemplate, renderTemplate } from "@/lib/notifications/templates"
 import { buildConfirmUrl, buildCancelUrl } from "@/lib/appointments/appointment-links"
+import {
+  calculateReminderWindow,
+  hasPatientConsent,
+  hasRecentReminder,
+  buildReminderTemplateVariables,
+  getDefaultReminderHours,
+} from "@/lib/jobs/send-reminders"
 
 /**
  * POST /api/jobs/send-reminders
@@ -140,7 +147,7 @@ async function processClinicReminders(clinic: ClinicInfo): Promise<ClinicResults
   }
 
   // Get reminder hours (default to 48h and 2h if not set)
-  const reminderHours = clinic.reminderHours.length > 0 ? clinic.reminderHours : [48, 2]
+  const reminderHours = getDefaultReminderHours(clinic.reminderHours)
 
   // For each reminder window, find appointments that need reminders
   for (const hours of reminderHours) {
@@ -171,8 +178,7 @@ async function findAndCreateReminders(
   const now = new Date()
   // Calculate the window: appointments that are hoursBeforeAppointment away
   // We check a 1-hour window to account for hourly cron runs
-  const windowStart = new Date(now.getTime() + hoursBeforeAppointment * 60 * 60 * 1000)
-  const windowEnd = new Date(windowStart.getTime() + 60 * 60 * 1000) // +1 hour
+  const { windowStart, windowEnd } = calculateReminderWindow(now, hoursBeforeAppointment)
 
   // Find appointments in the reminder window (only CONSULTA type)
   const appointments = await prisma.appointment.findMany({
@@ -228,26 +234,16 @@ async function findAndCreateReminders(
     if (!patient) continue // Skip entries without patients (shouldn't happen with type filter)
 
     // Check patient consent
-    const hasWhatsAppConsent = patient.consentWhatsApp && patient.phone
-    const hasEmailConsent = patient.consentEmail && patient.email
+    const consent = hasPatientConsent(patient)
 
-    if (!hasWhatsAppConsent && !hasEmailConsent) {
+    if (!consent.whatsapp && !consent.email) {
       results.skippedNoConsent++
       continue
     }
 
-    // Check if reminder already sent for this window
-    // We check if a reminder was sent in the last 12 hours to prevent duplicates
-    const existingReminders = appointment.notifications
-
-    // Check if we've already sent a reminder in the last 12 hours for this appointment
+    // Check if we've already sent a reminder recently for this appointment
     // This prevents duplicate reminders if cron runs multiple times
-    const recentReminder = existingReminders.find((n) => {
-      const timeSinceCreated = now.getTime() - new Date(n.createdAt).getTime()
-      return timeSinceCreated < 12 * 60 * 60 * 1000 // 12 hours
-    })
-
-    if (recentReminder) {
+    if (hasRecentReminder(appointment.notifications, now)) {
       results.skippedAlreadySent++
       continue
     }
@@ -258,28 +254,17 @@ async function findAndCreateReminders(
     const confirmLink = buildConfirmUrl(baseUrl, appointment.id, new Date(appointment.scheduledAt))
     const cancelLink = buildCancelUrl(baseUrl, appointment.id, new Date(appointment.scheduledAt))
 
-    const scheduledDate = new Date(appointment.scheduledAt)
-    const templateVariables = {
-      patientName: patient.name,
-      professionalName: appointment.professionalProfile.user.name,
-      date: scheduledDate.toLocaleDateString("pt-BR", {
-        weekday: "long",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }),
-      time: scheduledDate.toLocaleTimeString("pt-BR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+    const templateVariables = buildReminderTemplateVariables(
+      appointment,
+      patient,
+      appointment.clinic,
+      baseUrl,
       confirmLink,
-      cancelLink,
-      clinicName: appointment.clinic.name,
-      modality: appointment.modality === "ONLINE" ? "Online" : "Presencial",
-    }
+      cancelLink
+    )
 
     // Send WhatsApp notification to all phone numbers if consent exists
-    if (hasWhatsAppConsent) {
+    if (consent.whatsapp) {
       try {
         const template = await getTemplate(
           clinic.id,
@@ -310,7 +295,7 @@ async function findAndCreateReminders(
     }
 
     // Send Email notification if consent exists
-    if (hasEmailConsent) {
+    if (consent.email) {
       try {
         const template = await getTemplate(
           clinic.id,
