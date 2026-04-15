@@ -147,7 +147,7 @@ export async function GET(req: Request) {
           clinicId: recurrence.clinicId,
           professionalProfileId: recurrence.professionalProfileId,
           patientId: recurrence.patientId,
-          modality: recurrence.modality,
+          modality: recurrence.modality ?? "PRESENCIAL" as const,
         })
 
         await prisma.$transaction(async (tx) => {

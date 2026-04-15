@@ -21,12 +21,12 @@ export function isGroupingAllowed(
  * Derive an aggregate status for a group of per-session invoices.
  * Cancelled invoices are ignored unless all are cancelled.
  */
-export function deriveGroupStatus(statuses: InvoiceStatus[]): InvoiceStatus {
+export function deriveGroupStatus(statuses: string[]): InvoiceStatus {
   const nonCancelled = statuses.filter(s => s !== "CANCELADO")
   if (nonCancelled.length === 0) return "CANCELADO"
 
   const allSame = nonCancelled.every(s => s === nonCancelled[0])
-  if (allSame) return nonCancelled[0]
+  if (allSame) return nonCancelled[0] as InvoiceStatus
 
   const hasPago = nonCancelled.includes("PAGO")
   const hasUnpaid = nonCancelled.some(s => s !== "PAGO")

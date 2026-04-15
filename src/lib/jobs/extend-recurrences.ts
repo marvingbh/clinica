@@ -10,12 +10,14 @@ export interface DateInfo {
   endAt: Date
 }
 
+type Modality = "ONLINE" | "PRESENCIAL"
+
 export interface RecurrenceInfo {
   id: string
   clinicId: string
   professionalProfileId: string
   patientId: string | null
-  modality: string
+  modality: Modality
 }
 
 export interface AppointmentData {
@@ -25,7 +27,7 @@ export interface AppointmentData {
   recurrenceId: string
   scheduledAt: Date
   endAt: Date
-  modality: string
+  modality: Modality
   status: "AGENDADO"
 }
 

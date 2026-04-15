@@ -29,7 +29,7 @@ export interface ReminderWindow {
 export interface ReminderAppointment {
   id: string
   scheduledAt: Date | string
-  modality: string
+  modality: string | null
   professionalProfile: { user: { name: string } }
   clinic: { name: string }
 }
