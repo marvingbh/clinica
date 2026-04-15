@@ -54,40 +54,37 @@ export default function CookieConsentBanner() {
   if (!visible) return null
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-50 p-3 sm:p-4 pointer-events-none">
-      <div className="max-w-xl mx-auto pointer-events-auto animate-slide-up">
-        <div className="bg-card border border-border rounded-xl shadow-xl overflow-hidden">
-          {!showSettings ? (
-            <FirstLevel
-              onAcceptAll={handleAcceptAll}
-              onRejectNonNecessary={handleRejectNonNecessary}
-              onConfigure={() => setShowSettings(true)}
-            />
-          ) : (
-            <SecondLevel
-              analytics={analytics}
-              onAnalyticsChange={setAnalytics}
-              onSave={handleSavePreferences}
-              onRejectNonNecessary={handleRejectNonNecessary}
-              onBack={() => setShowSettings(false)}
-            />
-          )}
+    <div className="fixed bottom-0 inset-x-0 z-50 pointer-events-none pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
+      <div className="px-3 pb-3 sm:px-4 sm:pb-4">
+        <div className="max-w-md mx-auto md:mx-0 md:ml-auto pointer-events-auto animate-scale-in">
+          <div className="bg-popover border border-border rounded-lg shadow-lg overflow-hidden">
+            {!showSettings ? (
+              <FirstLevel
+                onAcceptAll={handleAcceptAll}
+                onRejectNonNecessary={handleRejectNonNecessary}
+                onConfigure={() => setShowSettings(true)}
+              />
+            ) : (
+              <SecondLevel
+                analytics={analytics}
+                onAnalyticsChange={setAnalytics}
+                onSave={handleSavePreferences}
+                onRejectNonNecessary={handleRejectNonNecessary}
+                onBack={() => setShowSettings(false)}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-function CookieIcon({ className }: { className?: string }) {
+function ShieldIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <circle cx="8" cy="9" r="1" fill="currentColor" stroke="none" />
-      <circle cx="14" cy="7" r="1" fill="currentColor" stroke="none" />
-      <circle cx="16" cy="13" r="1" fill="currentColor" stroke="none" />
-      <circle cx="10" cy="14" r="1" fill="currentColor" stroke="none" />
-      <circle cx="6" cy="13" r="0.75" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="18" r="0.75" fill="currentColor" stroke="none" />
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <path d="m9 12 2 2 4-4" />
     </svg>
   )
 }
@@ -102,46 +99,39 @@ function FirstLevel({
   onConfigure: () => void
 }) {
   return (
-    <div className="p-4 sm:p-5">
+    <div className="p-4">
       <div className="flex gap-3 items-start">
-        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0 mt-0.5">
-          <CookieIcon className="w-4 h-4 text-muted-foreground" />
+        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+          <ShieldIcon className="w-4 h-4 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground leading-snug">
-            Este sistema utiliza cookies
+            Privacidade e cookies
           </p>
           <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-            Usamos cookies essenciais para autenticacao e seguranca, e cookies
-            analiticos opcionais para melhorar o sistema.{" "}
+            Cookies essenciais para autenticacao e seguranca, e opcionais para melhorias.{" "}
             <button
               onClick={onConfigure}
               className="text-foreground underline underline-offset-2 hover:no-underline transition-colors"
             >
-              Saiba mais
+              Detalhes
             </button>
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 mt-4 pl-11">
+      <div className="flex items-center gap-2 mt-3 pl-11">
         <button
           onClick={onRejectNonNecessary}
-          className="px-3.5 py-2 rounded-lg text-xs font-medium border border-border text-foreground hover:bg-muted transition-colors"
+          className="h-8 px-3 rounded-lg text-xs font-medium border border-border text-foreground hover:bg-muted active:scale-[0.98] transition-all touch-manipulation"
         >
-          Apenas essenciais
+          Essenciais
         </button>
         <button
           onClick={onAcceptAll}
-          className="px-3.5 py-2 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+          className="h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.98] transition-all touch-manipulation"
         >
           Aceitar todos
-        </button>
-        <button
-          onClick={onConfigure}
-          className="px-3.5 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Configurar
         </button>
       </div>
     </div>
@@ -162,81 +152,77 @@ function SecondLevel({
   onBack: () => void
 }) {
   return (
-    <div className="divide-y divide-border">
+    <div>
       {/* Header */}
-      <div className="px-4 sm:px-5 py-3 flex items-center justify-between">
+      <div className="px-4 pt-4 pb-3 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center">
-            <CookieIcon className="w-3.5 h-3.5 text-muted-foreground" />
-          </div>
-          <span className="text-sm font-medium text-foreground">Preferencias de cookies</span>
+          <button
+            onClick={onBack}
+            className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors touch-manipulation"
+            aria-label="Voltar"
+          >
+            <svg className="w-3.5 h-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+          </button>
+          <span className="text-sm font-medium text-foreground">Preferencias</span>
         </div>
-        <button
-          onClick={onBack}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Voltar
-        </button>
       </div>
 
       {/* Cookie categories */}
-      <div className="px-4 sm:px-5 py-3 space-y-3">
+      <div className="px-4 pb-3 space-y-2.5">
         {/* Necessary */}
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-muted/50">
           <div className="min-w-0">
             <p className="text-xs font-medium text-foreground">Essenciais</p>
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-              Autenticacao, sessao e seguranca. Sempre ativos.
-              Legit. interesse (art. 7, IX, LGPD).
+              Autenticacao, sessao e seguranca (art. 7, IX, LGPD)
             </p>
           </div>
-          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 mt-0.5">
-            Sempre ativo
+          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">
+            Ativo
           </span>
         </div>
 
         {/* Analytics */}
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-muted/50">
           <div className="min-w-0">
             <p className="text-xs font-medium text-foreground">Analiticos</p>
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-              Dados anonimos de uso para melhorias.
-              Consentimento (art. 7, I, LGPD).
+              Dados anonimos de uso (art. 7, I, LGPD)
             </p>
           </div>
           <button
             onClick={() => onAnalyticsChange(!analytics)}
-            className={`relative w-8 h-[18px] rounded-full transition-colors shrink-0 mt-0.5 ${analytics ? "bg-primary" : "bg-gray-300 dark:bg-gray-600"}`}
+            className={`relative w-9 h-5 rounded-full transition-colors shrink-0 touch-manipulation ${analytics ? "bg-primary" : "bg-gray-300 dark:bg-gray-600"}`}
             role="switch"
             aria-checked={analytics}
             aria-label="Ativar cookies analiticos"
           >
             <span
-              className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] rounded-full bg-white shadow-sm transition-transform duration-200 ${analytics ? "translate-x-[14px]" : ""}`}
+              className={`absolute top-[3px] left-[3px] w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${analytics ? "translate-x-4" : ""}`}
             />
           </button>
         </div>
       </div>
 
       {/* Info + actions */}
-      <div className="px-4 sm:px-5 py-3">
+      <div className="px-4 pt-2.5 pb-4 border-t border-border">
         <p className="text-[11px] text-muted-foreground leading-relaxed mb-3">
-          Voce pode revogar o consentimento a qualquer momento. Para exercer seus direitos
-          previstos na LGPD (acesso, correcao, eliminacao), entre em contato com o responsavel
-          pela clinica. Cookies tambem podem ser gerenciados pelo navegador.
+          Revogue o consentimento a qualquer momento. Para direitos LGPD, contate a clinica.
         </p>
         <div className="flex items-center gap-2">
           <button
             onClick={onRejectNonNecessary}
-            className="px-3.5 py-2 rounded-lg text-xs font-medium border border-border text-foreground hover:bg-muted transition-colors"
+            className="h-8 px-3 rounded-lg text-xs font-medium border border-border text-foreground hover:bg-muted active:scale-[0.98] transition-all touch-manipulation"
           >
-            Apenas essenciais
+            Essenciais
           </button>
           <button
             onClick={onSave}
-            className="px-3.5 py-2 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+            className="h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.98] transition-all touch-manipulation"
           >
-            Salvar preferencias
+            Salvar
           </button>
         </div>
       </div>
