@@ -186,7 +186,7 @@ export default function NovaFaturaPage() {
               {i > 0 && <span className="text-muted-foreground">—</span>}
               <span className={`px-3 py-1 rounded-full ${
                 isCurrent ? "bg-primary text-primary-foreground" :
-                isPast ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" :
+                isPast ? "bg-green-100 text-green-800" :
                 "bg-muted text-muted-foreground"
               }`}>
                 {labels[i]}

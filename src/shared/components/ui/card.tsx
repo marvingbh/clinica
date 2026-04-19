@@ -2,6 +2,9 @@
 
 import { forwardRef } from "react"
 
+/* Matches `.panel` / `.demo` in the design system — 8px radius,
+   ink-200 border, ink-0 surface, subtle shadow. */
+
 type Elevation = "none" | "sm" | "md" | "lg" | "xl"
 
 const elevationClasses: Record<Elevation, string> = {
@@ -27,13 +30,17 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ elevation = "sm", hoverable = false, className = "", children, ...props }, ref) => {
-    // Skip default bg-card when className provides a custom background
+  (
+    { elevation = "none", hoverable = false, className = "", children, ...props },
+    ref
+  ) => {
     const hasBgOverride = className.includes("bg-")
-    const baseClasses = `${hasBgOverride ? "" : "bg-card "}text-card-foreground rounded-xl border border-border`
+    const baseClasses = `${hasBgOverride ? "" : "bg-card "}text-card-foreground rounded-lg border border-ink-200`
     const shadowClass = elevationClasses[elevation]
     const hoverClass = hoverable ? hoverElevationClasses[elevation] : ""
-    const transitionClass = hoverable ? "transition-shadow duration-normal ease-in-out" : ""
+    const transitionClass = hoverable
+      ? "transition-shadow duration-[120ms] ease-out"
+      : ""
 
     return (
       <div
@@ -58,7 +65,7 @@ export const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(
     return (
       <div
         ref={ref}
-        className={`px-4 py-4 border-b border-border ${className}`.trim()}
+        className={`flex items-center justify-between gap-3 flex-wrap px-5 py-4 border-b border-ink-200 ${className}`.trim()}
         {...props}
       >
         {children}
@@ -79,7 +86,7 @@ export const CardTitle = forwardRef<HTMLHeadingElement, CardTitleProps>(
     return (
       <Tag
         ref={ref}
-        className={`text-lg font-semibold text-card-foreground ${className}`.trim()}
+        className={`text-sm font-semibold text-ink-900 leading-tight ${className}`.trim()}
         {...props}
       >
         {children}
@@ -99,7 +106,7 @@ export const CardDescription = forwardRef<HTMLParagraphElement, CardDescriptionP
     return (
       <p
         ref={ref}
-        className={`text-sm text-muted-foreground mt-1 ${className}`.trim()}
+        className={`text-[13px] text-ink-500 mt-1 ${className}`.trim()}
         {...props}
       >
         {children}
@@ -119,7 +126,7 @@ export const CardContent = forwardRef<HTMLDivElement, CardContentProps>(
     return (
       <div
         ref={ref}
-        className={`px-4 py-4 ${className}`.trim()}
+        className={`px-5 py-4 ${className}`.trim()}
         {...props}
       >
         {children}
@@ -139,7 +146,7 @@ export const CardFooter = forwardRef<HTMLDivElement, CardFooterProps>(
     return (
       <div
         ref={ref}
-        className={`px-4 py-4 border-t border-border ${className}`.trim()}
+        className={`px-5 py-4 border-t border-ink-200 ${className}`.trim()}
         {...props}
       >
         {children}

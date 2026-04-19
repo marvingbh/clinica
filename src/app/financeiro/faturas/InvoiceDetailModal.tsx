@@ -212,7 +212,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, onUpdate }: InvoiceDeta
                           <button
                             onClick={() => deleteItem(item.id)}
                             disabled={deletingId === item.id}
-                            className="p-1 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-50"
+                            className="p-1 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
                             title="Remover item"
                           >
                             <TrashIcon className="w-3.5 h-3.5" />

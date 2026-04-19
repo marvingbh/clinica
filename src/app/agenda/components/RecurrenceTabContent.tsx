@@ -1,13 +1,25 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Appointment, RecurrenceType, RecurrenceEndType, Modality, Professional } from "../lib/types"
 import { RECURRENCE_TYPE_LABELS, MAX_RECURRENCE_OCCURRENCES } from "../lib/constants"
 import { TimeInput } from "./TimeInput"
 import { DateInput } from "./DateInput"
-import { toDisplayDateFromDate, toIsoDate, calculateEndTime } from "../lib/utils"
+import { toDisplayDateFromDate, toIsoDate, calculateEndTime, addMonthsToDate } from "../lib/utils"
 import { toast } from "sonner"
 import { Dialog } from "./Sheet"
+import {
+  RefreshCwIcon,
+  AlertTriangleIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  TrashIcon,
+  BuildingIcon,
+  VideoIcon,
+  ClockIcon,
+  InfoIcon,
+} from "@/shared/components/ui/icons"
+import { Segmented, type SegmentedOption } from "@/shared/components/ui/segmented"
 
 interface RecurrenceTabContentProps {
   appointment: Appointment
@@ -16,24 +28,39 @@ interface RecurrenceTabContentProps {
   professionals?: Professional[]
 }
 
-const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"]
-const FULL_DAY_NAMES = ["domingo", "segunda-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sabado"]
+const DAY_ABBR = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"]
+const DAY_INITIAL = ["D", "S", "T", "Q", "Q", "S", "S"]
+const FULL_DAY_NAMES = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"]
+const MONTH_SHORT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
 
-// Parent must use key={appointment?.recurrence?.id} to reset this component
+const FREQ_CADENCE: Record<RecurrenceType, string> = {
+  WEEKLY: "a cada 7 dias",
+  BIWEEKLY: "a cada 14 dias",
+  MONTHLY: "a cada 4 semanas",
+}
+
+const LABEL = "block text-[12px] font-medium text-ink-700 mb-1.5"
+const INPUT =
+  "w-full h-9 px-3 rounded-[4px] border border-ink-300 bg-card text-ink-900 text-[13px] placeholder:text-ink-400 hover:border-ink-400 focus:outline-none focus:border-brand-500 focus:shadow-[var(--shadow-focus)] transition-[border-color,box-shadow] duration-[120ms] disabled:bg-ink-100 disabled:text-ink-500"
+const READONLY_BOX =
+  "w-full h-9 px-3 rounded-[4px] border border-ink-200 bg-ink-50 text-ink-600 text-[13px] flex items-center font-mono tabular-nums"
+const MODALITY_OPTIONS: SegmentedOption<Modality>[] = [
+  { value: "PRESENCIAL", label: "Presencial", icon: <BuildingIcon className="w-3 h-3" /> },
+  { value: "ONLINE", label: "Online", icon: <VideoIcon className="w-3 h-3" /> },
+]
+
+function shortDate(d: Date): string {
+  return `${String(d.getDate()).padStart(2, "0")}/${MONTH_SHORT[d.getMonth()]} · ${DAY_ABBR[d.getDay()].toLowerCase()}`
+}
+
 export function RecurrenceTabContent({ appointment, onSave, onClose, professionals }: RecurrenceTabContentProps) {
   const recurrence = appointment?.recurrence
 
-  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(
-    recurrence?.recurrenceType ?? "WEEKLY"
-  )
-  const [originalRecurrenceType] = useState<RecurrenceType>(
-    recurrence?.recurrenceType ?? "WEEKLY"
-  )
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(recurrence?.recurrenceType ?? "WEEKLY")
+  const [originalRecurrenceType] = useState<RecurrenceType>(recurrence?.recurrenceType ?? "WEEKLY")
   const [startTime, setStartTime] = useState(recurrence?.startTime ?? "")
   const [duration, setDuration] = useState(recurrence?.duration ?? 50)
-  const [modality, setModality] = useState<Modality>(
-    (appointment?.modality as Modality) ?? "PRESENCIAL"
-  )
+  const [modality, setModality] = useState<Modality>((appointment?.modality as Modality) ?? "PRESENCIAL")
   const [recurrenceEndType, setRecurrenceEndType] = useState<RecurrenceEndType>(
     recurrence?.recurrenceEndType ?? "BY_OCCURRENCES"
   )
@@ -47,24 +74,51 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
   const [isSaving, setIsSaving] = useState(false)
 
   const [additionalProfIds, setAdditionalProfIds] = useState<string[]>(
-    appointment?.additionalProfessionals?.map(ap => ap.professionalProfile.id) || []
+    appointment?.additionalProfessionals?.map((ap) => ap.professionalProfile.id) || []
   )
 
-  // Finalize dialog state
   const [isFinalizeDialogOpen, setIsFinalizeDialogOpen] = useState(false)
   const [finalizeDate, setFinalizeDate] = useState("")
   const [isFinalizing, setIsFinalizing] = useState(false)
 
-  // Swap biweekly week dialog state
   const [isSwapDialogOpen, setIsSwapDialogOpen] = useState(false)
   const [swapScope, setSwapScope] = useState<"future" | "all">("future")
   const [isSwapping, setIsSwapping] = useState(false)
+
+  const appointmentDate = useMemo(() => new Date(appointment.scheduledAt), [appointment.scheduledAt])
+
+  // Series stats: generate next N dates from appointment's scheduledAt forward
+  // to give a visual preview. Past dates aren't in this prediction — those
+  // come from the server in a future iteration.
+  const upcoming = useMemo(() => {
+    if (!recurrence) return []
+    const out: { date: Date; idx: number; isCurrent: boolean }[] = []
+    const base = new Date(appointmentDate)
+    base.setHours(0, 0, 0, 0)
+    const intervalDays = recurrenceType === "BIWEEKLY" ? 14 : recurrenceType === "WEEKLY" ? 7 : 0
+    let maxCount = 5
+    if (recurrenceEndType === "BY_OCCURRENCES") maxCount = Math.min(5, occurrences)
+    for (let i = 0; i < maxCount; i++) {
+      let d: Date
+      if (recurrenceType === "MONTHLY") d = addMonthsToDate(base, i)
+      else d = new Date(base.getTime() + i * intervalDays * 24 * 60 * 60 * 1000)
+      if (recurrenceEndType === "BY_DATE" && endDate) {
+        const endObj = (() => {
+          const m = endDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+          if (!m) return null
+          return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]))
+        })()
+        if (endObj && d > endObj) break
+      }
+      out.push({ date: d, idx: i + 1, isCurrent: i === 0 })
+    }
+    return out
+  }, [recurrence, recurrenceType, recurrenceEndType, occurrences, endDate, appointmentDate])
 
   async function handleSave() {
     if (!appointment?.recurrence) return
 
     setIsSaving(true)
-
     try {
       const computedEndTime = calculateEndTime(startTime, duration)
       const body: Record<string, unknown> = {
@@ -74,51 +128,35 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
         modality,
         recurrenceEndType,
       }
-
-      if (recurrenceEndType === "BY_DATE") {
-        body.endDate = endDate ? toIsoDate(endDate) : null
-      } else if (recurrenceEndType === "BY_OCCURRENCES") {
-        body.occurrences = occurrences
-      }
-
-      if (dayOfWeek !== originalDayOfWeek) {
-        body.dayOfWeek = dayOfWeek
-      }
-
+      if (recurrenceEndType === "BY_DATE") body.endDate = endDate ? toIsoDate(endDate) : null
+      else if (recurrenceEndType === "BY_OCCURRENCES") body.occurrences = occurrences
+      if (dayOfWeek !== originalDayOfWeek) body.dayOfWeek = dayOfWeek
       body.additionalProfessionalIds = additionalProfIds
+      if (applyToFuture) body.applyTo = "future"
 
-      if (applyToFuture) {
-        body.applyTo = "future"
-      }
-
-      const response = await fetch(
-        `/api/appointments/recurrences/${appointment.recurrence.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }
-      )
-
+      const response = await fetch(`/api/appointments/recurrences/${appointment.recurrence.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
       const result = await response.json()
 
       if (!response.ok) {
         if (result.conflicts && Array.isArray(result.conflicts)) {
-          const conflictDates = result.conflicts.map((c: { date: string; conflictsWith: string }) =>
-            `${c.date} (conflito com ${c.conflictsWith})`
-          ).join(", ")
+          const conflictDates = result.conflicts
+            .map((c: { date: string; conflictsWith: string }) => `${c.date} (conflito com ${c.conflictsWith})`)
+            .join(", ")
           toast.error(`Conflitos encontrados: ${conflictDates}`)
         } else {
-          toast.error(result.error || "Erro ao atualizar recorrencia")
+          toast.error(result.error || "Erro ao atualizar recorrência")
         }
         return
       }
-
-      toast.success(result.message || "Recorrencia atualizada com sucesso")
+      toast.success(result.message || "Recorrência atualizada com sucesso")
       onSave()
       onClose()
     } catch {
-      toast.error("Erro ao atualizar recorrencia")
+      toast.error("Erro ao atualizar recorrência")
     } finally {
       setIsSaving(false)
     }
@@ -126,40 +164,28 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
 
   async function handleFinalize() {
     if (!appointment?.recurrence || !finalizeDate) return
-
-    // Validate date format (DD/MM/YYYY)
     if (!/^\d{2}\/\d{2}\/\d{4}$/.test(finalizeDate)) {
-      toast.error("Data invalida (DD/MM/AAAA)")
+      toast.error("Data inválida (DD/MM/AAAA)")
       return
     }
-
     setIsFinalizing(true)
-
     try {
-      const response = await fetch(
-        `/api/appointments/recurrences/${appointment.recurrence.id}/finalize`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            endDate: toIsoDate(finalizeDate),
-          }),
-        }
-      )
-
+      const response = await fetch(`/api/appointments/recurrences/${appointment.recurrence.id}/finalize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endDate: toIsoDate(finalizeDate) }),
+      })
       const result = await response.json()
-
       if (!response.ok) {
-        toast.error(result.error || "Erro ao finalizar recorrencia")
+        toast.error(result.error || "Erro ao finalizar recorrência")
         return
       }
-
-      toast.success(result.message || "Recorrencia finalizada com sucesso")
+      toast.success(result.message || "Recorrência finalizada com sucesso")
       setIsFinalizeDialogOpen(false)
       onSave()
       onClose()
     } catch {
-      toast.error("Erro ao finalizar recorrencia")
+      toast.error("Erro ao finalizar recorrência")
     } finally {
       setIsFinalizing(false)
     }
@@ -167,36 +193,25 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
 
   async function handleSwapBiweeklyWeek() {
     if (!appointment?.recurrence) return
-
     setIsSwapping(true)
-
     try {
-      const response = await fetch(
-        `/api/appointments/recurrences/${appointment.recurrence.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            swapBiweeklyWeek: true,
-            swapScope,
-          }),
-        }
-      )
-
+      const response = await fetch(`/api/appointments/recurrences/${appointment.recurrence.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ swapBiweeklyWeek: true, swapScope }),
+      })
       const result = await response.json()
-
       if (!response.ok) {
         if (result.code === "BIWEEKLY_SWAP_CONFLICTS" && result.conflicts) {
-          const conflictDates = result.conflicts.map((c: { date: string; conflictsWith: string }) =>
-            `${c.date} (conflito com ${c.conflictsWith})`
-          ).join(", ")
+          const conflictDates = result.conflicts
+            .map((c: { date: string; conflictsWith: string }) => `${c.date} (conflito com ${c.conflictsWith})`)
+            .join(", ")
           toast.error(`Conflitos encontrados: ${conflictDates}`)
         } else {
           toast.error(result.error || "Erro ao trocar semana quinzenal")
         }
         return
       }
-
       toast.success(result.message || "Semana quinzenal trocada com sucesso")
       setIsSwapDialogOpen(false)
       onSave()
@@ -210,330 +225,491 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
 
   if (!appointment?.recurrence) return null
 
-  const isIndefinite = appointment.recurrence.recurrenceEndType === "INDEFINITE"
+  const seriesSummary = `Série ${RECURRENCE_TYPE_LABELS[recurrenceType].toLowerCase()} · toda ${FULL_DAY_NAMES[dayOfWeek]}`
+  const additionalCandidates = (professionals || []).filter(
+    (p) => p.professionalProfile?.id && p.professionalProfile.id !== appointment.professionalProfile.id
+  )
 
   return (
     <>
-      <div className="space-y-5">
-        {/* Frequency */}
+      <div className="space-y-4">
+        {/* ══════════════════ Series progress strip ══════════════════ */}
+        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3.5 p-3 rounded-[4px] border border-brand-100 bg-brand-50">
+          <div className="w-9 h-9 rounded-[4px] bg-card border border-brand-100 text-brand-600 grid place-items-center flex-shrink-0">
+            <RefreshCwIcon className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[13px] font-semibold text-brand-900 tracking-tight truncate">
+              {seriesSummary}
+            </div>
+            <div className="text-[11px] text-brand-700 font-mono mt-0.5">
+              {upcoming.length > 1
+                ? `Próximas: ${upcoming.slice(1, 3).map((u) => shortDate(u.date)).join(" · ")}`
+                : "Sem sessões programadas"}
+            </div>
+          </div>
+          <div className="font-mono text-[16px] font-semibold text-brand-700 tracking-tight whitespace-nowrap">
+            {RECURRENCE_TYPE_LABELS[recurrenceType]}
+          </div>
+        </div>
+
+        {/* ══════════════════ Frequency cards ══════════════════ */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-2">
-            Frequencia
-          </label>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500 mb-2">
+            Frequência
+          </div>
           <div className="grid grid-cols-3 gap-2">
-            {(Object.keys(RECURRENCE_TYPE_LABELS) as RecurrenceType[]).map((type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => setRecurrenceType(type)}
-                className={`h-10 px-3 rounded-md text-sm font-medium border transition-colors ${
-                  recurrenceType === type
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-input bg-background text-foreground hover:bg-muted"
-                }`}
-              >
-                {RECURRENCE_TYPE_LABELS[type]}
-              </button>
-            ))}
+            {(Object.keys(RECURRENCE_TYPE_LABELS) as RecurrenceType[]).map((type) => {
+              const active = recurrenceType === type
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setRecurrenceType(type)}
+                  className={`text-left p-3 rounded-[4px] border transition-all ${
+                    active
+                      ? "border-brand-500 bg-brand-50 shadow-[0_0_0_1px_var(--brand-500)]"
+                      : "border-ink-200 bg-card hover:border-ink-400"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span
+                      className={`text-[13px] font-semibold ${
+                        active ? "text-brand-800" : "text-ink-900"
+                      }`}
+                    >
+                      {RECURRENCE_TYPE_LABELS[type]}
+                    </span>
+                    <span
+                      className={`w-3.5 h-3.5 rounded-full border grid place-items-center flex-shrink-0 ${
+                        active ? "border-brand-500 bg-brand-500" : "border-ink-300 bg-card"
+                      }`}
+                    >
+                      {active && <span className="w-1 h-1 rounded-full bg-card" />}
+                    </span>
+                  </div>
+                  <span className="block mt-1 text-[11px] text-ink-500 font-mono">
+                    {FREQ_CADENCE[type]}
+                  </span>
+                </button>
+              )
+            })}
           </div>
           {recurrenceType !== originalRecurrenceType && (
-            <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-md border border-amber-200 dark:border-amber-800">
-              <p className="text-sm text-amber-800 dark:text-amber-200">
-                Mudando de {RECURRENCE_TYPE_LABELS[originalRecurrenceType]} para {RECURRENCE_TYPE_LABELS[recurrenceType]}.
-                Agendamentos que nao se encaixam na nova frequencia serao removidos.
-              </p>
+            <div className="mt-2 flex items-start gap-2 p-2.5 rounded-[4px] border border-warn-100 bg-warn-50 text-[12px] text-warn-700">
+              <AlertTriangleIcon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+              <span>
+                Mudando de <strong>{RECURRENCE_TYPE_LABELS[originalRecurrenceType]}</strong> para{" "}
+                <strong>{RECURRENCE_TYPE_LABELS[recurrenceType]}</strong>. Agendamentos que não se
+                encaixam serão removidos.
+              </span>
             </div>
           )}
         </div>
 
-        {/* Day of Week */}
+        {/* ══════════════════ Day of week chip row ══════════════════ */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-2">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500 mb-2">
             Dia da semana
-          </label>
-          <div className="grid grid-cols-7 gap-1">
-            {DAY_LABELS.map((label, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => setDayOfWeek(index)}
-                className={`h-10 px-1 rounded-md text-sm font-medium border transition-colors ${
-                  dayOfWeek === index
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-input bg-background text-foreground hover:bg-muted"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1.5">
+            {DAY_ABBR.map((label, i) => {
+              const active = dayOfWeek === i
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setDayOfWeek(i)}
+                  className={`h-11 rounded-[4px] border grid place-content-center transition-colors ${
+                    active
+                      ? "bg-brand-500 border-brand-500 text-white"
+                      : "bg-card border-ink-200 text-ink-800 hover:border-ink-400"
+                  }`}
+                >
+                  <span
+                    className={`block text-[10px] font-semibold uppercase tracking-wider text-center ${
+                      active ? "text-white/75" : "text-ink-500"
+                    }`}
+                  >
+                    {label}
+                  </span>
+                  <span
+                    className={`block text-[13px] font-medium text-center ${
+                      active ? "text-white font-semibold" : "text-ink-800"
+                    }`}
+                  >
+                    {DAY_INITIAL[i]}
+                  </span>
+                </button>
+              )
+            })}
           </div>
           {dayOfWeek !== originalDayOfWeek && (
-            <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-md border border-amber-200 dark:border-amber-800">
-              <p className="text-sm text-amber-800 dark:text-amber-200">
-                Mudando de {FULL_DAY_NAMES[originalDayOfWeek]} para {FULL_DAY_NAMES[dayOfWeek]}.
-                Todos os agendamentos futuros serao movidos para o novo dia.
-              </p>
+            <div className="mt-2 flex items-start gap-2 p-2.5 rounded-[4px] border border-warn-100 bg-warn-50 text-[12px] text-warn-700">
+              <AlertTriangleIcon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+              <span>
+                Movendo de <strong>{FULL_DAY_NAMES[originalDayOfWeek]}</strong> para{" "}
+                <strong>{FULL_DAY_NAMES[dayOfWeek]}</strong>. Agendamentos futuros serão movidos
+                para o novo dia.
+              </span>
             </div>
           )}
         </div>
 
-        {/* Swap biweekly week — only for BIWEEKLY recurrences */}
+        {/* ══════════════════ Horário da série ══════════════════ */}
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500 mb-2">
+            Horário da série
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div>
+              <label htmlFor="recStartTime" className={LABEL}>
+                Início
+              </label>
+              <TimeInput
+                id="recStartTime"
+                placeholder="HH:MM"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className={INPUT + " font-mono"}
+              />
+            </div>
+            <div>
+              <label htmlFor="recDuration" className={LABEL}>
+                Duração
+              </label>
+              <div className="relative">
+                <input
+                  id="recDuration"
+                  type="number"
+                  value={duration}
+                  onChange={(e) => setDuration(Math.max(5, parseInt(e.target.value) || 5))}
+                  min={5}
+                  max={480}
+                  step={5}
+                  className={INPUT + " font-mono pr-10"}
+                />
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-ink-500 font-mono pointer-events-none">
+                  min
+                </span>
+              </div>
+            </div>
+            <div>
+              <label className={LABEL}>Término</label>
+              <div className={READONLY_BOX}>
+                {calculateEndTime(startTime, duration) || "—"}
+              </div>
+            </div>
+            <div>
+              <label className={LABEL}>Início da série</label>
+              <div className={READONLY_BOX}>
+                {toDisplayDateFromDate(appointmentDate)}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ══════════════════ Shift suggestion (biweekly only) ══════════════════ */}
         {recurrenceType === "BIWEEKLY" && (
-          <div>
+          <div className="grid grid-cols-[auto_1fr_auto] gap-3 items-center p-3 rounded-[4px] border border-dashed border-brand-300 bg-brand-50">
+            <div className="w-7 h-7 rounded-[4px] bg-card border border-brand-100 text-brand-600 grid place-items-center flex-shrink-0">
+              <RefreshCwIcon className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[13px] font-medium text-brand-900">
+                Mover série para a semana alternada
+              </div>
+              <div className="text-[11px] text-brand-700 font-mono mt-0.5">
+                +7 dias em todas as sessões futuras
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => setIsSwapDialogOpen(true)}
-              className="w-full h-10 rounded-md border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors"
+              className="h-8 px-3 rounded-[4px] border border-ink-300 bg-card text-ink-800 text-[12px] font-medium hover:bg-ink-50 hover:border-ink-400 transition-colors whitespace-nowrap"
             >
-              Trocar semana quinzenal
+              Deslocar +7d
             </button>
-            <p className="text-xs text-muted-foreground mt-1 text-center">
-              Move todos os agendamentos para a semana alternada (+7 dias).
-            </p>
           </div>
         )}
 
-        {/* Finalize recurrence */}
-        <div className="pt-2 border-t border-border">
-          <button
-            type="button"
-            onClick={() => {
-              setFinalizeDate(toDisplayDateFromDate(new Date()))
-              setIsFinalizeDialogOpen(true)
-            }}
-            className="w-full h-11 rounded-md border border-orange-500 bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 font-medium hover:bg-orange-100 dark:hover:bg-orange-950/50 transition-colors"
-          >
-            Finalizar recorrencia
-          </button>
-          <p className="text-xs text-muted-foreground mt-1 text-center">
-            Define uma data de fim e remove agendamentos futuros.
-          </p>
-        </div>
-
-        {/* Time + Duration + End Time */}
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label htmlFor="recStartTime" className="block text-sm font-medium text-foreground mb-1.5">
-              Inicio
-            </label>
-            <TimeInput
-              id="recStartTime"
-              placeholder="HH:MM"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
-            />
-          </div>
-          <div>
-            <label htmlFor="recDuration" className="block text-sm font-medium text-foreground mb-1.5">
-              Duracao
-            </label>
-            <input
-              id="recDuration"
-              type="number"
-              value={duration}
-              onChange={(e) => setDuration(Math.max(5, parseInt(e.target.value) || 5))}
-              min={5}
-              max={480}
-              step={5}
-              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Fim
-            </label>
-            <div className="h-11 px-3.5 rounded-xl border border-input bg-muted/50 text-foreground text-sm flex items-center">
-              {calculateEndTime(startTime, duration) || "—"}
-            </div>
-          </div>
-        </div>
-
-        {/* Modality */}
+        {/* ══════════════════ Modalidade ══════════════════ */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-2">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500 mb-2">
             Modalidade
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setModality("PRESENCIAL")}
-              className={`h-10 px-3 rounded-md text-sm font-medium border transition-colors ${
-                modality === "PRESENCIAL"
-                  ? "border-primary bg-primary/5 text-primary"
-                  : "border-input bg-background text-foreground hover:bg-muted"
-              }`}
-            >
-              Presencial
-            </button>
-            <button
-              type="button"
-              onClick={() => setModality("ONLINE")}
-              className={`h-10 px-3 rounded-md text-sm font-medium border transition-colors ${
-                modality === "ONLINE"
-                  ? "border-primary bg-primary/5 text-primary"
-                  : "border-input bg-background text-foreground hover:bg-muted"
-              }`}
-            >
-              Online
-            </button>
           </div>
+          <Segmented<Modality>
+            options={MODALITY_OPTIONS}
+            value={modality}
+            onChange={setModality}
+            size="sm"
+            ariaLabel="Modalidade"
+          />
         </div>
 
-        {/* Additional professionals */}
-        {professionals && professionals.length > 1 && (
+        {/* ══════════════════ Equipe adicional ══════════════════ */}
+        {additionalCandidates.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500 mb-2">
               Profissionais adicionais
-            </label>
-            <div className="space-y-2 p-3 rounded-xl border border-input bg-background">
-              {professionals
-                .filter(p => {
-                  const profId = p.professionalProfile?.id
-                  return profId && profId !== appointment.professionalProfile.id
-                })
-                .map(prof => (
-                  <label key={prof.id} className="flex items-center gap-2 cursor-pointer">
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {additionalCandidates.map((prof) => {
+                const profId = prof.professionalProfile!.id
+                const checked = additionalProfIds.includes(profId)
+                return (
+                  <label
+                    key={prof.id}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-[4px] border cursor-pointer transition-colors text-[13px] ${
+                      checked
+                        ? "border-brand-400 bg-brand-50"
+                        : "border-ink-200 bg-card hover:border-ink-400 hover:bg-ink-50"
+                    }`}
+                  >
                     <input
                       type="checkbox"
-                      checked={additionalProfIds.includes(prof.professionalProfile!.id)}
+                      checked={checked}
                       onChange={(e) => {
-                        const id = prof.professionalProfile!.id
-                        if (e.target.checked) {
-                          setAdditionalProfIds([...additionalProfIds, id])
-                        } else {
-                          setAdditionalProfIds(additionalProfIds.filter(x => x !== id))
-                        }
+                        if (e.target.checked) setAdditionalProfIds([...additionalProfIds, profId])
+                        else setAdditionalProfIds(additionalProfIds.filter((x) => x !== profId))
                       }}
-                      className="w-4 h-4 rounded border-input text-primary focus:ring-ring/40"
+                      className="w-4 h-4 rounded-[2px] border-ink-300 text-brand-500 focus:ring-brand-500/25"
                     />
-                    <span className="text-sm">{prof.name}</span>
+                    <span className="font-medium text-ink-800 truncate">{prof.name}</span>
                   </label>
-                ))}
+                )
+              })}
             </div>
           </div>
         )}
 
-        {/* End Type */}
+        {/* ══════════════════ End condition card ══════════════════ */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-2">
-            Terminar
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => setRecurrenceEndType("BY_OCCURRENCES")}
-              className={`h-10 px-3 rounded-md text-sm font-medium border transition-colors ${
-                recurrenceEndType === "BY_OCCURRENCES"
-                  ? "border-primary bg-primary/5 text-primary"
-                  : "border-input bg-background text-foreground hover:bg-muted"
-              }`}
-            >
-              Apos N sessoes
-            </button>
-            <button
-              type="button"
-              onClick={() => setRecurrenceEndType("BY_DATE")}
-              className={`h-10 px-3 rounded-md text-sm font-medium border transition-colors ${
-                recurrenceEndType === "BY_DATE"
-                  ? "border-primary bg-primary/5 text-primary"
-                  : "border-input bg-background text-foreground hover:bg-muted"
-              }`}
-            >
-              Em uma data
-            </button>
-            <button
-              type="button"
-              onClick={() => setRecurrenceEndType("INDEFINITE")}
-              className={`h-10 px-3 rounded-md text-sm font-medium border transition-colors ${
-                recurrenceEndType === "INDEFINITE"
-                  ? "border-primary bg-primary/5 text-primary"
-                  : "border-input bg-background text-foreground hover:bg-muted"
-              }`}
-            >
-              Sem fim
-            </button>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500 mb-2">
+            Condição de término
+          </div>
+          <div className="rounded-[4px] border border-ink-200 bg-card overflow-hidden">
+            <div className="grid grid-cols-1 sm:grid-cols-3 border-b border-ink-100">
+              {(
+                [
+                  { key: "INDEFINITE", label: "Sem fim", sub: "repete indefinidamente" },
+                  { key: "BY_DATE", label: "Em uma data", sub: endDate || "escolha a data" },
+                  { key: "BY_OCCURRENCES", label: "Após N sessões", sub: `${occurrences} no total` },
+                ] as const
+              ).map((opt, i) => {
+                const active = recurrenceEndType === opt.key
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setRecurrenceEndType(opt.key as RecurrenceEndType)}
+                    className={`text-left px-3 py-2.5 transition-colors ${
+                      i > 0 ? "border-t sm:border-t-0 sm:border-l border-ink-100" : ""
+                    } ${active ? "bg-card" : "hover:bg-ink-50"}`}
+                  >
+                    <span
+                      className={`flex items-center gap-1.5 text-[12px] font-medium ${
+                        active ? "text-brand-800" : "text-ink-800"
+                      }`}
+                    >
+                      <span
+                        className={`w-3 h-3 rounded-full border grid place-items-center flex-shrink-0 ${
+                          active ? "border-brand-500 bg-brand-500" : "border-ink-300 bg-card"
+                        }`}
+                      >
+                        {active && <span className="w-1 h-1 rounded-full bg-card" />}
+                      </span>
+                      <span className={active ? "font-semibold" : ""}>{opt.label}</span>
+                    </span>
+                    <span className="block mt-0.5 pl-[18px] text-[11px] text-ink-500 font-mono">
+                      {opt.sub}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="px-3 py-2.5">
+              {recurrenceEndType === "INDEFINITE" && (
+                <p className="text-[12px] text-ink-600">
+                  Agendamentos são criados automaticamente e estendidos semanalmente.
+                </p>
+              )}
+              {recurrenceEndType === "BY_DATE" && (
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="text-[12px] text-ink-600">Terminar em</span>
+                  <DateInput
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-40 h-9 px-3 rounded-[4px] border border-ink-300 bg-card text-ink-900 text-[13px] font-mono focus:outline-none focus:border-brand-500 focus:shadow-[var(--shadow-focus)] transition-[border-color,box-shadow] duration-[120ms]"
+                  />
+                </div>
+              )}
+              {recurrenceEndType === "BY_OCCURRENCES" && (
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="text-[12px] text-ink-600">Total de sessões</span>
+                  <input
+                    type="number"
+                    value={occurrences}
+                    onChange={(e) =>
+                      setOccurrences(Math.min(MAX_RECURRENCE_OCCURRENCES, Math.max(1, parseInt(e.target.value) || 1)))
+                    }
+                    min={1}
+                    max={MAX_RECURRENCE_OCCURRENCES}
+                    className="w-24 h-9 px-3 rounded-[4px] border border-ink-300 bg-card text-ink-900 text-[13px] font-mono focus:outline-none focus:border-brand-500 focus:shadow-[var(--shadow-focus)] transition-[border-color,box-shadow] duration-[120ms]"
+                  />
+                  <span className="text-[11px] text-ink-500 font-mono">
+                    máx. {MAX_RECURRENCE_OCCURRENCES}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Occurrences Input */}
-        {recurrenceEndType === "BY_OCCURRENCES" && (
+        {/* ══════════════════ Upcoming sessions preview ══════════════════ */}
+        {upcoming.length > 0 && (
           <div>
-            <label htmlFor="recOccurrences" className="block text-sm font-medium text-foreground mb-2">
-              Numero de sessoes
-            </label>
-            <input
-              id="recOccurrences"
-              type="number"
-              value={occurrences}
-              onChange={(e) => setOccurrences(Math.min(MAX_RECURRENCE_OCCURRENCES, Math.max(1, parseInt(e.target.value) || 1)))}
-              min={1}
-              max={MAX_RECURRENCE_OCCURRENCES}
-              className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-            />
+            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500 mb-2">
+              Próximas sessões
+            </div>
+            <div className="rounded-[4px] border border-ink-200 bg-card overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-ink-100 text-[12px] text-ink-700 font-medium">
+                <span>Cronograma</span>
+                <span className="text-[11px] text-ink-500 font-mono">
+                  {upcoming.length} sessões
+                </span>
+              </div>
+              <ul className="max-h-[180px] overflow-y-auto">
+                {upcoming.map((u) => {
+                  const isNext = u.isCurrent
+                  return (
+                    <li
+                      key={u.idx}
+                      className="grid grid-cols-[20px_1fr_auto_auto] gap-3 items-center px-3 py-1.5 border-b border-dashed border-ink-100 last:border-b-0 text-[12px]"
+                    >
+                      <span
+                        className={`w-5 h-5 rounded-full font-mono text-[10px] grid place-items-center ${
+                          isNext ? "bg-brand-500 text-white" : "bg-ink-100 text-ink-600"
+                        }`}
+                      >
+                        {u.idx}
+                      </span>
+                      <span className="font-mono text-[11px] text-ink-800 truncate">
+                        {shortDate(u.date)}
+                      </span>
+                      <span className="font-mono text-[11px] text-ink-600 whitespace-nowrap">
+                        {startTime || "—"}
+                      </span>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${
+                          isNext
+                            ? "bg-brand-50 text-brand-700 border-brand-100"
+                            : "bg-ink-50 text-ink-600 border-ink-200"
+                        }`}
+                      >
+                        {isNext ? "Próxima" : "Agendada"}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
           </div>
         )}
 
-        {/* End Date Input */}
-        {recurrenceEndType === "BY_DATE" && (
-          <div>
-            <label htmlFor="recEndDate" className="block text-sm font-medium text-foreground mb-2">
-              Data final
-            </label>
-            <DateInput
-              id="recEndDate"
-              value={endDate || ""}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-            />
-          </div>
-        )}
-
-        {/* Indefinite Info */}
-        {recurrenceEndType === "INDEFINITE" && (
-          <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
-            <p className="text-sm text-blue-800 dark:text-blue-200">
-              Os agendamentos serao criados automaticamente e estendidos semanalmente.
-            </p>
-          </div>
-        )}
-
-        {/* Apply to future option */}
-        <div>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={applyToFuture}
-              onChange={(e) => setApplyToFuture(e.target.checked)}
-              className="w-5 h-5 rounded border-input text-primary focus:ring-primary"
-            />
-            <span className="text-sm text-foreground">
-              Aplicar alteracoes aos agendamentos futuros
+        {/* ══════════════════ Apply to future ══════════════════ */}
+        <label className="flex items-start gap-2.5 cursor-pointer p-3 rounded-[4px] border border-ink-200 bg-card">
+          <input
+            type="checkbox"
+            checked={applyToFuture}
+            onChange={(e) => setApplyToFuture(e.target.checked)}
+            className="w-4 h-4 mt-0.5 rounded-[2px] border-ink-300 text-brand-500 focus:ring-brand-500/25"
+          />
+          <span>
+            <span className="block text-[13px] text-ink-800 font-medium">
+              Aplicar às sessões futuras
             </span>
-          </label>
-          <p className="text-xs text-muted-foreground mt-1 ml-8">
-            Se marcado, o horario e modalidade serao atualizados nos proximos agendamentos.
-          </p>
-        </div>
+            <span className="block text-[11px] text-ink-500 mt-0.5">
+              Horário e modalidade serão atualizados nos próximos agendamentos. Sessões passadas permanecem iguais.
+            </span>
+          </span>
+        </label>
 
-        {/* Actions */}
-        <div className="flex gap-3 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSaving}
-            className="flex-1 h-12 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 transition-colors"
-          >
-            Fechar
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            className="flex-1 h-12 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 transition-opacity"
-          >
-            {isSaving ? "Salvando..." : "Salvar Alteracoes"}
-          </button>
+        {/* ══════════════════ Danger zone (collapsible) ══════════════════ */}
+        <details className="rounded-[4px] border border-ink-200 bg-card open:border-err-100 open:bg-err-50 group">
+          <summary className="list-none cursor-pointer px-3 py-2.5 text-[13px] font-medium text-ink-700 group-open:text-err-700 flex items-center gap-2">
+            <AlertTriangleIcon className="w-3.5 h-3.5 text-err-500" />
+            Encerrar ou apagar série
+            <ChevronRightIcon className="w-3.5 h-3.5 text-ink-400 ml-auto transition-transform group-open:rotate-90 group-open:text-err-500" />
+          </summary>
+          <div className="px-3 pb-3 grid gap-2">
+            <div className="grid grid-cols-[1fr_auto] gap-3 items-center p-2.5 rounded-[4px] border border-ink-200 bg-card text-[12px]">
+              <div>
+                <div className="font-medium text-ink-800">Encerrar a partir de uma data</div>
+                <div className="text-[11px] text-ink-500 mt-0.5 font-mono">
+                  Mantém sessões passadas · remove as futuras
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setFinalizeDate(toDisplayDateFromDate(new Date()))
+                  setIsFinalizeDialogOpen(true)
+                }}
+                className="h-8 px-3 rounded-[4px] border border-ink-300 bg-card text-ink-800 text-[12px] font-medium hover:bg-ink-50 hover:border-ink-400 transition-colors"
+              >
+                Encerrar
+              </button>
+            </div>
+            <div className="grid grid-cols-[1fr_auto] gap-3 items-center p-2.5 rounded-[4px] border border-ink-200 bg-card text-[12px]">
+              <div>
+                <div className="font-medium text-ink-800">Apagar série inteira</div>
+                <div className="text-[11px] text-ink-500 mt-0.5 font-mono">
+                  Remove todas as sessões · mantém histórico financeiro
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled
+                title="Disponível em breve"
+                className="h-8 px-3 rounded-[4px] border border-err-100 bg-card text-err-700 text-[12px] font-medium inline-flex items-center gap-1.5 opacity-50 cursor-not-allowed"
+              >
+                <TrashIcon className="w-3.5 h-3.5" />
+                Apagar série
+              </button>
+            </div>
+          </div>
+        </details>
+
+        {/* Footer — matches design m-foot: ink-50 strip, hint left, actions right */}
+        <div className="-mx-6 -mb-6 mt-2 flex items-center justify-between gap-3 flex-wrap px-6 py-3.5 bg-ink-50 border-t border-ink-200">
+          <div className="flex items-center gap-2 text-[12px] text-ink-500">
+            <InfoIcon className="w-3.5 h-3.5" />
+            <span>
+              Atualiza a{" "}
+              <strong className="text-ink-700 font-medium">recorrência inteira</strong> · sessões
+              futuras serão ajustadas
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSaving}
+              className="h-10 px-4 rounded-[4px] text-ink-700 font-medium text-[13px] hover:bg-ink-100 disabled:opacity-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="h-10 px-4 rounded-[4px] bg-brand-500 text-white font-medium text-[13px] hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
+            >
+              <CheckIcon className="w-4 h-4" />
+              {isSaving ? "Salvando..." : "Salvar alterações"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -541,30 +717,28 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
       <Dialog
         isOpen={isFinalizeDialogOpen}
         onClose={() => setIsFinalizeDialogOpen(false)}
-        title="Finalizar Recorrencia"
+        title="Encerrar recorrência"
       >
-        <p className="text-sm text-muted-foreground mb-4">
-          Defina a data final para esta recorrencia. Apos essa data, nao serao gerados novos agendamentos automaticamente.
+        <p className="text-[13px] text-ink-600 mb-4">
+          Defina a data final para esta recorrência. Após essa data, não serão gerados novos agendamentos.
         </p>
-
-        <div className="mb-6">
-          <label htmlFor="finalizeDate" className="block text-sm font-medium text-foreground mb-2">
+        <div className="mb-5">
+          <label htmlFor="finalizeDate" className={LABEL}>
             Data final
           </label>
           <DateInput
             id="finalizeDate"
             value={finalizeDate}
             onChange={(e) => setFinalizeDate(e.target.value)}
-            className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+            className={INPUT + " font-mono h-10"}
           />
         </div>
-
-        <div className="flex gap-3">
+        <div className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={() => setIsFinalizeDialogOpen(false)}
             disabled={isFinalizing}
-            className="flex-1 h-11 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 transition-colors"
+            className="h-10 px-4 rounded-[4px] text-ink-700 font-medium text-[13px] hover:bg-ink-100 disabled:opacity-50 transition-colors"
           >
             Cancelar
           </button>
@@ -572,58 +746,61 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
             type="button"
             onClick={handleFinalize}
             disabled={isFinalizing || !finalizeDate}
-            className="flex-1 h-11 rounded-md bg-orange-600 text-white font-medium hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="h-10 px-4 rounded-[4px] bg-warn-500 text-white font-medium text-[13px] hover:bg-warn-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
           >
-            {isFinalizing ? "Finalizando..." : "Finalizar"}
+            <ClockIcon className="w-4 h-4" />
+            {isFinalizing ? "Encerrando..." : "Encerrar série"}
           </button>
         </div>
       </Dialog>
 
-      {/* Swap Biweekly Week Dialog */}
+      {/* Swap Biweekly Dialog */}
       <Dialog
         isOpen={isSwapDialogOpen}
         onClose={() => setIsSwapDialogOpen(false)}
-        title="Trocar Semana Quinzenal"
+        title="Deslocar semana quinzenal"
       >
-        <p className="text-sm text-muted-foreground mb-4">
-          Todos os agendamentos serao movidos 7 dias para frente, trocando a semana ativa da recorrencia quinzenal.
+        <p className="text-[13px] text-ink-600 mb-4">
+          Todos os agendamentos serão movidos 7 dias para frente, trocando a semana ativa da série quinzenal.
         </p>
-
-        <div className="space-y-2 mb-6">
-          <label className="flex items-center gap-3 cursor-pointer">
+        <div className="space-y-2 mb-5">
+          <label className="flex items-start gap-2.5 cursor-pointer p-3 rounded-[4px] border border-ink-200 hover:bg-ink-50 transition-colors">
             <input
               type="radio"
               name="swapScope"
               checked={swapScope === "future"}
               onChange={() => setSwapScope("future")}
-              className="w-4 h-4 text-primary focus:ring-ring/40"
+              className="w-4 h-4 mt-0.5 text-brand-500 focus:ring-brand-500/25"
             />
-            <div>
-              <span className="text-sm font-medium">Somente agendamentos futuros</span>
-              <p className="text-xs text-muted-foreground">Agendamentos passados permanecem inalterados.</p>
-            </div>
+            <span>
+              <span className="block text-[13px] font-medium text-ink-800">Somente futuros</span>
+              <span className="block text-[11px] text-ink-500 mt-0.5">
+                Agendamentos passados permanecem inalterados.
+              </span>
+            </span>
           </label>
-          <label className="flex items-center gap-3 cursor-pointer">
+          <label className="flex items-start gap-2.5 cursor-pointer p-3 rounded-[4px] border border-ink-200 hover:bg-ink-50 transition-colors">
             <input
               type="radio"
               name="swapScope"
               checked={swapScope === "all"}
               onChange={() => setSwapScope("all")}
-              className="w-4 h-4 text-primary focus:ring-ring/40"
+              className="w-4 h-4 mt-0.5 text-brand-500 focus:ring-brand-500/25"
             />
-            <div>
-              <span className="text-sm font-medium">Todos os agendamentos</span>
-              <p className="text-xs text-muted-foreground">Inclui agendamentos passados para manter o historico correto.</p>
-            </div>
+            <span>
+              <span className="block text-[13px] font-medium text-ink-800">Todos os agendamentos</span>
+              <span className="block text-[11px] text-ink-500 mt-0.5">
+                Inclui sessões passadas para manter o histórico correto.
+              </span>
+            </span>
           </label>
         </div>
-
-        <div className="flex gap-3">
+        <div className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={() => setIsSwapDialogOpen(false)}
             disabled={isSwapping}
-            className="flex-1 h-11 rounded-md border border-input bg-background text-foreground font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 transition-colors"
+            className="h-10 px-4 rounded-[4px] text-ink-700 font-medium text-[13px] hover:bg-ink-100 disabled:opacity-50 transition-colors"
           >
             Cancelar
           </button>
@@ -631,9 +808,9 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
             type="button"
             onClick={handleSwapBiweeklyWeek}
             disabled={isSwapping}
-            className="flex-1 h-11 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="h-10 px-4 rounded-[4px] bg-brand-500 text-white font-medium text-[13px] hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {isSwapping ? "Trocando..." : "Trocar semana"}
+            {isSwapping ? "Deslocando..." : "Deslocar semana"}
           </button>
         </div>
       </Dialog>

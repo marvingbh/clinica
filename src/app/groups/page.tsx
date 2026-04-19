@@ -524,7 +524,7 @@ export default function GroupsPage() {
                         {/* Ver na Agenda link */}
                         <a
                           href={`/agenda/weekly`}
-                          className="flex items-center justify-center gap-2 h-10 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 text-sm font-medium hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
+                          className="flex items-center justify-center gap-2 h-10 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 text-sm font-medium hover:bg-purple-100 transition-colors"
                         >
                           <CalendarIcon className="w-4 h-4" />
                           Ver na Agenda

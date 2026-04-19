@@ -41,7 +41,7 @@ export function UnmatchedTransactionCard({
             <span className="font-semibold tabular-nums">{formatCurrencyBRL(tx.amount)}</span>
             <span className="text-muted-foreground">{formatDateBR(tx.date)}</span>
             {tx.allocatedAmount > 0 && tx.remainingAmount > 0.01 && (
-              <span className="text-xs text-orange-600 dark:text-orange-400 tabular-nums">
+              <span className="text-xs text-orange-600 tabular-nums">
                 {formatCurrencyBRL(tx.allocatedAmount)} / {formatCurrencyBRL(tx.amount)} alocado
               </span>
             )}
@@ -81,7 +81,7 @@ export function UnmatchedTransactionCard({
       </div>
 
       {tx.links.map(link => (
-        <div key={link.linkId} className="px-4 py-2 bg-green-50/50 dark:bg-green-950/10 border-b border-border">
+        <div key={link.linkId} className="px-4 py-2 bg-green-50/50 border-b border-border">
           <div className="flex items-center gap-2 text-sm">
             <CheckIcon className="w-3.5 h-3.5 text-green-600" />
             <span className="font-medium">{link.patientName}</span>

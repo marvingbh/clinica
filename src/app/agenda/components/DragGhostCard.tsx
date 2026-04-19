@@ -45,7 +45,7 @@ export function DragGhostCard({ appointment, projectedMinutes }: DragGhostCardPr
           {STATUS_LABELS[appointment.status as AppointmentStatus]} · {durationMinutes}min
         </p>
         {appointment.recurrence && (
-          <div className="flex items-center gap-0.5 text-[9px] text-blue-600 dark:text-blue-400">
+          <div className="flex items-center gap-0.5 text-[9px] text-blue-600">
             <RefreshCwIcon className="w-2.5 h-2.5" />
             {appointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
              appointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"}

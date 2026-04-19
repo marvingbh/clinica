@@ -186,7 +186,7 @@ export function GroupMemberActions({ session, onMemberChanged }: GroupMemberActi
                 type="button"
                 onClick={() => handleRemoveClick(p.appointmentId, p.patientId, p.patientName)}
                 disabled={isProcessing}
-                className="flex-shrink-0 w-6 h-6 rounded-full text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-50"
+                className="flex-shrink-0 w-6 h-6 rounded-full text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
                 title={`Remover ${p.patientName}`}
               >
                 <XIcon className="w-3.5 h-3.5 mx-auto" />

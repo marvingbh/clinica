@@ -60,13 +60,13 @@ export function PatientDetailsView({
       </div>
 
       {canReadAudit && (
-        <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-4">
+        <div className="flex gap-1 border-b border-gray-200 mb-4">
           <button
             onClick={() => onTabChange("dados")}
             className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
               patientTab === "dados"
-                ? "border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
             Dados
@@ -75,8 +75,8 @@ export function PatientDetailsView({
             onClick={() => onTabChange("historico")}
             className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
               patientTab === "historico"
-                ? "border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
             Historico
@@ -85,8 +85,8 @@ export function PatientDetailsView({
             onClick={() => onTabChange("financeiro")}
             className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
               patientTab === "financeiro"
-                ? "border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
             Financeiro
@@ -136,7 +136,7 @@ export function PatientDetailsView({
                       {phone.label}
                     </span>
                     {phone.notify === false && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
                         Sem notificacao
                       </span>
                     )}
@@ -292,11 +292,11 @@ const INVOICE_STATUS_LABELS: Record<string, string> = {
 }
 
 const INVOICE_STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-  SENT: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-  PAID: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-  OVERDUE: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
-  CANCELLED: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
+  DRAFT: "bg-gray-100 text-gray-700",
+  SENT: "bg-blue-100 text-blue-700",
+  PAID: "bg-green-100 text-green-700",
+  OVERDUE: "bg-red-100 text-red-700",
+  CANCELLED: "bg-gray-100 text-gray-500",
 }
 
 const MONTH_NAMES = [

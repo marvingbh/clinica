@@ -25,38 +25,38 @@ const MENU_ITEMS: Array<{ type: FabMenuSelection; label: string; icon: React.Rea
   {
     type: "CONSULTA",
     label: "Consulta",
-    icon: <StethoscopeIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />,
-    bgClass: "bg-blue-100 dark:bg-blue-900/30",
+    icon: <StethoscopeIcon className="w-4 h-4 text-blue-600" />,
+    bgClass: "bg-blue-100",
   },
   {
     type: "GROUP_SESSION",
     label: "Sessão em Grupo",
-    icon: <UsersRoundIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />,
-    bgClass: "bg-purple-100 dark:bg-purple-900/30",
+    icon: <UsersRoundIcon className="w-4 h-4 text-purple-600" />,
+    bgClass: "bg-purple-100",
   },
   {
     type: "TAREFA",
     label: "Tarefa",
-    icon: <ClipboardListIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />,
-    bgClass: "bg-amber-100 dark:bg-amber-900/30",
+    icon: <ClipboardListIcon className="w-4 h-4 text-amber-600" />,
+    bgClass: "bg-amber-100",
   },
   {
     type: "LEMBRETE",
     label: "Lembrete",
-    icon: <BellIcon className="w-4 h-4 text-sky-600 dark:text-sky-400" />,
-    bgClass: "bg-sky-100 dark:bg-sky-900/30",
+    icon: <BellIcon className="w-4 h-4 text-sky-600" />,
+    bgClass: "bg-sky-100",
   },
   {
     type: "NOTA",
     label: "Nota",
-    icon: <StickyNoteIcon className="w-4 h-4 text-slate-600 dark:text-slate-400" />,
-    bgClass: "bg-slate-100 dark:bg-slate-900/30",
+    icon: <StickyNoteIcon className="w-4 h-4 text-slate-600" />,
+    bgClass: "bg-slate-100",
   },
   {
     type: "REUNIAO",
     label: "Reuniao",
-    icon: <UsersRoundIcon className="w-4 h-4 text-violet-600 dark:text-violet-400" />,
-    bgClass: "bg-violet-100 dark:bg-violet-900/30",
+    icon: <UsersRoundIcon className="w-4 h-4 text-violet-600" />,
+    bgClass: "bg-violet-100",
   },
 ]
 
@@ -83,7 +83,7 @@ export function AgendaFabMenu({ isOpen, onOpen, onClose, onSelect }: AgendaFabMe
               <button
                 key={item.type}
                 onClick={() => onSelect(item.type)}
-                className="flex items-center gap-3 bg-white dark:bg-card rounded-full shadow-lg pl-4 pr-5 py-3 hover:bg-muted/50 transition-colors"
+                className="flex items-center gap-3 bg-white rounded-full shadow-lg pl-4 pr-5 py-3 hover:bg-muted/50 transition-colors"
               >
                 <div className={`w-8 h-8 rounded-full ${item.bgClass} flex items-center justify-center`}>
                   {item.icon}

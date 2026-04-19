@@ -164,8 +164,8 @@ export default function RepassePage() {
                   <td className="text-center py-3 px-4">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
                       isPaid
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                        : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-yellow-100 text-yellow-800"
                     }`}>
                       {isPaid ? "Pago" : "Pendente"}
                     </span>
@@ -174,7 +174,7 @@ export default function RepassePage() {
                     {isPaid ? formatCurrencyBRL(p.paidAmount!) : "—"}
                   </td>
                   <td className={`text-right py-3 px-4 font-medium ${
-                    saldo < 0 ? "text-red-600 dark:text-red-400" : saldo > 0 ? "text-amber-600 dark:text-amber-400" : ""
+                    saldo < 0 ? "text-red-600" : saldo > 0 ? "text-amber-600" : ""
                   }`}>
                     {saldo !== 0 ? formatCurrencyBRL(saldo) : "—"}
                   </td>
@@ -191,7 +191,7 @@ export default function RepassePage() {
                         <button
                           onClick={() => handleUndoPayment(p.professionalId)}
                           disabled={payingProfId === p.professionalId}
-                          className="p-1.5 rounded-md text-green-600 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors inline-flex"
+                          className="p-1.5 rounded-md text-green-600 hover:text-red-600 hover:bg-red-50 transition-colors inline-flex"
                           title="Desfazer pagamento"
                         >
                           {payingProfId === p.professionalId ? "..." : <CheckCircleIcon className="w-4 h-4" />}
@@ -200,7 +200,7 @@ export default function RepassePage() {
                         <button
                           onClick={() => handleMarkAsPaid(p.professionalId)}
                           disabled={payingProfId === p.professionalId || p.totalRepasse === 0}
-                          className="p-1.5 rounded-md text-muted-foreground hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors inline-flex disabled:opacity-50"
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-green-600 hover:bg-green-50 transition-colors inline-flex disabled:opacity-50"
                           title="Marcar como pago"
                         >
                           {payingProfId === p.professionalId ? "..." : <CheckCircleIcon className="w-4 h-4" />}

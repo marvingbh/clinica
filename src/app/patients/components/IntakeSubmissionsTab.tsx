@@ -76,9 +76,9 @@ export function IntakeSubmissionsTab({ canWrite }: IntakeSubmissionsTabProps) {
   }
 
   const statusColor: Record<string, string> = {
-    PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-    APPROVED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-    REJECTED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+    PENDING: "bg-yellow-100 text-yellow-800",
+    APPROVED: "bg-green-100 text-green-800",
+    REJECTED: "bg-red-100 text-red-800",
   }
 
   if (selectedId) {

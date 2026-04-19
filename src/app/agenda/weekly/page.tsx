@@ -185,7 +185,7 @@ function WeeklyAgendaPageContent() {
   if (status === "loading" || isLoading) {
     return (
       <main className="min-h-screen bg-background pb-20">
-        <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="max-w-[1320px] mx-auto px-4 md:px-6 py-8">
           <div className="animate-pulse space-y-4">
             <div className="h-10 bg-muted rounded w-1/3" />
             <div className="h-[600px] bg-muted rounded" />
@@ -210,7 +210,7 @@ function WeeklyAgendaPageContent() {
         onBulkCancel={canWriteAgenda ? openBulkCancel : undefined}
       />
 
-      <SwipeContainer onSwipeLeft={goToNextWeek} onSwipeRight={goToPreviousWeek} className="max-w-6xl mx-auto px-4 pt-4">
+      <SwipeContainer onSwipeLeft={goToNextWeek} onSwipeRight={goToPreviousWeek} className="max-w-[1320px] mx-auto px-4 md:px-6 pt-4">
         <p className="text-xs text-muted-foreground text-center mb-4 flex items-center justify-center gap-2">
           <span className="w-8 h-0.5 bg-muted-foreground/30 rounded-full" />
           Deslize para mudar a semana
@@ -218,7 +218,7 @@ function WeeklyAgendaPageContent() {
         </p>
       </SwipeContainer>
 
-      <div className="max-w-6xl mx-auto px-4 pb-4 relative">
+      <div className="max-w-[1320px] mx-auto px-4 md:px-6 pb-4 relative">
         {isDataLoading && (
           <div className="absolute inset-0 bg-background/60 z-20 flex items-center justify-center rounded-lg backdrop-blur-[1px]">
             <div className="flex items-center gap-2 text-sm text-muted-foreground bg-card px-4 py-2 rounded-full shadow-sm border border-border">

@@ -190,8 +190,8 @@ function ConfirmationContent() {
   if (state === "success" && appointment) {
     return (
       <div className="text-center space-y-6">
-        <div className="w-16 h-16 mx-auto rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-          <CheckIcon className="w-8 h-8 text-green-600 dark:text-green-400" />
+        <div className="w-16 h-16 mx-auto rounded-full bg-green-100 flex items-center justify-center">
+          <CheckIcon className="w-8 h-8 text-green-600" />
         </div>
         <div>
           <h2 className="text-xl font-semibold text-foreground">Agendamento confirmado!</h2>

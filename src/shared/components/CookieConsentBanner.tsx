@@ -158,7 +158,7 @@ function SecondLevel({
         <div className="flex items-center gap-2.5">
           <button
             onClick={onBack}
-            className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors touch-manipulation"
+            className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center hover:bg-gray-200 transition-colors touch-manipulation"
             aria-label="Voltar"
           >
             <svg className="w-3.5 h-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -194,7 +194,7 @@ function SecondLevel({
           </div>
           <button
             onClick={() => onAnalyticsChange(!analytics)}
-            className={`relative w-9 h-5 rounded-full transition-colors shrink-0 touch-manipulation ${analytics ? "bg-primary" : "bg-gray-300 dark:bg-gray-600"}`}
+            className={`relative w-9 h-5 rounded-full transition-colors shrink-0 touch-manipulation ${analytics ? "bg-primary" : "bg-gray-300"}`}
             role="switch"
             aria-checked={analytics}
             aria-label="Ativar cookies analiticos"

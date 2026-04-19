@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { CalendarIcon, RefreshCwIcon } from "@/shared/components/ui/icons"
+import { Segmented, ChipField, type SegmentedOption } from "@/shared/components/ui/segmented"
 import { DateInput } from "./DateInput"
 import { RecurrenceType, RecurrenceEndType } from "../lib/types"
 import { MAX_RECURRENCE_OCCURRENCES } from "../lib/constants"
@@ -45,7 +46,14 @@ interface RecurrenceOptionsProps {
   minDate?: string
   startDate?: string
   startTime?: string
+  /** When true, the Frequência chip row is skipped and rendered by the
+      parent instead — lets forms put Modalidade + Frequência on one line. */
+  hideFrequency?: boolean
 }
+
+export const FREQUENCY_OPTIONS: SegmentedOption<AppointmentType>[] = (
+  Object.keys(APPOINTMENT_TYPE_LABELS) as AppointmentType[]
+).map((type) => ({ value: type, label: APPOINTMENT_TYPE_LABELS[type] }))
 
 export function RecurrenceOptions({
   appointmentType,
@@ -58,6 +66,7 @@ export function RecurrenceOptions({
   onEndDateChange,
   startDate,
   startTime,
+  hideFrequency = false,
 }: RecurrenceOptionsProps) {
   const [showPreview, setShowPreview] = useState(false)
 
@@ -128,103 +137,64 @@ export function RecurrenceOptions({
     return dates
   }, [appointmentType, recurrenceEndType, endDate, occurrences, startDate, startTime, isRecurring])
 
+  const endTypeOptions: SegmentedOption<RecurrenceEndType>[] = [
+    { value: "BY_OCCURRENCES", label: "Nº de sessões" },
+    { value: "BY_DATE", label: "Até uma data" },
+    { value: "INDEFINITE", label: "Sem fim" },
+  ]
+
   return (
-    <div className="space-y-4">
-      {/* Appointment Type Selection */}
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-1.5">
-          Frequencia
-        </label>
-        <div className="grid grid-cols-4 gap-1.5">
-          {(Object.keys(APPOINTMENT_TYPE_LABELS) as AppointmentType[]).map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => {
-                onAppointmentTypeChange(type)
-                if (type === "SINGLE") {
-                  setShowPreview(false)
-                }
-              }}
-              className={`h-10 px-2 rounded-xl text-sm font-medium border-2 transition-all active:scale-[0.97] ${
-                appointmentType === type
-                  ? "border-primary bg-primary/5 text-primary"
-                  : "border-transparent bg-muted/60 text-foreground hover:bg-muted"
-              }`}
-            >
-              {APPOINTMENT_TYPE_LABELS[type]}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="space-y-3">
+      {/* Frequência — optional; parents can render it inline with
+          Modalidade for a tighter layout. */}
+      {!hideFrequency && (
+        <ChipField label="Frequência">
+          <Segmented
+            options={FREQUENCY_OPTIONS}
+            value={appointmentType}
+            onChange={(type) => {
+              onAppointmentTypeChange(type)
+              if (type === "SINGLE") setShowPreview(false)
+            }}
+            size="sm"
+            ariaLabel="Frequência"
+          />
+        </ChipField>
+      )}
 
       {/* Recurrence End Options - only show for recurring types */}
       {isRecurring && (
-        <div className="space-y-3 p-3.5 bg-muted/20 rounded-xl border border-border/60">
+        <div className="space-y-3">
           {/* Day of Week Indicator */}
           {startDate && (() => {
             const dayOfWeek = parseLocalDate(startDate).getDay()
             return (
-              <div className="flex items-center gap-2 text-sm">
-                <RefreshCwIcon className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-                <span className="text-muted-foreground">
+              <div className="flex items-center gap-2 text-[12px]">
+                <RefreshCwIcon className="w-3.5 h-3.5 text-ink-400 flex-shrink-0" />
+                <span className="text-ink-500">
                   Toda{" "}
-                  <span className="font-medium text-foreground">{FULL_DAY_NAMES[dayOfWeek]}</span>
-                </span>
-                <span className="px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-semibold">
-                  {DAY_LABELS[dayOfWeek]}
+                  <span className="font-medium text-ink-800">{FULL_DAY_NAMES[dayOfWeek]}</span>
                 </span>
               </div>
             )
           })()}
 
           {/* Recurrence End Type */}
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-              Terminar
-            </label>
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                type="button"
-                onClick={() => onRecurrenceEndTypeChange("BY_OCCURRENCES")}
-                className={`h-9 px-2 rounded-lg text-xs font-medium border transition-all ${
-                  recurrenceEndType === "BY_OCCURRENCES"
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-input bg-background text-foreground hover:bg-muted"
-                }`}
-              >
-                Apos N sessoes
-              </button>
-              <button
-                type="button"
-                onClick={() => onRecurrenceEndTypeChange("BY_DATE")}
-                className={`h-9 px-2 rounded-lg text-xs font-medium border transition-all ${
-                  recurrenceEndType === "BY_DATE"
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-input bg-background text-foreground hover:bg-muted"
-                }`}
-              >
-                Em uma data
-              </button>
-              <button
-                type="button"
-                onClick={() => onRecurrenceEndTypeChange("INDEFINITE")}
-                className={`h-9 px-2 rounded-lg text-xs font-medium border transition-all ${
-                  recurrenceEndType === "INDEFINITE"
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-input bg-background text-foreground hover:bg-muted"
-                }`}
-              >
-                Sem fim
-              </button>
-            </div>
-          </div>
+          <ChipField label="Terminar">
+            <Segmented
+              options={endTypeOptions}
+              value={recurrenceEndType}
+              onChange={onRecurrenceEndTypeChange}
+              size="sm"
+              ariaLabel="Término da recorrência"
+            />
+          </ChipField>
 
           {/* Occurrences Input */}
           {recurrenceEndType === "BY_OCCURRENCES" && (
             <div>
-              <label htmlFor="occurrences" className="block text-xs font-medium text-muted-foreground mb-1.5">
-                Numero de sessoes
+              <label htmlFor="occurrences" className="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">
+                Nº de sessões
               </label>
               <input
                 id="occurrences"
@@ -233,34 +203,32 @@ export function RecurrenceOptions({
                 onChange={(e) => onOccurrencesChange(Math.min(MAX_RECURRENCE_OCCURRENCES, Math.max(1, parseInt(e.target.value) || 1)))}
                 min={1}
                 max={MAX_RECURRENCE_OCCURRENCES}
-                className="w-full h-10 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
+                className="w-24 h-9 px-3 rounded-[4px] border border-ink-300 bg-card text-ink-900 text-[13px] focus:outline-none focus:border-brand-500 focus:shadow-[var(--shadow-focus)] transition-[border-color,box-shadow] duration-[120ms]"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Max {MAX_RECURRENCE_OCCURRENCES} sessoes
+              <p className="text-[11px] text-ink-500 mt-1">
+                Máx. {MAX_RECURRENCE_OCCURRENCES} sessões
               </p>
             </div>
           )}
 
           {/* Indefinite Info */}
           {recurrenceEndType === "INDEFINITE" && (
-            <div className="p-2.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200/60 dark:border-blue-800/60">
-              <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
-                Sessoes criadas automaticamente para 6 meses, estendidas semanalmente. Finalize a qualquer momento.
-              </p>
-            </div>
+            <p className="text-[12px] text-brand-700 leading-relaxed">
+              Sessões criadas automaticamente para 6 meses, estendidas semanalmente. Finalize a qualquer momento.
+            </p>
           )}
 
           {/* End Date Input */}
           {recurrenceEndType === "BY_DATE" && (
             <div>
-              <label htmlFor="recurrenceEndDate" className="block text-xs font-medium text-muted-foreground mb-1.5">
+              <label htmlFor="recurrenceEndDate" className="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">
                 Data final
               </label>
               <DateInput
                 id="recurrenceEndDate"
                 value={endDate}
                 onChange={(e) => onEndDateChange(e.target.value)}
-                className="w-full h-10 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
+                className="w-40 h-9 px-3 rounded-[4px] border border-ink-300 bg-card text-ink-900 text-[13px] focus:outline-none focus:border-brand-500 focus:shadow-[var(--shadow-focus)] transition-[border-color,box-shadow] duration-[120ms]"
               />
             </div>
           )}
@@ -271,30 +239,30 @@ export function RecurrenceOptions({
               <button
                 type="button"
                 onClick={() => setShowPreview(!showPreview)}
-                className="w-full p-2.5 bg-background rounded-xl border border-border/60 flex items-center justify-between hover:bg-muted/30 transition-colors"
+                className="w-full px-3 py-2 bg-card rounded-[4px] border border-ink-200 flex items-center justify-between hover:bg-ink-50 transition-colors"
               >
-                <span className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <CalendarIcon className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[13px] font-medium text-ink-800 flex items-center gap-2">
+                  <CalendarIcon className="w-3.5 h-3.5 text-brand-500" />
                   {recurrenceEndType === "INDEFINITE"
-                    ? `${previewDates.length} sessoes (6 meses)`
-                    : `${previewDates.length} sessoes`
+                    ? `${previewDates.length} sessões (6 meses)`
+                    : `${previewDates.length} sessões`
                   }
                 </span>
-                <span className={`text-muted-foreground text-xs transition-transform duration-200 ${showPreview ? "rotate-180" : ""}`}>
+                <span className={`text-ink-400 text-[11px] transition-transform duration-[120ms] ${showPreview ? "rotate-180" : ""}`}>
                   ▼
                 </span>
               </button>
               {showPreview && (
-                <div className="mt-1.5 p-2.5 bg-background rounded-xl border border-border/60 max-h-44 overflow-y-auto">
+                <div className="mt-1.5 px-3 py-2 bg-card rounded-[4px] border border-ink-200 max-h-44 overflow-y-auto">
                   {recurrenceEndType === "INDEFINITE" && (
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Novas sessoes criadas automaticamente
+                    <p className="text-[11px] text-ink-500 mb-2">
+                      Novas sessões criadas automaticamente
                     </p>
                   )}
                   <ul className="space-y-0.5">
                     {previewDates.map((date, index) => (
-                      <li key={index} className="text-xs text-muted-foreground flex items-center gap-2 py-0.5">
-                        <span className="w-5 h-5 flex items-center justify-center rounded-md bg-primary/10 text-primary text-[10px] font-semibold tabular-nums flex-shrink-0">
+                      <li key={index} className="text-[12px] text-ink-600 flex items-center gap-2 py-0.5">
+                        <span className="w-5 h-5 flex items-center justify-center rounded-[2px] bg-brand-50 text-brand-700 text-[10px] font-semibold tabular-nums flex-shrink-0 border border-brand-100">
                           {index + 1}
                         </span>
                         {date}

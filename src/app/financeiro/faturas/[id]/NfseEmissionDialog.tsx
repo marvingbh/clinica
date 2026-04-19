@@ -167,9 +167,9 @@ export default function NfseEmissionDialog({
         </h3>
 
         {nfseObs && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-900/50">
-            <AlertTriangleIcon className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-red-700 dark:text-red-300 font-medium">{nfseObs}</p>
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
+            <AlertTriangleIcon className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-red-700 font-medium">{nfseObs}</p>
           </div>
         )}
 
@@ -180,7 +180,7 @@ export default function NfseEmissionDialog({
           <p className="text-xs text-muted-foreground">Paciente: {patientName}</p>
           <input type="text" value={billingCpf} onChange={(e) => setBillingCpf(e.target.value)} placeholder="CPF: 000.000.000-00" className={inputCls} />
           {!effectiveCpf && (
-            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-1.5 text-xs text-amber-600">
               <AlertTriangleIcon className="w-3.5 h-3.5" />
               <span>Informe o CPF do responsavel financeiro.</span>
             </div>

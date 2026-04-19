@@ -280,7 +280,7 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
         {unreconciledTx.length > 0 ? (
           <>
             <span>{unreconciledTx.length} pendente(s)</span>
-            <span className="text-green-600 dark:text-green-400">{withMatches.length} com correspondência</span>
+            <span className="text-green-600">{withMatches.length} com correspondência</span>
             {withoutMatches.length > 0 && (
               <span className="text-red-500">{withoutMatches.length} sem correspondência</span>
             )}
@@ -302,7 +302,7 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
             onClick={onToggleReconciled}
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-all ${
               showReconciled
-                ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-950/20 dark:border-green-800 dark:text-green-400"
+                ? "bg-green-50 border-green-200 text-green-700"
                 : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
             }`}
           >

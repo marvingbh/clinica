@@ -83,7 +83,7 @@ export function GroupProfessionalEdit({
         <div className="flex flex-wrap gap-1">
           {session.additionalProfessionals && session.additionalProfessionals.length > 0 ? (
             session.additionalProfessionals.map(ap => (
-              <span key={ap.professionalProfileId} className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200">
+              <span key={ap.professionalProfileId} className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-800">
                 {ap.professionalName}
               </span>
             ))

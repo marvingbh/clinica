@@ -109,18 +109,18 @@ export function GroupSessionSheet({
         onBulkUpdateStatus={handleBulkUpdateStatus}
       />
 
-      {/* Tabs */}
+      {/* Tabs — Clinica tokens: ink-100 track, ink-0 active pill, 4px radius */}
       <div className="px-4 pt-3">
-        <div className="flex rounded-xl bg-muted/60 p-1">
+        <div className="flex rounded-[4px] bg-ink-100 p-[3px] border border-ink-200">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 h-9 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex-1 h-8 rounded-[3px] text-[13px] font-medium transition-colors ${
                 activeTab === tab.key
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-card text-brand-700 shadow-sm"
+                  : "text-ink-600 hover:text-ink-800"
               }`}
             >
               {tab.label}
@@ -163,9 +163,13 @@ export function GroupSessionSheet({
         <GroupRecurrenceTab session={session} onSaved={onStatusUpdated} onClose={onClose} />
       )}
 
-      {/* Footer */}
-      <div className="px-4 py-3 border-t border-border">
-        <button type="button" onClick={onClose} className="w-full h-10 rounded-xl border border-input bg-background text-foreground text-sm font-medium hover:bg-muted transition-colors">
+      {/* Footer — same language as Create sheets */}
+      <div className="border-t border-ink-200 bg-ink-50 px-4 md:px-6 py-3.5 flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="h-10 px-4 rounded-[4px] text-ink-700 font-medium text-[13px] hover:bg-ink-100 transition-colors"
+        >
           Fechar
         </button>
       </div>

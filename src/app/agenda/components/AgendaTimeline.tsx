@@ -72,9 +72,9 @@ export function AgendaTimeline({
   }
 
   const birthdayBanner = birthdayPatients.length > 0 ? (
-    <div className="mb-4 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+    <div className="mb-4 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
       {birthdayPatients.map(p => (
-        <p key={p.id} className="text-sm font-medium text-amber-800 dark:text-amber-200">
+        <p key={p.id} className="text-sm font-medium text-amber-800">
           <span className="mr-1.5">🎂</span>
           {p.name}
         </p>
@@ -85,7 +85,7 @@ export function AgendaTimeline({
   // Admin "Todos" mode: time-proportional grid with all professionals
   if (isAdmin && !selectedProfessionalId) {
     return (
-      <SwipeContainer onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} className="max-w-4xl mx-auto px-4 py-6">
+      <SwipeContainer onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} className="max-w-[1320px] mx-auto px-4 md:px-6 py-6">
         {/* Swipe hint */}
         <p className="text-xs text-muted-foreground text-center mb-6 flex items-center justify-center gap-2">
           <span className="w-8 h-0.5 bg-muted-foreground/30 rounded-full" />
@@ -120,7 +120,7 @@ export function AgendaTimeline({
 
   // Single professional view: time-proportional grid with column layout
   return (
-    <SwipeContainer onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} className="max-w-4xl mx-auto px-4 py-6">
+    <SwipeContainer onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} className="max-w-[1320px] mx-auto px-4 md:px-6 py-6">
       {/* Swipe hint */}
       <p className="text-xs text-muted-foreground text-center mb-6 flex items-center justify-center gap-2">
         <span className="w-8 h-0.5 bg-muted-foreground/30 rounded-full" />

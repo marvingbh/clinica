@@ -2,48 +2,69 @@
 
 import { forwardRef, useRef, useCallback } from "react"
 
-type ButtonVariant = "primary" | "secondary" | "outlined" | "text" | "destructive"
+type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "outlined"
+  | "text"
+  | "destructive"
+  | "ghost"
+  | "success"
 type ButtonSize = "sm" | "md" | "lg"
 
+/* Colors, hover, and borders mirror the Clinica design system
+   (buttons spec in components.css from the handoff bundle). Radius is
+   the conservative 4px (`rounded`) set by --r-sm. */
 const variantClasses: Record<ButtonVariant, string> = {
   primary: `
-    bg-primary text-primary-foreground
-    hover:opacity-90
-    active:opacity-95
+    bg-brand-500 text-white border border-brand-500
+    hover:bg-brand-600 hover:border-brand-600
+    active:bg-brand-700 active:border-brand-700
   `,
   secondary: `
-    bg-secondary text-secondary-foreground
-    hover:bg-gray-200
-    active:bg-gray-300
+    bg-card text-ink-800 border border-ink-300
+    hover:bg-ink-50 hover:border-ink-400
+    active:bg-ink-100
   `,
   outlined: `
-    bg-transparent text-foreground
-    border-2 border-input
-    hover:bg-muted
-    active:bg-gray-200
+    bg-transparent text-foreground border border-input
+    hover:bg-ink-50
+    active:bg-ink-100
   `,
   text: `
-    bg-transparent text-foreground
-    hover:bg-muted
-    active:bg-gray-200
+    bg-transparent text-ink-700 border border-transparent
+    hover:bg-ink-100 hover:text-ink-900
+    active:bg-ink-200
+  `,
+  ghost: `
+    bg-transparent text-ink-700 border border-transparent
+    hover:bg-ink-100 hover:text-ink-900
+    active:bg-ink-200
   `,
   destructive: `
-    bg-destructive text-destructive-foreground
-    hover:opacity-90
-    active:opacity-95
+    bg-err-500 text-white border border-err-500
+    hover:bg-err-700 hover:border-err-700
+    active:bg-err-700
+  `,
+  success: `
+    bg-ok-500 text-white border border-ok-500
+    hover:bg-ok-700 hover:border-ok-700
+    active:bg-ok-700
   `,
 }
 
+/* Mobile-first sizing: taps stay >=44px on phones, tightens on md+
+   to the design system's 28/36/44 spec. */
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "h-9 px-3 text-sm min-w-[64px]",
-  md: "h-11 px-4 text-base min-w-[80px]",
-  lg: "h-14 px-6 text-lg min-w-[96px]",
+  sm: "h-10 md:h-7 px-3 text-xs min-w-[56px]",
+  md: "h-11 md:h-9 px-3.5 text-[13px] min-w-[72px]",
+  lg: "h-12 md:h-11 px-[18px] text-sm min-w-[88px]",
 }
 
 const iconSizeClasses: Record<ButtonSize, string> = {
-  sm: "w-4 h-4",
-  md: "w-5 h-5",
-  lg: "w-6 h-6",
+  sm: "w-3.5 h-3.5",
+  md: "w-4 h-4",
+  lg: "w-4 h-4",
 }
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -134,15 +155,15 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const baseClasses = `
       relative
       inline-flex items-center justify-center gap-2
-      rounded-lg
-      font-medium
-      transition-all duration-normal ease-in-out
-      focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background
+      rounded-md
+      font-medium leading-none tracking-normal
+      transition-colors duration-[120ms] ease-out
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/25
       touch-manipulation
       overflow-hidden
       select-none
       disabled:opacity-50 disabled:cursor-not-allowed
-      active:scale-[0.98]
+      active:scale-[0.99]
       disabled:active:scale-100
     `
 
@@ -165,28 +186,22 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {/* Ripple container */}
         <span
           ref={rippleContainerRef}
-          className="absolute inset-0 overflow-hidden rounded-lg pointer-events-none"
+          className="absolute inset-0 overflow-hidden rounded-md pointer-events-none"
           aria-hidden="true"
         />
 
-        {/* Loading spinner */}
-        {loading && (
-          <Spinner className={iconSizeClasses[size]} />
-        )}
+        {loading && <Spinner className={iconSizeClasses[size]} />}
 
-        {/* Left icon (hidden when loading) */}
         {leftIcon && !loading && (
           <span className={iconSizeClasses[size]} aria-hidden="true">
             {leftIcon}
           </span>
         )}
 
-        {/* Button text */}
         <span className={loading && loadingText ? "" : loading ? "opacity-0" : ""}>
           {loading && loadingText ? loadingText : children}
         </span>
 
-        {/* Right icon (hidden when loading) */}
         {rightIcon && !loading && (
           <span className={iconSizeClasses[size]} aria-hidden="true">
             {rightIcon}
@@ -199,7 +214,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
 Button.displayName = "Button"
 
-// Spinner component for loading state
 interface SpinnerProps {
   className?: string
 }

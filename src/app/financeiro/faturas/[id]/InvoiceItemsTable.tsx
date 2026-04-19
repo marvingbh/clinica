@@ -153,7 +153,7 @@ export default function InvoiceItemsTable({ invoice, isEditable, onRefresh }: In
 
               if (isEditing) {
                 return (
-                  <tr key={item.id} className="border-b border-border last:border-0 bg-yellow-50 dark:bg-yellow-900/20">
+                  <tr key={item.id} className="border-b border-border last:border-0 bg-yellow-50">
                     <td className="py-2 px-4">
                       <input
                         type="text"
@@ -209,7 +209,7 @@ export default function InvoiceItemsTable({ invoice, isEditable, onRefresh }: In
               }
 
               return (
-                <tr key={item.id} className={`border-b border-border last:border-0 ${isCredit ? "text-red-600 dark:text-red-400" : ""}`}>
+                <tr key={item.id} className={`border-b border-border last:border-0 ${isCredit ? "text-red-600" : ""}`}>
                   <td className="py-3 px-4">{item.description}</td>
                   <td className="text-center py-3 px-4 text-muted-foreground">
                     {item.appointment ? new Date(item.appointment.scheduledAt).toLocaleDateString("pt-BR") : "—"}

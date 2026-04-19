@@ -5,7 +5,6 @@ import { useMountEffect } from "@/shared/hooks"
 import { usePathname, useRouter } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import Link from "next/link"
-import { useTheme } from "@/shared/components/theme-provider"
 import {
   HomeIcon,
   CalendarIcon,
@@ -16,8 +15,6 @@ import {
   SettingsIcon,
   LogOutIcon,
   ChevronDownIcon,
-  SunIcon,
-  MoonIcon,
   ShieldIcon,
   DollarSignIcon,
 } from "./icons"
@@ -189,24 +186,6 @@ function UserDropdown() {
   )
 }
 
-function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme()
-
-  return (
-    <button
-      onClick={toggleTheme}
-      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-normal"
-      aria-label={theme === "light" ? "Ativar modo escuro" : "Ativar modo claro"}
-      title={theme === "light" ? "Modo escuro" : "Modo claro"}
-    >
-      {theme === "light" ? (
-        <MoonIcon className="w-5 h-5" />
-      ) : (
-        <SunIcon className="w-5 h-5" />
-      )}
-    </button>
-  )
-}
 
 export function DesktopHeader() {
   const pathname = usePathname()
@@ -279,7 +258,6 @@ export function DesktopHeader() {
 
           {/* Theme toggle + User dropdown */}
           <div className="flex items-center gap-2">
-            <ThemeToggle />
             {status === "authenticated" && <UserDropdown />}
           </div>
         </div>

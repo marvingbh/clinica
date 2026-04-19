@@ -62,21 +62,21 @@ export function GroupSessionBlock({
         width: `calc(${columnWidth}% - 2px)`,
       }}
       className={`
-        border border-purple-300 dark:border-purple-700 rounded px-1 py-0.5 text-left
+        border border-purple-300 rounded px-1 py-0.5 text-left
         border-l-[3px] border-l-purple-500 overflow-hidden cursor-pointer
-        bg-purple-50 dark:bg-purple-950/30
+        bg-purple-50
         hover:shadow-md hover:z-10 transition-all
         ${allCancelled ? "opacity-40" : allTerminal ? "opacity-60" : ""}
       `}
     >
       <div className="h-full flex flex-col overflow-hidden gap-0.5">
         {showProfessional && (
-          <p className="text-[10px] font-semibold truncate leading-tight text-purple-700 dark:text-purple-300">
+          <p className="text-[10px] font-semibold truncate leading-tight text-purple-700">
             {session.professionalName}
           </p>
         )}
         <div className="flex items-center gap-1">
-          <UsersIcon className="w-3 h-3 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+          <UsersIcon className="w-3 h-3 text-purple-600 flex-shrink-0" />
           <p className="text-[11px] font-medium text-foreground truncate leading-tight">
             {session.groupName}
           </p>

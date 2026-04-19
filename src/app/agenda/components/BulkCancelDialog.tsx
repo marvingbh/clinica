@@ -213,7 +213,7 @@ export function BulkCancelDialog({
       {step === "confirm" && previewSummary && (
         <div className="space-y-4">
           {/* Summary banner */}
-          <div className="p-3 rounded-xl border bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm font-medium flex items-start gap-2.5">
+          <div className="p-3 rounded-xl border bg-red-50 border-red-200 text-red-700 text-sm font-medium flex items-start gap-2.5">
             <AlertTriangleIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>
               {previewSummary.total} agendamento(s) serao cancelados sem cobranca

@@ -281,10 +281,10 @@ export function PatientForm({
                 <p className="text-xs text-muted-foreground mt-1 mb-3">Nomes aprendidos automaticamente pela conciliação bancária. Remova caso estejam incorretos.</p>
                 <div className="flex flex-wrap gap-2">
                   {usualPayers.map((payer) => (
-                    <span key={payer.id} className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-800">
+                    <span key={payer.id} className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                       {payer.payerName}
                       {onRemoveUsualPayer && (
-                        <button type="button" onClick={() => onRemoveUsualPayer(payer.id)} className="ml-0.5 text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors" title="Remover pagador usual">&times;</button>
+                        <button type="button" onClick={() => onRemoveUsualPayer(payer.id)} className="ml-0.5 text-blue-400 hover:text-blue-700 transition-colors" title="Remover pagador usual">&times;</button>
                       )}
                     </span>
                   ))}

@@ -2,8 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { useTheme } from "@/shared/components/theme-provider"
-import { HomeIcon, CalendarIcon, StethoscopeIcon, UserIcon, UsersIcon, SunIcon, MoonIcon, DollarSignIcon } from "./icons"
+import { HomeIcon, CalendarIcon, StethoscopeIcon, UserIcon, UsersIcon, DollarSignIcon } from "./icons"
 import type { Feature } from "@/lib/rbac/types"
 
 interface NavItem {
@@ -63,33 +62,10 @@ const navItems: NavItem[] = [
   },
 ]
 
-function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme()
-
-  return (
-    <button
-      onClick={toggleTheme}
-      className="flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[44px] py-1.5 px-3 rounded-lg transition-all duration-normal ease-in-out touch-manipulation text-muted-foreground hover:text-foreground active:bg-muted"
-      aria-label={theme === "light" ? "Ativar modo escuro" : "Ativar modo claro"}
-    >
-      <span className="transition-transform duration-normal ease-in-out">
-        {theme === "light" ? (
-          <MoonIcon className="w-6 h-6" strokeWidth={1.5} />
-        ) : (
-          <SunIcon className="w-6 h-6" strokeWidth={1.5} />
-        )}
-      </span>
-      <span className="text-[11px] leading-tight font-normal">
-        {theme === "light" ? "Escuro" : "Claro"}
-      </span>
-    </button>
-  )
-}
-
 export function BottomNavigation() {
   const router = useRouter()
   const pathname = usePathname()
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
 
   const permissions = session?.user?.permissions
 
@@ -100,9 +76,11 @@ export function BottomNavigation() {
     return pathname === item.href
   }
 
-  // Don't render on public pages
-  const publicPaths = ["/login", "/confirm", "/cancel", "/intake"]
-  if (publicPaths.some(p => pathname.startsWith(p))) {
+  // Don't render on public pages, on the landing (/) when logged out, or when
+  // not authenticated at all.
+  const publicPaths = ["/login", "/signup", "/confirm", "/cancel", "/intake"]
+  const isLandingAnon = pathname === "/" && status === "unauthenticated"
+  if (publicPaths.some(p => pathname.startsWith(p)) || isLandingAnon || status !== "authenticated") {
     return null
   }
 
@@ -158,7 +136,6 @@ export function BottomNavigation() {
               </button>
             )
           })}
-          <ThemeToggle />
         </div>
       </div>
     </nav>

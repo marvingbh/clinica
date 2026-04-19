@@ -36,8 +36,8 @@ export function InsightsAnalise({ data }: Props) {
           sub="da receita nos 3 maiores pagantes"
           detail={
             Number(top3Pct) > 50
-              ? <span className="text-xs text-orange-600 dark:text-orange-400">Alta concentração — risco de dependência</span>
-              : <span className="text-xs text-green-600 dark:text-green-400">Receita bem distribuída</span>
+              ? <span className="text-xs text-orange-600">Alta concentração — risco de dependência</span>
+              : <span className="text-xs text-green-600">Receita bem distribuída</span>
           }
         />
         <MetricCard

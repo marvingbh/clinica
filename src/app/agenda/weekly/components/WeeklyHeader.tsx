@@ -33,7 +33,7 @@ export function WeeklyHeader({
 }: WeeklyHeaderProps) {
   return (
     <header className="sticky top-0 bg-background/95 backdrop-blur border-b border-border z-30">
-      <div className="max-w-6xl mx-auto px-4 py-4 space-y-3">
+      <div className="max-w-[1320px] mx-auto px-4 md:px-6 py-4 space-y-3">
         <div className="flex items-center justify-between gap-4">
           <WeekNavigation
             weekStart={weekStart}
@@ -47,7 +47,7 @@ export function WeeklyHeader({
               <button
                 type="button"
                 onClick={onBulkCancel}
-                className="flex items-center gap-2 h-10 px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-muted text-red-600 dark:text-red-400"
+                className="flex items-center gap-2 h-10 px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-muted text-red-600"
                 title="Cancelar agendamentos"
               >
                 <BanIcon className="w-4 h-4" />

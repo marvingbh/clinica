@@ -131,12 +131,12 @@ export function AppointmentCard({
 
               {/* Recurrence indicator */}
               {appointment.recurrence && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600">
                   <RefreshCwIcon className="w-3.5 h-3.5" />
                   {appointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
                    appointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"}
                   {isRecurrenceModified(appointment) && (
-                    <span className="text-amber-600 dark:text-amber-400"> · alterado</span>
+                    <span className="text-amber-600"> · alterado</span>
                   )}
                 </span>
               )}
@@ -150,17 +150,17 @@ export function AppointmentCard({
                   e.stopPropagation()
                   onAlternateWeekClick?.(appointment)
                 }}
-                className="mt-2 w-full text-left px-2 py-1.5 bg-purple-50 dark:bg-purple-950/30 rounded-md border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-950/50 transition-colors"
+                className="mt-2 w-full text-left px-2 py-1.5 bg-purple-50 rounded-md border border-purple-200 hover:bg-purple-100 transition-colors"
               >
-                <p className="text-xs text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                <p className="text-xs text-purple-700 flex items-center gap-1.5">
                   <ArrowLeftRightIcon className="w-3 h-3" />
                   <span className="font-medium">Semana alternada:</span>
                   {appointment.alternateWeekInfo.pairedPatientName ? (
                     <span className="underline">{appointment.alternateWeekInfo.pairedPatientName}</span>
                   ) : appointment.alternateWeekInfo.isAvailable ? (
-                    <span className="text-green-600 dark:text-green-400 underline">Disponivel - Agendar</span>
+                    <span className="text-green-600 underline">Disponivel - Agendar</span>
                   ) : (
-                    <span className="text-amber-600 dark:text-amber-400">Bloqueado</span>
+                    <span className="text-amber-600">Bloqueado</span>
                   )}
                 </p>
               </button>
@@ -181,7 +181,7 @@ export function AppointmentCard({
                 </h4>
                 {appointment.patient && (
                   <p className="text-sm text-muted-foreground truncate">
-                    <span className="text-green-600 dark:text-green-400 font-semibold">$</span> {appointment.patient.name}
+                    <span className="text-green-600 font-semibold">$</span> {appointment.patient.name}
                   </p>
                 )}
               </div>
@@ -206,7 +206,7 @@ export function AppointmentCard({
             {/* Recurrence indicator for non-patient entries */}
             {appointment.recurrence && (
               <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border">
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600">
                   <RefreshCwIcon className="w-3.5 h-3.5" />
                   {appointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
                    appointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"}

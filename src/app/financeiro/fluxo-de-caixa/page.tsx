@@ -161,8 +161,8 @@ export default function FluxoDeCaixaPage() {
       {/* Pending Invoices Card (realizado mode only) */}
       {cashFlowView !== "projetado" && pendingInvoices && pendingInvoices.total > 0 && summary && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-1">
-            <h3 className="text-xs font-medium text-amber-700 dark:text-amber-400">Faturas Pendentes</h3>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-1">
+            <h3 className="text-xs font-medium text-amber-700">Faturas Pendentes</h3>
             <p className="text-xl font-bold text-amber-600">{formatCurrency(pendingInvoices.total)}</p>
             <p className="text-[10px] text-amber-600/70">{pendingInvoices.count} fatura(s) aguardando pagamento</p>
           </div>

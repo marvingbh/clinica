@@ -30,7 +30,7 @@ function NfBadgeCell({ invoice }: { invoice: Invoice }) {
   if (invoice.nfseStatus === "EMITIDA") {
     return (
       <span
-        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800"
         title={invoice.nfseNumero ? `NFS-e #${invoice.nfseNumero}` : "NFS-e emitida"}
       >
         NFS-e
@@ -40,7 +40,7 @@ function NfBadgeCell({ invoice }: { invoice: Invoice }) {
   if (invoice.nfseStatus === "PENDENTE") {
     return (
       <span
-        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800"
         title="NFS-e em processamento"
       >
         ...
@@ -50,7 +50,7 @@ function NfBadgeCell({ invoice }: { invoice: Invoice }) {
   if (invoice.nfseStatus === "ERRO") {
     return (
       <span
-        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800"
         title={invoice.nfseErro || "Erro na emissao"}
       >
         Erro
@@ -60,7 +60,7 @@ function NfBadgeCell({ invoice }: { invoice: Invoice }) {
   if (invoice.nfseStatus === "PARCIAL") {
     return (
       <span
-        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800"
         title="NFS-e parcialmente emitida"
       >
         Parcial
@@ -70,7 +70,7 @@ function NfBadgeCell({ invoice }: { invoice: Invoice }) {
   if (invoice.nfseStatus === "EMITIDA_EXTERNA") {
     return (
       <span
-        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800"
         title="NFS-e emitida fora do sistema"
       >
         Externa
@@ -90,7 +90,7 @@ function NfBadgeCell({ invoice }: { invoice: Invoice }) {
   // Manual NF fallback
   if (invoice.notaFiscalEmitida) {
     return (
-      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" title="NF emitida">&#x2713;</span>
+      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 text-green-700" title="NF emitida">&#x2713;</span>
     )
   }
   return <span className="text-muted-foreground">&mdash;</span>
@@ -118,10 +118,10 @@ function PaymentCell({
   if (invoice.status === "PAGO") {
     return (
       <div className="flex flex-col items-center gap-0.5">
-        <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+        <span className="text-xs text-green-600 font-medium">
           {invoice.paidAt ? new Date(invoice.paidAt).toLocaleDateString("pt-BR") : "Pago"}
         </span>
-        <span className={`text-[10px] ${invoice.paidViaBank ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"}`}>
+        <span className={`text-[10px] ${invoice.paidViaBank ? "text-blue-600" : "text-muted-foreground"}`}>
           {invoice.paidViaBank ? "Conciliado" : "Manual"}
         </span>
       </div>
@@ -153,7 +153,7 @@ function ActionButtons({
       {canEmit && onEmitNfse && (
         <button
           onClick={() => onEmitNfse(invoice.id)}
-          className="p-1.5 rounded-md text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+          className="p-1.5 rounded-md text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition-colors"
           title="Emitir NFS-e"
         >
           <FileTextIcon className="w-4 h-4" />
@@ -188,7 +188,7 @@ function ActionButtons({
           {onSendNfseEmail && (
             <button
               onClick={() => onSendNfseEmail(invoice)}
-              className="p-1.5 rounded-md text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+              className="p-1.5 rounded-md text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
               title="Enviar NFS-e por e-mail"
             >
               <MailIcon className="w-4 h-4" />
@@ -198,7 +198,7 @@ function ActionButtons({
             href={`/api/financeiro/faturas/${invoice.id}/nfse/pdf`}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-1.5 rounded-md text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors"
+            className="p-1.5 rounded-md text-green-600 hover:text-green-700 hover:bg-green-50 transition-colors"
             title="Baixar NFS-e PDF"
           >
             <FileTextIcon className="w-4 h-4" />

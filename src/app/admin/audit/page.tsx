@@ -78,18 +78,18 @@ const ENTITY_LABELS: Record<string, string> = {
 }
 
 const ACTION_COLORS: Record<string, string> = {
-  APPOINTMENT_CREATED: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  APPOINTMENT_UPDATED: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  APPOINTMENT_DELETED: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  APPOINTMENT_STATUS_CHANGED: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  APPOINTMENT_CANCELLED: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-  PROFESSIONAL_CANCELLATION: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-  PATIENT_CREATED: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  PATIENT_UPDATED: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  PATIENT_DELETED: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  LOGIN_SUCCESS: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  LOGIN_FAILED: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  PERMISSION_DENIED: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  APPOINTMENT_CREATED: "bg-green-100 text-green-800",
+  APPOINTMENT_UPDATED: "bg-blue-100 text-blue-800",
+  APPOINTMENT_DELETED: "bg-red-100 text-red-800",
+  APPOINTMENT_STATUS_CHANGED: "bg-yellow-100 text-yellow-800",
+  APPOINTMENT_CANCELLED: "bg-orange-100 text-orange-800",
+  PROFESSIONAL_CANCELLATION: "bg-orange-100 text-orange-800",
+  PATIENT_CREATED: "bg-green-100 text-green-800",
+  PATIENT_UPDATED: "bg-blue-100 text-blue-800",
+  PATIENT_DELETED: "bg-red-100 text-red-800",
+  LOGIN_SUCCESS: "bg-green-100 text-green-800",
+  LOGIN_FAILED: "bg-red-100 text-red-800",
+  PERMISSION_DENIED: "bg-red-100 text-red-800",
 }
 
 export default function AdminAuditPage() {
@@ -175,7 +175,7 @@ export default function AdminAuditPage() {
   }
 
   function getActionColor(action: string): string {
-    return ACTION_COLORS[action] || "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+    return ACTION_COLORS[action] || "bg-gray-100 text-gray-800"
   }
 
   function handleClearFilters() {
