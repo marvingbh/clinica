@@ -81,7 +81,7 @@ export function AgendaHeader({
   return (
     <header className="bg-gradient-to-br from-primary/5 via-background to-background">
       {/* Title Section */}
-      <div className="max-w-4xl mx-auto px-4 pt-8 pb-4">
+      <div className="max-w-[1320px] mx-auto px-4 md:px-6 pt-8 pb-4">
         <div className="flex items-center justify-between mb-1">
           <div>
             <p className="text-sm text-muted-foreground font-medium">Agenda</p>
@@ -94,7 +94,7 @@ export function AgendaHeader({
               <button
                 type="button"
                 onClick={onBulkCancel}
-                className="h-10 px-4 rounded-xl border border-input bg-background text-sm font-medium hover:bg-muted transition-all duration-normal active:scale-[0.98] flex items-center gap-2 shadow-sm text-red-600 dark:text-red-400"
+                className="h-10 px-4 rounded-xl border border-input bg-background text-sm font-medium hover:bg-muted transition-all duration-normal active:scale-[0.98] flex items-center gap-2 shadow-sm text-red-600"
                 title="Cancelar agendamentos do dia"
               >
                 <BanIcon className="w-4 h-4" />
@@ -113,7 +113,7 @@ export function AgendaHeader({
       </div>
 
       {/* Week Day Picker */}
-      <div className="max-w-4xl mx-auto px-4 pb-4">
+      <div className="max-w-[1320px] mx-auto px-4 md:px-6 pb-4">
         <Card elevation="md" className="overflow-hidden">
           <CardContent className="py-3 px-2">
             <div className="flex items-center gap-1">
@@ -198,7 +198,7 @@ export function AgendaHeader({
 
       {/* Professional Tabs */}
       {isAdmin && professionals.length > 0 && (
-        <div className="max-w-4xl mx-auto px-4 pb-4">
+        <div className="max-w-[1320px] mx-auto px-4 md:px-6 pb-4">
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             <button
               type="button"

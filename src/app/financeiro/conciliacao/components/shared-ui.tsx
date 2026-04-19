@@ -56,7 +56,7 @@ export function ParentNames({ motherName, fatherName, payerName }: { motherName:
     <div className="flex items-center gap-3 mt-0.5 text-xs flex-wrap">
       {motherName && (
         <span className={`inline-flex items-center gap-1 ${
-          hasWordOverlap(motherName, payerName) ? "text-green-700 dark:text-green-400 font-medium" : "text-muted-foreground"
+          hasWordOverlap(motherName, payerName) ? "text-green-700 font-medium" : "text-muted-foreground"
         }`}>
           {hasWordOverlap(motherName, payerName) && <CheckIcon className="w-3 h-3" />}
           Mãe: {motherName}
@@ -64,7 +64,7 @@ export function ParentNames({ motherName, fatherName, payerName }: { motherName:
       )}
       {fatherName && (
         <span className={`inline-flex items-center gap-1 ${
-          hasWordOverlap(fatherName, payerName) ? "text-green-700 dark:text-green-400 font-medium" : "text-muted-foreground"
+          hasWordOverlap(fatherName, payerName) ? "text-green-700 font-medium" : "text-muted-foreground"
         }`}>
           {hasWordOverlap(fatherName, payerName) && <CheckIcon className="w-3 h-3" />}
           Pai: {fatherName}
@@ -119,7 +119,7 @@ export function AddedInvoiceRow({ inv, isSelected, onToggle }: { inv: CreatedInv
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-sm">{inv.patientName}</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
               Nova
             </span>
             <span className="text-xs text-muted-foreground">

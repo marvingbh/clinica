@@ -74,12 +74,12 @@ export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointm
                   </span>
                 )}
                 {appointment.recurrence && (
-                  <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                  <span className="inline-flex items-center gap-1 text-xs text-blue-600">
                     <RefreshCwIcon className="w-3 h-3" />
                     {appointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
                      appointment.recurrence.recurrenceType === "BIWEEKLY" ? "Quinzenal" : "Mensal"}
                     {isRecurrenceModified(appointment) && (
-                      <span className="text-amber-600 dark:text-amber-400"> · alterado</span>
+                      <span className="text-amber-600"> · alterado</span>
                     )}
                   </span>
                 )}
@@ -99,16 +99,16 @@ export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointm
                     onAlternateWeekClick?.(appointment)
                   }}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onAlternateWeekClick?.(appointment) } }}
-                  className="mt-1.5 text-xs text-purple-600 dark:text-purple-400 flex items-center gap-1 hover:text-purple-800 dark:hover:text-purple-200 cursor-pointer transition-colors"
+                  className="mt-1.5 text-xs text-purple-600 flex items-center gap-1 hover:text-purple-800 cursor-pointer transition-colors"
                 >
                   <ArrowLeftRightIcon className="w-3 h-3" />
                   <span>Alterna com:</span>
                   {appointment.alternateWeekInfo.pairedPatientName ? (
                     <span className="font-medium underline">{appointment.alternateWeekInfo.pairedPatientName}</span>
                   ) : appointment.alternateWeekInfo.isAvailable ? (
-                    <span className="text-green-600 dark:text-green-400 font-medium underline">Disponivel - Agendar</span>
+                    <span className="text-green-600 font-medium underline">Disponivel - Agendar</span>
                   ) : (
-                    <span className="text-amber-600 dark:text-amber-400 font-medium">Bloqueado</span>
+                    <span className="text-amber-600 font-medium">Bloqueado</span>
                   )}
                 </div>
               )}
@@ -130,7 +130,7 @@ export function TimeSlotCard({ slot, isAdmin, selectedProfessionalId, onAppointm
           slot.biweeklyHint ? (
             <button
               onClick={() => onBiweeklyHintClick?.(slot.time)}
-              className="flex-1 border border-dashed border-purple-300 dark:border-purple-700 rounded-lg p-3 flex items-center text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-400 dark:hover:border-purple-600 transition-colors cursor-pointer"
+              className="flex-1 border border-dashed border-purple-300 rounded-lg p-3 flex items-center text-purple-600 hover:bg-purple-50 hover:border-purple-400 transition-colors cursor-pointer"
             >
               <ArrowLeftRightIcon className="w-4 h-4 mr-2 flex-shrink-0" />
               <span className="text-sm">

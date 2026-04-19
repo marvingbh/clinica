@@ -58,30 +58,30 @@ export interface Transaction {
 }
 
 export const INVOICE_STATUS_CONFIG: Record<string, { bg: string; label: string }> = {
-  PENDENTE: { bg: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400", label: "Pendente" },
-  ENVIADO: { bg: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400", label: "Enviado" },
-  PARCIAL: { bg: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", label: "Parcial" },
-  PAGO: { bg: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", label: "Pago" },
+  PENDENTE: { bg: "bg-yellow-100 text-yellow-700", label: "Pendente" },
+  ENVIADO: { bg: "bg-blue-100 text-blue-700", label: "Enviado" },
+  PARCIAL: { bg: "bg-orange-100 text-orange-700", label: "Parcial" },
+  PAGO: { bg: "bg-green-100 text-green-700", label: "Pago" },
 }
 
 export const CONFIDENCE_CONFIG: Record<string, { bg: string; dot: string; label: string }> = {
   KNOWN: {
-    bg: "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800",
+    bg: "bg-blue-50 border-blue-200",
     dot: "bg-blue-500",
     label: "Pagador usual",
   },
   HIGH: {
-    bg: "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800",
+    bg: "bg-green-50 border-green-200",
     dot: "bg-green-500",
     label: "Alta",
   },
   MEDIUM: {
-    bg: "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800",
+    bg: "bg-amber-50 border-amber-200",
     dot: "bg-amber-500",
     label: "Média",
   },
   LOW: {
-    bg: "bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800",
+    bg: "bg-red-50 border-red-200",
     dot: "bg-red-400",
     label: "Baixa",
   },

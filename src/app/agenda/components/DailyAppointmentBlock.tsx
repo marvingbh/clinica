@@ -128,7 +128,7 @@ export const DailyAppointmentBlock = memo(function DailyAppointmentBlock({
                 </h4>
                 {appointment.patient && (
                   <p className="text-xs text-muted-foreground truncate">
-                    <span className="text-green-600 dark:text-green-400 font-semibold">$</span> {appointment.patient.name}
+                    <span className="text-green-600 font-semibold">$</span> {appointment.patient.name}
                   </p>
                 )}
               </>
@@ -193,8 +193,8 @@ export const DailyAppointmentBlock = memo(function DailyAppointmentBlock({
             {appointment.recurrence && (
               <span className={`inline-flex items-center gap-1 text-[10px] font-medium ${
                 isRecurrenceModified(appointment)
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-blue-600 dark:text-blue-400"
+                  ? "text-amber-600"
+                  : "text-blue-600"
               }`}>
                 <RefreshCwIcon className="w-3 h-3" />
                 {appointment.recurrence.recurrenceType === "WEEKLY" ? "Semanal" :
@@ -214,8 +214,8 @@ function RecurrenceIcon({ appointment }: { appointment: Appointment }) {
     <span title={isRecurrenceModified(appointment) ? "Recorrência alterada neste dia" : "Recorrente"}>
       <RefreshCwIcon className={`inline w-3 h-3 ml-1 ${
         isRecurrenceModified(appointment)
-          ? "text-amber-600 dark:text-amber-400"
-          : "text-blue-600 dark:text-blue-400"
+          ? "text-amber-600"
+          : "text-blue-600"
       }`} />
     </span>
   )

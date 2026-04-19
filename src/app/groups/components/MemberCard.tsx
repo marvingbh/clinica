@@ -21,7 +21,7 @@ export function MemberCard({ membership, canRemove, onRemove }: MemberCardProps)
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <span className={`text-xs px-2 py-1 rounded-full ${isActive ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200" : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"}`}>
+            <span className={`text-xs px-2 py-1 rounded-full ${isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>
               {isActive ? "Ativo" : "Saiu"}
             </span>
             <p className="text-xs text-muted-foreground mt-1">

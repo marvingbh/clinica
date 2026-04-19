@@ -20,14 +20,14 @@ export interface NfseSectionProps {
 }
 
 export const EMISSION_STATUS_STYLES: Record<string, string> = {
-  PENDENTE: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-  EMITIDA: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  ERRO: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+  PENDENTE: "bg-amber-100 text-amber-800",
+  EMITIDA: "bg-green-100 text-green-800",
+  ERRO: "bg-red-100 text-red-800",
   CANCELADA: "bg-muted text-muted-foreground",
 }
 
 export function StatusBadge({ label, style, spinning, strikethrough }: { label: string; style: "amber" | "green" | "red" | "muted" | "blue"; spinning?: boolean; strikethrough?: boolean }) {
-  const colors = { amber: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300", green: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300", red: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300", muted: "bg-muted text-muted-foreground", blue: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" }
+  const colors = { amber: "bg-amber-100 text-amber-800", green: "bg-green-100 text-green-800", red: "bg-red-100 text-red-800", muted: "bg-muted text-muted-foreground", blue: "bg-blue-100 text-blue-800" }
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${colors[style]} ${strikethrough ? "line-through" : ""}`}>
       {spinning && <LoaderIcon className="w-3 h-3 animate-spin" />}

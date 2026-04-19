@@ -231,8 +231,8 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
                       <td className="text-center py-3 px-4">{prof.patientCount}</td>
                       <td className="text-center py-3 px-4">{prof.sessions}</td>
                       <td className="text-right py-3 px-4">{formatCurrencyBRL(prof.faturado)}</td>
-                      <td className="text-right py-3 px-4 text-amber-600 dark:text-amber-400">{formatCurrencyBRL(aReceber)}</td>
-                      <td className="text-right py-3 px-4 text-green-600 dark:text-green-400">{formatCurrencyBRL(prof.pago)}</td>
+                      <td className="text-right py-3 px-4 text-amber-600">{formatCurrencyBRL(aReceber)}</td>
+                      <td className="text-right py-3 px-4 text-green-600">{formatCurrencyBRL(prof.pago)}</td>
                       <td className="text-right py-3 px-4">
                         <div className="flex items-center justify-end gap-2">
                           <div className="w-16 h-2 rounded-full bg-muted overflow-hidden">
@@ -276,12 +276,12 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
                       <td className="py-3 px-4 font-medium text-primary">{MONTH_NAMES[m - 1]}</td>
                       <td className="text-center py-3 px-4">
                         {md.invoiceCount}
-                        {md.pendingCount > 0 && <span className="text-amber-600 dark:text-amber-400 text-xs ml-1">({md.pendingCount} pend.)</span>}
+                        {md.pendingCount > 0 && <span className="text-amber-600 text-xs ml-1">({md.pendingCount} pend.)</span>}
                       </td>
                       <td className="text-center py-3 px-4">{md.sessions}</td>
                       <td className="text-right py-3 px-4">{formatCurrencyBRL(md.faturado)}</td>
-                      <td className="text-right py-3 px-4 text-amber-600 dark:text-amber-400">{aReceber > 0 ? formatCurrencyBRL(aReceber) : "—"}</td>
-                      <td className="text-right py-3 px-4 text-green-600 dark:text-green-400">{md.pago > 0 ? formatCurrencyBRL(md.pago) : "—"}</td>
+                      <td className="text-right py-3 px-4 text-amber-600">{aReceber > 0 ? formatCurrencyBRL(aReceber) : "—"}</td>
+                      <td className="text-right py-3 px-4 text-green-600">{md.pago > 0 ? formatCurrencyBRL(md.pago) : "—"}</td>
                     </tr>
                   )
                 })}
@@ -292,8 +292,8 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
                   <td className="text-center py-3 px-4">{data.invoiceCount}</td>
                   <td className="text-center py-3 px-4">{data.totalSessions}</td>
                   <td className="text-right py-3 px-4">{formatCurrencyBRL(data.totalFaturado)}</td>
-                  <td className="text-right py-3 px-4 text-amber-600 dark:text-amber-400">{formatCurrencyBRL(totalAReceber)}</td>
-                  <td className="text-right py-3 px-4 text-green-600 dark:text-green-400">{formatCurrencyBRL(data.totalPago)}</td>
+                  <td className="text-right py-3 px-4 text-amber-600">{formatCurrencyBRL(totalAReceber)}</td>
+                  <td className="text-right py-3 px-4 text-green-600">{formatCurrencyBRL(data.totalPago)}</td>
                 </tr>
               </tfoot>
             </table>

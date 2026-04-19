@@ -77,13 +77,13 @@ export function MultiPatientSearch({
           {selectedPatients.map(patient => (
             <span
               key={patient.id}
-              className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200"
+              className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
             >
               {patient.name}
               <button
                 type="button"
                 onClick={() => onRemovePatient(patient.id)}
-                className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-purple-200 dark:hover:bg-purple-800 transition-colors"
+                className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-purple-200 transition-colors"
                 aria-label={`Remover ${patient.name}`}
               >
                 <XIcon className="w-3 h-3" />

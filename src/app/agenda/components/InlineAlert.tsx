@@ -13,16 +13,16 @@ export function InlineAlert({ message, onDismiss, variant = "error" }: InlineAle
 
   const styles = {
     error: {
-      container: "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800",
-      text: "text-red-800 dark:text-red-200",
-      icon: "text-red-600 dark:text-red-400",
-      button: "text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 hover:bg-red-100 dark:hover:bg-red-900/50",
+      container: "bg-red-50 border-red-200",
+      text: "text-red-800",
+      icon: "text-red-600",
+      button: "text-red-600 hover:text-red-800 hover:bg-red-100",
     },
     warning: {
-      container: "bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800",
-      text: "text-orange-800 dark:text-orange-200",
-      icon: "text-orange-600 dark:text-orange-400",
-      button: "text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-200 hover:bg-orange-100 dark:hover:bg-orange-900/50",
+      container: "bg-orange-50 border-orange-200",
+      text: "text-orange-800",
+      icon: "text-orange-600",
+      button: "text-orange-600 hover:text-orange-800 hover:bg-orange-100",
     },
   }
 

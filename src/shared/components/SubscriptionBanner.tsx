@@ -26,8 +26,8 @@ export function SubscriptionBanner() {
     banner.type === "error"
       ? "bg-destructive/10 border-destructive/20 text-destructive"
       : banner.type === "warning"
-        ? "bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200"
-        : "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-200"
+        ? "bg-yellow-50 border-yellow-200 text-yellow-800"
+        : "bg-blue-50 border-blue-200 text-blue-800"
 
   const Icon =
     banner.type === "error" ? XCircle : banner.type === "warning" ? AlertTriangle : Info

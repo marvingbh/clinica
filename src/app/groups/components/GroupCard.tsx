@@ -56,7 +56,7 @@ export function GroupCard({ group, canWrite, onView, onEdit, onDeactivate, onRea
             )}
           </p>
           <div className="flex gap-3 mt-2">
-            <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
               {group.activeMemberCount ?? 0} membro{(group.activeMemberCount ?? 0) !== 1 ? "s" : ""}
             </span>
             <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">

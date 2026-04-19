@@ -47,14 +47,14 @@ export default function NfseConfigSummary({ config, onEdit, onDelete, isDeleting
         <span
           className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
             config.useSandbox
-              ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
-              : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+              ? "bg-yellow-100 text-yellow-800"
+              : "bg-green-100 text-green-800"
           }`}
         >
           {config.useSandbox ? "Sandbox" : "Producao"}
         </span>
         {config.hasCertificate && (
-          <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+          <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
             Certificado A1 instalado
           </span>
         )}

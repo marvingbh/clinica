@@ -27,8 +27,8 @@ export function InsightsAtendimento({ data }: Props) {
           sub={`${cancel.cancelledCount} de ${cancel.totalAppointments} consultas`}
           detail={
             Number(cancelRatePct) > 15
-              ? <span className="text-xs text-red-600 dark:text-red-400">Acima do ideal (&lt;15%)</span>
-              : <span className="text-xs text-green-600 dark:text-green-400">Dentro do esperado</span>
+              ? <span className="text-xs text-red-600">Acima do ideal (&lt;15%)</span>
+              : <span className="text-xs text-green-600">Dentro do esperado</span>
           }
         />
         <MetricCard
@@ -62,8 +62,8 @@ export function InsightsAtendimento({ data }: Props) {
                       <td className="py-3 px-4 font-medium">{p.name}</td>
                       <td className="text-right py-3 px-4">{formatCurrencyBRL(p.avgTicket)}</td>
                       <td className={`text-right py-3 px-4 text-sm ${
-                        diffNum > 0 ? "text-green-600 dark:text-green-400"
-                        : diffNum < 0 ? "text-red-600 dark:text-red-400"
+                        diffNum > 0 ? "text-green-600"
+                        : diffNum < 0 ? "text-red-600"
                         : "text-muted-foreground"
                       }`}>
                         {diffNum > 0 ? "+" : ""}{diff}%

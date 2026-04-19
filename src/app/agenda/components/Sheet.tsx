@@ -42,7 +42,7 @@ export function Sheet({ isOpen, onClose, title, children }: SheetProps) {
       {/* Sheet Container - centered on larger screens */}
       <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center">
         {/* Sheet - full width on mobile, max-width on larger screens */}
-        <div className="w-full max-w-4xl bg-card rounded-t-2xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 max-h-[90vh] overflow-y-auto animate-slide-up">
+        <div className="w-full max-w-4xl bg-card rounded-t-2xl shadow-2xl ring-1 ring-black/5 max-h-[90vh] overflow-y-auto animate-slide-up">
           {/* Handle */}
           <div className="sticky top-0 bg-card pt-3 pb-2 px-4 border-b border-border z-10">
             <div className="w-10 h-1 bg-muted rounded-full mx-auto mb-4" />

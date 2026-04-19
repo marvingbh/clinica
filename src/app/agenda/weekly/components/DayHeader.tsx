@@ -42,7 +42,7 @@ export function DayHeader({ date, birthdayNames = [] }: DayHeaderProps) {
           {birthdayNames.map((name, i) => (
             <span
               key={i}
-              className="text-[10px] leading-tight text-amber-700 dark:text-amber-300 truncate w-full text-center"
+              className="text-[10px] leading-tight text-amber-700 truncate w-full text-center"
               title={name}
             >
               🎂 {name}

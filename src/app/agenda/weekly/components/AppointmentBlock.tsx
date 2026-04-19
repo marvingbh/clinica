@@ -139,7 +139,7 @@ export const AppointmentBlock = memo(function AppointmentBlock({
             </p>
             {appointment.patient && (
               <p className="text-[9px] text-muted-foreground truncate leading-tight">
-                <span className="text-green-600 dark:text-green-400 font-semibold">$</span> {appointment.patient.name}
+                <span className="text-green-600 font-semibold">$</span> {appointment.patient.name}
               </p>
             )}
           </>
@@ -152,7 +152,7 @@ export const AppointmentBlock = memo(function AppointmentBlock({
           </p>
         )}
         {isCancelled && (
-          <p className="text-[9px] text-red-600 dark:text-red-400 font-medium truncate leading-tight">
+          <p className="text-[9px] text-red-600 font-medium truncate leading-tight">
             {STATUS_LABELS[appointment.status as AppointmentStatus]}
           </p>
         )}
@@ -171,7 +171,7 @@ export const AppointmentBlock = memo(function AppointmentBlock({
                 if (i > 0) {
                   parts.push(
                     <a key={i} href={urls[i - 1]} target="_blank" rel="noopener noreferrer"
-                      className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-200 break-all"
+                      className="text-blue-600 underline hover:text-blue-800 break-all"
                       onClick={(e) => e.stopPropagation()}
                     >{urls[i - 1]}</a>
                   )
@@ -190,7 +190,7 @@ export const AppointmentBlock = memo(function AppointmentBlock({
               e.stopPropagation()
               onAlternateWeekClick?.(appointment)
             }}
-            className="text-[9px] text-purple-600 dark:text-purple-400 truncate leading-tight flex items-center gap-0.5 hover:text-purple-800 dark:hover:text-purple-200 cursor-pointer underline"
+            className="text-[9px] text-purple-600 truncate leading-tight flex items-center gap-0.5 hover:text-purple-800 cursor-pointer underline"
           >
             <ArrowLeftRightIcon className="w-2.5 h-2.5 flex-shrink-0" />
             {appointment.alternateWeekInfo.pairedPatientName || (appointment.alternateWeekInfo.isAvailable ? "Disponivel - Agendar" : "Bloqueado")}

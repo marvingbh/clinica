@@ -80,11 +80,11 @@ export function ExceptionsList({
                 </div>
                 <div className="flex items-center gap-1.5 mt-1">
                   {ex.isClinicWide ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-600 dark:text-purple-400">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-600">
                       <Building2 size={11} /> Toda a clínica
                     </span>
                   ) : ex.professionalName ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-400">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600">
                       <User size={11} /> {ex.professionalName}
                     </span>
                   ) : null}

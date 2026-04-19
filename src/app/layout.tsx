@@ -1,23 +1,27 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { SessionProvider } from "@/shared/components/session-provider";
-import { ThemeProvider } from "@/shared/components/theme-provider";
-import { DesktopHeader } from "@/shared/components/ui/desktop-header";
+import { SidebarNav } from "@/shared/components/ui/sidebar-nav";
 import { BottomNavigation } from "@/shared/components/ui/bottom-navigation";
 import { PageTransition } from "@/shared/components/ui/page-transition";
+import { AppShell } from "@/shared/components/ui/app-shell";
 import { SubscriptionBanner } from "@/shared/components/SubscriptionBanner";
 import CookieConsentBanner from "@/shared/components/CookieConsentBanner";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const plexSans = IBM_Plex_Sans({
+  variable: "--font-plex-sans",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
   subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -49,10 +53,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fafafa" },
-    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
-  ],
+  themeColor: "#F7F9FC",
 };
 
 export default function RootLayout({
@@ -63,23 +64,21 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${plexSans.variable} ${plexMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <ThemeProvider>
-          <SessionProvider>
-            <DesktopHeader />
+        <SessionProvider>
+          <SidebarNav />
+          <AppShell>
             <SubscriptionBanner />
-            <div className="md:pt-16">
-              <PageTransition>
-                {children}
-              </PageTransition>
-            </div>
-            <BottomNavigation />
-            <Toaster richColors position="top-right" />
-            <CookieConsentBanner />
-          </SessionProvider>
-        </ThemeProvider>
+            <PageTransition>
+              {children}
+            </PageTransition>
+          </AppShell>
+          <BottomNavigation />
+          <Toaster richColors position="top-right" />
+          <CookieConsentBanner />
+        </SessionProvider>
       </body>
     </html>
   );

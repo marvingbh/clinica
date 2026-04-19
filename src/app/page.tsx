@@ -1,904 +1,647 @@
 "use client"
 
-import { useRouter } from "next/navigation"
-import { useSession, signOut } from "next-auth/react"
-import Link from "next/link"
 import { useState } from "react"
-import { useMountEffect } from "@/shared/hooks"
+import Link from "next/link"
+import { useSession } from "next-auth/react"
 import {
-  CalendarIcon,
-  UsersIcon,
-  SettingsIcon,
-  UserIcon,
-  LogOutIcon,
-  ChevronRightIcon,
   PlusIcon,
-  ClockIcon,
-  StethoscopeIcon,
-  ShieldIcon,
-  TrendingUpIcon,
   DollarSignIcon,
-  ActivityIcon,
-  CalendarDaysIcon,
-  BellIcon,
-  BarChart3Icon,
+  CalendarIcon,
+  FileTextIcon,
+  UsersIcon,
 } from "@/shared/components/ui/icons"
-import { Card, CardContent } from "@/shared/components/ui/card"
-import { Skeleton, SkeletonAvatar, SkeletonText } from "@/shared/components/ui/skeleton"
-import { FAB } from "@/shared/components/ui/fab"
-import { useDashboard } from "@/app/hooks/useDashboard"
-import { usePermission } from "@/shared/hooks/usePermission"
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts"
+import { Badge } from "@/shared/components/ui/badge"
+import { Avatar } from "@/shared/components/ui/avatar"
+import { Button } from "@/shared/components/ui/button"
+import { DashboardSearch } from "./DashboardSearch"
+import { KPI, KPIGrid } from "@/shared/components/ui/kpi"
+import { Panel, PanelHead, PanelBody } from "@/shared/components/ui/panel"
+import { RevenueChart } from "@/shared/components/ui/revenue-chart"
+import {
+  useDashboard,
+  type DashboardData,
+  type TodayScheduleItem,
+  type RecentInvoiceItem,
+} from "@/app/hooks/useDashboard"
+import { LandingPage } from "./landing/LandingPage"
 
-// --- Helpers ---
+/* ============================================
+   Formatting helpers
+   ============================================ */
 
-function formatCurrency(value: number): string {
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+function formatCurrency(value: number | null): {
+  prefix: string
+  whole: string
+  cents: string
+} {
+  if (value == null) return { prefix: "R$", whole: "—", cents: "" }
+  const formatted = value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+  const [whole, cents] = formatted.split(",")
+  return { prefix: "R$", whole, cents: `,${cents ?? "00"}` }
 }
 
-function formatTime(isoString: string): string {
-  return new Date(isoString).toLocaleTimeString("pt-BR", {
+function formatTimeHM(iso: string): string {
+  return new Date(iso).toLocaleTimeString("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
   })
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  AGENDADO: "#3b82f6",
-  CONFIRMADO: "#22c55e",
-  CANCELADO_ACORDADO: "#ef4444",
-  CANCELADO_FALTA: "#6b7280",
-  CANCELADO_PROFISSIONAL: "#f97316",
-  FINALIZADO: "#14b8a6",
+function formatDateLong(d: Date): string {
+  const weekday = d
+    .toLocaleDateString("pt-BR", { weekday: "short" })
+    .replace(/\.$/, "")
+  const day = d
+    .toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })
+    .replace(/\.$/, "")
+  return `${capitalize(weekday)}, ${day}`
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  AGENDADO: "Agendado",
-  CONFIRMADO: "Confirmado",
-  CANCELADO_ACORDADO: "Desmarcou",
-  CANCELADO_FALTA: "Faltou",
-  CANCELADO_PROFISSIONAL: "Canc. profissional",
-  FINALIZADO: "Finalizado",
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  CONSULTA: "Consulta",
-  TAREFA: "Tarefa",
-  LEMBRETE: "Lembrete",
-  NOTA: "Nota",
-  REUNIAO: "Reuniao",
+function greetingFor(hour: number): string {
+  if (hour < 12) return "Bom dia"
+  if (hour < 18) return "Boa tarde"
+  return "Boa noite"
 }
 
-// --- Skeleton ---
+/* ============================================
+   Status badge mappings
+   ============================================ */
 
-function HomeSkeleton() {
-  return (
-    <main className="min-h-screen bg-background pb-24">
-      {/* Hero */}
-      <div className="bg-gradient-to-br from-primary/5 via-background to-background px-4 pt-12 pb-8">
-        <div className="max-w-4xl mx-auto">
-          <Skeleton className="h-8 w-24 mb-2" />
-          <Skeleton className="h-6 w-48" />
-        </div>
-      </div>
+type BadgeTone = "ok" | "brand" | "warn" | "err" | "neutral"
 
-      {/* Quick Stats 2x2 */}
-      <div className="max-w-4xl mx-auto px-4 -mt-4">
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} elevation="md" className="p-4">
-              <Skeleton className="h-8 w-12 mb-2" />
-              <Skeleton className="h-4 w-20" />
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* Next appointment */}
-      <div className="max-w-4xl mx-auto px-4 mb-6">
-        <Card elevation="md" className="p-4">
-          <Skeleton className="h-5 w-40 mb-3" />
-          <Skeleton className="h-4 w-56" />
-        </Card>
-      </div>
-
-      {/* Chart placeholder */}
-      <div className="max-w-4xl mx-auto px-4 mb-6">
-        <Card elevation="md" className="p-4">
-          <Skeleton className="h-5 w-32 mb-3" />
-          <Skeleton className="h-40 w-full rounded-lg" />
-        </Card>
-      </div>
-
-      {/* Action Cards */}
-      <div className="max-w-4xl mx-auto px-4">
-        <Skeleton className="h-5 w-32 mb-4" />
-        <div className="space-y-3">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} elevation="sm" className="p-4">
-              <div className="flex items-center gap-4">
-                <SkeletonAvatar size="lg" />
-                <div className="flex-1">
-                  <SkeletonText lines={2} />
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </div>
-    </main>
-  )
+const APPT_STATUS_TONE: Record<string, { tone: BadgeTone; label: string }> = {
+  CONFIRMADO: { tone: "ok", label: "Confirmado" },
+  AGENDADO: { tone: "brand", label: "Agendado" },
+  FINALIZADO: { tone: "ok", label: "Finalizado" },
+  CANCELADO_ACORDADO: { tone: "neutral", label: "Cancelado" },
+  CANCELADO_FALTA: { tone: "err", label: "Faltou" },
+  CANCELADO_PROFISSIONAL: { tone: "warn", label: "Remarcar" },
 }
 
-// --- Components ---
-
-function QuickStatCard({
-  icon: Icon,
-  value,
-  label,
-  color,
-}: {
-  icon: React.ElementType
-  value: string | number
-  label: string
-  color: string
-}) {
-  return (
-    <Card elevation="md" hoverable className="overflow-hidden">
-      <CardContent className="py-4">
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl ${color} flex items-center justify-center flex-shrink-0`}>
-            <Icon className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-foreground leading-none">{value}</p>
-            <p className="text-sm text-muted-foreground mt-1">{label}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
+const INVOICE_STATUS_TONE: Record<string, { tone: BadgeTone; label: string }> = {
+  PAGO: { tone: "ok", label: "Pago" },
+  PARCIAL: { tone: "warn", label: "Parcial" },
+  PENDENTE: { tone: "warn", label: "Pendente" },
+  ENVIADO: { tone: "brand", label: "Enviado" },
+  CANCELADO: { tone: "neutral", label: "Cancelado" },
 }
 
-function NextAppointmentCard({
-  appointment,
-}: {
-  appointment: { patientName: string; time: string; type: string } | null
-}) {
-  return (
-    <Link href="/agenda">
-      <Card elevation="md" hoverable className="overflow-hidden border-l-4 border-l-primary">
-        <CardContent className="py-4">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            Proximo agendamento
-          </p>
-          {appointment ? (
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-semibold text-foreground">{appointment.patientName}</p>
-                <p className="text-sm text-muted-foreground">{formatTime(appointment.time)}</p>
-              </div>
-              <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
-                {TYPE_LABELS[appointment.type] ?? appointment.type}
-              </span>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Nenhum agendamento proximo</p>
-          )}
-        </CardContent>
-      </Card>
-    </Link>
-  )
-}
+const MONTH_PT = [
+  "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+  "Jul", "Ago", "Set", "Out", "Nov", "Dez",
+]
 
-function StatusChart({ breakdown }: { breakdown: { status: string; count: number }[] }) {
-  const data = breakdown.map((item) => ({
-    name: STATUS_LABELS[item.status] ?? item.status,
-    value: item.count,
-    color: STATUS_COLORS[item.status] ?? "#6b7280",
-  }))
+/* ============================================
+   Page
+   ============================================ */
 
-  return (
-    <Card elevation="md" className="overflow-hidden">
-      <CardContent className="py-4">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-          Status de hoje
-        </p>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={45}
-                outerRadius={70}
-                dataKey="value"
-                paddingAngle={2}
-                strokeWidth={0}
-              >
-                {data.map((entry, index) => (
-                  <Cell key={index} fill={entry.color} />
-                ))}
-              </Pie>
-              <Legend
-                verticalAlign="bottom"
-                iconType="circle"
-                iconSize={8}
-                formatter={(value: string) => (
-                  <span className="text-xs text-muted-foreground">{value}</span>
-                )}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function RevenueCards({
-  todayRevenue,
-  monthlyRevenue,
-}: {
-  todayRevenue: number
-  monthlyRevenue: number
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      <Card elevation="md" className="overflow-hidden">
-        <CardContent className="py-4">
-          <div className="flex items-center gap-2 mb-2">
-            <DollarSignIcon className="w-4 h-4 text-success" />
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Hoje
-            </p>
-          </div>
-          <p className="text-lg font-bold text-foreground">{formatCurrency(todayRevenue)}</p>
-        </CardContent>
-      </Card>
-      <Card elevation="md" className="overflow-hidden">
-        <CardContent className="py-4">
-          <div className="flex items-center gap-2 mb-2">
-            <DollarSignIcon className="w-4 h-4 text-success" />
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Mes
-            </p>
-          </div>
-          <p className="text-lg font-bold text-foreground">{formatCurrency(monthlyRevenue)}</p>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-interface ActionCardProps {
-  href: string
-  icon: React.ElementType
-  iconBgColor: string
-  iconColor: string
-  title: string
-  description: string
-}
-
-function ActionCard({ href, icon: Icon, iconBgColor, iconColor, title, description }: ActionCardProps) {
-  return (
-    <Link href={href}>
-      <Card elevation="sm" hoverable className="group">
-        <CardContent className="py-4">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl ${iconBgColor} flex items-center justify-center flex-shrink-0 transition-transform duration-normal group-hover:scale-105`}>
-              <Icon className={`w-6 h-6 ${iconColor}`} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-foreground">{title}</p>
-              <p className="text-sm text-muted-foreground truncate">{description}</p>
-            </div>
-            <ChevronRightIcon className="w-5 h-5 text-muted-foreground flex-shrink-0 transition-transform duration-normal group-hover:translate-x-1" />
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  )
-}
-
-function LogoutCard({ onLogout }: { onLogout: () => void }) {
-  return (
-    <button onClick={onLogout} className="w-full text-left">
-      <Card elevation="sm" hoverable className="group">
-        <CardContent className="py-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center flex-shrink-0 transition-transform duration-normal group-hover:scale-105">
-              <LogOutIcon className="w-6 h-6 text-destructive" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-destructive">Sair</p>
-              <p className="text-sm text-muted-foreground">Encerrar sessão</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </button>
-  )
-}
-
-// --- Landing Page ---
-
-interface PlanData {
-  id: string
-  name: string
-  slug: string
-  maxProfessionals: number
-  priceInCents: number
-}
-
-function PricingSkeleton() {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="bg-card border border-border rounded-lg p-6 shadow-sm">
-          <Skeleton className="h-6 w-24 mb-4" />
-          <Skeleton className="h-10 w-32 mb-2" />
-          <Skeleton className="h-4 w-40 mb-6" />
-          <Skeleton className="h-10 w-full rounded-lg" />
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function LandingPage() {
-  const [plans, setPlans] = useState<PlanData[]>([])
-  const [plansLoading, setPlansLoading] = useState(true)
-
-  useMountEffect(() => {
-    const controller = new AbortController()
-
-    fetch("/api/public/plans", { signal: controller.signal })
-      .then((res) => res.json())
-      .then((data) => {
-        setPlans(data.plans ?? [])
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return
-        setPlans([])
-      })
-      .finally(() => {
-        setPlansLoading(false)
-      })
-
-    return () => controller.abort()
-  })
-
-  function formatPrice(cents: number): string {
-    return (cents / 100).toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    })
-  }
-
-  const features = [
-    {
-      icon: CalendarDaysIcon,
-      title: "Agenda inteligente",
-      description: "Consultas, recorrencias e grupos em uma agenda visual e intuitiva.",
-      accent: "from-teal-500 to-cyan-500",
-      iconBg: "bg-teal-500/10",
-      iconColor: "text-teal-600",
-    },
-    {
-      icon: UsersIcon,
-      title: "Gestao de pacientes",
-      description: "Cadastro completo com historico, prontuario e consentimento LGPD.",
-      accent: "from-blue-500 to-indigo-500",
-      iconBg: "bg-blue-500/10",
-      iconColor: "text-blue-600",
-    },
-    {
-      icon: BellIcon,
-      title: "Notificacoes automaticas",
-      description: "Lembretes por WhatsApp e email para reduzir faltas e atrasos.",
-      accent: "from-amber-500 to-orange-500",
-      iconBg: "bg-amber-500/10",
-      iconColor: "text-amber-600",
-    },
-    {
-      icon: BarChart3Icon,
-      title: "Relatorios e dashboard",
-      description: "Metricas de atendimento, receita e comparecimento em tempo real.",
-      accent: "from-purple-500 to-pink-500",
-      iconBg: "bg-purple-500/10",
-      iconColor: "text-purple-600",
-    },
-  ]
-
-  const stats = [
-    { value: "14", label: "dias gratis", suffix: "" },
-    { value: "100", label: "clinicas confiam", suffix: "+" },
-    { value: "99.9", label: "uptime", suffix: "%" },
-  ]
-
-  const middleIndex = plans.length === 3 ? 1 : -1
-
-  return (
-    <main className="min-h-screen bg-background overflow-hidden">
-      {/* Header */}
-      <header className="border-b border-border/50 bg-background/70 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-md shadow-teal-500/20">
-              <StethoscopeIcon className="w-4.5 h-4.5 text-white" />
-            </div>
-            <span className="text-xl font-bold text-foreground tracking-tight">Clinica</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-2"
-            >
-              Entrar
-            </Link>
-            <Link
-              href="/signup"
-              className="text-sm font-semibold px-5 py-2.5 rounded-xl landing-btn-primary text-white"
-            >
-              Comecar gratis
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* Hero */}
-      <section className="relative pt-20 pb-24 md:pt-28 md:pb-32 landing-hero-bg">
-        {/* Dot pattern background */}
-        <div className="absolute inset-0 landing-dot-pattern opacity-40" />
-
-        {/* Floating accent shapes */}
-        <div
-          className="absolute top-20 left-[10%] w-72 h-72 rounded-full bg-teal-400/8 blur-3xl"
-          style={{ animation: "landing-float 8s ease-in-out infinite" }}
-        />
-        <div
-          className="absolute bottom-10 right-[10%] w-96 h-96 rounded-full bg-blue-400/6 blur-3xl"
-          style={{ animation: "landing-float 10s ease-in-out infinite 2s" }}
-        />
-
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 text-center">
-          {/* Badge */}
-          <div className="landing-animate-up landing-animate-up-1">
-            <span className="inline-flex items-center gap-2 text-sm font-medium px-4 py-1.5 rounded-full bg-teal-500/10 text-teal-700 border border-teal-500/20 mb-8">
-              <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-              14 dias gratis, sem cartao de credito
-            </span>
-          </div>
-
-          <h1 className="landing-animate-up landing-animate-up-2 text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1]">
-            <span className="text-foreground">Gerencie sua clinica</span>
-            <br />
-            <span className="landing-gradient-text">de forma simples</span>
-          </h1>
-
-          <p className="landing-animate-up landing-animate-up-3 mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Agenda, pacientes, notificacoes e relatorios em uma unica plataforma.
-            Tudo que voce precisa para focar no que importa: seus pacientes.
-          </p>
-
-          {/* CTA buttons */}
-          <div className="landing-animate-up landing-animate-up-4 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/signup"
-              className="inline-flex items-center justify-center text-base font-semibold px-8 py-3.5 rounded-xl landing-btn-primary text-white min-w-[220px]"
-            >
-              Comecar gratuitamente
-              <ChevronRightIcon className="w-4 h-4 ml-2" />
-            </Link>
-            <Link
-              href="#features"
-              className="inline-flex items-center justify-center text-base font-medium px-8 py-3.5 rounded-xl border border-border text-foreground hover:bg-muted/50 transition-colors min-w-[220px]"
-            >
-              Conhecer recursos
-            </Link>
-          </div>
-
-          {/* Social proof stats */}
-          <div className="landing-animate-up landing-animate-up-5 mt-16 flex items-center justify-center gap-8 sm:gap-12">
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-foreground">
-                  {stat.value}
-                  <span className="text-teal-600">{stat.suffix}</span>
-                </p>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-1">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section id="features" className="py-20 md:py-28 relative">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-16">
-            <span className="text-sm font-semibold text-teal-600 uppercase tracking-wider">Recursos</span>
-            <h2 className="mt-3 text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-              Tudo que sua clinica precisa
-            </h2>
-            <p className="mt-4 text-muted-foreground max-w-xl mx-auto">
-              Ferramentas pensadas para o dia a dia de clinicas e consultorios de saude.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {features.map((feature, i) => {
-              const Icon = feature.icon
-              return (
-                <div
-                  key={feature.title}
-                  className="group relative bg-card border border-border/60 rounded-2xl p-7 shadow-sm hover:shadow-lg transition-all duration-300 landing-card-glow"
-                  style={{ animationDelay: `${i * 0.1}s` }}
-                >
-                  {/* Top accent line */}
-                  <div className={`absolute top-0 left-6 right-6 h-px bg-gradient-to-r ${feature.accent} opacity-0 group-hover:opacity-60 transition-opacity duration-300`} />
-
-                  <div className={`w-12 h-12 rounded-xl ${feature.iconBg} flex items-center justify-center mb-5 transition-transform duration-300 group-hover:scale-110`}>
-                    <Icon className={`w-6 h-6 ${feature.iconColor}`} />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">{feature.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section className="py-20 md:py-28 relative">
-        {/* Background accent */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-teal-500/[0.02] to-transparent" />
-
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-16">
-            <span className="text-sm font-semibold text-teal-600 uppercase tracking-wider">Planos</span>
-            <h2 className="mt-3 text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-              Simples e transparente
-            </h2>
-            <p className="mt-4 text-muted-foreground max-w-xl mx-auto">
-              Escolha o plano ideal para sua clinica. Todos incluem 14 dias de teste gratis.
-            </p>
-          </div>
-
-          {plansLoading ? (
-            <PricingSkeleton />
-          ) : plans.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-4xl mx-auto">
-              {plans.map((plan, index) => {
-                const isPopular = index === middleIndex
-                return (
-                  <div
-                    key={plan.id}
-                    className={`relative rounded-2xl p-7 flex flex-col transition-all duration-300 ${
-                      isPopular
-                        ? "landing-pricing-popular border-2 shadow-lg shadow-teal-500/10 scale-[1.02]"
-                        : "bg-card border border-border/60 shadow-sm hover:shadow-md"
-                    }`}
-                  >
-                    {isPopular && (
-                      <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-xs font-bold px-4 py-1 rounded-full bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-md shadow-teal-500/20 uppercase tracking-wide">
-                        Popular
-                      </span>
-                    )}
-
-                    <h3 className="text-xl font-bold text-foreground">{plan.name}</h3>
-
-                    <div className="mt-4 mb-1">
-                      <span className="text-4xl font-extrabold text-foreground tracking-tight">
-                        {formatPrice(plan.priceInCents)}
-                      </span>
-                      <span className="text-sm font-medium text-muted-foreground ml-1">/mes</span>
-                    </div>
-
-                    <p className="text-sm text-muted-foreground mb-8">
-                      {plan.maxProfessionals === -1
-                        ? "Profissionais ilimitados"
-                        : `Ate ${plan.maxProfessionals} ${plan.maxProfessionals === 1 ? "profissional" : "profissionais"}`}
-                    </p>
-
-                    {/* Feature list */}
-                    <ul className="space-y-3 mb-8 flex-1">
-                      {["Agenda completa", "Gestao de pacientes", "Notificacoes automaticas", "Relatorios"].map((item) => (
-                        <li key={item} className="flex items-center gap-2.5 text-sm text-foreground">
-                          <span className="w-5 h-5 rounded-full bg-teal-500/10 flex items-center justify-center flex-shrink-0">
-                            <svg className="w-3 h-3 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          </span>
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-
-                    <Link
-                      href="/signup"
-                      className={`block w-full text-center text-sm font-semibold px-4 py-3 rounded-xl transition-all duration-200 ${
-                        isPopular
-                          ? "landing-btn-primary text-white"
-                          : "bg-muted/80 text-foreground hover:bg-muted border border-border/50"
-                      }`}
-                    >
-                      Comecar teste gratis
-                    </Link>
-                  </div>
-                )
-              })}
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          <div className="relative rounded-3xl overflow-hidden p-10 md:p-16 text-center">
-            {/* Gradient background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-teal-600 via-teal-700 to-cyan-800" />
-            <div className="absolute inset-0 landing-dot-pattern opacity-10" />
-
-            <div className="relative">
-              <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
-                Pronto para transformar sua clinica?
-              </h2>
-              <p className="text-teal-100 max-w-lg mx-auto mb-8">
-                Junte-se a centenas de clinicas que ja simplificaram sua gestao. Comece agora, sem compromisso.
-              </p>
-              <Link
-                href="/signup"
-                className="inline-flex items-center justify-center text-base font-semibold px-8 py-3.5 rounded-xl bg-white text-teal-700 hover:bg-teal-50 transition-colors shadow-lg"
-              >
-                Criar conta gratuitamente
-                <ChevronRightIcon className="w-4 h-4 ml-2" />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-border/50 py-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col items-center gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center">
-              <StethoscopeIcon className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-lg font-bold text-foreground">Clinica</span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} Clinica. Todos os direitos reservados.
-          </p>
-        </div>
-      </footer>
-    </main>
-  )
-}
-
-// --- Main Page ---
-
-export default function Home() {
-  const router = useRouter()
+export default function HomePage() {
   const { data: session, status } = useSession()
-  const { data: dashboard, isLoading: dashboardLoading } = useDashboard()
-  const { canRead: canReadUsers, canWrite: canWriteUsers } = usePermission("users")
-  const { canRead: canReadProfessionals } = usePermission("professionals")
-  const { canRead: canReadClinicSettings } = usePermission("clinic_settings")
-  const { canRead: canReadFinances } = usePermission("finances")
+  const { data, isLoading } = useDashboard()
 
-  async function handleLogout() {
-    await signOut({ redirect: false })
-    router.push("/login")
-  }
-
-  function handleNewAppointment() {
-    router.push("/agenda")
-  }
-
-  // Loading state with skeleton
-  if (status === "loading") {
-    return <HomeSkeleton />
-  }
-
-  // Not authenticated - show landing page
+  // Unauthenticated visitors see the public marketing landing page.
   if (status === "unauthenticated") {
     return <LandingPage />
   }
 
-  // Get current time greeting
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite"
-  const firstName = session?.user?.name?.split(" ")[0] || "Usuario"
+  const name = session?.user?.name ?? "colega"
+  const firstName = name.split(" ")[0] ?? name
+  const now = new Date()
+  const greeting = greetingFor(now.getHours())
 
-  // Show skeleton while dashboard loads
-  if (dashboardLoading || !dashboard) {
-    return <HomeSkeleton />
-  }
+  const subCounts = [
+    data ? `${data.todayCount} compromissos hoje` : null,
+    data && data.outstandingCount > 0
+      ? `${data.outstandingCount} ${data.outstandingCount === 1 ? "fatura" : "faturas"} em aberto`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ")
 
   return (
-    <main className="min-h-screen bg-background pb-24">
-      {/* A. Hero Section */}
-      <div className="bg-gradient-to-br from-primary/5 via-background to-background px-4 pt-12 pb-8">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-muted-foreground text-sm font-medium">{greeting},</p>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight mt-1">
-            {firstName}
-          </h1>
+    <main className="min-h-screen bg-ink-50 pb-24 md:pb-12">
+      {/* Header */}
+      <section className="bg-card border-b border-ink-200 px-4 md:px-6 py-4 md:py-5">
+        <div className="max-w-[1320px] mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-[22px] font-semibold text-ink-900 tracking-tight leading-tight truncate">
+              {greeting}, {firstName}
+            </h1>
+            <p className="text-[13px] text-ink-500 mt-1">
+              {formatDateLong(now)}
+              {subCounts && ` · ${subCounts}`}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <DashboardSearch />
+            <Link href="/agenda" className="flex-shrink-0">
+              <Button variant="primary" size="md" leftIcon={<PlusIcon className="w-4 h-4" />}>
+                Novo
+              </Button>
+            </Link>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* B. Quick Stats 2x2 */}
-      <div className="max-w-4xl mx-auto px-4 -mt-4">
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <QuickStatCard
-            icon={CalendarIcon}
-            value={dashboard.todayCount}
-            label="Hoje"
-            color="bg-info"
-          />
-          <QuickStatCard
-            icon={ClockIcon}
-            value={dashboard.pendingCount}
-            label="Pendentes"
-            color="bg-warning"
-          />
-          <QuickStatCard
-            icon={ActivityIcon}
-            value={dashboard.activePatients}
-            label="Pacientes ativos"
-            color="bg-success"
-          />
-          <QuickStatCard
-            icon={TrendingUpIcon}
-            value={dashboard.completionRate !== null ? `${dashboard.completionRate}%` : "—"}
-            label="Comparecimento"
-            color="bg-purple-500"
-          />
-        </div>
-      </div>
+      {/* Body — layout branches on finance access.
+          Admin / finance users see the revenue/outstanding KPIs, chart,
+          and recent-payments table. Professionals without finance access
+          get an agenda-first view with schedule-oriented KPIs and no
+          money data. */}
+      <section className="max-w-[1320px] mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+        <KpiRow data={data} isLoading={isLoading} />
 
-      {/* C. Next Appointment */}
-      <div className="max-w-4xl mx-auto px-4 mb-6">
-        <NextAppointmentCard appointment={dashboard.nextAppointment} />
-      </div>
-
-      {/* D. Today's Status Chart */}
-      {dashboard.todayCount > 0 && dashboard.statusBreakdown.length > 0 && (
-        <div className="max-w-4xl mx-auto px-4 mb-6">
-          <StatusChart breakdown={dashboard.statusBreakdown} />
-        </div>
-      )}
-
-      {/* E. Revenue Cards (clinic settings permission) */}
-      {canReadClinicSettings && dashboard.todayRevenue !== null && dashboard.monthlyRevenue !== null && (
-        <div className="max-w-4xl mx-auto px-4 mb-6">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-            Faturamento
-          </p>
-          <RevenueCards
-            todayRevenue={dashboard.todayRevenue}
-            monthlyRevenue={dashboard.monthlyRevenue}
-          />
-        </div>
-      )}
-
-      {/* F. Action Cards */}
-      <div className="max-w-4xl mx-auto px-4">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
-          Menu Principal
-        </h2>
-
-        <div className="space-y-3">
-          <ActionCard
-            href="/agenda"
-            icon={CalendarIcon}
-            iconBgColor="bg-primary/10"
-            iconColor="text-primary"
-            title="Agenda"
-            description="Ver e gerenciar agendamentos"
-          />
-
-          <ActionCard
-            href="/patients"
-            icon={UsersIcon}
-            iconBgColor="bg-success/10"
-            iconColor="text-success"
-            title="Pacientes"
-            description="Cadastro e historico"
-          />
-
-          {canReadUsers && (
-            <ActionCard
-              href="/users"
-              icon={ShieldIcon}
-              iconBgColor="bg-purple-500/10"
-              iconColor="text-purple-500"
-              title="Usuários"
-              description="Gerenciar contas de acesso"
-            />
-          )}
-
-          {canWriteUsers && (
-            <ActionCard
-              href="/admin/permissions"
-              icon={ShieldIcon}
-              iconBgColor="bg-indigo-500/10"
-              iconColor="text-indigo-500"
-              title="Permissões"
-              description="Gerenciar permissoes de acesso"
-            />
-          )}
-
-          {canReadProfessionals && (
-            <ActionCard
-              href="/professionals"
-              icon={StethoscopeIcon}
-              iconBgColor="bg-warning/10"
-              iconColor="text-warning"
-              title="Profissionais"
-              description="Gerenciar equipe"
-            />
-          )}
-
-          {canReadFinances && (
-            <ActionCard
-              href="/financeiro"
-              icon={DollarSignIcon}
-              iconBgColor="bg-success/10"
-              iconColor="text-success"
-              title="Financeiro"
-              description="Faturas e controle financeiro"
-            />
-          )}
-
-          <ActionCard
-            href="/settings/availability"
-            icon={SettingsIcon}
-            iconBgColor="bg-info/10"
-            iconColor="text-info"
-            title="Configuracoes"
-            description="Disponibilidade e preferencias"
-          />
-        </div>
-
-        {/* G. Account Section */}
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-8 mb-4">
-          Conta
-        </h2>
-
-        <div className="space-y-3">
-          <ActionCard
-            href="/profile"
-            icon={UserIcon}
-            iconBgColor="bg-gray-100 dark:bg-gray-800"
-            iconColor="text-gray-600 dark:text-gray-400"
-            title="Meu Perfil"
-            description="Dados pessoais e profissionais"
-          />
-
-          <LogoutCard onLogout={handleLogout} />
-        </div>
-
-        {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground mt-8">
-          {session?.user?.email}
-        </p>
-      </div>
-
-      {/* FAB for primary action - New Appointment */}
-      <FAB
-        onClick={handleNewAppointment}
-        icon={<PlusIcon className="w-6 h-6" />}
-        label="Novo agendamento"
-        color="primary"
-        elevation="lg"
-      />
+        {data?.canSeeFinances ?? true ? (
+          <>
+            <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
+              <RevenuePanel data={data} isLoading={isLoading} />
+              <TodayPanel data={data} isLoading={isLoading} />
+            </div>
+            <RecentPaymentsPanel data={data} isLoading={isLoading} />
+          </>
+        ) : (
+          <TodayPanel data={data} isLoading={isLoading} full />
+        )}
+      </section>
     </main>
+  )
+}
+
+/* ============================================
+   KPI row
+   ============================================ */
+
+function KpiRow({
+  data,
+  isLoading,
+}: {
+  data: DashboardData | null
+  isLoading: boolean
+}) {
+  if (isLoading) {
+    return (
+      <KPIGrid>
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="bg-card border border-ink-200 rounded-lg px-5 py-4 h-[108px] animate-pulse"
+          />
+        ))}
+      </KPIGrid>
+    )
+  }
+
+  return data?.canSeeFinances ? <FinanceKpis data={data} /> : <AgendaKpis data={data} />
+}
+
+function FinanceKpis({ data }: { data: DashboardData | null }) {
+  const revenue = formatCurrency(data?.monthlyRevenue ?? null)
+  const outstanding = formatCurrency(data?.outstandingAmount ?? null)
+  const deltaPct = data?.revenueDelta ?? null
+  const noShow = data?.noShowRate ?? null
+
+  return (
+    <KPIGrid>
+      <KPI
+        label="Receita · mês"
+        icon={<DollarSignIcon className="w-3 h-3" strokeWidth={2} />}
+        value={
+          <>
+            <span className="text-sm text-ink-500 font-medium mr-1">{revenue.prefix}</span>
+            {revenue.whole}
+            <span className="text-sm text-ink-500 font-medium">{revenue.cents}</span>
+          </>
+        }
+        delta={
+          deltaPct !== null
+            ? {
+                direction: deltaPct >= 0 ? "up" : "down",
+                value: `${deltaPct >= 0 ? "+" : ""}${deltaPct.toFixed(1)}%`,
+                sub: " vs mês anterior",
+              }
+            : undefined
+        }
+      />
+      <KPI
+        label="Consultas · semana"
+        icon={<CalendarIcon className="w-3 h-3" strokeWidth={2} />}
+        value={data?.weekCount ?? "—"}
+        delta={
+          data && data.todayCount > 0
+            ? {
+                direction: "up",
+                intent: "good",
+                value: `${data.todayCount}`,
+                sub: " hoje",
+              }
+            : undefined
+        }
+      />
+      <KPI
+        label="Em aberto"
+        icon={<FileTextIcon className="w-3 h-3" strokeWidth={2} />}
+        value={
+          <>
+            <span className="text-sm text-ink-500 font-medium mr-1">{outstanding.prefix}</span>
+            {outstanding.whole}
+            <span className="text-sm text-ink-500 font-medium">{outstanding.cents}</span>
+          </>
+        }
+        delta={
+          data && data.outstandingCount > 0
+            ? {
+                direction: "down",
+                intent: "bad",
+                value: `${data.outstandingCount}`,
+                sub: data.outstandingCount === 1 ? " fatura" : " faturas",
+              }
+            : undefined
+        }
+      />
+      <KPI
+        label="Taxa de falta"
+        icon={<UsersIcon className="w-3 h-3" strokeWidth={2} />}
+        value={
+          noShow !== null ? (
+            <>
+              {noShow.toFixed(1)}
+              <span className="text-sm text-ink-500 font-medium">%</span>
+            </>
+          ) : (
+            "—"
+          )
+        }
+        delta={
+          noShow !== null
+            ? {
+                direction: noShow < 5 ? "down" : "up",
+                intent: noShow < 5 ? "good" : "bad",
+                value: `${noShow.toFixed(1)}%`,
+                sub: " últimos 30 dias",
+              }
+            : undefined
+        }
+      />
+    </KPIGrid>
+  )
+}
+
+function AgendaKpis({ data }: { data: DashboardData | null }) {
+  const completion = data?.completionRate ?? null
+  const noShow = data?.noShowRate ?? null
+
+  return (
+    <KPIGrid>
+      <KPI
+        label="Hoje"
+        icon={<CalendarIcon className="w-3 h-3" strokeWidth={2} />}
+        value={data?.todayCount ?? "—"}
+        delta={
+          data && data.pendingCount > 0
+            ? {
+                direction: "up",
+                intent: "auto",
+                value: `${data.pendingCount}`,
+                sub: " aguardando confirmação",
+              }
+            : undefined
+        }
+      />
+      <KPI
+        label="Semana"
+        icon={<CalendarIcon className="w-3 h-3" strokeWidth={2} />}
+        value={data?.weekCount ?? "—"}
+      />
+      <KPI
+        label="Pacientes ativos"
+        icon={<UsersIcon className="w-3 h-3" strokeWidth={2} />}
+        value={data?.activePatients ?? "—"}
+        delta={
+          data && data.newPatientsThisMonth > 0
+            ? {
+                direction: "up",
+                intent: "good",
+                value: `+${data.newPatientsThisMonth}`,
+                sub: " este mês",
+              }
+            : undefined
+        }
+      />
+      <KPI
+        label="Taxa de comparecimento"
+        icon={<UsersIcon className="w-3 h-3" strokeWidth={2} />}
+        value={
+          completion !== null ? (
+            <>
+              {completion}
+              <span className="text-sm text-ink-500 font-medium">%</span>
+            </>
+          ) : (
+            "—"
+          )
+        }
+        delta={
+          noShow !== null
+            ? {
+                direction: noShow < 5 ? "down" : "up",
+                intent: noShow < 5 ? "good" : "bad",
+                value: `${noShow.toFixed(1)}%`,
+                sub: " faltas · 30 dias",
+              }
+            : undefined
+        }
+      />
+    </KPIGrid>
+  )
+}
+
+/* ============================================
+   Revenue chart panel
+   ============================================ */
+
+type RangeKey = "day" | "week" | "month"
+const RANGES: { key: RangeKey; label: string }[] = [
+  { key: "day", label: "Dia" },
+  { key: "week", label: "Semana" },
+  { key: "month", label: "Mês" },
+]
+const RANGE_TITLE: Record<RangeKey, string> = {
+  day: "Receita · últimos 30 dias",
+  week: "Receita · últimas 12 semanas",
+  month: "Receita · últimos 12 meses",
+}
+
+function RevenuePanel({
+  data,
+  isLoading,
+}: {
+  data: DashboardData | null
+  isLoading: boolean
+}) {
+  const [range, setRange] = useState<RangeKey>("week")
+  const series = data?.revenueSeries?.[range] ?? []
+
+  return (
+    <Panel className="lg:col-span-2">
+      <PanelHead
+        title={RANGE_TITLE[range]}
+        actions={
+          <div
+            role="tablist"
+            aria-label="Agrupamento"
+            className="inline-flex rounded-[4px] border border-ink-300 overflow-hidden bg-card"
+          >
+            {RANGES.map((r, i) => (
+              <button
+                key={r.key}
+                role="tab"
+                aria-pressed={range === r.key}
+                onClick={() => setRange(r.key)}
+                className={`
+                  px-3 h-7 text-xs leading-none transition-colors duration-[120ms]
+                  ${i > 0 ? "border-l border-ink-200" : ""}
+                  ${
+                    range === r.key
+                      ? "bg-brand-50 text-brand-700 font-medium"
+                      : "bg-transparent text-ink-600 hover:text-ink-900"
+                  }
+                `}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
+      <PanelBody>
+        {isLoading || !data ? (
+          <div className="h-[200px] animate-pulse bg-ink-100 rounded" />
+        ) : (
+          <RevenueChart data={series} granularity={range} />
+        )}
+      </PanelBody>
+    </Panel>
+  )
+}
+
+/* ============================================
+   Today's schedule panel
+   ============================================ */
+
+function TodayPanel({
+  data,
+  isLoading,
+  full = false,
+}: {
+  data: DashboardData | null
+  isLoading: boolean
+  full?: boolean
+}) {
+  const title = full
+    ? `Agenda de hoje${data ? ` · ${data.todayCount}` : ""}`
+    : "Agenda de hoje"
+
+  return (
+    <Panel>
+      <PanelHead
+        title={title}
+        actions={
+          <Link
+            href="/agenda"
+            className="text-[13px] text-ink-600 hover:text-brand-700 transition-colors"
+          >
+            Ver agenda completa →
+          </Link>
+        }
+      />
+      <PanelBody>
+        {isLoading || !data ? (
+          <div className="space-y-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-14 animate-pulse bg-ink-100 rounded" />
+            ))}
+          </div>
+        ) : data.todaySchedule.length === 0 ? (
+          <div className="py-12 text-center">
+            <div className="text-[13px] text-ink-700 font-medium">Sem compromissos hoje.</div>
+            <div className="text-[12px] text-ink-500 mt-1">
+              Aproveite para revisar sua disponibilidade.
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            {data.todaySchedule.map((item) => (
+              <AgendaRow key={item.id} item={item} />
+            ))}
+          </div>
+        )}
+      </PanelBody>
+    </Panel>
+  )
+}
+
+function AgendaRow({ item }: { item: TodayScheduleItem }) {
+  const status = APPT_STATUS_TONE[item.status] ?? {
+    tone: "neutral" as const,
+    label: item.status,
+  }
+  const modality =
+    item.modality === "ONLINE" ? "Online" : item.modality === "PRESENCIAL" ? "Presencial" : null
+  const sub = [item.professionalName, modality].filter(Boolean).join(" · ")
+
+  return (
+    <div className="grid grid-cols-[60px_1fr_auto] items-center gap-3 py-3 border-b border-ink-100 last:border-b-0">
+      <div>
+        <div className="font-mono text-[12px] text-ink-700 font-medium leading-tight">
+          {formatTimeHM(item.scheduledAt)}
+        </div>
+        <div className="font-mono text-[10px] text-ink-400 mt-0.5">
+          {item.duration} min
+        </div>
+      </div>
+      <div className="min-w-0">
+        <div className="text-[13px] font-medium text-ink-900 leading-tight truncate">
+          {item.patientName}
+        </div>
+        {sub && (
+          <div className="text-[11px] text-ink-500 mt-0.5 truncate">{sub}</div>
+        )}
+      </div>
+      <Badge tone={status.tone} dot>
+        {status.label}
+      </Badge>
+    </div>
+  )
+}
+
+/* ============================================
+   Recent payments table panel
+   ============================================ */
+
+function RecentPaymentsPanel({
+  data,
+  isLoading,
+}: {
+  data: DashboardData | null
+  isLoading: boolean
+}) {
+  const awaiting = data?.outstandingCount ?? 0
+
+  return (
+    <Panel>
+      <PanelHead
+        title="Pagamentos recentes"
+        actions={
+          <div className="flex items-center gap-2">
+            {awaiting > 0 && <Badge tone="warn">{awaiting} aguardando</Badge>}
+            <Link
+              href="/financeiro"
+              className="text-[13px] text-ink-600 hover:text-brand-700 transition-colors"
+            >
+              Abrir financeiro →
+            </Link>
+          </div>
+        }
+      />
+      <div className="overflow-x-auto">
+        <table className="w-full border-separate border-spacing-0 text-[13px] min-w-[640px]">
+          <thead>
+            <tr>
+              {["Fatura", "Paciente", "Profissional", "Referência", "Valor", "Status"].map(
+                (h, i) => (
+                  <th
+                    key={h}
+                    className={`
+                      bg-ink-50 border-b border-ink-200
+                      px-3 py-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-500
+                      ${i === 4 ? "text-right" : "text-left"}
+                    `}
+                  >
+                    {h}
+                  </th>
+                )
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading || !data ? (
+              [0, 1, 2, 3].map((i) => (
+                <tr key={i}>
+                  {[0, 1, 2, 3, 4, 5].map((j) => (
+                    <td
+                      key={j}
+                      className="px-3 py-3 border-b border-ink-100 last:border-b-0"
+                    >
+                      <div className="h-3 bg-ink-100 rounded animate-pulse" />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : data.recentInvoices.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-3 py-8 text-center text-[13px] text-ink-500"
+                >
+                  Nenhuma fatura recente.
+                </td>
+              </tr>
+            ) : (
+              data.recentInvoices.map((inv) => <InvoiceRow key={inv.id} inv={inv} />)
+            )}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  )
+}
+
+function InvoiceRow({ inv }: { inv: RecentInvoiceItem }) {
+  const status = INVOICE_STATUS_TONE[inv.status] ?? {
+    tone: "neutral" as const,
+    label: inv.status,
+  }
+  const shortId = `#INV-${inv.id.slice(-4).toUpperCase()}`
+  const reference = `${MONTH_PT[inv.referenceMonth - 1] ?? "—"} ${inv.referenceYear}`
+  const amount = formatCurrency(inv.amount)
+
+  return (
+    <tr className="hover:bg-ink-50 transition-colors">
+      <td className="px-3 py-3 border-b border-ink-100 font-mono text-ink-800">
+        <Link
+          href={`/financeiro/faturas/${inv.id}`}
+          className="hover:text-brand-700"
+        >
+          {shortId}
+        </Link>
+      </td>
+      <td className="px-3 py-3 border-b border-ink-100 text-ink-800 truncate max-w-[180px]">
+        {inv.patientName}
+      </td>
+      <td className="px-3 py-3 border-b border-ink-100 text-ink-800">
+        <span className="inline-flex items-center gap-1.5">
+          <Avatar size="sm" name={inv.professionalName} />
+          <span className="truncate">{inv.professionalName}</span>
+        </span>
+      </td>
+      <td className="px-3 py-3 border-b border-ink-100 text-ink-700">{reference}</td>
+      <td className="px-3 py-3 border-b border-ink-100 text-right font-mono tabular-nums text-ink-800">
+        {amount.prefix} {amount.whole}
+        <span className="text-ink-500">{amount.cents}</span>
+      </td>
+      <td className="px-3 py-3 border-b border-ink-100">
+        <Badge tone={status.tone} dot>
+          {status.label}
+        </Badge>
+      </td>
+    </tr>
   )
 }

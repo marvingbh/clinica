@@ -4,14 +4,14 @@ import { useState } from "react"
 import { UseFormReturn } from "react-hook-form"
 import { Sheet } from "./Sheet"
 import { InlineAlert } from "./InlineAlert"
-import { SegmentedControl, Segment } from "./SegmentedControl"
+import type { Segment } from "./SegmentedControl"
 import { RecurrenceTabContent } from "./RecurrenceTabContent"
 import { HistoryTimeline } from "@/shared/components/HistoryTimeline"
 import { usePermission } from "@/shared/hooks/usePermission"
 import { Appointment, EditAppointmentFormData, CalendarEntryType, Professional } from "../lib/types"
 import { TimeInput } from "./TimeInput"
 import { DateInput } from "./DateInput"
-import { STATUS_LABELS, STATUS_COLORS, RECURRENCE_TYPE_LABELS, ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS, CANCELLED_STATUSES } from "../lib/constants"
+import { STATUS_LABELS, RECURRENCE_TYPE_LABELS, ENTRY_TYPE_LABELS, CANCELLED_STATUSES } from "../lib/constants"
 import { formatPhone, isDateException, calculateEndTime, isRecurrenceModified } from "../lib/utils"
 import {
   RefreshCwIcon,
@@ -23,10 +23,19 @@ import {
   BuildingIcon,
   VideoIcon,
   UserIcon,
+  UsersIcon,
   AlertTriangleIcon,
   TrashIcon,
   FileTextIcon,
+  CalendarIcon,
+  InfoIcon,
+  CheckIcon,
+  XIcon,
+  SendIcon,
+  HistoryIcon,
+  DollarSignIcon,
 } from "@/shared/components/ui/icons"
+import { Segmented, ChipField, type SegmentedOption } from "@/shared/components/ui/segmented"
 import { CancelConfirmDialog } from "./CancelConfirmDialog"
 import type { CancelVariant } from "./CancelConfirmDialog"
 
@@ -39,24 +48,37 @@ const INVOICE_STATUS_LABELS: Record<string, string> = {
   PAGO: "Pago", CANCELADO: "Cancelado",
 }
 
-const INVOICE_STATUS_COLORS: Record<string, string> = {
-  PENDENTE: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  ENVIADO: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  PARCIAL: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-  PAGO: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  CANCELADO: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-}
-
 const MONTH_NAMES_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
-/** Status accent colors for the header left border */
-const STATUS_ACCENT: Record<string, string> = {
-  AGENDADO: "border-l-blue-500",
-  CONFIRMADO: "border-l-emerald-500",
-  CANCELADO_ACORDADO: "border-l-teal-500",
-  CANCELADO_FALTA: "border-l-amber-500",
-  CANCELADO_PROFISSIONAL: "border-l-red-500",
-  FINALIZADO: "border-l-gray-400",
+// Status badge tones — drives the pill colour in the header.
+const STATUS_BADGE: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+  AGENDADO:               { bg: "bg-brand-50",   text: "text-brand-700",  border: "border-brand-100", dot: "bg-brand-500" },
+  CONFIRMADO:             { bg: "bg-ok-50",      text: "text-ok-700",     border: "border-ok-100",    dot: "bg-ok-500" },
+  FINALIZADO:             { bg: "bg-ink-100",    text: "text-ink-700",    border: "border-ink-200",   dot: "bg-ink-500" },
+  CANCELADO_FALTA:        { bg: "bg-warn-50",    text: "text-warn-700",   border: "border-warn-100",  dot: "bg-warn-500" },
+  CANCELADO_ACORDADO:     { bg: "bg-brand-50",   text: "text-brand-700",  border: "border-brand-100", dot: "bg-brand-400" },
+  CANCELADO_PROFISSIONAL: { bg: "bg-err-50",     text: "text-err-700",    border: "border-err-100",   dot: "bg-err-500" },
+}
+
+// Invoice pill tones — badge shape, ink/brand/ok/warn tokens.
+const INVOICE_BADGE: Record<string, string> = {
+  PAGO:       "bg-ok-50 text-ok-700 border-ok-100",
+  ENVIADO:    "bg-brand-50 text-brand-700 border-brand-100",
+  PENDENTE:   "bg-warn-50 text-warn-700 border-warn-100",
+  PARCIAL:    "bg-warn-50 text-warn-700 border-warn-100",
+  CANCELADO:  "bg-err-50 text-err-700 border-err-100",
+}
+
+// Initials for the header avatar — accepts patient name OR title for non-consulta entries.
+function getInitials(name: string | null | undefined): string {
+  if (!name) return "·"
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase()
 }
 
 // ============================================================================
@@ -120,6 +142,7 @@ export function AppointmentEditor({
 }: AppointmentEditorProps) {
   const [activeTab, setActiveTab] = useState<EditorTab>("occurrence")
   const { canRead: canReadAudit } = usePermission("audit_logs")
+  const { canRead: canReadFinances } = usePermission("finances")
 
   const handleClose = () => { setActiveTab("occurrence"); onClose() }
   if (!appointment) return null
@@ -141,146 +164,191 @@ export function AppointmentEditor({
   if (isRecurring && isActive) segments.push({ key: "recurrence", label: "Recorrencia" })
   if (canReadAudit) segments.push({ key: "historico", label: "Historico" })
 
-  const skipToggle = isRecurring && isActive ? (
-    <button type="button" onClick={() => onToggleException(isException ? "unskip" : "skip")}
-      disabled={isManagingException}
-      className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors min-h-[40px] disabled:opacity-50 ${
-        isException ? "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
-          : "text-muted-foreground hover:text-foreground hover:bg-background"
-      }`}>
-      {isManagingException ? "..." : isException ? (
-        <><RefreshCwIcon className="w-4 h-4" /><span>Pulada</span></>
-      ) : (
-        <><BanIcon className="w-4 h-4" /><span>Pular</span></>
-      )}
-    </button>
-  ) : null
-
   const sheetTitle = isConsulta ? "Editar Agendamento" : `Editar ${ENTRY_TYPE_LABELS[appointment.type as CalendarEntryType] || "Entrada"}`
+
+  // Avatar: patient initials for CONSULTA, title initials for other types.
+  const headerName = isConsulta ? appointment.patient?.name || "" : appointment.title || ENTRY_TYPE_LABELS[appointment.type as CalendarEntryType] || ""
+  const statusBadgeTone = STATUS_BADGE[appointment.status] || STATUS_BADGE.AGENDADO
+
+  // Tabs: always show "Esta", plus Recorrência (if recurring), Histórico (if allowed),
+  // and Pular (if recurring active) — as a tab rather than trailing action so mobile fits.
+  type TabKey = "occurrence" | "recurrence" | "historico" | "skip"
+  const tabs: Array<{ key: TabKey; label: string; icon: React.ReactNode; count?: string | number }> = [
+    { key: "occurrence", label: isConsulta ? "Esta consulta" : "Esta entrada", icon: <CalendarIcon className="w-3.5 h-3.5" /> },
+  ]
+  if (isRecurring && isActive) tabs.push({ key: "recurrence", label: "Recorrência", icon: <RefreshCwIcon className="w-3.5 h-3.5" /> })
+  if (canReadAudit) tabs.push({ key: "historico", label: "Histórico", icon: <HistoryIcon className="w-3.5 h-3.5" /> })
+  if (isRecurring && isActive) tabs.push({ key: "skip", label: isException ? "Pulada" : "Pular", icon: <BanIcon className="w-3.5 h-3.5" /> })
+  // Segments kept for backwards-compat (SegmentedControl unused now)
+  void segments
 
   return (
     <Sheet isOpen={isOpen} onClose={handleClose} title={sheetTitle}>
-      {/* ── Header with status accent ── */}
-      <div className={`px-4 pt-3 pb-4 border-b border-border border-l-4 ${STATUS_ACCENT[appointment.status] || "border-l-gray-300"}`}>
-        {/* Identity row */}
-        <div className="flex items-start justify-between gap-3 mb-2.5">
-          <div className="min-w-0 flex-1">
-            {isConsulta && appointment.patient ? (
-              <h3 className="font-semibold text-lg text-foreground truncate leading-tight">
-                {appointment.patient.name}
-              </h3>
-            ) : (
+      {/* ══════════════════ Appointment Head — gradient brand-50→card ══════════════════ */}
+      <div className="px-6 py-4 bg-gradient-to-b from-brand-50 to-card border-b border-ink-200">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          {/* Left: avatar + name/title + contact */}
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-700 border border-brand-200 font-semibold text-[13px] grid place-items-center flex-shrink-0">
+              {getInitials(headerName)}
+            </div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 {!isConsulta && (
-                  <span className={`flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded ${
-                    ENTRY_TYPE_COLORS[appointment.type as CalendarEntryType]
-                      ? `${ENTRY_TYPE_COLORS[appointment.type as CalendarEntryType].bg} ${ENTRY_TYPE_COLORS[appointment.type as CalendarEntryType].text} border ${ENTRY_TYPE_COLORS[appointment.type as CalendarEntryType].border}`
-                      : "bg-muted text-muted-foreground"
-                  }`}>
+                  <span className="inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-[3px] bg-ink-100 text-ink-700 border border-ink-200 uppercase tracking-wide">
                     {ENTRY_TYPE_LABELS[appointment.type as CalendarEntryType] || appointment.type}
                   </span>
                 )}
-                <h3 className="font-semibold text-lg text-foreground truncate leading-tight">
-                  {appointment.title || "Sem titulo"}
+                <h3 className="text-[16px] font-semibold text-ink-900 truncate tracking-tight">
+                  {headerName || "Sem título"}
                 </h3>
               </div>
+              {isConsulta && appointment.patient && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-1 text-[12px] text-ink-600">
+                  <a href={`tel:${appointment.patient.phone}`} className="inline-flex items-center gap-1.5 hover:text-brand-700 transition-colors">
+                    <PhoneIcon className="w-3.5 h-3.5 text-ink-400" />
+                    {formatPhone(appointment.patient.phone)}
+                  </a>
+                  {appointment.patient.email && (
+                    <a href={`mailto:${appointment.patient.email}`} className="inline-flex items-center gap-1.5 hover:text-brand-700 transition-colors truncate max-w-[240px]">
+                      <MailIcon className="w-3.5 h-3.5 text-ink-400 flex-shrink-0" />
+                      <span className="truncate">{appointment.patient.email}</span>
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right: badges */}
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            <span
+              className={`inline-flex items-center gap-1.5 h-[22px] px-2 rounded-full text-[11px] font-medium border ${statusBadgeTone.bg} ${statusBadgeTone.text} ${statusBadgeTone.border}`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${statusBadgeTone.dot}`} />
+              {STATUS_LABELS[appointment.status] || appointment.status}
+            </span>
+            {(isConsulta || appointment.type === "REUNIAO") && appointment.invoice && (() => {
+              // Render as a link only when the user can actually open the
+              // invoice page — otherwise the same pill as static text.
+              const badgeClass = `inline-flex items-center gap-1.5 h-[22px] px-2 rounded-full text-[11px] font-medium border ${
+                INVOICE_BADGE[appointment.invoice.status] || "bg-ink-100 text-ink-700 border-ink-200"
+              }`
+              const label = (
+                <>
+                  <DollarSignIcon className="w-3 h-3" />
+                  {INVOICE_STATUS_LABELS[appointment.invoice.status] || appointment.invoice.status}
+                  {" · "}
+                  {MONTH_NAMES_SHORT[appointment.invoice.referenceMonth - 1]}/
+                  {String(appointment.invoice.referenceYear).slice(-2)}
+                </>
+              )
+              return canReadFinances ? (
+                <a
+                  href={`/financeiro/faturas/${appointment.invoice.id}`}
+                  className={`${badgeClass} transition-opacity hover:opacity-80`}
+                >
+                  {label}
+                </a>
+              ) : (
+                <span className={badgeClass}>{label}</span>
+              )
+            })()}
+            {isRecurring && (
+              <span className="inline-flex items-center gap-1.5 h-[22px] px-2 rounded-full text-[11px] font-medium bg-brand-50 text-brand-700 border border-brand-100">
+                <RefreshCwIcon className="w-3 h-3" />
+                {RECURRENCE_TYPE_LABELS[appointment.recurrence!.recurrenceType]}
+                {isRecurrenceModified(appointment) && (
+                  <span className="text-warn-700"> · alterado</span>
+                )}
+              </span>
             )}
           </div>
-          <span className={`flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold border mt-0.5 ${
-            STATUS_COLORS[appointment.status] || "bg-gray-100 text-gray-800 border-gray-200"
-          }`}>
-            {STATUS_LABELS[appointment.status] || appointment.status}
-          </span>
         </div>
 
-        {/* Compact info grid */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+        {/* Meta row — date / time / duration / professional / modality */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-3 text-[12px] text-ink-600">
           <span className="inline-flex items-center gap-1.5">
-            <ClockIcon className="w-3.5 h-3.5" />
-            <span className="font-medium text-foreground">{dateDisplay}</span>
+            <CalendarIcon className="w-3.5 h-3.5 text-ink-400" />
+            <span className="text-ink-700 font-medium font-mono tabular-nums">{dateDisplay}</span>
           </span>
-          <span className="text-foreground tabular-nums">{timeRange}</span>
-          <span className="text-xs">{durationMin} min</span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-1">
           <span className="inline-flex items-center gap-1.5">
-            <UserIcon className="w-3.5 h-3.5" />
+            <ClockIcon className="w-3.5 h-3.5 text-ink-400" />
+            <span className="text-ink-700 font-medium font-mono tabular-nums">{timeRange}</span>
+            <span className="text-ink-500">· {durationMin} min</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <UserIcon className="w-3.5 h-3.5 text-ink-400" />
             {appointment.professionalProfile.user.name}
+            {appointment.attendingProfessional && appointment.attendingProfessional.id !== appointment.professionalProfile.id && (
+              <span className="text-brand-700">
+                · atendente {appointment.attendingProfessional.user.name}
+              </span>
+            )}
           </span>
-          {appointment.attendingProfessional && appointment.attendingProfessional.id !== appointment.professionalProfile.id && (
-            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-              Atendente: {appointment.attendingProfessional.user.name}
-            </span>
-          )}
           {isConsulta && appointment.modality && (
-            <span className="inline-flex items-center gap-1 text-xs">
-              {appointment.modality === "ONLINE" ? <VideoIcon className="w-3.5 h-3.5" /> : <BuildingIcon className="w-3.5 h-3.5" />}
-              {appointment.modality === "ONLINE" ? "Online" : "Presencial"}
-            </span>
-          )}
-        </div>
-
-        {/* Contact + invoice + recurrence — compact row */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2.5 text-sm">
-          {isConsulta && appointment.patient && (
-            <>
-              <a href={`tel:${appointment.patient.phone}`} className="inline-flex items-center gap-1 text-foreground hover:text-primary transition-colors">
-                <PhoneIcon className="w-3.5 h-3.5 text-muted-foreground" />
-                {formatPhone(appointment.patient.phone)}
-              </a>
-              {appointment.patient.email && (
-                <a href={`mailto:${appointment.patient.email}`} className="inline-flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors truncate max-w-[180px]">
-                  <MailIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="truncate">{appointment.patient.email}</span>
-                </a>
+            <span className="inline-flex items-center gap-1.5">
+              {appointment.modality === "ONLINE" ? (
+                <VideoIcon className="w-3.5 h-3.5 text-ink-400" />
+              ) : (
+                <BuildingIcon className="w-3.5 h-3.5 text-ink-400" />
               )}
-            </>
-          )}
-          {(isConsulta || appointment.type === "REUNIAO") && appointment.invoice && (
-            <a href={`/financeiro/faturas/${appointment.invoice.id}`} className="inline-flex items-center gap-1 group">
-              <FileTextIcon className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
-              <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-                {MONTH_NAMES_SHORT[appointment.invoice.referenceMonth - 1]}/{appointment.invoice.referenceYear}
-              </span>
-              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                INVOICE_STATUS_COLORS[appointment.invoice.status] || "bg-muted text-muted-foreground"
-              }`}>
-                {INVOICE_STATUS_LABELS[appointment.invoice.status] || appointment.invoice.status}
-              </span>
-            </a>
-          )}
-          {isRecurring && (
-            <span className="inline-flex items-center gap-1">
-              <RefreshCwIcon className="w-3.5 h-3.5 text-blue-500" />
-              <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                {RECURRENCE_TYPE_LABELS[appointment.recurrence!.recurrenceType]}
-                {isRecurrenceModified(appointment) && <span className="text-amber-600 dark:text-amber-400"> · alterado</span>}
-              </span>
+              {appointment.modality === "ONLINE" ? "Online" : "Presencial"}
             </span>
           )}
         </div>
       </div>
 
-      {/* Segmented Control */}
-      {(isRecurring && isActive || canReadAudit) && (
-        <div className="px-4 pt-4">
-          <SegmentedControl segments={segments} activeKey={activeTab}
-            onChange={(key) => setActiveTab(key as EditorTab)} trailing={skipToggle} />
+      {/* ══════════════════ Context tabs — ctx-tabs grid ══════════════════ */}
+      {tabs.length > 1 && (
+        <div className="px-6 pt-4">
+          <div
+            className="grid rounded-[4px] border border-ink-200 bg-ink-50 p-[3px] gap-0.5"
+            style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
+            role="tablist"
+          >
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.key
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => {
+                    if (tab.key === "skip") {
+                      onToggleException(isException ? "unskip" : "skip")
+                    } else {
+                      setActiveTab(tab.key)
+                    }
+                  }}
+                  disabled={tab.key === "skip" && isManagingException}
+                  className={`h-9 px-2 rounded-[3px] text-[12px] font-medium inline-flex items-center justify-center gap-1.5 transition-colors ${
+                    isActive
+                      ? "bg-card text-brand-700 font-semibold shadow-sm"
+                      : "text-ink-600 hover:text-ink-800 hover:bg-ink-100"
+                  } ${tab.key === "skip" && isException ? "text-warn-700" : ""}`}
+                >
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 
       {/* Exception warning */}
       {isException && activeTab === "occurrence" && (
-        <div className="mx-4 mt-4 p-3 bg-orange-50 dark:bg-orange-950/30 rounded-xl border border-orange-200 dark:border-orange-800">
-          <p className="text-sm text-orange-800 dark:text-orange-200">
-            Esta data foi marcada como excecao (pulada). Clique em &ldquo;Pulada&rdquo; para restaurar.
+        <div className="mx-6 mt-4 p-3 rounded-[4px] border border-warn-100 bg-warn-50">
+          <p className="text-[13px] text-warn-700">
+            Esta data foi marcada como exceção (pulada). Clique em &ldquo;Pulada&rdquo; para restaurar.
           </p>
         </div>
       )}
 
       {/* Tab Content */}
-      <div className="p-4">
+      <div className="p-6">
         {activeTab === "occurrence" && (
           <OccurrenceTabContent
             appointment={appointment} form={form} isUpdating={isUpdating} onSubmit={onSubmit}
@@ -301,9 +369,7 @@ export function AppointmentEditor({
             onClose={handleClose} professionals={professionals} />
         )}
         {activeTab === "historico" && (
-          <div className="px-4 py-4">
-            <HistoryTimeline entityType="Appointment" entityId={appointment.id} />
-          </div>
+          <HistoryTimeline entityType="Appointment" entityId={appointment.id} />
         )}
       </div>
     </Sheet>
@@ -360,65 +426,129 @@ function OccurrenceTabContent({
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 
-      {/* ── Quick Actions ── */}
+      {/* ══════════════════ Status actions · cancel group · resend bar ══════════════════
+         Matches the Editar Agendamento design: two hero CTAs + cancelation card + resend bar. */}
       {hasQuickActions && (
-        <div className="space-y-2">
-          {/* Primary actions */}
+        <div className="space-y-2.5">
+          {/* Section label */}
+          {canMarkStatus && (
+            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500">
+              Status da consulta
+            </div>
+          )}
+
+          {/* Primary hero actions — 2 buttons side by side */}
           {canMarkStatus && isConsulta && appointment.status === "AGENDADO" && (
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => onUpdateStatus("CONFIRMADO", "Consulta confirmada com sucesso")} disabled={isUpdatingStatus}
-                className="h-11 rounded-xl bg-blue-600 text-white font-medium text-sm flex items-center justify-center gap-1.5 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => onUpdateStatus("CONFIRMADO", "Consulta confirmada com sucesso")}
+                disabled={isUpdatingStatus}
+                className="h-11 rounded-[4px] bg-brand-500 text-white font-medium text-[13px] inline-flex items-center justify-center gap-2 border border-brand-500 hover:bg-brand-600 hover:border-brand-600 transition-colors disabled:opacity-50"
+              >
                 <CheckCircleIcon className="w-4 h-4" />
-                {isUpdatingStatus ? "..." : "Confirmar"}
+                {isUpdatingStatus ? "..." : "Confirmar paciente"}
               </button>
-              <button type="button" onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")} disabled={isUpdatingStatus}
-                className="h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50">
-                {isUpdatingStatus ? "..." : "Atendido"}
+              <button
+                type="button"
+                onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")}
+                disabled={isUpdatingStatus}
+                className="h-11 rounded-[4px] bg-ok-500 text-white font-medium text-[13px] inline-flex items-center justify-center gap-2 border border-ok-500 hover:bg-ok-700 hover:border-ok-700 transition-colors disabled:opacity-50"
+              >
+                <CheckIcon className="w-4 h-4" />
+                {isUpdatingStatus ? "..." : "Marcar como atendido"}
               </button>
             </div>
           )}
 
           {canMarkStatus && isConsulta && appointment.status === "CONFIRMADO" && (
-            <button type="button" onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")} disabled={isUpdatingStatus}
-              className="w-full h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50">
-              {isUpdatingStatus ? "..." : "Atendido"}
+            <button
+              type="button"
+              onClick={() => onUpdateStatus("FINALIZADO", "Consulta finalizada com sucesso")}
+              disabled={isUpdatingStatus}
+              className="w-full h-11 rounded-[4px] bg-ok-500 text-white font-medium text-[13px] inline-flex items-center justify-center gap-2 border border-ok-500 hover:bg-ok-700 hover:border-ok-700 transition-colors disabled:opacity-50"
+            >
+              <CheckIcon className="w-4 h-4" />
+              {isUpdatingStatus ? "..." : "Marcar como atendido"}
             </button>
           )}
 
           {canMarkStatus && !isConsulta && (
-            <button type="button" onClick={() => onUpdateStatus("FINALIZADO", "Entrada concluida com sucesso")} disabled={isUpdatingStatus}
-              className="w-full h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm flex items-center justify-center gap-2 hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50">
+            <button
+              type="button"
+              onClick={() => onUpdateStatus("FINALIZADO", "Entrada concluida com sucesso")}
+              disabled={isUpdatingStatus}
+              className="w-full h-11 rounded-[4px] bg-ok-500 text-white font-medium text-[13px] inline-flex items-center justify-center gap-2 border border-ok-500 hover:bg-ok-700 hover:border-ok-700 transition-colors disabled:opacity-50"
+            >
+              <CheckIcon className="w-4 h-4" />
               {isUpdatingStatus ? "..." : "Concluir"}
             </button>
           )}
 
-          {/* Cancel options */}
+          {/* Cancelation card — 3 outlined buttons with semantic tones */}
           {canMarkStatus && isConsulta && (appointment.status === "AGENDADO" || appointment.status === "CONFIRMADO") && (
-            <div className="rounded-xl border border-border/60 bg-muted/30 dark:bg-muted/10 p-2.5 space-y-2">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-0.5">Cancelamento</p>
-              <div className="grid grid-cols-3 gap-2">
-                <button type="button" onClick={() => setCancelVariant("faltou")} disabled={isUpdatingStatus}
-                  className="h-10 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-medium text-xs flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+            <div className="rounded-[4px] border border-ink-200 bg-card p-3">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500 mb-2">
+                <BanIcon className="w-3.5 h-3.5 text-ink-400" />
+                Cancelamento / ausência
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCancelVariant("faltou")}
+                  disabled={isUpdatingStatus}
+                  className="h-9 rounded-[4px] border border-warn-100 bg-card text-warn-700 text-[12px] font-medium inline-flex items-center justify-center gap-1.5 hover:bg-warn-50 hover:border-warn-500 transition-colors disabled:opacity-50"
+                >
+                  <AlertTriangleIcon className="w-3.5 h-3.5" />
                   Faltou
                 </button>
-                <button type="button" onClick={() => setCancelVariant("desmarcou")} disabled={isUpdatingStatus}
-                  className="h-10 rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 font-medium text-xs flex items-center justify-center hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                <button
+                  type="button"
+                  onClick={() => setCancelVariant("desmarcou")}
+                  disabled={isUpdatingStatus}
+                  className="h-9 rounded-[4px] border border-ink-300 bg-card text-ink-800 text-[12px] font-medium inline-flex items-center justify-center gap-1.5 hover:bg-ink-50 hover:border-ink-400 transition-colors disabled:opacity-50"
+                >
+                  <XIcon className="w-3.5 h-3.5" />
                   Desmarcou
                 </button>
-                <button type="button" onClick={() => setCancelVariant("sem_cobranca")} disabled={isUpdatingStatus}
-                  className="h-10 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 font-medium text-xs flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
-                  Sem cobranca
+                <button
+                  type="button"
+                  onClick={() => setCancelVariant("sem_cobranca")}
+                  disabled={isUpdatingStatus}
+                  className="h-9 rounded-[4px] border border-err-100 bg-card text-err-700 text-[12px] font-medium inline-flex items-center justify-center gap-1.5 hover:bg-err-50 hover:border-err-500 transition-colors disabled:opacity-50"
+                >
+                  <BanIcon className="w-3.5 h-3.5" />
+                  Sem cobrança
                 </button>
               </div>
             </div>
           )}
 
-          {/* Resend confirmation */}
+          {/* Resend bar — icon on left, button on right */}
           {canResendConfirmation && (
-            <button type="button" onClick={onResendConfirmation} disabled={isResendingConfirmation}
-              className="w-full h-10 rounded-xl border border-border text-muted-foreground font-medium text-sm flex items-center justify-center gap-2 hover:bg-muted/50 hover:text-foreground active:scale-[0.98] transition-all disabled:opacity-50">
-              {isResendingConfirmation ? "Reenviando..." : "Reenviar Links de Confirmacao"}
-            </button>
+            <div className="flex items-center justify-between gap-3 p-2.5 rounded-[4px] border border-ink-200 bg-card">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-[4px] bg-brand-50 text-brand-600 border border-brand-100 grid place-items-center flex-shrink-0">
+                  <SendIcon className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[13px] text-ink-700 font-medium truncate">
+                    Reenviar links de confirmação
+                  </div>
+                  <div className="text-[11px] text-ink-500 font-mono truncate">
+                    WhatsApp · E-mail (conforme consentimento)
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onResendConfirmation}
+                disabled={isResendingConfirmation}
+                className="h-8 px-3 rounded-[4px] border border-ink-300 bg-card text-ink-800 text-[12px] font-medium inline-flex items-center gap-1.5 hover:bg-ink-50 hover:border-ink-400 transition-colors disabled:opacity-50 flex-shrink-0"
+              >
+                {isResendingConfirmation ? "Enviando..." : "Reenviar"}
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -432,149 +562,25 @@ function OccurrenceTabContent({
         />
       )}
 
-      {/* ── Edit Fields ── */}
-      <fieldset className="space-y-4">
-        <legend className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
-          Detalhes
-        </legend>
-
-        {/* Date + Time row */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="editDate" className="block text-sm font-medium text-foreground mb-1.5">Data</label>
-            <DateInput id="editDate" {...form.register("date")}
-              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
-            {form.formState.errors.date && <p className="text-xs text-destructive mt-1">{form.formState.errors.date.message}</p>}
-          </div>
-          <div>
-            <label htmlFor="editStartTime" className="block text-sm font-medium text-foreground mb-1.5">Inicio</label>
-            <TimeInput id="editStartTime" placeholder="HH:MM" {...form.register("startTime")}
-              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
-            {form.formState.errors.startTime && <p className="text-xs text-destructive mt-1">{form.formState.errors.startTime.message}</p>}
-          </div>
-        </div>
-
-        {/* Duration + End */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="editDuration" className="block text-sm font-medium text-foreground mb-1.5">Duracao</label>
-            <input id="editDuration" type="number"
-              {...form.register("duration", { setValueAs: (v) => v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v) })}
-              min={15} max={480} step={5}
-              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Fim</label>
-            <div className="h-11 px-3.5 rounded-xl border border-input bg-muted/50 text-foreground text-sm flex items-center tabular-nums">
-              {calculateEndTime(form.watch("startTime"), form.watch("duration")) || "—"}
-            </div>
-          </div>
-        </div>
-
-        {/* Modality — CONSULTA only */}
-        {isConsulta && (
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Modalidade</label>
-            <div className="grid grid-cols-2 gap-2.5">
-              <label className="relative cursor-pointer">
-                <input type="radio" value="PRESENCIAL" {...form.register("modality")} className="sr-only peer" />
-                <div className="h-11 flex items-center justify-center gap-2 rounded-xl border-2 border-input bg-background text-foreground text-sm font-medium peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all">
-                  <BuildingIcon className="w-4 h-4" /> Presencial
-                </div>
-              </label>
-              <label className="relative cursor-pointer">
-                <input type="radio" value="ONLINE" {...form.register("modality")} className="sr-only peer" />
-                <div className="h-11 flex items-center justify-center gap-2 rounded-xl border-2 border-input bg-background text-foreground text-sm font-medium peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all">
-                  <VideoIcon className="w-4 h-4" /> Online
-                </div>
-              </label>
-            </div>
-          </div>
-        )}
-
-        {/* Price + Attending Professional — side by side */}
-        {isConsulta && (
-          <div className={`grid gap-3 ${professionals && professionals.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
-            <div>
-              <label htmlFor="editPrice" className="block text-sm font-medium text-foreground mb-1.5">Valor (R$)</label>
-              <input id="editPrice" type="number" step="0.01" {...form.register("price", { valueAsNumber: true })} placeholder="0,00"
-                className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors" />
-            </div>
-            {professionals && professionals.length > 1 && (
-              <div>
-                <label htmlFor="editAttendingProf" className="block text-sm font-medium text-foreground mb-1.5">Atendente</label>
-                <select id="editAttendingProf" value={editAttendingProfId ?? ""}
-                  onChange={(e) => { if (onAttendingProfChange) onAttendingProfChange(e.target.value || null) }}
-                  className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors">
-                  <option value="">{appointment.professionalProfile.user.name} (titular)</option>
-                  {professionals
-                    .filter(p => p.professionalProfile?.id && p.professionalProfile.id !== appointment.professionalProfile.id)
-                    .map(p => <option key={p.professionalProfile!.id} value={p.professionalProfile!.id}>{p.name}</option>)}
-                </select>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Attending Professional for REUNIAO (no price) */}
-        {!isConsulta && appointment.type === "REUNIAO" && professionals && professionals.length > 1 && (
-          <div>
-            <label htmlFor="editAttendingProf" className="block text-sm font-medium text-foreground mb-1.5">Atendente</label>
-            <select id="editAttendingProf" value={editAttendingProfId ?? ""}
-              onChange={(e) => { if (onAttendingProfChange) onAttendingProfChange(e.target.value || null) }}
-              className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors">
-              <option value="">{appointment.professionalProfile.user.name} (titular)</option>
-              {professionals
-                .filter(p => p.professionalProfile?.id && p.professionalProfile.id !== appointment.professionalProfile.id)
-                .map(p => <option key={p.professionalProfile!.id} value={p.professionalProfile!.id}>{p.name}</option>)}
-            </select>
-          </div>
-        )}
-
-        {/* Notes */}
-        <div>
-          <label htmlFor="editNotes" className="block text-sm font-medium text-foreground mb-1.5">Observacoes</label>
-          <textarea id="editNotes" rows={2} {...form.register("notes")} placeholder="Notas sobre esta consulta..."
-            className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors resize-none" />
-        </div>
-      </fieldset>
-
-      {/* Additional professionals */}
-      {professionals && editAdditionalProfIds && setEditAdditionalProfIds &&
-       (isConsulta || appointment.type === "REUNIAO") && professionals.length > 1 && (
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Profissionais adicionais</label>
-          <div className="space-y-2 p-3 rounded-xl border border-input bg-background">
-            {professionals
-              .filter(p => p.professionalProfile?.id && p.professionalProfile.id !== appointment.professionalProfile.id)
-              .map(prof => (
-                <label key={prof.id} className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={editAdditionalProfIds.includes(prof.professionalProfile!.id)}
-                    onChange={(e) => {
-                      const id = prof.professionalProfile!.id
-                      if (e.target.checked) setEditAdditionalProfIds([...editAdditionalProfIds, id])
-                      else setEditAdditionalProfIds(editAdditionalProfIds.filter(x => x !== id))
-                    }}
-                    className="w-4 h-4 rounded border-input text-primary focus:ring-ring/40" />
-                  <span className="text-sm">{prof.name}</span>
-                </label>
-              ))}
-          </div>
-        </div>
-      )}
-
-      {/* Recurring helper */}
-      {isRecurring && (
-        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-          <AlertTriangleIcon className="w-3.5 h-3.5 flex-shrink-0" />
-          Alteracoes aplicam-se apenas a esta data.
-        </p>
-      )}
+      {/* ── Two-column edit grid: form left, live preview right.
+           Same language as the Create sheet — sections on the left,
+           pré-visualização on the right. ── */}
+      <EditFormWithPreview
+        appointment={appointment}
+        form={form}
+        isConsulta={isConsulta}
+        isRecurring={isRecurring}
+        professionals={professionals}
+        editAdditionalProfIds={editAdditionalProfIds}
+        setEditAdditionalProfIds={setEditAdditionalProfIds}
+        editAttendingProfId={editAttendingProfId}
+        onAttendingProfChange={onAttendingProfChange}
+      />
 
       {/* ── Danger Zone ── */}
-      <div className="pt-4 border-t border-border/60">
+      <div className="pt-4 border-t border-ink-200">
         <button type="button" onClick={() => setIsDeleteDialogOpen(true)}
-          className="w-full h-9 text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center justify-center gap-1.5">
+          className="w-full h-9 text-[12px] text-ink-500 hover:text-err-700 transition-colors flex items-center justify-center gap-1.5">
           <TrashIcon className="w-3.5 h-3.5" /> Excluir permanentemente
         </button>
       </div>
@@ -588,8 +594,8 @@ function OccurrenceTabContent({
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
             <div className="flex items-start gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/50 flex items-center justify-center flex-shrink-0">
-                <AlertTriangleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <AlertTriangleIcon className="w-5 h-5 text-red-600" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-foreground">Excluir agendamento?</h3>
@@ -619,18 +625,476 @@ function OccurrenceTabContent({
       {/* API Error */}
       {apiError && onDismissError && <InlineAlert message={apiError} onDismiss={onDismissError} />}
 
-      {/* ── Footer ── */}
-      <div className="flex gap-3 pt-4 pb-8">
-        <button type="button" onClick={onClose}
-          className="flex-1 h-12 rounded-xl border border-input bg-background text-foreground font-medium text-sm hover:bg-muted transition-colors">
-          Fechar
-        </button>
-        <button type="submit" disabled={isUpdating}
-          className="flex-1 h-12 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity">
-          {isUpdating ? "Salvando..." : "Salvar Alteracoes"}
-        </button>
+      {/* ── Footer — matches design m-foot: ink-50 strip, hint left, actions right ── */}
+      <div className="-mx-6 -mb-6 mt-2 flex items-center justify-between gap-3 flex-wrap px-6 py-3.5 bg-ink-50 border-t border-ink-200">
+        <div className="flex items-center gap-2 text-[12px] text-ink-500">
+          <InfoIcon className="w-3.5 h-3.5" />
+          {isRecurring ? (
+            <span>
+              Alterações aplicam-se <strong className="text-ink-700 font-medium">apenas a esta data</strong>
+            </span>
+          ) : (
+            <span>Alterações sincronizadas com a agenda</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-10 px-4 rounded-[4px] text-ink-700 font-medium text-[13px] hover:bg-ink-100 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={isUpdating}
+            className="h-10 px-4 rounded-[4px] bg-brand-500 text-white font-medium text-[13px] hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
+          >
+            <CheckIcon className="w-4 h-4" />
+            {isUpdating ? "Salvando..." : "Salvar alterações"}
+          </button>
+        </div>
       </div>
     </form>
+  )
+}
+
+/* Shared class strings — kept local to this file so the Edit form uses
+   the same design language as the Create sheet. */
+const EDIT_LABEL = "block text-[12px] font-medium text-ink-700 mb-1.5"
+const EDIT_INPUT =
+  "w-full h-11 md:h-10 px-3 rounded-[4px] border border-ink-300 bg-card text-ink-900 text-[13px] placeholder:text-ink-400 hover:border-ink-400 focus:outline-none focus:border-brand-500 focus:shadow-[var(--shadow-focus)] transition-[border-color,box-shadow] duration-[120ms] disabled:bg-ink-100 disabled:text-ink-500"
+const EDIT_SELECT =
+  EDIT_INPUT +
+  " appearance-none pr-8 bg-no-repeat bg-[right_0.6rem_center] bg-[length:12px] bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 20 20%22 fill=%22none%22 stroke=%22%2364748B%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><polyline points=%226 8 10 12 14 8%22/></svg>')]"
+const EDIT_TEXTAREA =
+  "w-full px-3 py-2.5 rounded-[4px] border border-ink-300 bg-card text-ink-900 text-[13px] placeholder:text-ink-400 hover:border-ink-400 focus:outline-none focus:border-brand-500 focus:shadow-[var(--shadow-focus)] transition-[border-color,box-shadow] duration-[120ms] resize-none min-h-[84px]"
+const EDIT_ERROR = "text-[12px] text-err-700 mt-1"
+
+const EDIT_MODALITY_OPTIONS: SegmentedOption<"PRESENCIAL" | "ONLINE">[] = [
+  { value: "PRESENCIAL", label: "Presencial", icon: <BuildingIcon className="w-3 h-3" /> },
+  { value: "ONLINE", label: "Online", icon: <VideoIcon className="w-3 h-3" /> },
+]
+
+// ============================================================================
+// EditFormWithPreview — 2-column layout (form left, live preview right)
+// ============================================================================
+
+const DAY_ABBR = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SAB"]
+const MONTH_ABBR = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
+
+function parseBrDate(value: string): Date | null {
+  const m = value?.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (!m) return null
+  const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]))
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+interface EditFormWithPreviewProps {
+  appointment: Appointment
+  form: UseFormReturn<EditAppointmentFormData>
+  isConsulta: boolean
+  isRecurring: boolean
+  professionals?: Professional[]
+  editAdditionalProfIds?: string[]
+  setEditAdditionalProfIds?: (ids: string[]) => void
+  editAttendingProfId?: string | null
+  onAttendingProfChange?: (professionalId: string | null) => void
+}
+
+function EditFormWithPreview({
+  appointment,
+  form,
+  isConsulta,
+  isRecurring,
+  professionals,
+  editAdditionalProfIds,
+  setEditAdditionalProfIds,
+  editAttendingProfId,
+  onAttendingProfChange,
+}: EditFormWithPreviewProps) {
+  const watchedDate = form.watch("date") || ""
+  const watchedStartTime = form.watch("startTime") || ""
+  const watchedDuration = form.watch("duration")
+  const watchedModality = form.watch("modality") ?? appointment.modality ?? "PRESENCIAL"
+  const watchedPrice = form.watch("price")
+  const computedEndTime = calculateEndTime(watchedStartTime, watchedDuration) || ""
+
+  const dateObj = parseBrDate(watchedDate)
+  const isDateValid = !!dateObj
+  const timeValid = /^([01]\d|2[0-3]):[0-5]\d$/.test(watchedStartTime)
+
+  const whenHeader = isDateValid
+    ? `${DAY_ABBR[dateObj!.getDay()]} · ${String(dateObj!.getDate()).padStart(2, "0")} ${MONTH_ABBR[dateObj!.getMonth()]} ${dateObj!.getFullYear()}`
+    : "—"
+
+  const timeRange =
+    timeValid && computedEndTime
+      ? `${watchedStartTime} → ${computedEndTime}`
+      : timeValid
+        ? watchedStartTime
+        : "—"
+
+  const modalityLabel = watchedModality === "ONLINE" ? "Online" : "Presencial"
+  const durationLabel = watchedDuration ? `${watchedDuration} min` : "—"
+
+  const attendingProf = professionals?.find(
+    (p) => p.professionalProfile?.id === editAttendingProfId
+  )
+  const primaryProfName =
+    attendingProf?.name || appointment.professionalProfile.user.name
+
+  const priceDisplay =
+    typeof watchedPrice === "number"
+      ? `R$ ${watchedPrice.toFixed(2).replace(".", ",")}`
+      : typeof watchedPrice === "string" && watchedPrice
+        ? `R$ ${watchedPrice}`
+        : null
+
+  const additionalAvailable = (professionals || []).filter(
+    (p) =>
+      p.professionalProfile?.id &&
+      p.professionalProfile.id !== appointment.professionalProfile.id
+  )
+  const hasAdditionalSection =
+    !!professionals &&
+    !!editAdditionalProfIds &&
+    !!setEditAdditionalProfIds &&
+    (isConsulta || appointment.type === "REUNIAO") &&
+    additionalAvailable.length > 0
+
+  return (
+    <div className="grid md:grid-cols-[1fr_300px] gap-6">
+      {/* Left — form sections */}
+      <div className="space-y-5 min-w-0">
+        <EditSectionLabel>Horário</EditSectionLabel>
+        <div className="grid grid-cols-12 gap-4">
+          <div className="col-span-12 md:col-span-5">
+            <label htmlFor="editDate" className={EDIT_LABEL}>
+              Data
+            </label>
+            <DateInput id="editDate" {...form.register("date")} className={EDIT_INPUT} />
+            {form.formState.errors.date && (
+              <p className={EDIT_ERROR}>{form.formState.errors.date.message}</p>
+            )}
+          </div>
+          <div className="col-span-6 md:col-span-3">
+            <label htmlFor="editStartTime" className={EDIT_LABEL}>
+              Início
+            </label>
+            <TimeInput
+              id="editStartTime"
+              placeholder="HH:MM"
+              {...form.register("startTime")}
+              className={EDIT_INPUT}
+            />
+            {form.formState.errors.startTime && (
+              <p className={EDIT_ERROR}>{form.formState.errors.startTime.message}</p>
+            )}
+          </div>
+          <div className="col-span-6 md:col-span-4">
+            <label htmlFor="editDuration" className={EDIT_LABEL}>
+              Duração
+            </label>
+            <input
+              id="editDuration"
+              type="number"
+              {...form.register("duration", {
+                setValueAs: (v) =>
+                  v === "" || v === null || v === undefined || isNaN(Number(v))
+                    ? undefined
+                    : Number(v),
+              })}
+              min={15}
+              max={480}
+              step={5}
+              className={EDIT_INPUT}
+            />
+            <p className="text-[11px] text-ink-500 mt-1 font-mono">
+              Fim {computedEndTime || "—"}
+            </p>
+          </div>
+        </div>
+
+        {isConsulta && (
+          <>
+            <EditSectionLabel>Tipo de atendimento</EditSectionLabel>
+            <div>
+              <ChipField label="Modalidade">
+                <Segmented<"PRESENCIAL" | "ONLINE">
+                  options={EDIT_MODALITY_OPTIONS}
+                  value={(form.watch("modality") as "PRESENCIAL" | "ONLINE") ?? "PRESENCIAL"}
+                  onChange={(v) =>
+                    form.setValue("modality", v, { shouldDirty: true, shouldValidate: true })
+                  }
+                  size="sm"
+                  ariaLabel="Modalidade"
+                />
+              </ChipField>
+            </div>
+          </>
+        )}
+
+        {/* Cobrança + Responsável */}
+        {(isConsulta ||
+          (appointment.type === "REUNIAO" && professionals && professionals.length > 1)) && (
+          <>
+            <EditSectionLabel>
+              {isConsulta ? "Cobrança e responsável" : "Responsável"}
+            </EditSectionLabel>
+            <div className="grid grid-cols-12 gap-4">
+              {isConsulta && (
+                <div
+                  className={
+                    professionals && professionals.length > 1
+                      ? "col-span-12 md:col-span-6"
+                      : "col-span-12"
+                  }
+                >
+                  <label htmlFor="editPrice" className={EDIT_LABEL}>
+                    Valor (R$)
+                  </label>
+                  <input
+                    id="editPrice"
+                    type="number"
+                    step="0.01"
+                    {...form.register("price", { valueAsNumber: true })}
+                    placeholder="0,00"
+                    className={EDIT_INPUT}
+                  />
+                </div>
+              )}
+              {professionals && professionals.length > 1 && (
+                <div className={isConsulta ? "col-span-12 md:col-span-6" : "col-span-12"}>
+                  <label htmlFor="editAttendingProf" className={EDIT_LABEL}>
+                    Atendente
+                  </label>
+                  <select
+                    id="editAttendingProf"
+                    value={editAttendingProfId ?? ""}
+                    onChange={(e) => {
+                      if (onAttendingProfChange) onAttendingProfChange(e.target.value || null)
+                    }}
+                    className={EDIT_SELECT}
+                  >
+                    <option value="">
+                      {appointment.professionalProfile.user.name} (titular)
+                    </option>
+                    {professionals
+                      .filter(
+                        (p) =>
+                          p.professionalProfile?.id &&
+                          p.professionalProfile.id !== appointment.professionalProfile.id
+                      )
+                      .map((p) => (
+                        <option
+                          key={p.professionalProfile!.id}
+                          value={p.professionalProfile!.id}
+                        >
+                          {p.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Equipe adicional */}
+        {hasAdditionalSection && (
+          <>
+            <EditSectionLabel>
+              Equipe adicional{" "}
+              <span className="text-ink-400 font-normal normal-case tracking-normal ml-1">
+                (opcional)
+              </span>
+            </EditSectionLabel>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {additionalAvailable.map((prof) => {
+                const profId = prof.professionalProfile!.id
+                const checked = editAdditionalProfIds!.includes(profId)
+                return (
+                  <label
+                    key={prof.id}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-[4px] border cursor-pointer transition-colors text-[13px] ${
+                      checked
+                        ? "border-brand-400 bg-brand-50"
+                        : "border-ink-200 bg-card hover:border-ink-400 hover:bg-ink-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setEditAdditionalProfIds!([...editAdditionalProfIds!, profId])
+                        } else {
+                          setEditAdditionalProfIds!(
+                            editAdditionalProfIds!.filter((x) => x !== profId)
+                          )
+                        }
+                      }}
+                      className="w-4 h-4 rounded-[2px] border-ink-300 text-brand-500 focus:ring-brand-500/25"
+                    />
+                    <span className="font-medium text-ink-800 truncate">{prof.name}</span>
+                    {prof.professionalProfile?.specialty && (
+                      <span className="text-[11px] text-ink-500 font-mono truncate">
+                        · {prof.professionalProfile.specialty}
+                      </span>
+                    )}
+                  </label>
+                )
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Observações */}
+        <div>
+          <label htmlFor="editNotes" className={EDIT_LABEL}>
+            Observações
+          </label>
+          <textarea
+            id="editNotes"
+            rows={3}
+            {...form.register("notes")}
+            placeholder="Notas sobre esta consulta…"
+            className={EDIT_TEXTAREA}
+          />
+        </div>
+
+        {isRecurring && (
+          <p className="text-[12px] text-ink-500 flex items-center gap-1.5">
+            <AlertTriangleIcon className="w-3.5 h-3.5 flex-shrink-0" />
+            Alterações aplicam-se apenas a esta data.
+          </p>
+        )}
+      </div>
+
+      {/* Right — live preview of the edited values */}
+      <aside className="md:border-l md:pl-6 md:border-ink-200 flex flex-col gap-4 min-w-0">
+        <EditSidebarLabel>Pré-visualização</EditSidebarLabel>
+
+        <div className="px-3.5 py-3 rounded-[4px] bg-brand-500 text-white flex items-center gap-2.5">
+          <CalendarIcon className="w-4 h-4 flex-shrink-0" />
+          <div className="min-w-0">
+            <div className="text-[11px] font-mono opacity-85 tracking-wider">{whenHeader}</div>
+            <div className="text-[15px] font-semibold mt-0.5 tracking-tight">{timeRange}</div>
+          </div>
+        </div>
+
+        <div className="bg-card rounded-[6px] border border-ink-200 shadow-sm p-4 space-y-3">
+          {isConsulta && appointment.patient && (
+            <EditPreviewRow
+              icon={<UserIcon className="w-4 h-4" />}
+              label="Paciente"
+              value={appointment.patient.name}
+            />
+          )}
+          <EditPreviewRow
+            icon={<UsersIcon className="w-4 h-4" />}
+            label="Profissional"
+            value={primaryProfName}
+          />
+          {isConsulta && (
+            <EditPreviewRow
+              icon={
+                watchedModality === "ONLINE" ? (
+                  <VideoIcon className="w-4 h-4" />
+                ) : (
+                  <BuildingIcon className="w-4 h-4" />
+                )
+              }
+              label="Modalidade"
+              value={modalityLabel}
+            />
+          )}
+          <EditPreviewRow
+            icon={<ClockIcon className="w-4 h-4" />}
+            label="Duração"
+            value={durationLabel}
+          />
+          {isConsulta && priceDisplay && (
+            <EditPreviewRow
+              icon={<FileTextIcon className="w-4 h-4" />}
+              label="Valor"
+              value={priceDisplay}
+            />
+          )}
+          {editAdditionalProfIds && editAdditionalProfIds.length > 0 && (
+            <EditPreviewRow
+              icon={<UsersIcon className="w-4 h-4" />}
+              label="Equipe"
+              value={`+${editAdditionalProfIds.length} ${
+                editAdditionalProfIds.length === 1 ? "profissional" : "profissionais"
+              }`}
+            />
+          )}
+        </div>
+
+        <div className="mt-auto">
+          <EditSidebarLabel>Estado atual</EditSidebarLabel>
+          <div className="mt-2 flex items-center gap-2 text-[12px] text-ink-600">
+            {isDateValid && timeValid ? (
+              <>
+                <CheckIcon className="w-4 h-4 text-ok-500" />
+                <span>Alterações prontas para salvar</span>
+              </>
+            ) : (
+              <>
+                <InfoIcon className="w-4 h-4 text-ink-400" />
+                <span>Defina data e horário</span>
+              </>
+            )}
+          </div>
+        </div>
+      </aside>
+    </div>
+  )
+}
+
+function EditSectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-500">
+      <span>{children}</span>
+      <span className="flex-1 h-px bg-ink-200" />
+    </div>
+  )
+}
+
+function EditSidebarLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500">
+      {children}
+    </div>
+  )
+}
+
+function EditPreviewRow({
+  icon,
+  label,
+  value,
+  placeholder = "—",
+}: {
+  icon: React.ReactNode
+  label: string
+  value?: string | null
+  placeholder?: string
+}) {
+  const hasValue = !!value
+  return (
+    <div className="flex items-center gap-2.5 text-[13px]">
+      <span className="text-ink-400 flex-shrink-0">{icon}</span>
+      <span className="text-ink-600">{label}</span>
+      <span
+        className={`ml-auto truncate max-w-[60%] text-right ${
+          hasValue ? "text-ink-900 font-medium" : "text-ink-400 italic"
+        }`}
+      >
+        {hasValue ? value : placeholder}
+      </span>
+    </div>
   )
 }
 
@@ -644,12 +1108,12 @@ function TerminalStateBanner({ appointment, isConsulta, isFinished, isNoShow, is
   onUpdateStatus: (status: string, message: string) => Promise<void>
 }) {
   const bannerStyle = isFinished
-    ? "bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400"
+    ? "bg-gray-50 border-gray-200 text-gray-600"
     : isNoShow
-    ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300"
+    ? "bg-amber-50 border-amber-200 text-amber-700"
     : appointment.status === "CANCELADO_ACORDADO"
-    ? "bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300"
-    : "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400"
+    ? "bg-teal-50 border-teal-200 text-teal-700"
+    : "bg-red-50 border-red-200 text-red-600"
 
   return (
     <div className={`p-3 rounded-xl border text-sm flex items-start gap-2.5 ${bannerStyle}`}>
@@ -673,11 +1137,11 @@ function TerminalStateBanner({ appointment, isConsulta, isFinished, isNoShow, is
         {canMarkStatus && isFinished && (
           <div className="mt-2 flex flex-wrap gap-2">
             <button type="button" onClick={() => onUpdateStatus("AGENDADO", "Agendamento restaurado")} disabled={isUpdatingStatus}
-              className="h-8 px-3 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+              className="h-8 px-3 rounded-lg border border-blue-300 text-blue-600 text-xs font-medium hover:bg-blue-50 active:scale-[0.98] transition-all disabled:opacity-50">
               {isUpdatingStatus ? "..." : "Reagendar"}
             </button>
             <button type="button" onClick={() => onUpdateStatus("CONFIRMADO", "Status alterado para confirmado")} disabled={isUpdatingStatus}
-              className="h-8 px-3 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+              className="h-8 px-3 rounded-lg border border-blue-300 text-blue-600 text-xs font-medium hover:bg-blue-50 active:scale-[0.98] transition-all disabled:opacity-50">
               {isUpdatingStatus ? "..." : "Alterar para Confirmado"}
             </button>
           </div>
@@ -687,24 +1151,24 @@ function TerminalStateBanner({ appointment, isConsulta, isFinished, isNoShow, is
           <div className="mt-2 flex flex-wrap gap-2">
             {appointment.status !== "CANCELADO_FALTA" && (
               <button type="button" onClick={() => onUpdateStatus("CANCELADO_FALTA", "Status alterado para falta")} disabled={isUpdatingStatus}
-                className="h-8 px-3 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                className="h-8 px-3 rounded-lg border border-amber-300 text-amber-700 text-xs font-medium hover:bg-amber-50 active:scale-[0.98] transition-all disabled:opacity-50">
                 {isUpdatingStatus ? "..." : "Alterar para Falta"}
               </button>
             )}
             {appointment.status !== "CANCELADO_ACORDADO" && (
               <button type="button" onClick={() => onUpdateStatus("CANCELADO_ACORDADO", "Status alterado para desmarcou")} disabled={isUpdatingStatus}
-                className="h-8 px-3 rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 text-xs font-medium hover:bg-teal-50 dark:hover:bg-teal-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                className="h-8 px-3 rounded-lg border border-teal-300 text-teal-700 text-xs font-medium hover:bg-teal-50 active:scale-[0.98] transition-all disabled:opacity-50">
                 {isUpdatingStatus ? "..." : "Alterar para Desmarcou"}
               </button>
             )}
             {appointment.status !== "CANCELADO_PROFISSIONAL" && (
               <button type="button" onClick={() => onUpdateStatus("CANCELADO_PROFISSIONAL", "Status alterado para cancelado sem cobranca")} disabled={isUpdatingStatus}
-                className="h-8 px-3 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+                className="h-8 px-3 rounded-lg border border-red-300 text-red-600 text-xs font-medium hover:bg-red-50 active:scale-[0.98] transition-all disabled:opacity-50">
                 {isUpdatingStatus ? "..." : "Alterar para sem cobranca"}
               </button>
             )}
             <button type="button" onClick={() => onUpdateStatus("AGENDADO", "Agendamento restaurado")} disabled={isUpdatingStatus}
-              className="h-8 px-3 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-[0.98] transition-all disabled:opacity-50">
+              className="h-8 px-3 rounded-lg border border-blue-300 text-blue-600 text-xs font-medium hover:bg-blue-50 active:scale-[0.98] transition-all disabled:opacity-50">
               {isUpdatingStatus ? "..." : "Reagendar"}
             </button>
           </div>

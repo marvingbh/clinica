@@ -108,7 +108,7 @@ export function HistoryTimeline({ entityType, entityId }: HistoryTimelineProps) 
 
   if (error) {
     return (
-      <div className="text-center py-12 text-sm text-red-600 dark:text-red-400">
+      <div className="text-center py-12 text-sm text-red-600">
         {error}
       </div>
     )
@@ -116,7 +116,7 @@ export function HistoryTimeline({ entityType, entityId }: HistoryTimelineProps) 
 
   if (entries.length === 0) {
     return (
-      <div className="text-center py-12 text-sm text-gray-500 dark:text-gray-400">
+      <div className="text-center py-12 text-sm text-gray-500">
         Nenhum historico encontrado.
       </div>
     )
@@ -130,23 +130,23 @@ export function HistoryTimeline({ entityType, entityId }: HistoryTimelineProps) 
         <div key={entry.id} className="relative pl-6 pb-6">
           {/* Timeline line */}
           {idx < entries.length - 1 && (
-            <div className="absolute left-[9px] top-5 bottom-0 w-px bg-gray-200 dark:bg-gray-700" />
+            <div className="absolute left-[9px] top-5 bottom-0 w-px bg-gray-200" />
           )}
           {/* Timeline dot */}
-          <div className="absolute left-0 top-1.5 w-[18px] h-[18px] rounded-full border-2 border-blue-500 bg-white dark:bg-gray-900 flex items-center justify-center">
+          <div className="absolute left-0 top-1.5 w-[18px] h-[18px] rounded-full border-2 border-blue-500 bg-white flex items-center justify-center">
             <div className="w-2 h-2 rounded-full bg-blue-500" />
           </div>
 
           {/* Entry content */}
           <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-gray-500">
               {formatTimestamp(entry.createdAt)}
             </p>
             <p className="text-sm mt-0.5">
-              <span className="font-medium text-gray-900 dark:text-gray-100">
+              <span className="font-medium text-gray-900">
                 {entry.userName}
               </span>{" "}
-              <span className="text-gray-600 dark:text-gray-300">
+              <span className="text-gray-600">
                 {getActionLabel(entry.action)}
               </span>
             </p>
@@ -157,22 +157,22 @@ export function HistoryTimeline({ entityType, entityId }: HistoryTimelineProps) 
                 {entry.changes.map((change, cIdx) => (
                   <div
                     key={cIdx}
-                    className="text-xs bg-gray-50 dark:bg-gray-800 rounded px-2 py-1.5"
+                    className="text-xs bg-gray-50 rounded px-2 py-1.5"
                   >
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
+                    <span className="font-medium text-gray-700">
                       {change.label}:
                     </span>{" "}
                     {entry.isCreate ? (
-                      <span className="text-gray-600 dark:text-gray-400">
+                      <span className="text-gray-600">
                         {change.newValue}
                       </span>
                     ) : (
                       <>
-                        <span className="text-red-600 dark:text-red-400 line-through">
+                        <span className="text-red-600 line-through">
                           {change.oldValue}
                         </span>
                         <span className="mx-1 text-gray-400">&rarr;</span>
-                        <span className="text-green-700 dark:text-green-400">
+                        <span className="text-green-700">
                           {change.newValue}
                         </span>
                       </>
@@ -190,7 +190,7 @@ export function HistoryTimeline({ entityType, entityId }: HistoryTimelineProps) 
         <button
           onClick={() => fetchEntries((pagination?.page || 1) + 1, true)}
           disabled={isLoadingMore}
-          className="w-full py-2 text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+          className="w-full py-2 text-sm text-blue-600 hover:underline disabled:opacity-50"
         >
           {isLoadingMore ? "Carregando..." : "Carregar mais"}
         </button>

@@ -84,11 +84,11 @@ export function SummaryCard({ label, value, sub, variant }: {
   variant?: "warning" | "success" | "info" | "orange" | "danger"
 }) {
   const variantClasses = {
-    warning: "border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20",
-    success: "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20",
-    info: "border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20",
-    orange: "border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20",
-    danger: "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20",
+    warning: "border-yellow-200 bg-yellow-50",
+    success: "border-green-200 bg-green-50",
+    info: "border-blue-200 bg-blue-50",
+    orange: "border-orange-200 bg-orange-50",
+    danger: "border-red-200 bg-red-50",
   }
   const cls = variant ? variantClasses[variant] : "border-border bg-card"
   return (
@@ -119,8 +119,8 @@ export function CustomTooltip({ active, payload, label }: any) {
 
 export function DeltaIndicator({ value, suffix = "%" }: { value: number | null; suffix?: string }) {
   if (value === null) return <span className="text-muted-foreground text-xs">sem dados anteriores</span>
-  const color = value > 0 ? "text-green-600 dark:text-green-400"
-    : value < 0 ? "text-red-600 dark:text-red-400"
+  const color = value > 0 ? "text-green-600"
+    : value < 0 ? "text-red-600"
     : "text-muted-foreground"
   const arrow = value > 0 ? "↑" : value < 0 ? "↓" : ""
   return (

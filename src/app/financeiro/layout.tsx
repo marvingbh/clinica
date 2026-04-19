@@ -22,7 +22,7 @@ export default function FinanceiroLayout({ children }: { children: React.ReactNo
 
   return (
     <FinanceiroProvider>
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-[1320px] mx-auto px-4 md:px-6 py-6">
         <h1 className="text-2xl font-bold mb-4">Financeiro</h1>
         <div className="flex gap-1 border-b border-border mb-6 overflow-x-auto">
           {tabs.map(tab => {

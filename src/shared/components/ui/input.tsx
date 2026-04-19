@@ -1,29 +1,26 @@
 "use client"
 
-import { forwardRef, useState, useId, useRef, useCallback } from "react"
+import { forwardRef, useId } from "react"
+import { AlertCircleIcon } from "./icons"
 
 type InputVariant = "default" | "floating"
 type InputSize = "sm" | "md" | "lg"
 
-const sizeClasses: Record<InputSize, { input: string; label: string; labelFloat: string }> = {
-  sm: {
-    input: "h-10 px-3 text-sm",
-    label: "text-sm left-3",
-    labelFloat: "text-xs -top-2 left-2 px-1",
-  },
-  md: {
-    input: "h-12 px-4 text-base",
-    label: "text-base left-4",
-    labelFloat: "text-xs -top-2 left-3 px-1",
-  },
-  lg: {
-    input: "h-14 px-4 text-lg",
-    label: "text-base left-4",
-    labelFloat: "text-xs -top-2 left-3 px-1",
-  },
+/* Design system spec (components.css):
+   - md (default) = 36px tall on desktop / 44px on mobile for tap targets
+   - 4px radius, ink-300 border, ink-400 placeholder
+   - hover: ink-400 border; focus: brand-500 border + 3px brand ring
+   - error: err-500 border; helper/hint: ink-500
+   The `floating` variant is kept for backward compatibility with existing
+   callers but renders a standard top label + input pair per the spec. */
+const sizeClasses: Record<InputSize, string> = {
+  sm: "h-10 md:h-8 px-3 text-[13px]",
+  md: "h-11 md:h-9 px-3 text-[13px]",
+  lg: "h-12 md:h-11 px-3.5 text-sm",
 }
 
-export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
+export interface InputProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size" | "prefix"> {
   label?: string
   variant?: InputVariant
   inputSize?: InputSize
@@ -31,216 +28,109 @@ export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
   helperText?: string
   leftIcon?: React.ReactNode
   rightIcon?: React.ReactNode
+  prefix?: React.ReactNode
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   (
     {
       label,
-      variant = "floating",
       inputSize = "md",
       error,
       helperText,
       leftIcon,
       rightIcon,
+      prefix,
       className = "",
       disabled,
       required,
       id,
-      value,
-      defaultValue,
-      placeholder,
-      onFocus,
-      onBlur,
       ...props
     },
     ref
   ) => {
     const generatedId = useId()
     const inputId = id || generatedId
-    const internalRef = useRef<HTMLInputElement>(null)
-    const [isFocused, setIsFocused] = useState(false)
-    const [hasValue, setHasValue] = useState(
-      Boolean(value || defaultValue || placeholder)
-    )
-
-    // Derive hasValue from controlled `value` prop or DOM value (handles react-hook-form reset())
-    const domHasValue = internalRef.current ? Boolean(internalRef.current.value) : false
-    const derivedHasValue = value !== undefined ? Boolean(value) : (hasValue || domHasValue)
-
-    const setRefs = useCallback((node: HTMLInputElement | null) => {
-      internalRef.current = node
-      if (typeof ref === "function") ref(node)
-      else if (ref) (ref as React.MutableRefObject<HTMLInputElement | null>).current = node
-      // Detect value set by react-hook-form via ref (not through value prop)
-      if (node && node.value) setHasValue(true)
-    }, [ref])
-
-    const sizes = sizeClasses[inputSize]
-    const isFloating = variant === "floating"
-    const shouldFloat = isFocused || derivedHasValue || placeholder
-
-    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-      setIsFocused(true)
-      onFocus?.(e)
-    }
-
-    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-      setIsFocused(false)
-      setHasValue(Boolean(e.target.value))
-      onBlur?.(e)
-    }
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setHasValue(Boolean(e.target.value))
-      props.onChange?.(e)
-    }
 
     const baseInputClasses = `
-      w-full
-      rounded-lg
-      border
-      bg-background
-      text-foreground
-      placeholder:text-transparent
-      transition-all duration-normal ease-in-out
-      focus:outline-none focus:ring-2 focus:ring-offset-0
-      disabled:opacity-50 disabled:cursor-not-allowed
+      w-full rounded-[4px] border bg-card text-ink-900
+      placeholder:text-ink-400
+      transition-[border-color,box-shadow] duration-[120ms] ease-out
+      focus:outline-none
+      disabled:bg-ink-100 disabled:text-ink-500 disabled:cursor-not-allowed
     `
 
     const borderClasses = error
-      ? "border-destructive focus:border-destructive focus:ring-destructive/20"
-      : "border-input focus:border-primary focus:ring-primary/20"
+      ? "border-err-500 hover:border-err-500 focus:border-err-500 focus:shadow-[0_0_0_3px_rgba(239,68,68,0.22)]"
+      : "border-ink-300 hover:border-ink-400 focus:border-brand-500 focus:shadow-[var(--shadow-focus)]"
 
     const paddingClasses = `
-      ${leftIcon ? "pl-11" : ""}
-      ${rightIcon ? "pr-11" : ""}
+      ${leftIcon ? "pl-9" : ""}
+      ${rightIcon ? "pr-9" : ""}
     `
 
-    if (isFloating && label) {
-      return (
-        <div className={`relative ${className}`}>
-          <div className="relative">
-            {leftIcon && (
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-                {leftIcon}
-              </div>
-            )}
-            <input
-              ref={setRefs}
-              id={inputId}
-              disabled={disabled}
-              required={required}
-              value={value}
-              defaultValue={defaultValue}
-              placeholder={placeholder || " "}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              onChange={handleChange}
-              className={`
-                ${baseInputClasses}
-                ${sizes.input}
-                ${borderClasses}
-                ${paddingClasses}
-                peer
-              `.trim()}
-              aria-invalid={error ? "true" : "false"}
-              aria-describedby={error ? `${inputId}-error` : helperText ? `${inputId}-helper` : undefined}
-              {...props}
-            />
-            <label
-              htmlFor={inputId}
-              className={`
-                absolute
-                pointer-events-none
-                transition-all duration-normal ease-in-out
-                ${shouldFloat ? sizes.labelFloat : `${sizes.label} top-1/2 -translate-y-1/2`}
-                ${shouldFloat ? "bg-background" : "bg-transparent"}
-                ${error ? "text-destructive" : isFocused ? "text-primary" : "text-muted-foreground"}
-                ${leftIcon && !shouldFloat ? "left-11" : ""}
-                peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2
-                peer-placeholder-shown:${sizes.label}
-                peer-focus:${sizes.labelFloat}
-                peer-focus:bg-background
-                peer-focus:text-primary
-              `}
-            >
-              {label}
-              {required && <span className="text-destructive ml-0.5">*</span>}
-            </label>
-            {rightIcon && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-                {rightIcon}
-              </div>
-            )}
-          </div>
-          {error && (
-            <p id={`${inputId}-error`} className="mt-1.5 text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          )}
-          {helperText && !error && (
-            <p id={`${inputId}-helper`} className="mt-1.5 text-sm text-muted-foreground">
-              {helperText}
-            </p>
-          )}
-        </div>
-      )
-    }
+    const wrappedInput = (
+      <div className={`relative ${prefix ? "flex" : ""}`}>
+        {prefix && (
+          <span className="inline-flex items-center gap-1 rounded-l-[4px] border border-r-0 border-ink-300 bg-ink-100 px-2.5 text-[12px] text-ink-600 font-mono whitespace-nowrap">
+            {prefix}
+          </span>
+        )}
+        {leftIcon && (
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none flex">
+            {leftIcon}
+          </span>
+        )}
+        <input
+          ref={ref}
+          id={inputId}
+          disabled={disabled}
+          required={required}
+          className={`
+            ${baseInputClasses}
+            ${sizeClasses[inputSize]}
+            ${borderClasses}
+            ${paddingClasses}
+            ${prefix ? "rounded-l-none" : ""}
+          `.trim()}
+          aria-invalid={error ? "true" : "false"}
+          aria-describedby={
+            error ? `${inputId}-error` : helperText ? `${inputId}-helper` : undefined
+          }
+          {...props}
+        />
+        {rightIcon && (
+          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none flex">
+            {rightIcon}
+          </span>
+        )}
+      </div>
+    )
 
-    // Default variant (bordered, no floating label)
     return (
-      <div className={`relative ${className}`}>
+      <div className={`flex flex-col gap-1.5 min-w-0 ${className}`}>
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-sm font-medium text-foreground mb-2"
+            className="text-[12px] font-medium text-ink-700"
           >
             {label}
-            {required && <span className="text-destructive ml-0.5">*</span>}
+            {required && <span className="text-err-500 ml-0.5">*</span>}
           </label>
         )}
-        <div className="relative">
-          {leftIcon && (
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-              {leftIcon}
-            </div>
-          )}
-          <input
-            ref={setRefs}
-            id={inputId}
-            disabled={disabled}
-            required={required}
-            value={value}
-            defaultValue={defaultValue}
-            placeholder={placeholder}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            onChange={handleChange}
-            className={`
-              ${baseInputClasses}
-              ${sizes.input}
-              ${borderClasses}
-              ${paddingClasses}
-              placeholder:text-muted-foreground
-            `.trim()}
-            aria-invalid={error ? "true" : "false"}
-            aria-describedby={error ? `${inputId}-error` : helperText ? `${inputId}-helper` : undefined}
-            {...props}
-          />
-          {rightIcon && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-              {rightIcon}
-            </div>
-          )}
-        </div>
+        {wrappedInput}
         {error && (
-          <p id={`${inputId}-error`} className="mt-1.5 text-sm text-destructive" role="alert">
+          <p
+            id={`${inputId}-error`}
+            role="alert"
+            className="flex items-center gap-1 text-[12px] text-err-700"
+          >
+            <AlertCircleIcon className="w-3 h-3" strokeWidth={2} />
             {error}
           </p>
         )}
         {helperText && !error && (
-          <p id={`${inputId}-helper`} className="mt-1.5 text-sm text-muted-foreground">
+          <p id={`${inputId}-helper`} className="text-[12px] text-ink-500">
             {helperText}
           </p>
         )}

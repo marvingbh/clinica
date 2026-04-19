@@ -72,7 +72,7 @@ export function TransactionCard({
             </span>
             <span className="text-sm text-muted-foreground">{formatDateBR(tx.date)}</span>
             {tx.allocatedAmount > 0 && tx.remainingAmount > 0.01 && (
-              <span className="text-xs text-orange-600 dark:text-orange-400 tabular-nums">
+              <span className="text-xs text-orange-600 tabular-nums">
                 {formatCurrencyBRL(tx.allocatedAmount)} / {formatCurrencyBRL(tx.amount)} alocado
               </span>
             )}
@@ -124,7 +124,7 @@ export function TransactionCard({
       {expanded && tx.links.length > 0 && (
         <div className="divide-y divide-border">
           {tx.links.map(link => (
-            <div key={link.linkId} className="px-4 py-2 bg-green-50/50 dark:bg-green-950/10 border-b border-border">
+            <div key={link.linkId} className="px-4 py-2 bg-green-50/50 border-b border-border">
               <div className="flex items-center gap-2 text-sm">
                 <CheckIcon className="w-3.5 h-3.5 text-green-600" />
                 <span className="font-medium">{link.patientName}</span>
@@ -216,7 +216,7 @@ export function TransactionCard({
                   </div>
                   <ParentNames motherName={c.motherName} fatherName={c.fatherName} payerName={tx.payerName} />
                   {c.matchedField === "patientSurname" && (
-                    <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 inline-flex items-center gap-1">
+                    <div className="text-xs text-blue-600 mt-1 inline-flex items-center gap-1">
                       <CheckIcon className="w-3 h-3" />
                       Sobrenome do paciente coincide com o pagador
                     </div>
@@ -225,7 +225,7 @@ export function TransactionCard({
                    !hasWordOverlap(c.fatherName, tx.payerName) &&
                    c.matchedField !== "patientSurname" &&
                    (c.motherName || c.fatherName) && (
-                    <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    <div className="text-xs text-amber-600 mt-1">
                       Nenhum nome coincide com o pagador
                     </div>
                   )}

@@ -317,7 +317,7 @@ export function DailyOverviewGrid({
                     right: "2px",
                     maxWidth: "400px",
                   }}
-                  className="border border-dashed border-purple-300 dark:border-purple-700 rounded-xl flex items-center justify-center text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-400 transition-all"
+                  className="border border-dashed border-purple-300 rounded-xl flex items-center justify-center text-purple-600 hover:bg-purple-50 hover:border-purple-400 transition-all"
                 >
                   <ArrowLeftRightIcon className="w-4 h-4 mr-2 flex-shrink-0" />
                   <span className="text-sm font-medium truncate">Quinzenal · {slot.biweeklyHint.patientName}</span>
@@ -448,7 +448,7 @@ export function DailyOverviewGrid({
                   border-t-[3px] ${colors ? colors.accent.replace("bg-", "border-t-") : "border-t-purple-500"}
                   ${colors
                     ? `${colors.bg} ${colors.border}`
-                    : "bg-purple-50 dark:bg-purple-950/30 border-l-purple-500"
+                    : "bg-purple-50 border-l-purple-500"
                   }
                   ${allCancelled ? "opacity-40" : allTerminal ? "opacity-50" : ""}
                 `}
@@ -456,19 +456,19 @@ export function DailyOverviewGrid({
                 <div className={`flex flex-col overflow-hidden h-full ${isCompact ? "px-2 py-1 gap-0" : "px-3 py-2 gap-0.5"}`}>
                   {showProfessional && (
                     <p className={`text-xs font-semibold truncate ${
-                      colors ? colors.text : "text-purple-700 dark:text-purple-300"
+                      colors ? colors.text : "text-purple-700"
                     }`}>
                       {session.professionalName}
                     </p>
                   )}
                   <div className="flex items-center gap-1.5">
-                    <UsersIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                    <UsersIcon className="w-3.5 h-3.5 text-purple-600 shrink-0" />
                     <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
                       {session.groupName}
                     </p>
                   </div>
                   {!isCompact && (
-                    <p className={`text-xs truncate ${allCancelled ? "text-red-500 dark:text-red-400 font-medium" : "text-muted-foreground"}`}>
+                    <p className={`text-xs truncate ${allCancelled ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
                       {allCancelled ? "Cancelado" : `${startTimeStr} – ${endTimeStr} (${session.participants.length})`}
                     </p>
                   )}

@@ -7,7 +7,7 @@ import { CheckIcon, SearchIcon, Loader2Icon } from "lucide-react"
 import { formatCurrencyBRL, formatDateBR, getMonthNameShort } from "@/lib/financeiro/format"
 import { INVOICE_STATUS_CONFIG } from "./types"
 
-interface SearchResult {
+export interface InvoiceSearchResult {
   invoiceId: string
   patientName: string
   motherName: string | null
@@ -24,9 +24,14 @@ interface InvoiceSearchProps {
   selectedInvoiceId?: string | null
   selectedIds?: string[]
   onSelect: (invoiceId: string, amount?: number) => void
+  /** Fires with the full invoice result — used by the workspace to add it
+   *  as a candidate without auto-conciliating. When provided, it is called
+   *  in addition to onSelect. */
+  onPick?: (invoice: InvoiceSearchResult) => void
 }
 
-export function InvoiceSearch({ selectedInvoiceId, selectedIds, onSelect }: InvoiceSearchProps) {
+export function InvoiceSearch({ selectedInvoiceId, selectedIds, onSelect, onPick }: InvoiceSearchProps) {
+  type SearchResult = InvoiceSearchResult
   const [query, setQuery] = useState("")
   const [month, setMonth] = useState(() => new Date().getMonth() + 1)
   const [year, setYear] = useState(() => new Date().getFullYear())
@@ -107,7 +112,10 @@ export function InvoiceSearch({ selectedInvoiceId, selectedIds, onSelect }: Invo
             return (
               <button
                 key={inv.invoiceId}
-                onClick={() => onSelect(inv.invoiceId, inv.remainingAmount ?? inv.totalAmount)}
+                onClick={() => {
+                  if (onPick) onPick(inv)
+                  else onSelect(inv.invoiceId, inv.remainingAmount ?? inv.totalAmount)
+                }}
                 className={`w-full text-left px-3 py-2 text-sm transition-colors ${
                   isSelected
                     ? "bg-primary/8 ring-2 ring-inset ring-primary/30"
@@ -145,7 +153,7 @@ export function InvoiceSearch({ selectedInvoiceId, selectedIds, onSelect }: Invo
                         {formatCurrencyBRL(inv.totalAmount)}
                       </span>
                       {inv.status === "PARCIAL" && inv.remainingAmount !== undefined && (
-                        <span className="text-orange-600 dark:text-orange-400 tabular-nums">
+                        <span className="text-orange-600 tabular-nums">
                           Falta: {formatCurrencyBRL(inv.remainingAmount)}
                         </span>
                       )}

@@ -133,8 +133,8 @@ function ErrorState({ message }: { message: string }) {
 function SuccessState() {
   return (
     <div className="text-center py-8">
-      <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-        <span className="text-green-600 dark:text-green-400 text-xl">✓</span>
+      <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+        <span className="text-green-600 text-xl">✓</span>
       </div>
       <h2 className="text-lg font-semibold text-foreground mb-2">
         Ficha enviada com sucesso!

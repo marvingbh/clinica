@@ -135,7 +135,7 @@ export default function RepasseDetailPage() {
       <div className="flex items-center gap-3">
         {isPaid ? (
           <>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-green-100 text-green-800">
               <CheckCircleIcon className="w-4 h-4" />
               Pago em {new Date(data.payment!.paidAt).toLocaleDateString("pt-BR")}
             </span>
@@ -181,7 +181,7 @@ export default function RepasseDetailPage() {
                 <td className="py-3 px-4">
                   {item.patientName}
                   {item.note && (
-                    <span className="ml-2 text-xs text-blue-600 dark:text-blue-400 font-medium">
+                    <span className="ml-2 text-xs text-blue-600 font-medium">
                       ({item.note})
                     </span>
                   )}
@@ -219,21 +219,21 @@ function SummaryCard({ label, value, highlight, variant }: {
   label: string; value: number; highlight?: boolean; variant?: "success" | "danger" | "warning"
 }) {
   const colors = variant === "success"
-    ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800"
+    ? "bg-green-50 border-green-200"
     : variant === "danger"
-    ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800"
+    ? "bg-red-50 border-red-200"
     : variant === "warning"
-    ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
+    ? "bg-amber-50 border-amber-200"
     : highlight
     ? "bg-primary/5 border-primary/30"
     : ""
 
   const textColor = variant === "success"
-    ? "text-green-700 dark:text-green-300"
+    ? "text-green-700"
     : variant === "danger"
-    ? "text-red-600 dark:text-red-400"
+    ? "text-red-600"
     : variant === "warning"
-    ? "text-amber-600 dark:text-amber-400"
+    ? "text-amber-600"
     : highlight
     ? "text-primary"
     : ""

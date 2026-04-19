@@ -73,12 +73,12 @@ function ParticipantRow({
       >
         <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold ${
           participant.status === "FINALIZADO"
-            ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+            ? "bg-green-100 text-green-700"
             : participant.status === "CONFIRMADO"
-            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400"
+            ? "bg-blue-100 text-blue-700"
             : isCancelled
             ? "bg-muted text-muted-foreground"
-            : "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400"
+            : "bg-purple-100 text-purple-700"
         }`}>
           {initial}
         </div>
@@ -166,11 +166,11 @@ function ParticipantRow({
 }
 
 const COLOR_MAP = {
-  blue: { solid: "bg-blue-600 text-white hover:bg-blue-700", outline: "border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30" },
-  green: { solid: "bg-green-600 text-white hover:bg-green-700", outline: "border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-950/30" },
-  teal: { solid: "bg-teal-600 text-white hover:bg-teal-700", outline: "border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/30" },
-  amber: { solid: "bg-amber-600 text-white hover:bg-amber-700", outline: "border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30" },
-  red: { solid: "bg-red-600 text-white hover:bg-red-700", outline: "border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30" },
+  blue: { solid: "bg-blue-600 text-white hover:bg-blue-700", outline: "border-blue-300 text-blue-700 hover:bg-blue-50" },
+  green: { solid: "bg-green-600 text-white hover:bg-green-700", outline: "border-green-300 text-green-700 hover:bg-green-50" },
+  teal: { solid: "bg-teal-600 text-white hover:bg-teal-700", outline: "border-teal-300 text-teal-700 hover:bg-teal-50" },
+  amber: { solid: "bg-amber-600 text-white hover:bg-amber-700", outline: "border-amber-300 text-amber-700 hover:bg-amber-50" },
+  red: { solid: "bg-red-600 text-white hover:bg-red-700", outline: "border-red-300 text-red-700 hover:bg-red-50" },
 }
 
 function ActionButton({ label, onClick, disabled, color, variant = "solid", small = false }: {

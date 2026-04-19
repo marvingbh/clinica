@@ -246,7 +246,7 @@ export default function PrecosPage() {
                     <tr
                       key={patient.id}
                       className={`border-b border-border last:border-b-0 ${
-                        isDirty ? "bg-yellow-50 dark:bg-yellow-900/20" : ""
+                        isDirty ? "bg-yellow-50" : ""
                       }`}
                     >
                       <td className="px-4 py-3 text-sm font-medium text-foreground">{patient.name}</td>

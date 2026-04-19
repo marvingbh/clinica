@@ -225,10 +225,10 @@ function OptionCard({ active, onClick, icon, label, color }: {
   color: "red" | "emerald" | "purple" | "blue"
 }) {
   const colors = {
-    red: active ? "border-red-500/40 bg-red-500/[0.06] text-red-600 dark:text-red-400" : "",
-    emerald: active ? "border-emerald-500/40 bg-emerald-500/[0.06] text-emerald-600 dark:text-emerald-400" : "",
-    purple: active ? "border-purple-500/40 bg-purple-500/[0.06] text-purple-600 dark:text-purple-400" : "",
-    blue: active ? "border-blue-500/40 bg-blue-500/[0.06] text-blue-600 dark:text-blue-400" : "",
+    red: active ? "border-red-500/40 bg-red-500/[0.06] text-red-600" : "",
+    emerald: active ? "border-emerald-500/40 bg-emerald-500/[0.06] text-emerald-600" : "",
+    purple: active ? "border-purple-500/40 bg-purple-500/[0.06] text-purple-600" : "",
+    blue: active ? "border-blue-500/40 bg-blue-500/[0.06] text-blue-600" : "",
   }
 
   return (

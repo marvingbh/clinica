@@ -189,7 +189,7 @@ export default function NfseConfigFields({
       <div className="border-t border-border pt-4 space-y-4">
         <h3 className="text-sm font-semibold text-foreground">Certificado Digital A1</h3>
         {hasCertificate && !certFile && (
-          <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1.5">
+          <p className="text-sm text-green-600 flex items-center gap-1.5">
             <span className="inline-block w-4 h-4 rounded-full bg-green-500 text-white text-[10px] leading-none text-center">
               &#10003;
             </span>

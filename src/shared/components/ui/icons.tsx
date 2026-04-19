@@ -93,6 +93,15 @@ export { BarChart3 as BarChart3Icon } from "lucide-react"
 
 // Finance
 export { Download as DownloadIcon } from "lucide-react"
+export { Receipt as ReceiptIcon } from "lucide-react"
+export { Coins as CoinsIcon } from "lucide-react"
+export { Tag as TagIcon } from "lucide-react"
+export { ListChecks as ListChecksIcon } from "lucide-react"
+
+// Additional status/communication icons used by editors
+export { Send as SendIcon } from "lucide-react"
+export { History as HistoryIcon } from "lucide-react"
+export { Filter as FilterIcon } from "lucide-react"
 
 // Re-export LucideIcon type for custom components
 export type { LucideIcon } from "lucide-react"

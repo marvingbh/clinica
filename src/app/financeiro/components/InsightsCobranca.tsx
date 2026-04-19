@@ -64,8 +64,8 @@ export function InsightsCobranca({ data, paymentsByDay }: Props) {
             sub={`${inad.unpaidCount} faturas em aberto`}
             detail={
               Number(unpaidRatePct) > 20
-                ? <span className="text-xs text-red-600 dark:text-red-400">Acima do ideal (&lt;20%)</span>
-                : <span className="text-xs text-green-600 dark:text-green-400">Dentro do esperado</span>
+                ? <span className="text-xs text-red-600">Acima do ideal (&lt;20%)</span>
+                : <span className="text-xs text-green-600">Dentro do esperado</span>
             }
           />
           <MetricCard
@@ -78,7 +78,7 @@ export function InsightsCobranca({ data, paymentsByDay }: Props) {
             value={`${lateRatePct}%`}
             sub={`${atraso.lateCount} de ${atraso.totalPaid} pagas após o vencimento`}
             detail={atraso.avgDaysLate > 0 && (
-              <span className="text-xs text-orange-600 dark:text-orange-400">
+              <span className="text-xs text-orange-600">
                 Média de {atraso.avgDaysLate} dias de atraso
               </span>
             )}
@@ -97,7 +97,7 @@ export function InsightsCobranca({ data, paymentsByDay }: Props) {
             detail={collectionDelta !== null && (
               <div className="flex items-center gap-1 text-xs">
                 <span className="text-muted-foreground">vs anterior:</span>
-                <span className={collectionDelta > 0 ? "text-red-600 dark:text-red-400" : collectionDelta < 0 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}>
+                <span className={collectionDelta > 0 ? "text-red-600" : collectionDelta < 0 ? "text-green-600" : "text-muted-foreground"}>
                   {collectionDelta > 0 ? "+" : ""}{collectionDelta.toFixed(1)} dias
                 </span>
               </div>

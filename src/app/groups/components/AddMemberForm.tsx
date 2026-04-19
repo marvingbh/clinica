@@ -30,7 +30,7 @@ export function AddMemberForm({
   onCancel,
 }: AddMemberFormProps) {
   return (
-    <div className="mb-4 p-4 border border-purple-200 dark:border-purple-800 rounded-lg bg-purple-50/50 dark:bg-purple-950/30">
+    <div className="mb-4 p-4 border border-purple-200 rounded-lg bg-purple-50/50">
       <h4 className="font-medium text-foreground mb-3">Adicionar Novo Membro</h4>
 
       {/* Patient Search */}
