@@ -13,6 +13,7 @@ import {
   Loader2Icon,
 } from "lucide-react"
 import { formatCurrencyBRL, formatDateBR, getMonthName } from "@/lib/financeiro/format"
+import { allocateGroupPayment } from "@/lib/bank-reconciliation"
 import { InvoiceSearch, type InvoiceSearchResult } from "./InvoiceSearch"
 import type { Transaction, Candidate, CandidateInvoice } from "./types"
 
@@ -77,7 +78,7 @@ interface WorkspacePaneProps {
   tx: Transaction | null
   isConfirming: boolean
   onReconcileOne: (invoiceId: string, amount: number) => void
-  onReconcileGroup: (invoiceIds: string[], totalAmount: number) => void
+  onReconcileGroup: (links: Array<{ invoiceId: string; amount: number }>) => void
   onDismiss: (txId: string, reason: "DUPLICATE" | "NOT_PATIENT") => void
   onCreateInvoice: () => void
 }
@@ -227,7 +228,6 @@ export function WorkspacePane({
 
         {/* Group candidate card — top of list */}
         {groups.map((g, gi) => {
-          const invoiceIds = g.invoices.map((i) => i.invoiceId)
           const total = g.invoices.reduce((s, i) => s + i.totalAmount, 0)
           return (
             <div
@@ -253,7 +253,15 @@ export function WorkspacePane({
                 <button
                   type="button"
                   onClick={() =>
-                    onReconcileGroup(invoiceIds, Math.min(total, tx.remainingAmount))
+                    onReconcileGroup(
+                      allocateGroupPayment(
+                        g.invoices.map((i) => ({
+                          invoiceId: i.invoiceId,
+                          remainingAmount: i.remainingAmount,
+                        })),
+                        tx.remainingAmount
+                      )
+                    )
                   }
                   disabled={isConfirming}
                   className="h-7 px-2.5 rounded-[4px] bg-brand-500 text-white text-[11px] font-medium inline-flex items-center gap-1.5 hover:bg-brand-600 disabled:opacity-50 transition-colors"

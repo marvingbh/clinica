@@ -133,17 +133,16 @@ export function ConciliacaoV1({
     }
   }
 
-  const handleReconcileGroup = async (invoiceIds: string[], totalAmount: number) => {
+  const handleReconcileGroup = async (
+    allocations: Array<{ invoiceId: string; amount: number }>
+  ) => {
     if (!selectedTx) return
+    const links = allocations
+      .filter((a) => a.amount > 0)
+      .map((a) => ({ transactionId: selectedTx.id, ...a }))
+    if (links.length === 0) return
     setReconciling(true)
     try {
-      const remaining = selectedTx.remainingAmount
-      const chunk = remaining > 0 ? Math.min(totalAmount, remaining) / invoiceIds.length : 0
-      const links = invoiceIds.map((invoiceId) => ({
-        transactionId: selectedTx.id,
-        invoiceId,
-        amount: chunk,
-      }))
       const data = await reconcile(links)
       toast.success(data.message || "Grupo conciliado")
       onReconciled()
