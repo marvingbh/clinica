@@ -1,117 +1,92 @@
 /**
- * Simple in-memory rate limiter for API endpoints
- * Uses a sliding window algorithm
+ * Public rate-limit API. Preserves the `checkRateLimit(key, config)` signature
+ * used by existing call sites (intake, appointment confirm/cancel/lookup).
  *
- * Note: For production with multiple server instances, consider using
- * Redis or a similar distributed cache for rate limiting
+ * Backend selection:
+ *   - test env (NODE_ENV === "test") → in-memory (deterministic, fake-timer friendly)
+ *   - Upstash configured → Upstash sliding-window (production)
+ *   - Upstash unreachable + failMode="closed" → throw RateLimitUnavailableError
+ *   - Upstash unreachable + failMode="open" → in-memory with a hard cap
+ *     (FALLBACK_CAP_MAX req/min/key) so an outage cannot uncap abuse
  */
 
-interface RateLimitConfig {
-  /** Maximum number of requests allowed */
+import { checkInMemory } from "./rate-limit-memory"
+import {
+  checkWithUpstash,
+  isUpstashConfigured,
+  RateLimitUnavailableError,
+} from "./rate-limit-upstash"
+
+export type RateLimitFailureMode = "open" | "closed"
+
+export interface RateLimitConfig {
+  /** Maximum number of requests allowed in the window */
   maxRequests: number
   /** Window size in milliseconds */
   windowMs: number
+  /**
+   * What to do if the rate-limit backend is unreachable.
+   *   - "open" (default): allow the request, but rate-limit via an in-memory
+   *     cap (100 req/min/key) so an outage can't uncap abuse.
+   *   - "closed": throw RateLimitUnavailableError → caller should 503.
+   *     Use for login/signup/superadminLogin where letting the auth endpoints
+   *     run uncapped during an outage is the worse option.
+   */
+  failMode?: RateLimitFailureMode
 }
 
-interface RateLimitEntry {
-  timestamps: number[]
-}
-
-interface RateLimitResult {
+export interface RateLimitResult {
   allowed: boolean
   remaining: number
   retryAfter: number
 }
 
-// In-memory store for rate limit entries
-const rateLimitStore = new Map<string, RateLimitEntry>()
+/** Fallback cap applied per key when Upstash fails open. */
+const FALLBACK_CAP_MAX = 100
+const FALLBACK_CAP_WINDOW_MS = 60_000
 
-// Cleanup interval - remove old entries every 5 minutes
-const CLEANUP_INTERVAL_MS = 5 * 60 * 1000
-
-let cleanupInterval: NodeJS.Timeout | null = null
-
-function startCleanup() {
-  if (cleanupInterval) return
-
-  cleanupInterval = setInterval(() => {
-    const now = Date.now()
-    const maxAge = 60 * 60 * 1000 // Remove entries older than 1 hour
-
-    for (const [key, entry] of rateLimitStore.entries()) {
-      const recentTimestamps = entry.timestamps.filter(ts => now - ts < maxAge)
-      if (recentTimestamps.length === 0) {
-        rateLimitStore.delete(key)
-      } else {
-        entry.timestamps = recentTimestamps
-      }
-    }
-  }, CLEANUP_INTERVAL_MS)
-
-  // Don't prevent process from exiting
-  cleanupInterval.unref?.()
-}
-
-/**
- * Check if a request should be rate limited
- *
- * @param key - Unique identifier for the rate limit (e.g., "confirm:192.168.1.1")
- * @param config - Rate limit configuration
- * @returns Rate limit result with allowed status and metadata
- */
 export async function checkRateLimit(
   key: string,
-  config: RateLimitConfig
+  config: RateLimitConfig,
 ): Promise<RateLimitResult> {
-  startCleanup()
+  const failMode = config.failMode ?? "open"
 
-  const now = Date.now()
-  const windowStart = now - config.windowMs
-
-  // Get or create entry
-  let entry = rateLimitStore.get(key)
-  if (!entry) {
-    entry = { timestamps: [] }
-    rateLimitStore.set(key, entry)
+  // Test env and unconfigured local dev → deterministic in-memory backend.
+  if (process.env.NODE_ENV === "test" || !isUpstashConfigured()) {
+    return checkInMemory(key, config.maxRequests, config.windowMs)
   }
 
-  // Remove timestamps outside the window
-  entry.timestamps = entry.timestamps.filter(ts => ts > windowStart)
-
-  // Check if limit exceeded
-  if (entry.timestamps.length >= config.maxRequests) {
-    const oldestInWindow = entry.timestamps[0]
-    const retryAfter = oldestInWindow + config.windowMs - now
-
-    return {
-      allowed: false,
-      remaining: 0,
-      retryAfter: Math.max(0, retryAfter),
+  try {
+    return await checkWithUpstash(key, config.maxRequests, config.windowMs)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.warn("[rate-limit-unavailable]", { key, failMode, message })
+    if (failMode === "closed") {
+      if (err instanceof RateLimitUnavailableError) throw err
+      throw new RateLimitUnavailableError(message)
     }
-  }
-
-  // Add current request timestamp
-  entry.timestamps.push(now)
-
-  return {
-    allowed: true,
-    remaining: config.maxRequests - entry.timestamps.length,
-    retryAfter: 0,
+    // fail-open: still cap per key to cap abuse amplitude
+    return checkInMemory(`fallback:${key}`, FALLBACK_CAP_MAX, FALLBACK_CAP_WINDOW_MS)
   }
 }
 
 /**
- * Predefined rate limit configurations
+ * Predefined rate limit configurations. Failure mode is baked per preset:
+ *   - Public endpoints (`publicApi`, `sensitive`) fail open — availability beats strictness.
+ *   - Auth endpoints (`login`, `signup`, `superadminLogin`) fail closed — a
+ *     stuffing window during an Upstash outage would undo the point of the limit.
  */
 export const RATE_LIMIT_CONFIGS = {
-  /** Public API endpoints - 10 requests per minute per IP */
-  publicApi: {
-    maxRequests: 10,
-    windowMs: 60 * 1000, // 1 minute
-  },
-  /** Stricter limit for sensitive actions - 5 requests per minute per IP */
-  sensitive: {
-    maxRequests: 5,
-    windowMs: 60 * 1000,
-  },
-} as const
+  /** Public API endpoints — 10/min/IP. Used by intake/appointments public routes. */
+  publicApi: { maxRequests: 10, windowMs: 60_000, failMode: "open" },
+  /** Stricter limit for sensitive actions — 5/min/IP. */
+  sensitive: { maxRequests: 5, windowMs: 60_000, failMode: "open" },
+  /** NextAuth credentials login — 5 per 15 minutes per IP+email. */
+  login: { maxRequests: 5, windowMs: 15 * 60_000, failMode: "closed" },
+  /** Public clinic signup — 3 per hour per IP. */
+  signup: { maxRequests: 3, windowMs: 60 * 60_000, failMode: "closed" },
+  /** Superadmin login — 3 per 15 minutes per IP. */
+  superadminLogin: { maxRequests: 3, windowMs: 15 * 60_000, failMode: "closed" },
+} as const satisfies Record<string, RateLimitConfig>
+
+export { RateLimitUnavailableError } from "./rate-limit-upstash"
