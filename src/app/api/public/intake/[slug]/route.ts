@@ -13,6 +13,21 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  // M12: rate-limit slug enumeration via GET. `publicApi` fails open so a
+  // genuine bot can't DoS legitimate users — but the per-key cap means
+  // attackers can't probe more than 10 slugs/min/IP.
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown"
+  const rl = await checkRateLimit(`intake-get:${ip}`, RATE_LIMIT_CONFIGS.publicApi)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Muitas tentativas" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfter / 1000)) } },
+    )
+  }
+
   const { slug } = await params
 
   const clinic = await prisma.clinic.findUnique({

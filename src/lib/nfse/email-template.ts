@@ -11,12 +11,31 @@ export interface NfseEmailTemplateData {
   clinicAddress: string | null
 }
 
+/**
+ * HTML-escape user-supplied text before HTML interpolation. Preserves UTF-8
+ * (Portuguese accents pass through unchanged) — only the 5 special chars that
+ * could break out of text context are encoded.
+ */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 export function buildNfseEmailHtml(data: NfseEmailTemplateData): string {
-  const {
-    recipientName, nfseNumero, clinicName, emissionDate,
-    valor, descricao, codigoVerificacao,
-    clinicPhone, clinicEmail, clinicAddress,
-  } = data
+  const recipientName = escapeHtml(data.recipientName)
+  const nfseNumero = escapeHtml(data.nfseNumero)
+  const clinicName = escapeHtml(data.clinicName)
+  const emissionDate = escapeHtml(data.emissionDate)
+  const valor = escapeHtml(data.valor)
+  const descricao = escapeHtml(data.descricao)
+  const codigoVerificacao = data.codigoVerificacao ? escapeHtml(data.codigoVerificacao) : null
+  const clinicPhone = data.clinicPhone ? escapeHtml(data.clinicPhone) : null
+  const clinicEmail = data.clinicEmail ? escapeHtml(data.clinicEmail) : null
+  const clinicAddress = data.clinicAddress ? escapeHtml(data.clinicAddress) : null
 
   const contactParts: string[] = []
   if (clinicPhone) contactParts.push(clinicPhone)

@@ -50,41 +50,11 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Verify HMAC signature
+  // Verify HMAC signature. B13: do NOT leak appointment metadata when
+  // signature fails — any ID-holder could otherwise enumerate.
   const verification = verifyLink(id, "cancel", expires, sig)
 
   if (!verification.valid) {
-    // Even if link is invalid/expired, check if already cancelled (preserve UX)
-    const appointment = await prisma.appointment.findUnique({
-      where: { id },
-      include: {
-        professionalProfile: {
-          include: {
-            user: { select: { name: true } },
-          },
-        },
-      },
-    })
-
-    if (appointment?.status === "CANCELADO_ACORDADO" ||
-        appointment?.status === "CANCELADO_FALTA" ||
-        appointment?.status === "CANCELADO_PROFISSIONAL") {
-      return NextResponse.json(
-        {
-          error: "Este agendamento ja foi cancelado",
-          alreadyCancelled: true,
-          appointment: {
-            id: appointment.id,
-            professionalName: appointment.professionalProfile.user.name,
-            scheduledAt: appointment.scheduledAt.toISOString(),
-            endAt: appointment.endAt.toISOString(),
-            modality: appointment.modality,
-          },
-        },
-        { status: 400 }
-      )
-    }
-
     return NextResponse.json(
       { error: verification.error },
       { status: 400 }

@@ -712,6 +712,26 @@ model AuditLog {
   @@index([clinicId, createdAt])
 }
 
+/// Stripe webhook event idempotency ledger (B14).
+/// Row is inserted BEFORE the handler runs (unique-constraint atomic gate).
+/// `processedAt` null = handler crashed mid-flight; next Stripe retry is
+/// allowed to run the handler again. Non-null = completed, duplicate retries
+/// return 200 `{duplicate: true}` without re-invoking the handler.
+///
+/// Retention: rows with `processedAt IS NOT NULL` kept 90 days for
+/// forensics; older rows purged by /api/jobs/cleanup-webhook-events.
+model StripeWebhookEvent {
+  id          String    @id @default(cuid())
+  eventId     String    @unique
+  type        String
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+  error       String?
+
+  @@index([createdAt])
+  @@index([type, createdAt])
+}
+
 /// Configurable notification templates per clinic
 model NotificationTemplate {
   id       String              @id @default(cuid())
