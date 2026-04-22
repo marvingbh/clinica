@@ -30,9 +30,22 @@ export const AuditAction = {
   // Authentication
   LOGIN_SUCCESS: "LOGIN_SUCCESS",
   LOGIN_FAILED: "LOGIN_FAILED",
+  USER_PASSWORD_CHANGED: "USER_PASSWORD_CHANGED",
 
   // Authorization
   PERMISSION_DENIED: "PERMISSION_DENIED",
+  PERMISSION_SELF_EDIT_BLOCKED: "PERMISSION_SELF_EDIT_BLOCKED",
+
+  // Exports (LGPD)
+  BATCH_EXPORTED: "BATCH_EXPORTED",
+  INVOICE_EXPORTED: "INVOICE_EXPORTED",
+  NFSE_EXPORTED: "NFSE_EXPORTED",
+
+  // LGPD purge
+  PATIENT_PURGE_REQUESTED: "PATIENT_PURGE_REQUESTED",
+  PATIENT_PURGE_CANCELLED: "PATIENT_PURGE_CANCELLED",
+  PATIENT_PURGED: "PATIENT_PURGED",
+  AUDIT_REDACTED: "AUDIT_REDACTED",
 
   // Invoices
   INVOICE_STATUS_CHANGED: "INVOICE_STATUS_CHANGED",
@@ -208,11 +221,10 @@ export async function logAuthEvent(params: {
   clinicId: string
   userId?: string
   action: typeof AuditAction.LOGIN_SUCCESS | typeof AuditAction.LOGIN_FAILED
-  email: string
   request?: Request
   metadata?: Record<string, unknown>
 }): Promise<void> {
-  const { clinicId, userId, action, email, request, metadata } = params
+  const { clinicId, userId, action, request, metadata } = params
   const { ipAddress, userAgent } = extractRequestMetadata(request)
 
   await prisma.auditLog.create({
@@ -221,12 +233,11 @@ export async function logAuthEvent(params: {
       userId: userId ?? null,
       action,
       entityType: "User",
-      entityId: userId ?? email,
+      entityId: userId ?? "unknown",
       oldValues: Prisma.JsonNull,
-      newValues: {
-        email,
-        ...metadata,
-      } as Prisma.InputJsonValue,
+      newValues: metadata
+        ? (metadata as Prisma.InputJsonValue)
+        : Prisma.JsonNull,
       ipAddress: ipAddress ?? null,
       userAgent: userAgent ?? null,
     },

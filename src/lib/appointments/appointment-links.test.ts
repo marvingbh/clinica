@@ -36,12 +36,13 @@ describe("signLink", () => {
     expect(result.expires).toBe(expectedExpires)
   })
 
-  it("throws if AUTH_SECRET is not set", () => {
+  it("throws if no appointment-link secret is set", () => {
     vi.stubEnv("AUTH_SECRET", "")
+    vi.stubEnv("APPOINTMENT_LINK_SECRET", "")
 
     expect(() =>
       signLink(APPOINTMENT_ID, "confirm", new Date())
-    ).toThrow("AUTH_SECRET")
+    ).toThrow("APPOINTMENT_LINK_SECRET")
   })
 
   it("produces different signatures for different actions", () => {
@@ -118,12 +119,42 @@ describe("verifyLink", () => {
     expect(result.error).toContain("invalido")
   })
 
-  it("throws if AUTH_SECRET is not set", () => {
+  it("throws if no appointment-link secret is set", () => {
     vi.stubEnv("AUTH_SECRET", "")
+    vi.stubEnv("APPOINTMENT_LINK_SECRET", "")
 
+    // 64 hex chars (32 bytes) so the length check passes before secret lookup
     expect(() =>
-      verifyLink(APPOINTMENT_ID, "confirm", 9999999999, "abc")
-    ).toThrow("AUTH_SECRET")
+      verifyLink(APPOINTMENT_ID, "confirm", 9999999999, "a".repeat(64))
+    ).toThrow("APPOINTMENT_LINK_SECRET")
+  })
+
+  it("accepts signatures from LEGACY_APPOINTMENT_LINK_SECRET during rotation grace", () => {
+    // Sign with the "old" secret
+    vi.stubEnv("APPOINTMENT_LINK_SECRET", "old-secret-value-for-rotation-test")
+    const scheduledAt = new Date("2026-03-10T14:00:00Z")
+    const { expires, sig } = signLink(APPOINTMENT_ID, "confirm", scheduledAt)
+
+    // Deploy flips the primary secret but preserves the old as legacy
+    vi.stubEnv("APPOINTMENT_LINK_SECRET", "brand-new-secret-value-post-rotation")
+    vi.stubEnv("LEGACY_APPOINTMENT_LINK_SECRET", "old-secret-value-for-rotation-test")
+
+    const result = verifyLink(APPOINTMENT_ID, "confirm", expires, sig)
+    expect(result.valid).toBe(true)
+  })
+
+  it("rejects legacy-signed links when ROTATION_REASON=compromise", () => {
+    vi.stubEnv("APPOINTMENT_LINK_SECRET", "old-secret-value-compromise-test")
+    const scheduledAt = new Date("2026-03-10T14:00:00Z")
+    const { expires, sig } = signLink(APPOINTMENT_ID, "confirm", scheduledAt)
+
+    vi.stubEnv("APPOINTMENT_LINK_SECRET", "brand-new-secret-value-compromise-test")
+    vi.stubEnv("LEGACY_APPOINTMENT_LINK_SECRET", "old-secret-value-compromise-test")
+    vi.stubEnv("ROTATION_REASON", "compromise")
+
+    const result = verifyLink(APPOINTMENT_ID, "confirm", expires, sig)
+    expect(result.valid).toBe(false)
+    expect(result.error).toContain("invalido")
   })
 })
 

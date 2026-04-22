@@ -9,13 +9,13 @@ import {
   getPermissionScope,
   logPermissionDenied,
   meetsMinAccess,
-  resolvePermissions,
   type AuthUser,
   type Resource,
   type Action,
   type AuthorizationResult,
   type Feature,
 } from "@/lib/rbac"
+import { resolveAuthUser } from "./auth-user"
 
 /**
  * Standard error response for unauthorized access
@@ -146,13 +146,9 @@ export function withAuth(
       return unauthorizedResponse()
     }
 
-    const user: AuthUser = {
-      id: session.user.id,
-      clinicId: session.user.clinicId,
-      role: session.user.role as Role,
-      professionalProfileId: session.user.professionalProfileId,
-      permissions: session.user.permissions ?? resolvePermissions(session.user.role as Role, {}),
-    }
+    const resolved = await resolveAuthUser(session)
+    if (!resolved) return unauthorizedResponse("Session revoked")
+    const user = resolved.user
 
     // Resolve params from the route context
     const params = routeContext?.params ? await routeContext.params : {}
@@ -230,13 +226,9 @@ export function withAuthentication(
       return unauthorizedResponse()
     }
 
-    const user: AuthUser = {
-      id: session.user.id,
-      clinicId: session.user.clinicId,
-      role: session.user.role as Role,
-      professionalProfileId: session.user.professionalProfileId,
-      permissions: session.user.permissions ?? resolvePermissions(session.user.role as Role, {}),
-    }
+    const resolved = await resolveAuthUser(session)
+    if (!resolved) return unauthorizedResponse("Session revoked")
+    const user = resolved.user
 
     const params = routeContext?.params ? await routeContext.params : {}
 
@@ -298,13 +290,9 @@ export function withFeatureAuth(
       return unauthorizedResponse()
     }
 
-    const user: AuthUser = {
-      id: session.user.id,
-      clinicId: session.user.clinicId,
-      role: session.user.role as Role,
-      professionalProfileId: session.user.professionalProfileId,
-      permissions: session.user.permissions ?? resolvePermissions(session.user.role as Role, {}),
-    }
+    const resolved = await resolveAuthUser(session)
+    if (!resolved) return unauthorizedResponse("Session revoked")
+    const user = resolved.user
 
     const params = routeContext?.params ? await routeContext.params : {}
     const access = user.permissions[options.feature]

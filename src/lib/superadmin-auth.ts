@@ -1,8 +1,12 @@
 import { SignJWT, jwtVerify } from "jose"
 import { cookies } from "next/headers"
+import { getSuperAdminJwtSecret } from "./env"
 
 const SUPER_ADMIN_COOKIE = "superadmin-token"
-const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET || "dev-secret")
+
+function getSecret(): Uint8Array {
+  return new TextEncoder().encode(getSuperAdminJwtSecret())
+}
 
 export interface SuperAdminSession {
   id: string
@@ -15,7 +19,7 @@ export async function createSuperAdminToken(payload: SuperAdminSession): Promise
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("8h")
     .setIssuedAt()
-    .sign(SECRET)
+    .sign(getSecret())
 }
 
 export async function getSuperAdminSession(): Promise<SuperAdminSession | null> {
@@ -25,7 +29,7 @@ export async function getSuperAdminSession(): Promise<SuperAdminSession | null> 
   if (!token) return null
 
   try {
-    const { payload } = await jwtVerify(token, SECRET)
+    const { payload } = await jwtVerify(token, getSecret())
     return {
       id: payload.id as string,
       email: payload.email as string,

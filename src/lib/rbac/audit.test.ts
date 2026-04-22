@@ -264,7 +264,6 @@ describe("logAuthEvent", () => {
       clinicId: "clinic-1",
       userId: "user-1",
       action: AuditAction.LOGIN_SUCCESS,
-      email: "doctor@clinic.com",
     })
 
     expect(mockAuditLogCreate).toHaveBeenCalledWith({
@@ -274,30 +273,28 @@ describe("logAuthEvent", () => {
         action: "LOGIN_SUCCESS",
         entityType: "User",
         entityId: "user-1",
-        newValues: { email: "doctor@clinic.com" },
       }),
     })
   })
 
-  it("logs a failed login with email as entityId when userId is missing", async () => {
+  it("logs a failed login with unknown entityId when userId is missing", async () => {
     mockAuditLogCreate.mockResolvedValue({})
 
     await logAuthEvent({
       clinicId: "clinic-1",
       action: AuditAction.LOGIN_FAILED,
-      email: "unknown@hacker.com",
     })
 
     expect(mockAuditLogCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId: null,
         action: "LOGIN_FAILED",
-        entityId: "unknown@hacker.com",
+        entityId: "unknown",
       }),
     })
   })
 
-  it("includes metadata and request headers when provided", async () => {
+  it("includes metadata and request headers when provided — no plaintext email", async () => {
     mockAuditLogCreate.mockResolvedValue({})
 
     const request = makeRequestWithHeaders({
@@ -309,9 +306,8 @@ describe("logAuthEvent", () => {
       clinicId: "clinic-1",
       userId: "user-1",
       action: AuditAction.LOGIN_SUCCESS,
-      email: "doctor@clinic.com",
       request,
-      metadata: { method: "credentials" },
+      metadata: { method: "credentials", emailHash: "abc123" },
     })
 
     expect(mockAuditLogCreate).toHaveBeenCalledWith({
@@ -319,8 +315,8 @@ describe("logAuthEvent", () => {
         ipAddress: "203.0.113.42",
         userAgent: "Safari/17",
         newValues: {
-          email: "doctor@clinic.com",
           method: "credentials",
+          emailHash: "abc123",
         },
       }),
     })
