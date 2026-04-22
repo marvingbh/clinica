@@ -139,6 +139,32 @@ export const PUT = withFeatureAuth(
       )
     }
 
+    // Self-edit guard on sensitive features: an admin cannot silently upgrade
+    // themselves. Requires another admin to grant elevated access.
+    const SENSITIVE_FEATURES = new Set([
+      "users",
+      "clinic_settings",
+      "audit_logs",
+      "patients_others",
+      "groups_others",
+      "agenda_others",
+      "availability_others",
+    ])
+    if (userId === user.id && SENSITIVE_FEATURES.has(feature)) {
+      const { audit, AuditAction } = await import("@/lib/rbac/audit")
+      audit.log({
+        user,
+        action: AuditAction.PERMISSION_SELF_EDIT_BLOCKED,
+        entityType: "UserPermission",
+        entityId: userId,
+        newValues: { feature, access },
+        request: req,
+      }).catch(() => {})
+      return forbiddenResponse(
+        "Voce nao pode editar suas proprias permissoes para recursos sensiveis. Peca a outro administrador.",
+      )
+    }
+
     if (access === null) {
       // Remove the override (revert to role default)
       await prisma.userPermission.deleteMany({

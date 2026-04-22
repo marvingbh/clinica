@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
+import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { z } from "zod"
+import { groupScopeFilter } from "@/lib/groups/scope"
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
 
@@ -26,15 +28,21 @@ export const GET = withFeatureAuth(
     const isActive = searchParams.get("isActive")
     const professionalProfileId = searchParams.get("professionalProfileId")
 
-    const where: Record<string, unknown> = {
+    const where: Prisma.TherapyGroupWhereInput = {
       clinicId: user.clinicId,
+      ...groupScopeFilter(user),
     }
 
     // Filter by specific professional if requested
     if (professionalProfileId) {
-      where.OR = [
-        { professionalProfileId },
-        { additionalProfessionals: { some: { professionalProfileId } } },
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        {
+          OR: [
+            { professionalProfileId },
+            { additionalProfessionals: { some: { professionalProfileId } } },
+          ],
+        },
       ]
     }
 

@@ -6,6 +6,7 @@ import archiver from "archiver"
 import { PassThrough } from "stream"
 import { createInvoiceDocument, createGroupedInvoiceDocument } from "@/lib/financeiro/invoice-pdf"
 import { buildInvoicePDFData } from "@/lib/financeiro/build-invoice-pdf-data"
+import { audit, AuditAction } from "@/lib/rbac/audit"
 import { INVOICE_INCLUDE } from "./query"
 
 const MONTH_ABBR = [
@@ -47,6 +48,16 @@ export const GET = withFeatureAuth(
     if (invoices.length === 0) {
       return NextResponse.json({ error: "Nenhuma fatura encontrada para este período" }, { status: 404 })
     }
+
+    // M9 audit: bulk invoice export
+    audit.log({
+      user,
+      action: AuditAction.BATCH_EXPORTED,
+      entityType: "Invoice",
+      entityId: `${year}-${month}`,
+      newValues: { month, year, invoiceCount: invoices.length, professionalId },
+      request: req,
+    }).catch(() => {})
 
     // Stream zip response: each PDF is generated sequentially and piped into archiver
     const passthrough = new PassThrough()
