@@ -20,6 +20,8 @@ interface ProfessionalRepasse {
   totalTax: number
   totalAfterTax: number
   totalRepasse: number
+  totalReceived: number
+  percentReceived: number
   paidAmount: number | null
   paidAt: string | null
   adjustment: number
@@ -118,12 +120,14 @@ export default function RepassePage() {
     (acc, p) => ({
       sessions: acc.sessions + p.totalSessions,
       gross: acc.gross + p.totalGross,
+      received: acc.received + p.totalReceived,
       tax: acc.tax + p.totalTax,
       afterTax: acc.afterTax + p.totalAfterTax,
       repasse: acc.repasse + p.totalRepasse,
     }),
-    { sessions: 0, gross: 0, tax: 0, afterTax: 0, repasse: 0 },
+    { sessions: 0, gross: 0, received: 0, tax: 0, afterTax: 0, repasse: 0 },
   )
+  const totalsPercentReceived = totals.gross > 0 ? (totals.received / totals.gross) * 100 : 0
 
   return (
     <div>
@@ -139,6 +143,7 @@ export default function RepassePage() {
               <th className="text-center py-3 px-4 font-medium">% Repasse</th>
               <th className="text-center py-3 px-4 font-medium">Sessões</th>
               <th className="text-right py-3 px-4 font-medium">Bruto</th>
+              <th className="text-right py-3 px-4 font-medium">Recebido</th>
               <th className="text-right py-3 px-4 font-medium">Imposto</th>
               <th className="text-right py-3 px-4 font-medium">Líquido</th>
               <th className="text-right py-3 px-4 font-medium">Repasse</th>
@@ -158,6 +163,16 @@ export default function RepassePage() {
                   <td className="text-center py-3 px-4">{p.repassePercent}%</td>
                   <td className="text-center py-3 px-4">{p.totalSessions}</td>
                   <td className="text-right py-3 px-4">{formatCurrencyBRL(p.totalGross)}</td>
+                  <td className={`text-right py-3 px-4 ${
+                    p.percentReceived >= 100 ? "text-green-700" :
+                    p.percentReceived > 0 ? "text-amber-600" :
+                    "text-muted-foreground"
+                  }`}>
+                    <div className="leading-tight">
+                      <div>{formatCurrencyBRL(p.totalReceived)}</div>
+                      <div className="text-[11px]">{p.percentReceived.toFixed(1)}%</div>
+                    </div>
+                  </td>
                   <td className="text-right py-3 px-4">{formatCurrencyBRL(p.totalTax)}</td>
                   <td className="text-right py-3 px-4">{formatCurrencyBRL(p.totalAfterTax)}</td>
                   <td className="text-right py-3 px-4 font-bold">{formatCurrencyBRL(p.totalRepasse)}</td>
@@ -218,6 +233,12 @@ export default function RepassePage() {
               <td className="text-center py-3 px-4"></td>
               <td className="text-center py-3 px-4">{totals.sessions}</td>
               <td className="text-right py-3 px-4">{formatCurrencyBRL(totals.gross)}</td>
+              <td className="text-right py-3 px-4">
+                <div className="leading-tight">
+                  <div>{formatCurrencyBRL(totals.received)}</div>
+                  <div className="text-[11px] font-normal">{totalsPercentReceived.toFixed(1)}%</div>
+                </div>
+              </td>
               <td className="text-right py-3 px-4">{formatCurrencyBRL(totals.tax)}</td>
               <td className="text-right py-3 px-4">{formatCurrencyBRL(totals.afterTax)}</td>
               <td className="text-right py-3 px-4 font-bold">{formatCurrencyBRL(totals.repasse)}</td>

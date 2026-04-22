@@ -112,7 +112,18 @@ export default function RepasseDetailPage() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <SummaryCard label="Total Bruto" value={data.summary.totalGross} />
-        <SummaryCard label="Imposto" value={data.summary.totalTax} />
+        <SummaryCard
+          label="Recebido"
+          value={data.summary.totalReceived}
+          sublabel={`${data.summary.percentReceived.toFixed(1)}% das faturas`}
+          variant={
+            data.summary.percentReceived >= 100
+              ? "success"
+              : data.summary.percentReceived > 0
+              ? "warning"
+              : "danger"
+          }
+        />
         <SummaryCard label="Líquido" value={data.summary.totalAfterTax} />
         <SummaryCard
           label="Repasse Total"
@@ -164,12 +175,14 @@ export default function RepasseDetailPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/50">
+              <th className="text-left py-3 px-4 font-medium">Horário</th>
               <th className="text-left py-3 px-4 font-medium">Paciente</th>
               <th className="text-center py-3 px-4 font-medium">Sessões</th>
               <th className="text-right py-3 px-4 font-medium">Bruto</th>
               <th className="text-right py-3 px-4 font-medium">Imposto</th>
               <th className="text-right py-3 px-4 font-medium">Líquido</th>
               <th className="text-right py-3 px-4 font-medium">Repasse</th>
+              <th className="text-right py-3 px-4 font-medium">Recebido</th>
             </tr>
           </thead>
           <tbody>
@@ -178,14 +191,10 @@ export default function RepasseDetailPage() {
                 key={item.invoiceId}
                 className="border-b border-border last:border-0"
               >
-                <td className="py-3 px-4">
-                  {item.patientName}
-                  {item.note && (
-                    <span className="ml-2 text-xs text-blue-600 font-medium">
-                      ({item.note})
-                    </span>
-                  )}
+                <td className="py-3 px-4 text-muted-foreground text-xs font-mono whitespace-nowrap">
+                  {formatSlot(item.slot)}
                 </td>
+                <td className="py-3 px-4">{item.patientName}</td>
                 <td className="text-center py-3 px-4">{item.totalSessions}</td>
                 <td className="text-right py-3 px-4">
                   {formatCurrencyBRL(item.grossValue)}
@@ -199,11 +208,14 @@ export default function RepasseDetailPage() {
                 <td className="text-right py-3 px-4 font-medium">
                   {formatCurrencyBRL(item.repasseValue)}
                 </td>
+                <td className="text-right py-3 px-4">
+                  <ReceivedCell paid={item.paidAmount} percent={item.percentPaid} />
+                </td>
               </tr>
             ))}
             {data.items.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-6 text-center text-muted-foreground">
+                <td colSpan={8} className="py-6 text-center text-muted-foreground">
                   Nenhuma fatura encontrada neste período
                 </td>
               </tr>
@@ -215,8 +227,8 @@ export default function RepasseDetailPage() {
   )
 }
 
-function SummaryCard({ label, value, highlight, variant }: {
-  label: string; value: number; highlight?: boolean; variant?: "success" | "danger" | "warning"
+function SummaryCard({ label, value, sublabel, highlight, variant }: {
+  label: string; value: number; sublabel?: string; highlight?: boolean; variant?: "success" | "danger" | "warning"
 }) {
   const colors = variant === "success"
     ? "bg-green-50 border-green-200"
@@ -244,6 +256,29 @@ function SummaryCard({ label, value, highlight, variant }: {
       <div className={`text-2xl font-bold ${textColor}`}>
         {formatCurrencyBRL(value)}
       </div>
+      {sublabel && (
+        <div className="text-xs text-muted-foreground mt-1">{sublabel}</div>
+      )}
+    </div>
+  )
+}
+
+const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
+
+function formatSlot(slot: { dayOfWeek: number; time: string } | null): string {
+  if (!slot) return "—"
+  return `${WEEKDAY_LABELS[slot.dayOfWeek] ?? "?"} ${slot.time}`
+}
+
+function ReceivedCell({ paid, percent }: { paid: number; percent: number }) {
+  const color =
+    percent >= 100 ? "text-green-700"
+    : percent > 0 ? "text-amber-600"
+    : "text-muted-foreground"
+  return (
+    <div className={`inline-flex flex-col items-end leading-tight ${color}`}>
+      <span className="font-medium">{formatCurrencyBRL(paid)}</span>
+      <span className="text-[11px]">{percent.toFixed(1)}%</span>
     </div>
   )
 }

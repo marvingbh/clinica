@@ -11,6 +11,8 @@ export interface RepasseDetailData {
     totalTax: number
     totalAfterTax: number
     totalRepasse: number
+    totalReceived: number
+    percentReceived: number
   }
   items: Array<{
     invoiceId: string
@@ -20,7 +22,9 @@ export interface RepasseDetailData {
     taxAmount: number
     afterTax: number
     repasseValue: number
-    note?: string
+    paidAmount: number
+    percentPaid: number
+    slot: { dayOfWeek: number; time: string } | null
   }>
   payment: {
     paidAmount: number

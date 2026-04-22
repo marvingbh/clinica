@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import {
-  calculateRepasse,
-  calculateRepasseSummary,
+  buildRepasseFromInvoices,
   REPASSE_BILLABLE_INVOICE_STATUSES,
+  type InvoiceBreakdownInput,
   type RepasseInvoiceLine,
 } from "@/lib/financeiro/repasse"
+import { buildInvoiceSlotMap, compareSlots, type InvoiceSlot, type SlotItemInput } from "@/lib/financeiro/invoice-slot"
 
 export const GET = withFeatureAuth(
   { feature: "finances", minAccess: "READ" },
@@ -58,34 +59,41 @@ export const GET = withFeatureAuth(
     const taxPercent = Number(clinic.taxPercentage)
     const repassePercent = Number(professional.repassePercentage)
 
-    const invoiceWhere = {
-      clinicId: user.clinicId,
-      referenceYear: year,
-      referenceMonth: month,
-      status: { in: [...REPASSE_BILLABLE_INVOICE_STATUSES] },
-    }
-
-    // Query only items where this professional is the attending
-    // (explicitly set, or fallback when attendingProfessionalId is null)
-    const [invoiceItems, payment] = await Promise.all([
-      prisma.invoiceItem.findMany({
+    // Include any invoice this prof touched — as owner or as attending on
+    // at least one item (covers patients whose reference prof is someone else).
+    const [rawInvoices, payment] = await Promise.all([
+      prisma.invoice.findMany({
         where: {
-          invoice: invoiceWhere,
-          type: { not: "CREDITO" },
+          clinicId: user.clinicId,
+          referenceYear: year,
+          referenceMonth: month,
+          status: { in: [...REPASSE_BILLABLE_INVOICE_STATUSES] },
           OR: [
-            { attendingProfessionalId: professionalId },
-            { attendingProfessionalId: null, invoice: { professionalProfileId: professionalId } },
+            { professionalProfileId: professionalId },
+            { items: { some: { attendingProfessionalId: professionalId } } },
           ],
         },
         select: {
-          total: true,
-          attendingProfessionalId: true,
-          invoice: {
+          id: true,
+          professionalProfileId: true,
+          totalAmount: true,
+          totalSessions: true,
+          patient: { select: { name: true } },
+          items: {
             select: {
-              id: true,
-              professionalProfileId: true,
-              patient: { select: { name: true } },
+              type: true,
+              total: true,
+              attendingProfessionalId: true,
+              appointment: {
+                select: {
+                  scheduledAt: true,
+                  recurrence: { select: { dayOfWeek: true, startTime: true } },
+                },
+              },
             },
+          },
+          consumedCredits: {
+            select: { professionalProfileId: true },
           },
         },
       }),
@@ -101,37 +109,57 @@ export const GET = withFeatureAuth(
       }),
     ])
 
-    // Group by invoice for per-invoice breakdown
-    const byInvoice = new Map<string, { patientName: string; total: number; count: number; hasSubstitute: boolean; invoiceProfId: string }>()
-    for (const item of invoiceItems) {
-      const invoiceId = item.invoice.id
-      const existing = byInvoice.get(invoiceId)
-      const isSubstitute = item.attendingProfessionalId !== null && item.attendingProfessionalId !== item.invoice.professionalProfileId
-      if (existing) {
-        existing.total += Number(item.total)
-        existing.count++
-        if (isSubstitute) existing.hasSubstitute = true
-      } else {
-        byInvoice.set(invoiceId, {
-          patientName: item.invoice.patient.name,
-          total: Number(item.total),
-          count: 1,
-          hasSubstitute: isSubstitute,
-          invoiceProfId: item.invoice.professionalProfileId,
+    const invoices: InvoiceBreakdownInput[] = rawInvoices.map((inv) => ({
+      invoiceId: inv.id,
+      invoiceProfessionalId: inv.professionalProfileId,
+      patientName: inv.patient.name,
+      invoiceTotalAmount: Number(inv.totalAmount),
+      invoiceTotalSessions: inv.totalSessions,
+      items: inv.items.map((it) => ({
+        total: Number(it.total),
+        isCredit: it.type === "CREDITO",
+        attendingProfessionalId: it.attendingProfessionalId,
+      })),
+      creditOriginatingProfessionalIds: inv.consumedCredits.map((c) => c.professionalProfileId),
+    }))
+
+    const invoiceIds = invoices.map((i) => i.invoiceId)
+    const reconciled = invoiceIds.length
+      ? await prisma.reconciliationLink.groupBy({
+          by: ["invoiceId"],
+          where: { invoiceId: { in: invoiceIds } },
+          _sum: { amount: true },
         })
+      : []
+    const invoicePaidAmounts = new Map(
+      reconciled.map((r) => [r.invoiceId, Number(r._sum.amount ?? 0)]),
+    )
+
+    const profMap = new Map([[professionalId, { repassePercent }]])
+    const built = buildRepasseFromInvoices(invoices, profMap, taxPercent, invoicePaidAmounts)
+    const repasseData = built.get(professionalId)
+    const rawLines = repasseData?.lines ?? []
+
+    const slotInputs: SlotItemInput[] = []
+    for (const inv of rawInvoices) {
+      for (const item of inv.items) {
+        slotInputs.push({ invoiceId: inv.id, appointment: item.appointment })
       }
     }
+    const slotMap = buildInvoiceSlotMap(slotInputs)
 
-    const lines: (RepasseInvoiceLine & { note?: string })[] = []
-    for (const [invoiceId, data] of byInvoice) {
-      const calc = calculateRepasse(data.total, taxPercent, repassePercent)
-      const note = data.hasSubstitute && data.invoiceProfId !== professionalId
-        ? "Cobertura"
-        : undefined
-      lines.push({ ...calc, invoiceId, patientName: data.patientName, totalSessions: data.count, note })
+    const lines: (RepasseInvoiceLine & { slot: InvoiceSlot | null })[] = rawLines
+      .map((line) => ({
+        ...line,
+        slot: slotMap.get(line.invoiceId) ?? null,
+      }))
+      .sort((a, b) => compareSlots(a.slot, b.slot))
+
+    const summary = repasseData?.summary ?? {
+      totalInvoices: 0, totalSessions: 0, totalGross: 0,
+      totalTax: 0, totalAfterTax: 0, totalRepasse: 0,
+      totalReceived: 0, percentReceived: 0,
     }
-
-    const summary = calculateRepasseSummary(lines)
 
     return NextResponse.json({
       year,

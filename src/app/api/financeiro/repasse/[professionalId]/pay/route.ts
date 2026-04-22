@@ -3,10 +3,9 @@ import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import {
-  calculateRepasse,
-  calculateRepasseSummary,
+  buildRepasseFromInvoices,
   REPASSE_BILLABLE_INVOICE_STATUSES,
-  type RepasseInvoiceLine,
+  type InvoiceBreakdownInput,
 } from "@/lib/financeiro/repasse"
 import { audit, AuditAction } from "@/lib/rbac/audit"
 
@@ -59,44 +58,59 @@ export const POST = withFeatureAuth(
     let payment
     try {
     payment = await prisma.$transaction(async (tx) => {
-      const invoiceItems = await tx.invoiceItem.findMany({
+      const rawInvoices = await tx.invoice.findMany({
         where: {
-          invoice: {
-            clinicId: user.clinicId,
-            referenceYear: year,
-            referenceMonth: month,
-            status: { in: [...REPASSE_BILLABLE_INVOICE_STATUSES] },
-          },
-          type: { not: "CREDITO" },
+          clinicId: user.clinicId,
+          referenceYear: year,
+          referenceMonth: month,
+          status: { in: [...REPASSE_BILLABLE_INVOICE_STATUSES] },
           OR: [
-            { attendingProfessionalId: professionalId },
-            { attendingProfessionalId: null, invoice: { professionalProfileId: professionalId } },
+            { professionalProfileId: professionalId },
+            { items: { some: { attendingProfessionalId: professionalId } } },
           ],
         },
         select: {
-          total: true,
-          invoice: { select: { id: true } },
+          id: true,
+          professionalProfileId: true,
+          totalAmount: true,
+          totalSessions: true,
+          items: {
+            select: {
+              type: true,
+              total: true,
+              attendingProfessionalId: true,
+            },
+          },
+          consumedCredits: {
+            select: { professionalProfileId: true },
+          },
         },
       })
 
-      // Aggregate by invoice for summary
-      const byInvoice = new Map<string, { total: number; count: number }>()
-      for (const item of invoiceItems) {
-        const existing = byInvoice.get(item.invoice.id)
-        if (existing) {
-          existing.total += Number(item.total)
-          existing.count++
-        } else {
-          byInvoice.set(item.invoice.id, { total: Number(item.total), count: 1 })
-        }
-      }
+      const invoices: InvoiceBreakdownInput[] = rawInvoices.map((inv) => ({
+        invoiceId: inv.id,
+        invoiceProfessionalId: inv.professionalProfileId,
+        patientName: "",
+        invoiceTotalAmount: Number(inv.totalAmount),
+        invoiceTotalSessions: inv.totalSessions,
+        items: inv.items.map((it) => ({
+          total: Number(it.total),
+          isCredit: it.type === "CREDITO",
+          attendingProfessionalId: it.attendingProfessionalId,
+        })),
+        creditOriginatingProfessionalIds: inv.consumedCredits.map((c) => c.professionalProfileId),
+      }))
 
-      const lines: RepasseInvoiceLine[] = []
-      for (const [invoiceId, data] of byInvoice) {
-        const calc = calculateRepasse(data.total, taxPercent, repassePercent)
-        lines.push({ ...calc, invoiceId, patientName: "", totalSessions: data.count })
+      const built = buildRepasseFromInvoices(
+        invoices,
+        new Map([[professionalId, { repassePercent }]]),
+        taxPercent,
+      )
+      const summary = built.get(professionalId)?.summary ?? {
+        totalInvoices: 0, totalSessions: 0, totalGross: 0,
+        totalTax: 0, totalAfterTax: 0, totalRepasse: 0,
+        totalReceived: 0, percentReceived: 0,
       }
-      const summary = calculateRepasseSummary(lines)
 
       const grossAmount = summary.totalGross
       const taxAmount = summary.totalTax

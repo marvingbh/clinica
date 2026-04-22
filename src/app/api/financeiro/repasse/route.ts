@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import {
-  buildRepasseByAttendingProfessional,
+  buildRepasseFromInvoices,
   REPASSE_BILLABLE_INVOICE_STATUSES,
-  type InvoiceItemForRepasse,
+  type InvoiceBreakdownInput,
 } from "@/lib/financeiro/repasse"
 
 export const GET = withFeatureAuth(
@@ -48,39 +48,43 @@ export const GET = withFeatureAuth(
       },
     })
 
+    // For "own" scope, include any invoice this prof touched (as owner or as
+    // attending on at least one item).
     const baseInvoiceWhere = {
       clinicId: user.clinicId,
       referenceYear: year,
       referenceMonth: month,
       status: { in: [...REPASSE_BILLABLE_INVOICE_STATUSES] },
     }
+    const invoiceWhere =
+      scope === "own" && user.professionalProfileId
+        ? {
+            ...baseInvoiceWhere,
+            OR: [
+              { professionalProfileId: user.professionalProfileId },
+              { items: { some: { attendingProfessionalId: user.professionalProfileId } } },
+            ],
+          }
+        : baseInvoiceWhere
 
-    // For "own" scope, include items from own invoices OR items where user is the attending
-    const ownScopeFilter = scope === "own" && user.professionalProfileId
-      ? {
-          OR: [
-            { invoice: { ...baseInvoiceWhere, professionalProfileId: user.professionalProfileId } },
-            { attendingProfessionalId: user.professionalProfileId, invoice: baseInvoiceWhere },
-          ],
-        }
-      : { invoice: baseInvoiceWhere }
-
-    // Query invoice items and repasse payments in parallel
-    const [invoiceItems, payments] = await Promise.all([
-      prisma.invoiceItem.findMany({
-        where: {
-          ...ownScopeFilter,
-          type: { not: "CREDITO" },
-        },
+    const [rawInvoices, payments] = await Promise.all([
+      prisma.invoice.findMany({
+        where: invoiceWhere,
         select: {
-          total: true,
-          attendingProfessionalId: true,
-          invoice: {
+          id: true,
+          professionalProfileId: true,
+          totalAmount: true,
+          totalSessions: true,
+          patient: { select: { name: true } },
+          items: {
             select: {
-              id: true,
-              professionalProfileId: true,
-              patient: { select: { name: true } },
+              type: true,
+              total: true,
+              attendingProfessionalId: true,
             },
+          },
+          consumedCredits: {
+            select: { professionalProfileId: true },
           },
         },
       }),
@@ -93,21 +97,37 @@ export const GET = withFeatureAuth(
       }),
     ])
 
-    // Build items for repasse calculation
-    const items: InvoiceItemForRepasse[] = invoiceItems.map(item => ({
-      total: Number(item.total),
-      attendingProfessionalId: item.attendingProfessionalId,
-      invoiceProfessionalId: item.invoice.professionalProfileId,
-      patientName: item.invoice.patient.name,
-      invoiceId: item.invoice.id,
+    const invoices: InvoiceBreakdownInput[] = rawInvoices.map((inv) => ({
+      invoiceId: inv.id,
+      invoiceProfessionalId: inv.professionalProfileId,
+      patientName: inv.patient.name,
+      invoiceTotalAmount: Number(inv.totalAmount),
+      invoiceTotalSessions: inv.totalSessions,
+      items: inv.items.map((it) => ({
+        total: Number(it.total),
+        isCredit: it.type === "CREDITO",
+        attendingProfessionalId: it.attendingProfessionalId,
+      })),
+      creditOriginatingProfessionalIds: inv.consumedCredits.map((c) => c.professionalProfileId),
     }))
 
-    // Build professional map
+    const invoiceIds = invoices.map((i) => i.invoiceId)
+    const reconciled = invoiceIds.length
+      ? await prisma.reconciliationLink.groupBy({
+          by: ["invoiceId"],
+          where: { invoiceId: { in: invoiceIds } },
+          _sum: { amount: true },
+        })
+      : []
+    const invoicePaidAmounts = new Map(
+      reconciled.map((r) => [r.invoiceId, Number(r._sum.amount ?? 0)]),
+    )
+
     const profMap = new Map(
       professionals.map(p => [p.id, { repassePercent: Number(p.repassePercentage) }])
     )
 
-    const repasseByProf = buildRepasseByAttendingProfessional(items, profMap, taxPercent)
+    const repasseByProf = buildRepasseFromInvoices(invoices, profMap, taxPercent, invoicePaidAmounts)
     const paymentMap = new Map(payments.map(p => [p.professionalProfileId, p]))
 
     const result = professionals.map((prof) => {
@@ -115,6 +135,7 @@ export const GET = withFeatureAuth(
       const summary = repasseData?.summary ?? {
         totalInvoices: 0, totalSessions: 0, totalGross: 0,
         totalTax: 0, totalAfterTax: 0, totalRepasse: 0,
+        totalReceived: 0, percentReceived: 0,
       }
       const payment = paymentMap.get(prof.id)
 
