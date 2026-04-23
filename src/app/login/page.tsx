@@ -4,6 +4,16 @@ import { Suspense, useState } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
+import { useMountEffect } from "@/shared/hooks"
+
+// Server-side rate limit is 5 attempts per 15 min per (IP+email). We show a
+// friendlier message on the client after the same number of failures to help
+// legitimate users who've typoed their password. The server response is
+// unchanged — attackers learn nothing new since the limit is trivially
+// discoverable anyway. sessionStorage keeps the count across accidental
+// page refreshes within the same tab.
+const ATTEMPT_LIMIT = 5
+const ATTEMPT_STORAGE_KEY = "clinica.loginFailedAttempts"
 
 function LoginForm() {
   const router = useRouter()
@@ -14,9 +24,19 @@ function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [failedAttempts, setFailedAttempts] = useState(0)
   const [errorMessage, setErrorMessage] = useState(
     error === "CredentialsSignin" ? "Email ou senha incorretos" : ""
   )
+
+  useMountEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(ATTEMPT_STORAGE_KEY)
+      if (stored) setFailedAttempts(Number(stored) || 0)
+    } catch {
+      // sessionStorage may be blocked in private mode — fine
+    }
+  })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -31,9 +51,21 @@ function LoginForm() {
     })
 
     if (result?.error) {
-      setErrorMessage("Email ou senha incorretos")
+      const next = failedAttempts + 1
+      setFailedAttempts(next)
+      try {
+        sessionStorage.setItem(ATTEMPT_STORAGE_KEY, String(next))
+      } catch {}
+      setErrorMessage(
+        next >= ATTEMPT_LIMIT
+          ? "Muitas tentativas. Aguarde alguns minutos e tente novamente."
+          : "Email ou senha incorretos"
+      )
       setIsLoading(false)
     } else if (result?.ok) {
+      try {
+        sessionStorage.removeItem(ATTEMPT_STORAGE_KEY)
+      } catch {}
       router.push(callbackUrl)
       router.refresh()
     }
