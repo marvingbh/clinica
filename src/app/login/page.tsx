@@ -51,16 +51,26 @@ function LoginForm() {
     })
 
     if (result?.error) {
-      const next = failedAttempts + 1
-      setFailedAttempts(next)
-      try {
-        sessionStorage.setItem(ATTEMPT_STORAGE_KEY, String(next))
-      } catch {}
-      setErrorMessage(
-        next >= ATTEMPT_LIMIT
-          ? "Muitas tentativas. Aguarde alguns minutos e tente novamente."
-          : "Email ou senha incorretos"
-      )
+      // Server explicitly signalled rate-limit via CredentialsSignin subclass
+      // — shown regardless of which tab/session, so incognito + correct
+      // password still gets the right message when the IP+email is blocked.
+      const code = (result as { code?: string }).code
+      if (code === "rate_limited") {
+        setErrorMessage("Muitas tentativas. Aguarde alguns minutos e tente novamente.")
+      } else if (code === "service_unavailable") {
+        setErrorMessage("Servico temporariamente indisponivel. Tente novamente em instantes.")
+      } else {
+        const next = failedAttempts + 1
+        setFailedAttempts(next)
+        try {
+          sessionStorage.setItem(ATTEMPT_STORAGE_KEY, String(next))
+        } catch {}
+        setErrorMessage(
+          next >= ATTEMPT_LIMIT
+            ? "Muitas tentativas. Aguarde alguns minutos e tente novamente."
+            : "Email ou senha incorretos"
+        )
+      }
       setIsLoading(false)
     } else if (result?.ok) {
       try {

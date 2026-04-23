@@ -1,4 +1,4 @@
-import NextAuth from "next-auth"
+import NextAuth, { CredentialsSignin } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcrypt"
 import { prisma } from "./prisma"
@@ -9,6 +9,14 @@ import type { Feature } from "./rbac/types"
 import { FeatureAccess } from "@prisma/client"
 import { checkRateLimit, RATE_LIMIT_CONFIGS, RateLimitUnavailableError } from "./rate-limit"
 import { createHash } from "crypto"
+
+/** Propagates to the login page as `result.code === "rate_limited"`. */
+class LoginRateLimitedError extends CredentialsSignin {
+  code = "rate_limited"
+}
+class LoginServiceUnavailableError extends CredentialsSignin {
+  code = "service_unavailable"
+}
 
 // Precomputed at module load at the same cost factor as real hashes (12).
 // Equalises "user not found" timing vs "user found + wrong password", closing
@@ -47,12 +55,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         try {
           const rl = await checkRateLimit(`login:${ip}:${email}`, RATE_LIMIT_CONFIGS.login)
           if (!rl.allowed) {
-            return null
+            // Surface via result.code === "rate_limited" so the login page can
+            // show a distinct "too many attempts" message. Attackers learn the
+            // limit trivially by testing, so hiding it doesn't meaningfully help.
+            throw new LoginRateLimitedError()
           }
         } catch (err) {
+          if (err instanceof LoginRateLimitedError) throw err
           if (err instanceof RateLimitUnavailableError) {
-            // fail-closed: refuse login if the limiter is unavailable
-            return null
+            throw new LoginServiceUnavailableError()
           }
           throw err
         }
