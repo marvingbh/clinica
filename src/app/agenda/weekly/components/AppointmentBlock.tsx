@@ -14,7 +14,7 @@ import { WEEKLY_GRID } from "../../lib/grid-config"
 
 const URL_REGEX = /https?:\/\/[^\s]+/
 
-const { pixelsPerMinute: PIXELS_PER_MINUTE, startHour: START_HOUR } = WEEKLY_GRID
+const { pixelsPerMinute: PIXELS_PER_MINUTE } = WEEKLY_GRID
 
 interface AppointmentBlockProps {
   appointment: Appointment
@@ -25,6 +25,7 @@ interface AppointmentBlockProps {
   totalColumns?: number
   professionalColorMap?: ProfessionalColorMap
   canWriteAgenda?: boolean
+  startHour: number
 }
 
 export const AppointmentBlock = memo(function AppointmentBlock({
@@ -36,6 +37,7 @@ export const AppointmentBlock = memo(function AppointmentBlock({
   totalColumns = 1,
   professionalColorMap,
   canWriteAgenda = false,
+  startHour,
 }: AppointmentBlockProps) {
   const canDrag = isDraggable(appointment, canWriteAgenda)
   const draggableData = useMemo(
@@ -54,13 +56,15 @@ export const AppointmentBlock = memo(function AppointmentBlock({
   const minutes = scheduledAt.getMinutes()
   const durationMinutes = Math.round((endAt.getTime() - scheduledAt.getTime()) / 60000)
 
-  // Calculate position and height
-  const top = ((hour - START_HOUR) * 60 + minutes) * PIXELS_PER_MINUTE
-  const height = Math.max(durationMinutes * PIXELS_PER_MINUTE, 32) // Min height of 32px for readability
-
   const isCancelled = CANCELLED_STATUSES.includes(appointment.status)
   const isFinalized = appointment.status === "FINALIZADO"
   const isConsulta = appointment.type === "CONSULTA"
+
+  // Calculate position and height. Non-CONSULTA blocks render type label + title (+ optional
+  // patient/professional rows), so they need a taller floor than CONSULTAs to stay readable.
+  const minHeight = isConsulta ? 32 : 56
+  const top = ((hour - startHour) * 60 + minutes) * PIXELS_PER_MINUTE
+  const height = Math.max(durationMinutes * PIXELS_PER_MINUTE, minHeight)
 
   const startTimeStr = `${hour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`
   const endHour = endAt.getHours()

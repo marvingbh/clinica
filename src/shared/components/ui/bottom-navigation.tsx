@@ -22,7 +22,7 @@ const navItems: NavItem[] = [
     activeIcon: <HomeIcon className="w-6 h-6" strokeWidth={2} />,
   },
   {
-    href: "/agenda",
+    href: "/agenda/weekly",
     label: "Agenda",
     icon: <CalendarIcon className="w-6 h-6" strokeWidth={1.5} />,
     activeIcon: <CalendarIcon className="w-6 h-6" strokeWidth={2} />,

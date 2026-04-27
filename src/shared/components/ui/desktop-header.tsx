@@ -36,7 +36,7 @@ const navItems: NavItem[] = [
     icon: <HomeIcon className="w-4 h-4" />,
   },
   {
-    href: "/agenda",
+    href: "/agenda/weekly",
     label: "Agenda",
     icon: <CalendarIcon className="w-4 h-4" />,
     matchPaths: ["/agenda"],

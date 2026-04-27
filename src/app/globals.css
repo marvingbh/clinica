@@ -710,3 +710,57 @@ body.dnd-dragging,
 body.dnd-dragging * {
   cursor: grabbing !important;
 }
+
+/* Custom print-only layout — hidden on screen, shown when printing.
+   Pairs with .agenda-screen-only which hides the interactive UI in print. */
+.agenda-print-only {
+  display: none;
+}
+
+/* Print: export the agenda as a printable PDF — single-page layout */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  /* Hide app chrome */
+  aside[aria-label="Menu principal"],
+  nav[aria-label="Main navigation"],
+  .print-hidden,
+  [data-print-hide],
+  .agenda-screen-only,
+  [data-sonner-toaster],
+  /* Cookie consent banner (uses fixed bottom-0 wrapper) */
+  div.fixed.bottom-0.inset-x-0 {
+    display: none !important;
+  }
+
+  /* Show the print-only layout */
+  .agenda-print-only {
+    display: block !important;
+  }
+
+  /* Drop the sidebar offset since the sidebar is hidden */
+  .md\:pl-\[220px\],
+  .md\:pl-\[64px\] {
+    padding-left: 0 !important;
+  }
+
+  /* Honor backgrounds and colors when printing */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Reset body and the agenda main element so content flows from the top
+     of the page with no leftover viewport-based height padding. */
+  html,
+  body,
+  main.agenda-print-root {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+  }
+}

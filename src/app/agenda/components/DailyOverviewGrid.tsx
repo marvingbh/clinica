@@ -10,12 +10,20 @@ import { CANCELLED_STATUSES, TERMINAL_STATUSES } from "../lib/constants"
 import { getProfessionalColor, ProfessionalColorMap } from "../lib/professional-colors"
 import { DailyAppointmentBlock } from "./DailyAppointmentBlock"
 import { DAILY_GRID_BASE } from "../lib/grid-config"
+import { computeHourRange } from "../lib/hour-range"
 
 const { pixelsPerMinute: PIXELS_PER_MINUTE, hourHeight: HOUR_HEIGHT } = DAILY_GRID_BASE
 const TIME_COL_WIDTH = 64 // w-16 = 4rem = 64px to match slot-based TimeLabel
 const CONNECTOR_WIDTH = 1
 const SLOT_LEFT_MARGIN = 12 // px gap between timeline connector and appointment blocks
 const BLOCK_VERTICAL_GAP = 3 // px gap between stacked blocks
+
+// When a cancelled appointment shares a slot with an available one, both halves must fit
+// inside the single-block 400px envelope (left=14, end=min(100%-2, 414)). With a 4px gap,
+// each half is min((100% - 20) / 2, 198px) wide.
+const SPLIT_HALF_WIDTH = "min(calc(50% - 10px), 198px)"
+const SPLIT_LEFT_HALF_LEFT = `${SLOT_LEFT_MARGIN + 2}px` // 14px
+const SPLIT_RIGHT_HALF_LEFT = "min(calc(50% + 8px), 216px)"
 
 // Generic layout item — anything with a time range and unique id
 interface LayoutItem {
@@ -83,39 +91,7 @@ function calculateLayout(items: LayoutItem[]): Map<string, LayoutResult> {
   return result
 }
 
-/** Compute visible hour range from content, with padding */
-function computeHourRange(
-  appointments: Appointment[],
-  groupSessions: GroupSession[],
-): { startHour: number; endHour: number } {
-  const DEFAULT_START = 8
-  const DEFAULT_END = 18
-
-  if (appointments.length === 0 && groupSessions.length === 0) {
-    return { startHour: DEFAULT_START, endHour: DEFAULT_END }
-  }
-
-  let minHour = 24
-  let maxHour = 0
-
-  for (const apt of appointments) {
-    const start = new Date(apt.scheduledAt)
-    const end = new Date(apt.endAt)
-    minHour = Math.min(minHour, start.getHours())
-    maxHour = Math.max(maxHour, end.getHours() + (end.getMinutes() > 0 ? 1 : 0))
-  }
-  for (const gs of groupSessions) {
-    const start = new Date(gs.scheduledAt)
-    const end = new Date(gs.endAt)
-    minHour = Math.min(minHour, start.getHours())
-    maxHour = Math.max(maxHour, end.getHours() + (end.getMinutes() > 0 ? 1 : 0))
-  }
-
-  const startHour = Math.max(0, Math.min(minHour - 1, DEFAULT_START))
-  const endHour = Math.min(24, Math.max(maxHour + 1, DEFAULT_END))
-
-  return { startHour, endHour }
-}
+const DAILY_DEFAULT_RANGE = { startHour: 8, endHour: 18 }
 
 export interface DailyOverviewGridProps {
   appointments: Appointment[]
@@ -159,6 +135,66 @@ export function DailyOverviewGrid({
     return appointments.filter(apt => !apt.groupId && !apt.sessionGroupId)
   }, [appointments])
 
+  // Times where a cancelled appointment coexists with an available slot — render side-by-side
+  const splitTimes = useMemo(() => {
+    const result = new Set<string>()
+    if (!timeSlots) return result
+    for (const slot of timeSlots) {
+      if (!slot.isAvailable) continue
+      const hasCancelledAtTime = individualAppointments.some(apt => {
+        if (!CANCELLED_STATUSES.includes(apt.status)) return false
+        const t = new Date(apt.scheduledAt)
+        const timeStr = `${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}`
+        return timeStr === slot.time
+      })
+      if (hasCancelledAtTime) result.add(slot.time)
+    }
+    return result
+  }, [timeSlots, individualAppointments])
+
+  // Sorted list of every "boundary" minute on the calendar: each appointment's
+  // start AND end, each group session's start AND end, and each slot start.
+  // Used to clamp a slot's rendered duration to the gap before the next thing.
+  const sortedBoundaryMinutes = useMemo(() => {
+    const points: number[] = []
+    const pushTime = (date: Date) => {
+      points.push(date.getHours() * 60 + date.getMinutes())
+    }
+    for (const apt of individualAppointments) {
+      pushTime(new Date(apt.scheduledAt))
+      pushTime(new Date(apt.endAt))
+    }
+    for (const gs of groupSessions) {
+      pushTime(new Date(gs.scheduledAt))
+      pushTime(new Date(gs.endAt))
+    }
+    if (timeSlots) {
+      for (const s of timeSlots) {
+        const [h, m] = s.time.split(":").map(Number)
+        points.push(h * 60 + m)
+      }
+    }
+    return [...new Set(points)].sort((a, b) => a - b)
+  }, [individualAppointments, groupSessions, timeSlots])
+
+  function effectiveSlotDuration(slotStartMin: number): number {
+    let nextGap = Infinity
+    let prevGap = Infinity
+    for (const boundary of sortedBoundaryMinutes) {
+      if (boundary > slotStartMin) {
+        if (nextGap === Infinity) nextGap = boundary - slotStartMin
+      } else if (boundary < slotStartMin) {
+        prevGap = slotStartMin - boundary
+      }
+    }
+    // Clamp to the smallest cadence visible on the day (either before or after
+    // this slot) so a 45-min rhythm doesn't get rendered as 90 min just because
+    // the next blocking event happens to be hours away.
+    const inferredCadence = Math.min(nextGap, prevGap)
+    if (inferredCadence === Infinity) return appointmentDuration
+    return Math.min(appointmentDuration, inferredCadence)
+  }
+
   // Build unified layout items from both appointments and group sessions
   const layoutMap = useMemo(() => {
     const items: LayoutItem[] = [
@@ -177,12 +213,17 @@ export function DailyOverviewGrid({
   }, [individualAppointments, groupSessions])
 
   const { startHour, endHour } = useMemo(() => {
-    const range = computeHourRange(individualAppointments, groupSessions)
+    const range = computeHourRange(
+      [...individualAppointments, ...groupSessions],
+      DAILY_DEFAULT_RANGE,
+    )
     if (timeSlots && timeSlots.length > 0) {
       const [fh] = timeSlots[0].time.split(":").map(Number)
       const [lh] = timeSlots[timeSlots.length - 1].time.split(":").map(Number)
-      range.startHour = Math.max(0, Math.min(range.startHour, fh))
-      range.endHour = Math.min(24, Math.max(range.endHour, lh + 1))
+      return {
+        startHour: Math.max(0, Math.min(range.startHour, fh)),
+        endHour: Math.min(24, Math.max(range.endHour, lh + 1)),
+      }
     }
     return range
   }, [individualAppointments, groupSessions, timeSlots])
@@ -218,7 +259,7 @@ export function DailyOverviewGrid({
   }, [onSlotClick, startHour, endHour])
 
   return (
-    <div className="relative flex" style={{ height: `${gridHeight}px` }}>
+    <div className="relative flex agenda-print-area" style={{ height: `${gridHeight}px` }}>
       {/* Time column — matches slot-based TimeLabel: w-16, text-sm font-medium, right-aligned */}
       <div className="w-16 shrink-0 relative">
         {hours.map((hour) => (
@@ -277,8 +318,9 @@ export function DailyOverviewGrid({
           {timeSlots?.map((slot) => {
             if (slot.isBlocked) {
               const [sh, sm] = slot.time.split(":").map(Number)
+              const slotStartMin = sh * 60 + sm
               const rawTop = ((sh - startHour) * 60 + sm) * PIXELS_PER_MINUTE
-              const rawHeight = appointmentDuration * PIXELS_PER_MINUTE
+              const rawHeight = effectiveSlotDuration(slotStartMin) * PIXELS_PER_MINUTE
               return (
                 <div
                   key={`blocked-${slot.time}`}
@@ -300,8 +342,25 @@ export function DailyOverviewGrid({
             }
             if (!slot.isAvailable) return null
             const [sh, sm] = slot.time.split(":").map(Number)
+            const slotStartMin = sh * 60 + sm
+            const slotMinutes = effectiveSlotDuration(slotStartMin)
             const rawTop = ((sh - startHour) * 60 + sm) * PIXELS_PER_MINUTE
-            const rawHeight = appointmentDuration * PIXELS_PER_MINUTE
+            const rawHeight = slotMinutes * PIXELS_PER_MINUTE
+
+            const endTotalMin = slotStartMin + slotMinutes
+            const endTime = `${String(Math.floor(endTotalMin / 60)).padStart(2, "0")}:${String(endTotalMin % 60).padStart(2, "0")}`
+            const isSplit = splitTimes.has(slot.time)
+            // Split slot occupies the right half of the single-block envelope.
+            const slotPositionStyle: React.CSSProperties = isSplit
+              ? {
+                  left: SPLIT_RIGHT_HALF_LEFT,
+                  width: SPLIT_HALF_WIDTH,
+                }
+              : {
+                  left: `${SLOT_LEFT_MARGIN}px`,
+                  right: "2px",
+                  maxWidth: "400px",
+                }
 
             if (slot.biweeklyHint) {
               return (
@@ -313,14 +372,13 @@ export function DailyOverviewGrid({
                     position: "absolute",
                     top: `${rawTop + BLOCK_VERTICAL_GAP}px`,
                     height: `${rawHeight - BLOCK_VERTICAL_GAP * 2}px`,
-                    left: `${SLOT_LEFT_MARGIN}px`,
-                    right: "2px",
-                    maxWidth: "400px",
+                    ...slotPositionStyle,
                   }}
-                  className="border border-dashed border-purple-300 rounded-xl flex items-center justify-center text-purple-600 hover:bg-purple-50 hover:border-purple-400 transition-all"
+                  className="border border-purple-300 border-l-[3px] border-l-purple-500 rounded-xl flex items-center justify-center gap-2 bg-purple-50 text-purple-700 hover:bg-purple-100 transition-all"
                 >
-                  <ArrowLeftRightIcon className="w-4 h-4 mr-2 flex-shrink-0" />
-                  <span className="text-sm font-medium truncate">Quinzenal · {slot.biweeklyHint.patientName}</span>
+                  <ArrowLeftRightIcon className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-sm font-semibold truncate">Quinzenal · {slot.biweeklyHint.patientName}</span>
+                  <span className="text-xs text-purple-600/80 tabular-nums">{slot.time} - {endTime}</span>
                 </button>
               )
             }
@@ -334,14 +392,13 @@ export function DailyOverviewGrid({
                   position: "absolute",
                   top: `${rawTop + BLOCK_VERTICAL_GAP}px`,
                   height: `${rawHeight - BLOCK_VERTICAL_GAP * 2}px`,
-                  left: `${SLOT_LEFT_MARGIN}px`,
-                  right: "2px",
-                  maxWidth: "400px",
+                  ...slotPositionStyle,
                 }}
-                className="border border-dashed border-border rounded-xl flex items-center justify-center text-muted-foreground hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all group/slot"
+                className="border border-teal-300 border-l-[3px] border-l-teal-500 rounded-xl flex items-center justify-center gap-2 bg-teal-50/80 text-teal-700 hover:bg-teal-100 transition-all group/slot"
               >
-                <PlusIcon className="w-4 h-4 mr-2 transition-transform group-hover/slot:scale-110" />
-                <span className="text-sm font-medium">Disponivel</span>
+                <PlusIcon className="w-4 h-4 transition-transform group-hover/slot:scale-110" />
+                <span className="text-sm font-semibold">Disponivel</span>
+                <span className="text-xs text-teal-700/70 tabular-nums">{slot.time} - {endTime}</span>
               </button>
             )
           })}
@@ -376,6 +433,15 @@ export function DailyOverviewGrid({
             const layout = layoutMap.get(appointment.id)
             if (!layout) return null
 
+            const t = new Date(appointment.scheduledAt)
+            const timeStr = `${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}`
+            const isCancelled = CANCELLED_STATUSES.includes(appointment.status)
+            const isSplit = isCancelled && splitTimes.has(timeStr)
+            // Split cancelled appointment occupies the left half of the single-block envelope.
+            const horizontalStyle = isSplit
+              ? { left: SPLIT_LEFT_HALF_LEFT, width: SPLIT_HALF_WIDTH }
+              : undefined
+
             return (
               <DailyAppointmentBlock
                 key={appointment.id}
@@ -386,6 +452,7 @@ export function DailyOverviewGrid({
                 professionalColorMap={professionalColorMap}
                 onClick={onAppointmentClick}
                 canWriteAgenda={canWriteAgenda}
+                horizontalStyle={horizontalStyle}
               />
             )
           })}

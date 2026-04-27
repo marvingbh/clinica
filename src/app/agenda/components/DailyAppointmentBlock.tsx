@@ -27,6 +27,8 @@ export interface DailyAppointmentBlockProps {
   professionalColorMap?: ProfessionalColorMap
   onClick: (appointment: Appointment) => void
   canWriteAgenda?: boolean
+  /** Override the auto-computed horizontal positioning (used by split slot/cancelled pairs). */
+  horizontalStyle?: { left: string; width: string }
 }
 
 export const DailyAppointmentBlock = memo(function DailyAppointmentBlock({
@@ -37,6 +39,7 @@ export const DailyAppointmentBlock = memo(function DailyAppointmentBlock({
   professionalColorMap,
   onClick,
   canWriteAgenda = false,
+  horizontalStyle,
 }: DailyAppointmentBlockProps) {
   const canDrag = isDraggable(appointment, canWriteAgenda)
   const draggableData = useMemo(() => ({ appointment }), [appointment])
@@ -50,6 +53,9 @@ export const DailyAppointmentBlock = memo(function DailyAppointmentBlock({
   const hour = scheduledAt.getHours()
   const minutes = scheduledAt.getMinutes()
   const durationMinutes = Math.round((endAt.getTime() - scheduledAt.getTime()) / 60000)
+
+  const startTimeStr = `${hour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`
+  const endTimeStr = `${endAt.getHours().toString().padStart(2, "0")}:${endAt.getMinutes().toString().padStart(2, "0")}`
 
   const rawTop = ((hour - startHour) * 60 + minutes) * PIXELS_PER_MINUTE
   const rawHeight = Math.max(durationMinutes * PIXELS_PER_MINUTE, 96)
@@ -88,9 +94,9 @@ export const DailyAppointmentBlock = memo(function DailyAppointmentBlock({
         position: "absolute",
         top: `${top}px`,
         height: `${height}px`,
-        left: `calc(${leftPercent}% + ${SLOT_LEFT_MARGIN}px + 2px)`,
-        width: `calc(${columnWidth}% - ${SLOT_LEFT_MARGIN}px - 4px)`,
-        maxWidth: layout.totalColumns === 1 ? "400px" : undefined,
+        left: horizontalStyle?.left ?? `calc(${leftPercent}% + ${SLOT_LEFT_MARGIN}px + 2px)`,
+        width: horizontalStyle?.width ?? `calc(${columnWidth}% - ${SLOT_LEFT_MARGIN}px - 4px)`,
+        maxWidth: horizontalStyle ? undefined : (layout.totalColumns === 1 ? "400px" : undefined),
         opacity: isDraggingThis ? 0.3 : undefined,
       }}
       className={`
@@ -173,9 +179,12 @@ export const DailyAppointmentBlock = memo(function DailyAppointmentBlock({
           </p>
         )}
 
-        {/* Meta info row: modality + recurrence */}
+        {/* Meta info row: time + modality + recurrence */}
         {!isCompact && (
           <div className="flex items-center gap-2 mt-auto pt-1">
+            <span className="text-[10px] font-medium text-muted-foreground tabular-nums">
+              {startTimeStr} - {endTimeStr}
+            </span>
             {appointment.modality && (
               <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
                 appointment.modality === "ONLINE"

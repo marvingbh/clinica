@@ -17,6 +17,7 @@ export const appointmentSchema = z.object({
 })
 
 export const editAppointmentSchema = z.object({
+  title: z.string().max(500).optional().nullable(),
   date: z.string().regex(brDateRegex, "Data inválida (DD/MM/AAAA)"),
   startTime: z.string().regex(timeRegex, "Horário inválido (HH:mm)"),
   duration: z.number().int().min(15).max(480).optional(),

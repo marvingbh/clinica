@@ -19,6 +19,8 @@ import {
   FileTextIcon,
   BarChart3Icon,
   ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ReceiptIcon,
   CoinsIcon,
   TagIcon,
@@ -27,6 +29,7 @@ import {
 } from "./icons"
 import { usePermission } from "@/shared/hooks/usePermission"
 import type { Feature } from "@/lib/rbac/types"
+import { useSidebar } from "./sidebar-context"
 
 interface NavItem {
   href: string
@@ -52,7 +55,7 @@ const navGroups: NavGroup[] = [
         icon: <HomeIcon className="w-4 h-4" strokeWidth={1.75} />,
       },
       {
-        href: "/agenda",
+        href: "/agenda/weekly",
         label: "Agenda",
         icon: <CalendarIcon className="w-4 h-4" strokeWidth={1.75} />,
         matchPaths: ["/agenda"],
@@ -165,8 +168,10 @@ function NavBadge({ label, tone }: NonNullable<NavItem["badge"]>) {
 
 function UserMenu({
   onClose,
+  collapsed,
 }: {
   onClose: () => void
+  collapsed: boolean
 }) {
   const router = useRouter()
   const { data: session } = useSession()
@@ -177,8 +182,12 @@ function UserMenu({
     router.push("/login")
   }
 
+  const positionClass = collapsed
+    ? "absolute bottom-0 left-[calc(100%+8px)] w-56"
+    : "absolute bottom-[calc(100%+8px)] left-3 right-3"
+
   return (
-    <div className="absolute bottom-[calc(100%+8px)] left-3 right-3 rounded-lg border border-ink-200 bg-card shadow-[var(--shadow-lg)] py-1 text-ink-800 animate-scale-in origin-bottom">
+    <div className={`${positionClass} rounded-lg border border-ink-200 bg-card shadow-[var(--shadow-lg)] py-1 text-ink-800 animate-scale-in origin-bottom`}>
       <div className="px-3 py-2.5 border-b border-ink-100">
         <p className="text-[13px] font-medium text-ink-900 truncate leading-tight">
           {session?.user?.name}
@@ -254,6 +263,7 @@ function MenuItem({
 export function SidebarNav() {
   const pathname = usePathname()
   const { data: session, status } = useSession()
+  const { collapsed, toggle } = useSidebar()
   const [menuOpen, setMenuOpen] = useState(false)
   const footerRef = useRef<HTMLDivElement>(null)
 
@@ -302,34 +312,49 @@ export function SidebarNav() {
 
   return (
     <aside
-      className="hidden md:flex fixed left-0 top-0 bottom-0 z-40 w-[220px] flex-col gap-4 border-r border-ink-200 bg-card px-3 py-5"
+      className={`hidden md:flex fixed left-0 top-0 bottom-0 z-40 ${collapsed ? "w-[64px]" : "w-[220px]"} flex-col gap-4 border-r border-ink-200 bg-card ${collapsed ? "px-2" : "px-3"} py-5 transition-[width] duration-200`}
       aria-label="Menu principal"
     >
-      {/* Clinic brand header */}
-      <div className="flex items-center gap-2.5 px-3 pb-4 border-b border-ink-200">
+      {/* Clinic brand header + collapse toggle */}
+      <div
+        className={`flex items-center pb-4 border-b border-ink-200 ${collapsed ? "flex-col gap-2" : "gap-2.5 px-3"}`}
+      >
         <div
           className="grid place-items-center w-7 h-7 rounded-[2px] bg-brand-500 text-white shadow-[var(--shadow-md)] flex-shrink-0"
           aria-hidden="true"
         >
           <StethoscopeIcon className="w-4 h-4" strokeWidth={2.25} />
         </div>
-        <div className="min-w-0">
-          <div className="text-[13px] font-semibold text-ink-900 leading-tight truncate">
-            Clínica
+        {!collapsed && (
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-semibold text-ink-900 leading-tight truncate">
+              Clínica
+            </div>
+            <div className="text-[11px] text-ink-500 font-mono mt-0.5 truncate">
+              {firstName}
+            </div>
           </div>
-          <div className="text-[11px] text-ink-500 font-mono mt-0.5 truncate">
-            {firstName}
-          </div>
-        </div>
+        )}
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+          title={collapsed ? "Expandir menu" : "Recolher menu"}
+          className="grid place-items-center w-7 h-7 rounded-[4px] text-ink-500 hover:bg-ink-100 hover:text-ink-800 transition-colors duration-[120ms] flex-shrink-0"
+        >
+          {collapsed ? <ChevronRightIcon className="w-4 h-4" /> : <ChevronLeftIcon className="w-4 h-4" />}
+        </button>
       </div>
 
       {/* Groups */}
       <nav className="flex flex-col gap-4 overflow-y-auto">
         {visibleGroups.map((group) => (
           <div key={group.label} className="flex flex-col gap-0.5">
-            <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-400">
-              {group.label}
-            </div>
+            {!collapsed && (
+              <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-400">
+                {group.label}
+              </div>
+            )}
             {group.items.map((item) => {
               const active = isActive(item)
               return (
@@ -337,9 +362,11 @@ export function SidebarNav() {
                   key={item.href}
                   href={item.href}
                   aria-current={active ? "page" : undefined}
+                  title={collapsed ? item.label : undefined}
                   className={`
-                    flex items-center gap-2.5 rounded-[4px] px-3 py-2 text-[13px]
+                    flex items-center rounded-[4px] py-2 text-[13px]
                     transition-colors duration-[120ms]
+                    ${collapsed ? "justify-center px-0" : "gap-2.5 px-3"}
                     ${active
                       ? "bg-brand-50 text-brand-700 font-medium"
                       : "text-ink-700 hover:bg-ink-100 hover:text-ink-900"
@@ -349,8 +376,8 @@ export function SidebarNav() {
                   <span className={active ? "text-brand-600" : "text-ink-500"}>
                     {item.icon}
                   </span>
-                  <span className="truncate">{item.label}</span>
-                  {item.badge && <NavBadge {...item.badge} />}
+                  {!collapsed && <span className="truncate">{item.label}</span>}
+                  {!collapsed && item.badge && <NavBadge {...item.badge} />}
                 </Link>
               )
             })}
@@ -361,14 +388,15 @@ export function SidebarNav() {
       {/* User footer */}
       <div
         ref={footerRef}
-        className="mt-auto relative border-t border-ink-200 -mx-3 -mb-5 px-3 pt-3 pb-4"
+        className={`mt-auto relative border-t border-ink-200 ${collapsed ? "-mx-2 -mb-5 px-2" : "-mx-3 -mb-5 px-3"} pt-3 pb-4`}
       >
-        {menuOpen && <UserMenu onClose={() => setMenuOpen(false)} />}
+        {menuOpen && <UserMenu onClose={() => setMenuOpen(false)} collapsed={collapsed} />}
         <button
           onClick={() => setMenuOpen((v) => !v)}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
-          className="w-full flex items-center gap-2.5 rounded-[4px] px-1.5 py-1.5 hover:bg-ink-50 transition-colors duration-[120ms]"
+          title={collapsed ? session?.user?.name ?? undefined : undefined}
+          className={`w-full flex items-center rounded-[4px] py-1.5 hover:bg-ink-50 transition-colors duration-[120ms] ${collapsed ? "justify-center px-0" : "gap-2.5 px-1.5"}`}
         >
           <span
             className="grid place-items-center w-9 h-9 rounded-full bg-brand-100 text-brand-700 border border-brand-200 text-[13px] font-semibold flex-shrink-0"
@@ -376,17 +404,21 @@ export function SidebarNav() {
           >
             {initials}
           </span>
-          <div className="min-w-0 text-left flex-1">
-            <div className="text-[13px] font-medium text-ink-800 truncate leading-tight">
-              {session?.user?.name}
-            </div>
-            <div className="text-[11px] text-ink-500 truncate mt-0.5">{userRole}</div>
-          </div>
-          <ChevronDownIcon
-            className={`w-4 h-4 text-ink-400 transition-transform duration-[120ms] ${
-              menuOpen ? "rotate-180" : ""
-            }`}
-          />
+          {!collapsed && (
+            <>
+              <div className="min-w-0 text-left flex-1">
+                <div className="text-[13px] font-medium text-ink-800 truncate leading-tight">
+                  {session?.user?.name}
+                </div>
+                <div className="text-[11px] text-ink-500 truncate mt-0.5">{userRole}</div>
+              </div>
+              <ChevronDownIcon
+                className={`w-4 h-4 text-ink-400 transition-transform duration-[120ms] ${
+                  menuOpen ? "rotate-180" : ""
+                }`}
+              />
+            </>
+          )}
         </button>
       </div>
     </aside>

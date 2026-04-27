@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
+import { useSidebar } from "./sidebar-context"
 
 // Paths that render without the sidebar — must match sidebar-nav.tsx.
 const PUBLIC_PATHS = ["/login", "/signup", "/confirm", "/cancel", "/intake"]
@@ -12,10 +13,17 @@ const PUBLIC_PATHS = ["/login", "/signup", "/confirm", "/cancel", "/intake"]
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { status } = useSession()
+  const { collapsed } = useSidebar()
 
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
   const isLandingAnon = pathname === "/" && status === "unauthenticated"
   const showPadding = !isPublic && !isLandingAnon && status === "authenticated"
 
-  return <div className={showPadding ? "md:pl-[220px]" : ""}>{children}</div>
+  const paddingClass = !showPadding
+    ? ""
+    : collapsed
+      ? "md:pl-[64px]"
+      : "md:pl-[220px]"
+
+  return <div className={`${paddingClass} transition-[padding] duration-200`}>{children}</div>
 }

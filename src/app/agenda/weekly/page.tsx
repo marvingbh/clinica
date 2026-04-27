@@ -28,6 +28,7 @@ import { WeeklyGrid, WeeklyHeader } from "./components"
 import { createProfessionalColorMap } from "../lib/professional-colors"
 import { useAppointmentDrag } from "../hooks/useAppointmentDrag"
 import { WEEKLY_GRID } from "../lib/grid-config"
+import { AgendaPrintView } from "../components/AgendaPrintView"
 
 function WeeklyAgendaPageContent() {
   const { data: session, status } = useSession()
@@ -142,6 +143,15 @@ function WeeklyAgendaPageContent() {
     return createProfessionalColorMap(ids)
   }, [appointments])
 
+  // Map of professional profile id → display name (used by the print legend)
+  const professionalNames = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const p of professionals) {
+      if (p.professionalProfile?.id) map.set(p.professionalProfile.id, p.name)
+    }
+    return map
+  }, [professionals])
+
   // Shared hooks
   const groupSheet = useGroupSessionSheet(groupSessions)
   const [isGroupSessionSheetOpen, setIsGroupSessionSheetOpen] = useState(false)
@@ -184,7 +194,7 @@ function WeeklyAgendaPageContent() {
 
   if (status === "loading" || isLoading) {
     return (
-      <main className="min-h-screen bg-background pb-20">
+      <main className="min-h-screen bg-background pb-20 agenda-print-root">
         <div className="max-w-[1320px] mx-auto px-4 md:px-6 py-8">
           <div className="animate-pulse space-y-4">
             <div className="h-10 bg-muted rounded w-1/3" />
@@ -195,8 +205,27 @@ function WeeklyAgendaPageContent() {
     )
   }
 
+  const printCaption = isAdmin
+    ? selectedProfessionalId
+      ? `Profissional: ${professionals.find(p => p.professionalProfile?.id === selectedProfessionalId)?.name ?? ""}`
+      : "Todos os profissionais"
+    : undefined
+
+  const showProfessionalLegend = isAdmin && !selectedProfessionalId
+
   return (
-    <main className="min-h-screen bg-background pb-20">
+    <main className="min-h-screen bg-background pb-20 agenda-print-root">
+      <AgendaPrintView
+        mode="weekly"
+        refDate={weekStart}
+        weekStart={weekStart}
+        appointments={appointments}
+        groupSessions={groupSessions}
+        caption={printCaption}
+        professionalColorMap={showProfessionalLegend ? professionalColorMap : undefined}
+        professionalNames={showProfessionalLegend ? professionalNames : undefined}
+      />
+      <div className="agenda-screen-only contents">
       <WeeklyHeader
         weekStart={weekStart}
         professionals={professionals}
@@ -393,6 +422,7 @@ function WeeklyAgendaPageContent() {
         userProfessionalId={currentProfessionalProfileId ?? null}
         selectedProfessionalId={selectedProfessionalId}
       />
+      </div>
     </main>
   )
 }

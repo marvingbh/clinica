@@ -214,7 +214,7 @@ export const PATCH = withFeatureAuth(
       updateData.cancellationReason = cancellationReason
       updateData.cancelledAt = new Date()
     }
-    if (title !== undefined && existing.type !== "CONSULTA") {
+    if (title !== undefined) {
       oldValues.title = existing.title
       newValues.title = title
       updateData.title = title

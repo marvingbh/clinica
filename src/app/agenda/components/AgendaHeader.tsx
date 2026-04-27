@@ -2,7 +2,7 @@
 
 import { useMemo, useRef } from "react"
 import Link from "next/link"
-import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, BanIcon } from "@/shared/components/ui/icons"
+import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, BanIcon, PrinterIcon } from "@/shared/components/ui/icons"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { formatDateHeader, toDateString, toDisplayDateFromDate } from "../lib/utils"
 import type { Professional } from "../lib/types"
@@ -89,7 +89,7 @@ export function AgendaHeader({
               {formatDateHeader(selectedDate)}
             </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 print-hidden">
             {onBulkCancel && (
               <button
                 type="button"
@@ -101,6 +101,15 @@ export function AgendaHeader({
                 <span className="hidden sm:inline">Cancelar dia</span>
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="h-10 px-4 rounded-xl border border-input bg-background text-sm font-medium hover:bg-muted transition-all duration-normal active:scale-[0.98] flex items-center gap-2 shadow-sm"
+              title="Exportar / imprimir agenda"
+            >
+              <PrinterIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Imprimir</span>
+            </button>
             <Link
               href={`/agenda/weekly?date=${toDateString(selectedDate)}`}
               className="h-10 px-4 rounded-xl border border-input bg-background text-sm font-medium hover:bg-muted transition-all duration-normal active:scale-[0.98] flex items-center gap-2 shadow-sm"
@@ -113,7 +122,7 @@ export function AgendaHeader({
       </div>
 
       {/* Week Day Picker */}
-      <div className="max-w-[1320px] mx-auto px-4 md:px-6 pb-4">
+      <div className="max-w-[1320px] mx-auto px-4 md:px-6 pb-4 print-hidden">
         <Card elevation="md" className="overflow-hidden">
           <CardContent className="py-3 px-2">
             <div className="flex items-center gap-1">

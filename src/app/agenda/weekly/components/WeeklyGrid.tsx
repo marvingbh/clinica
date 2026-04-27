@@ -14,9 +14,10 @@ import { AvailabilitySlotBlock } from "./AvailabilitySlotBlock"
 import { createProfessionalColorMap } from "../../lib/professional-colors"
 import { WEEKLY_GRID } from "../../lib/grid-config"
 import { minutesToPixel } from "../../lib/grid-geometry"
+import { computeHourRange } from "../../lib/hour-range"
 
-const { startHour: START_HOUR, endHour: END_HOUR, pixelsPerMinute: PIXELS_PER_MINUTE, hourHeight: HOUR_HEIGHT } = WEEKLY_GRID
-const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i)
+const { pixelsPerMinute: PIXELS_PER_MINUTE, hourHeight: HOUR_HEIGHT } = WEEKLY_GRID
+const WEEKLY_DEFAULT_RANGE = { startHour: WEEKLY_GRID.startHour, endHour: WEEKLY_GRID.endHour }
 
 interface BirthdayPatient {
   id: string
@@ -151,12 +152,25 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
     return () => clearInterval(interval)
   })
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
-  const showNowLine = nowMinutes >= START_HOUR * 60 && nowMinutes <= END_HOUR * 60
 
   // Filter out individual group appointments (they'll be shown as group sessions)
   const individualAppointments = useMemo(() => {
     return appointments.filter(apt => !apt.groupId && !apt.sessionGroupId)
   }, [appointments])
+
+  // Dynamic hour range — expands to fit early/late entries (e.g. a 6:30 lembrete)
+  const { startHour, endHour } = useMemo(
+    () => computeHourRange(
+      [...individualAppointments, ...groupSessions],
+      WEEKLY_DEFAULT_RANGE,
+    ),
+    [individualAppointments, groupSessions],
+  )
+  const hours = useMemo(
+    () => Array.from({ length: endHour - startHour }, (_, i) => startHour + i),
+    [startHour, endHour],
+  )
+  const showNowLine = nowMinutes >= startHour * 60 && nowMinutes <= endHour * 60
 
   // Create consistent color mapping for all professionals
   const professionalColorMap = useMemo(() => {
@@ -194,7 +208,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
   }, [birthdayPatients])
 
 
-  const gridHeight = HOURS.length * HOUR_HEIGHT
+  const gridHeight = hours.length * HOUR_HEIGHT
 
   // Minimum width for the scrollable content: time column (56px) + 7 days * 120px
   const minContentWidth = 56 + weekDays.length * 120
@@ -220,7 +234,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
   }, [weekStart])
 
   return (
-    <div className="border border-border rounded-lg bg-card overflow-hidden">
+    <div className="border border-border rounded-lg bg-card overflow-hidden agenda-print-area">
       {/* Single horizontal scroll container for synchronized header + body scrolling */}
       <div className="overflow-x-auto overscroll-x-contain" ref={scrollContainerRef}>
         <div style={{ minWidth: `${minContentWidth}px` }}>
@@ -248,7 +262,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
           <div className="flex">
             {/* Time Column - sticky left so it stays visible while scrolling */}
             <div className="w-14 shrink-0 border-r border-border sticky left-0 bg-card z-[5]">
-              {HOURS.map((hour) => (
+              {hours.map((hour) => (
                 <div
                   key={hour}
                   className="border-b border-border last:border-b-0 flex items-start justify-end pr-2 text-xs text-muted-foreground"
@@ -301,11 +315,11 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                   gridHeight={gridHeight}
                 >
                   {/* Hour grid lines */}
-                  {HOURS.map((hour) => (
+                  {hours.map((hour) => (
                     <div
                       key={hour}
                       className="absolute left-0 right-0 border-b border-border"
-                      style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
+                      style={{ top: `${(hour - startHour) * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
                     >
                       {/* 30-minute line */}
                       <div
@@ -319,7 +333,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                   {isCurrentDay && showNowLine && (
                     <div
                       className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
-                      style={{ top: `${(nowMinutes - START_HOUR * 60) * PIXELS_PER_MINUTE}px` }}
+                      style={{ top: `${(nowMinutes - startHour * 60) * PIXELS_PER_MINUTE}px` }}
                     >
                       <div className="w-2 h-2 rounded-full bg-red-500 -ml-1 shrink-0" />
                       <div className="flex-1 h-[2px] bg-red-500/60" />
@@ -335,7 +349,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                           : "bg-primary/10 border-primary/40"
                       }`}
                       style={{
-                        top: `${minutesToPixel(projectedMinutes!, WEEKLY_GRID)}px`,
+                        top: `${minutesToPixel(projectedMinutes!, { pixelsPerMinute: PIXELS_PER_MINUTE, startHour })}px`,
                         height: `${Math.max(dropDurationMin * PIXELS_PER_MINUTE, 32)}px`,
                       }}
                     />
@@ -359,6 +373,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                         totalColumns={isSplit ? appointment.totalColumns + 1 : appointment.totalColumns}
                         professionalColorMap={professionalColorMap}
                         canWriteAgenda={canWriteAgenda}
+                        startHour={startHour}
                       />
                     )
                   })}
@@ -372,6 +387,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                       showProfessional={showProfessional}
                       columnIndex={session.columnIndex}
                       totalColumns={session.totalColumns}
+                      startHour={startHour}
                     />
                   ))}
 
@@ -383,6 +399,7 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                       appointmentDuration={appointmentDuration || 50}
                       halfRight={splitTimes.has(slot.time)}
                       isPast={isPastDay}
+                      startHour={startHour}
                       onClick={() => {
                         if (slot.biweeklyHint) {
                           onBiweeklyHintClick?.(dateStr, slot.time)

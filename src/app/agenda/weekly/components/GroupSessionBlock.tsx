@@ -5,7 +5,7 @@ import { GroupSession } from "../../lib/types"
 import { CANCELLED_STATUSES, TERMINAL_STATUSES } from "../../lib/constants"
 import { WEEKLY_GRID } from "../../lib/grid-config"
 
-const { pixelsPerMinute: PIXELS_PER_MINUTE, startHour: START_HOUR } = WEEKLY_GRID
+const { pixelsPerMinute: PIXELS_PER_MINUTE } = WEEKLY_GRID
 
 interface GroupSessionBlockProps {
   session: GroupSession
@@ -13,6 +13,7 @@ interface GroupSessionBlockProps {
   showProfessional?: boolean
   columnIndex?: number
   totalColumns?: number
+  startHour: number
 }
 
 export function GroupSessionBlock({
@@ -21,6 +22,7 @@ export function GroupSessionBlock({
   showProfessional = false,
   columnIndex = 0,
   totalColumns = 1,
+  startHour,
 }: GroupSessionBlockProps) {
   const scheduledAt = new Date(session.scheduledAt)
   const endAt = new Date(session.endAt)
@@ -30,7 +32,7 @@ export function GroupSessionBlock({
   const durationMinutes = Math.round((endAt.getTime() - scheduledAt.getTime()) / 60000)
 
   // Calculate position and height
-  const top = ((hour - START_HOUR) * 60 + minutes) * PIXELS_PER_MINUTE
+  const top = ((hour - startHour) * 60 + minutes) * PIXELS_PER_MINUTE
   const height = Math.max(durationMinutes * PIXELS_PER_MINUTE, 32) // Min height of 32px for readability
 
   // Calculate width and left position for overlapping blocks

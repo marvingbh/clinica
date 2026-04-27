@@ -48,6 +48,7 @@ function computeFormValues(appointment: Appointment): EditAppointmentFormData {
   const endDate = new Date(appointment.endAt)
   const durationMinutes = Math.round((endDate.getTime() - scheduledDate.getTime()) / 60000)
   return {
+    title: appointment.title || "",
     date: toDisplayDateFromDate(scheduledDate),
     startTime: `${scheduledDate.getHours().toString().padStart(2, "0")}:${scheduledDate.getMinutes().toString().padStart(2, "0")}`,
     duration: durationMinutes,
@@ -126,6 +127,7 @@ export function useAppointmentEdit({
           || (data.duration || 0) !== orig.duration
 
         const updateData: Record<string, unknown> = {
+          title: data.title?.trim() ? data.title.trim() : null,
           modality: data.modality,
           notes: data.notes || null,
           price: data.price != null && data.price !== "" && !isNaN(Number(data.price)) ? Number(data.price) : null,

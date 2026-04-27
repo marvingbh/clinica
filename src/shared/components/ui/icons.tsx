@@ -93,6 +93,7 @@ export { BarChart3 as BarChart3Icon } from "lucide-react"
 
 // Finance
 export { Download as DownloadIcon } from "lucide-react"
+export { Printer as PrinterIcon } from "lucide-react"
 export { Receipt as ReceiptIcon } from "lucide-react"
 export { Coins as CoinsIcon } from "lucide-react"
 export { Tag as TagIcon } from "lucide-react"

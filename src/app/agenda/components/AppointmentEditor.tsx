@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { UseFormReturn } from "react-hook-form"
 import { Sheet } from "./Sheet"
 import { InlineAlert } from "./InlineAlert"
@@ -8,7 +10,7 @@ import type { Segment } from "./SegmentedControl"
 import { RecurrenceTabContent } from "./RecurrenceTabContent"
 import { HistoryTimeline } from "@/shared/components/HistoryTimeline"
 import { usePermission } from "@/shared/hooks/usePermission"
-import { Appointment, EditAppointmentFormData, CalendarEntryType, Professional } from "../lib/types"
+import { Appointment, AppointmentStatus, EditAppointmentFormData, CalendarEntryType, Professional } from "../lib/types"
 import { TimeInput } from "./TimeInput"
 import { DateInput } from "./DateInput"
 import { STATUS_LABELS, RECURRENCE_TYPE_LABELS, ENTRY_TYPE_LABELS, CANCELLED_STATUSES } from "../lib/constants"
@@ -30,6 +32,7 @@ import {
   CalendarIcon,
   InfoIcon,
   CheckIcon,
+  ChevronDownIcon,
   XIcon,
   SendIcon,
   HistoryIcon,
@@ -131,6 +134,115 @@ interface AppointmentEditorProps {
 
 type EditorTab = "occurrence" | "recurrence" | "historico"
 
+const STATUS_DROPDOWN_OPTIONS: Array<{ status: AppointmentStatus; label: string; message: string }> = [
+  { status: "AGENDADO", label: STATUS_LABELS.AGENDADO, message: "Status alterado para agendado" },
+  { status: "CONFIRMADO", label: STATUS_LABELS.CONFIRMADO, message: "Status alterado para confirmado" },
+  { status: "FINALIZADO", label: STATUS_LABELS.FINALIZADO, message: "Status alterado para finalizado" },
+  { status: "CANCELADO_FALTA", label: STATUS_LABELS.CANCELADO_FALTA, message: "Status alterado para falta" },
+  { status: "CANCELADO_ACORDADO", label: STATUS_LABELS.CANCELADO_ACORDADO, message: "Status alterado para desmarcou" },
+  { status: "CANCELADO_PROFISSIONAL", label: STATUS_LABELS.CANCELADO_PROFISSIONAL, message: "Status alterado" },
+]
+
+/** Statuses that require collecting a cancellation reason before applying. */
+const STATUS_TO_CANCEL_VARIANT: Partial<Record<AppointmentStatus, CancelVariant>> = {
+  CANCELADO_FALTA: "faltou",
+  CANCELADO_ACORDADO: "desmarcou",
+  CANCELADO_PROFISSIONAL: "sem_cobranca",
+}
+
+function StatusBadgeDropdown({
+  appointment,
+  canMarkStatus,
+  isUpdatingStatus,
+  onUpdateStatus,
+  onRequestCancelConfirm,
+}: {
+  appointment: Appointment
+  canMarkStatus: boolean
+  isUpdatingStatus: boolean
+  onUpdateStatus?: (status: string, message: string, reason?: string) => void
+  onRequestCancelConfirm: (variant: CancelVariant) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const tone = STATUS_BADGE[appointment.status] || STATUS_BADGE.AGENDADO
+  const label = STATUS_LABELS[appointment.status] || appointment.status
+
+  // Close the popover on outside click
+  useEffect(() => {
+    if (!open) return
+    function handleClick(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [open])
+
+  const badgeClasses = `inline-flex items-center gap-1.5 h-[22px] px-2 rounded-full text-[11px] font-medium border ${tone.bg} ${tone.text} ${tone.border}`
+
+  if (!canMarkStatus || !onUpdateStatus) {
+    return (
+      <span className={badgeClasses}>
+        <span className={`w-1.5 h-1.5 rounded-full ${tone.dot}`} />
+        {label}
+      </span>
+    )
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={isUpdatingStatus}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Alterar status"
+        className={`${badgeClasses} hover:opacity-80 disabled:opacity-60 cursor-pointer`}
+      >
+        <span className={`w-1.5 h-1.5 rounded-full ${tone.dot}`} />
+        {label}
+        <ChevronDownIcon className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-[calc(100%+4px)] z-50 min-w-[200px] rounded-md border border-ink-200 bg-card shadow-lg py-1 animate-scale-in origin-top-right"
+        >
+          {STATUS_DROPDOWN_OPTIONS.map((opt) => {
+            const optTone = STATUS_BADGE[opt.status] || STATUS_BADGE.AGENDADO
+            const isCurrent = opt.status === appointment.status
+            return (
+              <button
+                key={opt.status}
+                type="button"
+                role="menuitem"
+                disabled={isCurrent || isUpdatingStatus}
+                onClick={() => {
+                  setOpen(false)
+                  const cancelVariant = STATUS_TO_CANCEL_VARIANT[opt.status]
+                  if (cancelVariant) {
+                    onRequestCancelConfirm(cancelVariant)
+                  } else {
+                    onUpdateStatus(opt.status, opt.message)
+                  }
+                }}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-[12px] transition-colors hover:bg-ink-50 disabled:cursor-default ${isCurrent ? "font-semibold bg-ink-50" : ""}`}
+              >
+                <span className={`w-2 h-2 rounded-full ${optTone.dot}`} aria-hidden="true" />
+                <span className="flex-1 text-ink-800">{opt.label}</span>
+                {isCurrent && <CheckIcon className="w-3.5 h-3.5 text-ok-500" />}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function AppointmentEditor({
   isOpen, onClose, appointment, form, isUpdating, onSubmit,
   apiError, onDismissError, canMarkStatus, onUpdateStatus, isUpdatingStatus,
@@ -141,10 +253,11 @@ export function AppointmentEditor({
   onAttendingProfChange, editAttendingProfId,
 }: AppointmentEditorProps) {
   const [activeTab, setActiveTab] = useState<EditorTab>("occurrence")
+  const [cancelVariant, setCancelVariant] = useState<CancelVariant | null>(null)
   const { canRead: canReadAudit } = usePermission("audit_logs")
   const { canRead: canReadFinances } = usePermission("finances")
 
-  const handleClose = () => { setActiveTab("occurrence"); onClose() }
+  const handleClose = () => { setActiveTab("occurrence"); setCancelVariant(null); onClose() }
   if (!appointment) return null
 
   const isConsulta = appointment.type === "CONSULTA"
@@ -168,8 +281,6 @@ export function AppointmentEditor({
 
   // Avatar: patient initials for CONSULTA, title initials for other types.
   const headerName = isConsulta ? appointment.patient?.name || "" : appointment.title || ENTRY_TYPE_LABELS[appointment.type as CalendarEntryType] || ""
-  const statusBadgeTone = STATUS_BADGE[appointment.status] || STATUS_BADGE.AGENDADO
-
   // Tabs: always show "Esta", plus Recorrência (if recurring), Histórico (if allowed),
   // and Pular (if recurring active) — as a tab rather than trailing action so mobile fits.
   type TabKey = "occurrence" | "recurrence" | "historico" | "skip"
@@ -222,12 +333,13 @@ export function AppointmentEditor({
 
           {/* Right: badges */}
           <div className="flex items-center gap-1.5 flex-wrap justify-end">
-            <span
-              className={`inline-flex items-center gap-1.5 h-[22px] px-2 rounded-full text-[11px] font-medium border ${statusBadgeTone.bg} ${statusBadgeTone.text} ${statusBadgeTone.border}`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${statusBadgeTone.dot}`} />
-              {STATUS_LABELS[appointment.status] || appointment.status}
-            </span>
+            <StatusBadgeDropdown
+              appointment={appointment}
+              canMarkStatus={canMarkStatus ?? false}
+              isUpdatingStatus={isUpdatingStatus ?? false}
+              onUpdateStatus={onUpdateStatus}
+              onRequestCancelConfirm={(variant) => setCancelVariant(variant)}
+            />
             {(isConsulta || appointment.type === "REUNIAO") && appointment.invoice && (() => {
               // Render as a link only when the user can actually open the
               // invoice page — otherwise the same pill as static text.
@@ -354,6 +466,7 @@ export function AppointmentEditor({
             appointment={appointment} form={form} isUpdating={isUpdating} onSubmit={onSubmit}
             apiError={apiError} onDismissError={onDismissError} onClose={handleClose}
             canMarkStatus={canMarkStatus} onUpdateStatus={onUpdateStatus} isUpdatingStatus={isUpdatingStatus}
+            onRequestCancelConfirm={(variant) => setCancelVariant(variant)}
             canResendConfirmation={canResendConfirmation} onResendConfirmation={onResendConfirmation}
             isResendingConfirmation={isResendingConfirmation}
             isDeleteDialogOpen={isDeleteDialogOpen} setIsDeleteDialogOpen={setIsDeleteDialogOpen}
@@ -372,6 +485,20 @@ export function AppointmentEditor({
           <HistoryTimeline entityType="Appointment" entityId={appointment.id} />
         )}
       </div>
+
+      {/* Cancel confirmation dialog — used by both the in-form buttons and the
+          status-badge dropdown. Collects the cancellation reason before applying. */}
+      {cancelVariant && onUpdateStatus && (
+        <CancelConfirmDialog
+          isOpen={!!cancelVariant}
+          onClose={() => setCancelVariant(null)}
+          variant={cancelVariant}
+          onConfirm={async (status, reason) => {
+            await onUpdateStatus(status, "Status alterado com sucesso", reason || undefined)
+            setCancelVariant(null)
+          }}
+        />
+      )}
     </Sheet>
   )
 }
@@ -390,6 +517,7 @@ interface OccurrenceTabContentProps {
   onClose: () => void
   canMarkStatus: boolean
   onUpdateStatus: (status: string, message: string, reason?: string) => Promise<void>
+  onRequestCancelConfirm: (variant: CancelVariant) => void
   isUpdatingStatus: boolean
   canResendConfirmation: boolean
   onResendConfirmation: () => Promise<void>
@@ -409,14 +537,12 @@ interface OccurrenceTabContentProps {
 
 function OccurrenceTabContent({
   appointment, form, isUpdating, onSubmit, apiError, onDismissError, onClose,
-  canMarkStatus, onUpdateStatus, isUpdatingStatus,
+  canMarkStatus, onUpdateStatus, onRequestCancelConfirm, isUpdatingStatus,
   canResendConfirmation, onResendConfirmation, isResendingConfirmation,
   isDeleteDialogOpen, setIsDeleteDialogOpen, isDeletingAppointment, onDeleteAppointment,
   isRecurring, isConsulta, professionals, editAdditionalProfIds, setEditAdditionalProfIds,
   onAttendingProfChange, editAttendingProfId,
 }: OccurrenceTabContentProps) {
-  const [cancelVariant, setCancelVariant] = useState<CancelVariant | null>(null)
-
   const isCancelled = CANCELLED_STATUSES.includes(appointment.status)
   const isNoShow = appointment.status === "CANCELADO_FALTA"
   const isFinished = appointment.status === "FINALIZADO"
@@ -433,7 +559,7 @@ function OccurrenceTabContent({
           {/* Section label */}
           {canMarkStatus && (
             <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500">
-              Status da consulta
+              {isConsulta ? "Status da consulta" : "Status"}
             </div>
           )}
 
@@ -495,7 +621,7 @@ function OccurrenceTabContent({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   type="button"
-                  onClick={() => setCancelVariant("faltou")}
+                  onClick={() => onRequestCancelConfirm("faltou")}
                   disabled={isUpdatingStatus}
                   className="h-9 rounded-[4px] border border-warn-100 bg-card text-warn-700 text-[12px] font-medium inline-flex items-center justify-center gap-1.5 hover:bg-warn-50 hover:border-warn-500 transition-colors disabled:opacity-50"
                 >
@@ -504,7 +630,7 @@ function OccurrenceTabContent({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCancelVariant("desmarcou")}
+                  onClick={() => onRequestCancelConfirm("desmarcou")}
                   disabled={isUpdatingStatus}
                   className="h-9 rounded-[4px] border border-ink-300 bg-card text-ink-800 text-[12px] font-medium inline-flex items-center justify-center gap-1.5 hover:bg-ink-50 hover:border-ink-400 transition-colors disabled:opacity-50"
                 >
@@ -513,7 +639,7 @@ function OccurrenceTabContent({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCancelVariant("sem_cobranca")}
+                  onClick={() => onRequestCancelConfirm("sem_cobranca")}
                   disabled={isUpdatingStatus}
                   className="h-9 rounded-[4px] border border-err-100 bg-card text-err-700 text-[12px] font-medium inline-flex items-center justify-center gap-1.5 hover:bg-err-50 hover:border-err-500 transition-colors disabled:opacity-50"
                 >
@@ -614,12 +740,6 @@ function OccurrenceTabContent({
             </div>
           </div>
         </div>
-      )}
-
-      {/* Cancel Confirm Dialog */}
-      {cancelVariant && (
-        <CancelConfirmDialog isOpen={!!cancelVariant} onClose={() => setCancelVariant(null)} variant={cancelVariant}
-          onConfirm={async (status, reason) => { await onUpdateStatus(status, "Status alterado com sucesso", reason || undefined) }} />
       )}
 
       {/* API Error */}
@@ -767,6 +887,24 @@ function EditFormWithPreview({
     <div className="grid md:grid-cols-[1fr_300px] gap-6">
       {/* Left — form sections */}
       <div className="space-y-5 min-w-0">
+        <EditSectionLabel>Título</EditSectionLabel>
+        <div>
+          <label htmlFor="editTitle" className={EDIT_LABEL}>
+            {isConsulta ? "Título (opcional)" : "Título"}
+          </label>
+          <input
+            id="editTitle"
+            type="text"
+            maxLength={500}
+            placeholder={isConsulta ? appointment.patient?.name ?? "Sem título" : "Título"}
+            {...form.register("title")}
+            className={EDIT_INPUT}
+          />
+          {form.formState.errors.title && (
+            <p className={EDIT_ERROR}>{form.formState.errors.title.message}</p>
+          )}
+        </div>
+
         <EditSectionLabel>Horário</EditSectionLabel>
         <div className="grid grid-cols-12 gap-4">
           <div className="col-span-12 md:col-span-5">
@@ -959,7 +1097,7 @@ function EditFormWithPreview({
             id="editNotes"
             rows={3}
             {...form.register("notes")}
-            placeholder="Notas sobre esta consulta…"
+            placeholder={isConsulta ? "Notas sobre esta consulta…" : "Notas…"}
             className={EDIT_TEXTAREA}
           />
         </div>

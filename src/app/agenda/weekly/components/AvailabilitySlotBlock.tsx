@@ -4,7 +4,7 @@ import { PlusIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import type { TimeSlot } from "../../lib/types"
 import { WEEKLY_GRID } from "../../lib/grid-config"
 
-const { pixelsPerMinute: PIXELS_PER_MINUTE, startHour: START_HOUR } = WEEKLY_GRID
+const { pixelsPerMinute: PIXELS_PER_MINUTE } = WEEKLY_GRID
 
 interface AvailabilitySlotBlockProps {
   slot: TimeSlot
@@ -12,6 +12,7 @@ interface AvailabilitySlotBlockProps {
   onClick: () => void
   halfRight?: boolean
   isPast?: boolean
+  startHour: number
 }
 
 export function AvailabilitySlotBlock({
@@ -20,9 +21,10 @@ export function AvailabilitySlotBlock({
   onClick,
   halfRight = false,
   isPast = false,
+  startHour,
 }: AvailabilitySlotBlockProps) {
   const [hour, min] = slot.time.split(":").map(Number)
-  const top = ((hour - START_HOUR) * 60 + min) * PIXELS_PER_MINUTE
+  const top = ((hour - startHour) * 60 + min) * PIXELS_PER_MINUTE
   const height = Math.max(appointmentDuration * PIXELS_PER_MINUTE, 32)
 
   const isBiweeklyHint = !!slot.biweeklyHint

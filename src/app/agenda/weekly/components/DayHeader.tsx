@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { formatDayHeader, isSameDay, isWeekend, toDateString } from "../../lib/utils"
+import { useAgendaContext } from "../../context/AgendaContext"
 
 interface DayHeaderProps {
   date: Date
@@ -10,11 +11,13 @@ interface DayHeaderProps {
 
 export function DayHeader({ date, birthdayNames = [] }: DayHeaderProps) {
   const router = useRouter()
+  const { setSelectedDate } = useAgendaContext()
   const { dayName, dayNumber } = formatDayHeader(date)
   const isToday = isSameDay(date, new Date())
   const weekend = isWeekend(date)
 
   function handleClick() {
+    setSelectedDate(date)
     router.push(`/agenda?date=${toDateString(date)}`)
   }
 
@@ -23,8 +26,8 @@ export function DayHeader({ date, birthdayNames = [] }: DayHeaderProps) {
       type="button"
       onClick={handleClick}
       className={`
-        flex flex-col items-center justify-center py-2 px-1 min-w-[60px]
-        hover:bg-muted/50 transition-colors rounded-md cursor-pointer
+        w-full h-full flex flex-col items-center justify-center py-2 px-1
+        hover:bg-muted/50 transition-colors cursor-pointer
         ${weekend ? "text-muted-foreground" : ""}
       `}
     >

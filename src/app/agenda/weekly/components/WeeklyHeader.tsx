@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ListIcon, BanIcon } from "@/shared/components/ui"
+import { ListIcon, BanIcon, PrinterIcon } from "@/shared/components/ui"
 import { WeekNavigation } from "./WeekNavigation"
 import type { Professional } from "../../lib/types"
 import { PROFESSIONAL_COLORS, type ProfessionalColorMap } from "../../lib/professional-colors"
@@ -42,7 +42,7 @@ export function WeeklyHeader({
             onToday={onToday}
           />
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 print-hidden">
             {onBulkCancel && (
               <button
                 type="button"
@@ -54,6 +54,15 @@ export function WeeklyHeader({
                 <span className="hidden sm:inline">Cancelar</span>
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="flex items-center gap-2 h-10 px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-muted"
+              title="Exportar / imprimir agenda"
+            >
+              <PrinterIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Imprimir</span>
+            </button>
             <Link
               href="/agenda"
               className="flex items-center gap-2 h-10 px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-muted"

@@ -10,6 +10,7 @@ import {
 import { BulkCancelDialog } from "./components/BulkCancelDialog"
 import { CreateGroupSessionSheet } from "./components/CreateGroupSessionSheet"
 import { AgendaDndWrapper } from "./components/AgendaDndWrapper"
+import { AgendaPrintView } from "./components/AgendaPrintView"
 import type { Appointment } from "./lib/types"
 import {
   useDateNavigation, useAgendaData, useTimeSlots,
@@ -71,6 +72,15 @@ export default function AgendaPage() {
     ]
     return createProfessionalColorMap(professionalIds)
   }, [appointments, groupSessions])
+
+  // Map of professional profile id → display name (used by the print legend)
+  const professionalNames = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const p of professionals) {
+      if (p.professionalProfile?.id) map.set(p.professionalProfile.id, p.name)
+    }
+    return map
+  }, [professionals])
 
   // Drag-and-drop: only in single-professional view with write permission
   const isDndEnabled = canWriteAgenda && !!selectedProfessionalId
@@ -241,8 +251,26 @@ export default function AgendaPage() {
     return <AgendaPageSkeleton />
   }
 
+  const printCaption = isAdmin
+    ? selectedProfessionalId
+      ? `Profissional: ${professionals.find((p) => p.professionalProfile?.id === selectedProfessionalId)?.name ?? ""}`
+      : "Todos os profissionais"
+    : undefined
+
+  const showProfessionalLegend = isAdmin && !selectedProfessionalId
+
   return (
-    <main className="min-h-screen bg-background pb-20">
+    <main className="min-h-screen bg-background pb-20 agenda-print-root">
+      <AgendaPrintView
+        mode="daily"
+        refDate={selectedDate}
+        appointments={appointments}
+        groupSessions={groupSessions}
+        caption={printCaption}
+        professionalColorMap={showProfessionalLegend ? professionalColorMap : undefined}
+        professionalNames={showProfessionalLegend ? professionalNames : undefined}
+      />
+      <div className="agenda-screen-only contents">
       <AgendaHeader
         selectedDate={selectedDate}
         onDateChange={setSelectedDate}
@@ -426,6 +454,7 @@ export default function AgendaPage() {
         userProfessionalId={currentProfessionalProfileId ?? null}
         selectedProfessionalId={selectedProfessionalId}
       />
+      </div>
     </main>
   )
 }
