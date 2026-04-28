@@ -41,6 +41,34 @@ function isSlotOccupiedByGroupSession(
   return ranges.some((r) => r.startMin < slotMinutes && r.endMin > slotMinutes)
 }
 
+/** Build [start, end) minute ranges for blocking, non-cancelled appointments on a given date */
+function buildBlockingAppointmentRanges(
+  appointments: Appointment[],
+  dateStr: string,
+): Array<{ startMin: number; endMin: number }> {
+  const ranges: Array<{ startMin: number; endMin: number }> = []
+  for (const apt of appointments) {
+    if (!isBlockingAppointment(apt)) continue
+    const start = new Date(apt.scheduledAt)
+    if (toDateString(start) !== dateStr) continue
+    const end = new Date(apt.endAt)
+    ranges.push({
+      startMin: start.getHours() * 60 + start.getMinutes(),
+      endMin: end.getHours() * 60 + end.getMinutes(),
+    })
+  }
+  return ranges
+}
+
+/** True when [slotStart, slotEnd) overlaps any blocking appointment range */
+function slotOverlapsAppointment(
+  ranges: Array<{ startMin: number; endMin: number }>,
+  slotStart: number,
+  slotEnd: number,
+): boolean {
+  return ranges.some((r) => slotStart < r.endMin && slotEnd > r.startMin)
+}
+
 export interface FullDayBlock {
   reason: string | null
   isClinicWide: boolean
@@ -78,6 +106,7 @@ export function computeSlotsForDay({
 }: ComputeSlotsParams): ComputeSlotsResult {
   const dateStr = toDateString(date)
   const gsRanges = buildGroupSessionRanges(groupSessions || [])
+  const aptRanges = buildBlockingAppointmentRanges(appointments, dateStr)
 
   // Single professional view - use availability rules
   const dayOfWeek = date.getDay()
@@ -178,12 +207,13 @@ export function computeSlotsForDay({
         const aptDateStr = toDateString(aptTime)
         return aptDateStr === dateStr && aptTime.getHours() === hour && aptTime.getMinutes() === min
       })
-      const blockingAppointments = slotAppointments.filter(isBlockingAppointment)
+      const slotEndMinutes = currentMinutes + slotDuration
+      const occupiedByAppointment = slotOverlapsAppointment(aptRanges, currentMinutes, slotEndMinutes)
       const occupiedByGroup = isSlotOccupiedByGroupSession(gsRanges, currentMinutes)
 
       slots.push({
         time: timeStr,
-        isAvailable: !exception && blockingAppointments.length === 0 && !occupiedByGroup,
+        isAvailable: !exception && !occupiedByAppointment && !occupiedByGroup,
         appointments: slotAppointments,
         isBlocked: !!exception,
         blockReason: exception?.reason || undefined,
