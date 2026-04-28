@@ -15,12 +15,15 @@ export function WeekNavigation({ weekStart, onPreviousWeek, onNextWeek, onToday 
   const weekRange = formatWeekRange(weekStart, weekEnd)
 
   return (
-    <div className="flex items-center justify-between gap-2">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 min-w-0">
+      <h2 className="text-base sm:text-lg font-semibold text-foreground whitespace-nowrap">
+        {weekRange}
+      </h2>
+      <div className="flex items-center gap-2 flex-shrink-0">
         <button
           type="button"
           onClick={onPreviousWeek}
-          className="h-10 w-10 rounded-md border border-input bg-background flex items-center justify-center hover:bg-muted"
+          className="h-9 w-9 sm:h-10 sm:w-10 rounded-md border border-input bg-background flex items-center justify-center hover:bg-muted"
           aria-label="Semana anterior"
         >
           <ChevronLeftIcon className="w-5 h-5" />
@@ -28,21 +31,19 @@ export function WeekNavigation({ weekStart, onPreviousWeek, onNextWeek, onToday 
         <button
           type="button"
           onClick={onToday}
-          className="h-10 px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-muted"
+          className="h-9 sm:h-10 px-3 sm:px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-muted"
         >
           Hoje
         </button>
         <button
           type="button"
           onClick={onNextWeek}
-          className="h-10 w-10 rounded-md border border-input bg-background flex items-center justify-center hover:bg-muted"
+          className="h-9 w-9 sm:h-10 sm:w-10 rounded-md border border-input bg-background flex items-center justify-center hover:bg-muted"
           aria-label="Proxima semana"
         >
           <ChevronRightIcon className="w-5 h-5" />
         </button>
       </div>
-
-      <h2 className="text-lg font-semibold text-foreground">{weekRange}</h2>
     </div>
   )
 }

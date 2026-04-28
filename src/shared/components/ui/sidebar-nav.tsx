@@ -347,7 +347,7 @@ export function SidebarNav() {
       </div>
 
       {/* Groups */}
-      <nav className="flex flex-col gap-4 overflow-y-auto">
+      <nav className="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0 -mx-1 px-1">
         {visibleGroups.map((group) => (
           <div key={group.label} className="flex flex-col gap-0.5">
             {!collapsed && (
