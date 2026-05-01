@@ -1,9 +1,14 @@
-// src/lib/rate-limit.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "./rate-limit"
+import { __resetMemoryStore } from "./rate-limit-memory"
 
-describe("checkRateLimit", () => {
+// Tests run under NODE_ENV === "test", so checkRateLimit uses the in-memory
+// backend unconditionally. The Upstash code path is exercised at the adapter
+// level by integration tests in staging against a real Upstash preview DB.
+
+describe("checkRateLimit (memory backend)", () => {
   beforeEach(() => {
+    __resetMemoryStore()
     vi.useFakeTimers()
   })
 
@@ -11,7 +16,7 @@ describe("checkRateLimit", () => {
     vi.useRealTimers()
   })
 
-  const config = { maxRequests: 3, windowMs: 60000 }
+  const config = { maxRequests: 3, windowMs: 60_000 }
 
   it("allows requests under the limit", async () => {
     const result = await checkRateLimit("test-under-limit", config)
@@ -47,12 +52,10 @@ describe("checkRateLimit", () => {
     await checkRateLimit("test-expire", config)
     await checkRateLimit("test-expire", config)
 
-    // Blocked
     const blocked = await checkRateLimit("test-expire", config)
     expect(blocked.allowed).toBe(false)
 
-    // Advance past the window
-    vi.advanceTimersByTime(60001)
+    vi.advanceTimersByTime(60_001)
 
     const allowed = await checkRateLimit("test-expire", config)
     expect(allowed.allowed).toBe(true)
@@ -63,7 +66,6 @@ describe("checkRateLimit", () => {
     await checkRateLimit("key-a", config)
     await checkRateLimit("key-a", config)
 
-    // key-a is full, key-b should still work
     const resultA = await checkRateLimit("key-a", config)
     expect(resultA.allowed).toBe(false)
 
@@ -75,27 +77,53 @@ describe("checkRateLimit", () => {
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"))
 
     await checkRateLimit("test-retry", config)
-    vi.advanceTimersByTime(10000) // +10s
+    vi.advanceTimersByTime(10_000)
     await checkRateLimit("test-retry", config)
-    vi.advanceTimersByTime(10000) // +20s total
+    vi.advanceTimersByTime(10_000)
     await checkRateLimit("test-retry", config)
 
-    // Now blocked — oldest request was at T+0, window is 60s
-    // So retryAfter ≈ 60000 - 20000 = 40000
     const blocked = await checkRateLimit("test-retry", config)
     expect(blocked.allowed).toBe(false)
-    expect(blocked.retryAfter).toBe(40000)
+    expect(blocked.retryAfter).toBe(40_000)
+  })
+
+  it("accepts failMode without affecting in-memory behavior", async () => {
+    // Under test env there's no Upstash to fail, so failMode is a no-op here.
+    const openResult = await checkRateLimit("failmode-open", { ...config, failMode: "open" })
+    const closedResult = await checkRateLimit("failmode-closed", { ...config, failMode: "closed" })
+    expect(openResult.allowed).toBe(true)
+    expect(closedResult.allowed).toBe(true)
   })
 })
 
-describe("RATE_LIMIT_CONFIGS", () => {
-  it("publicApi allows 10 per minute", () => {
+describe("RATE_LIMIT_CONFIGS presets", () => {
+  it("publicApi: 10/min, fail-open", () => {
     expect(RATE_LIMIT_CONFIGS.publicApi.maxRequests).toBe(10)
-    expect(RATE_LIMIT_CONFIGS.publicApi.windowMs).toBe(60000)
+    expect(RATE_LIMIT_CONFIGS.publicApi.windowMs).toBe(60_000)
+    expect(RATE_LIMIT_CONFIGS.publicApi.failMode).toBe("open")
   })
 
-  it("sensitive allows 5 per minute", () => {
+  it("sensitive: 5/min, fail-open", () => {
     expect(RATE_LIMIT_CONFIGS.sensitive.maxRequests).toBe(5)
-    expect(RATE_LIMIT_CONFIGS.sensitive.windowMs).toBe(60000)
+    expect(RATE_LIMIT_CONFIGS.sensitive.windowMs).toBe(60_000)
+    expect(RATE_LIMIT_CONFIGS.sensitive.failMode).toBe("open")
+  })
+
+  it("login: 5 per 15min, fail-closed", () => {
+    expect(RATE_LIMIT_CONFIGS.login.maxRequests).toBe(5)
+    expect(RATE_LIMIT_CONFIGS.login.windowMs).toBe(15 * 60_000)
+    expect(RATE_LIMIT_CONFIGS.login.failMode).toBe("closed")
+  })
+
+  it("signup: 3 per hour, fail-closed", () => {
+    expect(RATE_LIMIT_CONFIGS.signup.maxRequests).toBe(3)
+    expect(RATE_LIMIT_CONFIGS.signup.windowMs).toBe(60 * 60_000)
+    expect(RATE_LIMIT_CONFIGS.signup.failMode).toBe("closed")
+  })
+
+  it("superadminLogin: 3 per 15min, fail-closed", () => {
+    expect(RATE_LIMIT_CONFIGS.superadminLogin.maxRequests).toBe(3)
+    expect(RATE_LIMIT_CONFIGS.superadminLogin.windowMs).toBe(15 * 60_000)
+    expect(RATE_LIMIT_CONFIGS.superadminLogin.failMode).toBe("closed")
   })
 })

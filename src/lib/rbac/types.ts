@@ -1,11 +1,15 @@
 import { Role, FeatureAccess } from "@prisma/client"
 
-// All controllable features in the system
+// All controllable features in the system.
+// Bare features like `patients` / `groups` default to "own" scope (sessions the
+// user attended or groups they belong to). `*_others` grants clinic-wide access.
 export const FEATURES = [
   "agenda_own",
   "agenda_others",
   "patients",
+  "patients_others",
   "groups",
+  "groups_others",
   "users",
   "clinic_settings",
   "professionals",
@@ -23,8 +27,10 @@ export type Feature = (typeof FEATURES)[number]
 export const FEATURE_LABELS: Record<Feature, string> = {
   agenda_own: "Agenda (propria)",
   agenda_others: "Agenda (outros)",
-  patients: "Pacientes",
-  groups: "Grupos",
+  patients: "Pacientes (proprios)",
+  patients_others: "Pacientes (outros)",
+  groups: "Grupos (proprios)",
+  groups_others: "Grupos (outros)",
   users: "Usuarios",
   clinic_settings: "Config. Clinica",
   professionals: "Profissionais",

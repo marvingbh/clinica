@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac"
 import { isGroupingAllowed } from "@/lib/financeiro/invoice-grouping"
+import { patientScopeFilter } from "@/lib/patients/scope"
 
 // WhatsApp format validation: Brazilian format with country code
 // Accepts: +5511999999999, 5511999999999, 11999999999
@@ -68,6 +70,8 @@ export const GET = withFeatureAuth(
     // When a search term is present, use raw SQL for accent-insensitive matching
     // via PostgreSQL's unaccent() extension. Also searches motherName/fatherName.
     if (search) {
+      const { canSeeAllPatients } = await import("@/lib/patients/scope")
+      const scopeRestricted = !canSeeAllPatients(user)
       const params: unknown[] = [user.clinicId, search]
       let paramIndex = 3
 
@@ -81,6 +85,22 @@ export const GET = withFeatureAuth(
           OR unaccent(COALESCE(p."fatherName", '')) ILIKE unaccent('%' || $2 || '%')
         )`,
       ]
+
+      if (scopeRestricted) {
+        if (!user.professionalProfileId) {
+          return NextResponse.json({ patients: [], pagination: { page, limit, total: 0, totalPages: 0 } })
+        }
+        conditions.push(`(
+          p."referenceProfessionalId" = $${paramIndex}
+          OR EXISTS (
+            SELECT 1 FROM "Appointment" a
+            WHERE a."patientId" = p."id"
+            AND (a."professionalProfileId" = $${paramIndex} OR a."attendingProfessionalId" = $${paramIndex})
+          )
+        )`)
+        params.push(user.professionalProfileId)
+        paramIndex++
+      }
 
       if (isActive !== null) {
         conditions.push(`p."isActive" = $${paramIndex}`)
@@ -149,9 +169,11 @@ export const GET = withFeatureAuth(
       })
     }
 
-    // Non-search listing: use standard Prisma query
-    const where: Record<string, unknown> = {
+    // Non-search listing: scope by clinic + patient-others permission (B7).
+    const scopeFilter = patientScopeFilter(user)
+    const where: Prisma.PatientWhereInput = {
       clinicId: user.clinicId,
+      ...scopeFilter,
     }
 
     if (isActive !== null) {

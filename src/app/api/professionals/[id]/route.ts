@@ -87,6 +87,23 @@ export const PATCH = withFeatureAuth(
       repassePercentage,
     } = body
 
+    // B8: prevent self-role elevation. An attacker with `professionals:WRITE`
+    // (or a compromised PROFESSIONAL session with a permission override)
+    // cannot flip their own role to ADMIN.
+    if (role !== undefined && existing.id === user.id && role !== existing.role) {
+      return NextResponse.json(
+        { error: "Voce nao pode alterar seu proprio perfil de acesso" },
+        { status: 400 },
+      )
+    }
+
+    if (isActive === false && existing.id === user.id) {
+      return NextResponse.json(
+        { error: "Voce nao pode desativar sua propria conta" },
+        { status: 400 },
+      )
+    }
+
     // Check for duplicate email if changing
     if (email && email !== existing.email) {
       const existingEmail = await prisma.user.findFirst({

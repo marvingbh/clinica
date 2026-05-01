@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac"
 import { isGroupingAllowed } from "@/lib/financeiro/invoice-grouping"
+import { patientScopeFilter } from "@/lib/patients/scope"
 
 // WhatsApp format validation: Brazilian format with country code
 const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
@@ -67,10 +69,12 @@ export const GET = withFeatureAuth(
     const appointmentsSkip = Math.max(Number(searchParams.get("appointmentsSkip")) || 0, 0)
     const appointmentsStatus = searchParams.get("appointmentsStatus") // optional status filter
 
-    // Build base query
-    const where: Record<string, unknown> = {
+    // Build base query with patient-scope filter (B7).
+    const scopeFilter = patientScopeFilter(user)
+    const where: Prisma.PatientWhereInput = {
       id: params.id,
       clinicId: user.clinicId,
+      ...scopeFilter,
     }
 
     // Build appointment filter
@@ -200,11 +204,12 @@ export const PATCH = withFeatureAuth(
   { feature: "patients", minAccess: "WRITE" },
   async (req, { user }, params) => {
 
-    // Verify the patient exists and belongs to the clinic
+    // Verify the patient exists, belongs to the clinic, and is in scope (B7).
     const existing = await prisma.patient.findFirst({
       where: {
         id: params.id,
         clinicId: user.clinicId,
+        ...patientScopeFilter(user),
       },
     })
 
@@ -500,11 +505,12 @@ export const DELETE = withFeatureAuth(
   { feature: "patients", minAccess: "WRITE" },
   async (req, { user }, params) => {
 
-    // Verify the patient exists and belongs to the clinic
+    // Verify the patient exists, belongs to the clinic, and is in scope (B7).
     const existing = await prisma.patient.findFirst({
       where: {
         id: params.id,
         clinicId: user.clinicId,
+        ...patientScopeFilter(user),
       },
     })
 

@@ -386,7 +386,8 @@ export const POST = withFeatureAuth(
 
             const notificationContent = `Ola ${appointment.patient.name}!\n\nVoce foi adicionado(a) às sessões do grupo "${group.name}".\n\n📅 Data: ${formattedDate}\n🕐 Horario: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n\nPara confirmar sua presenca, acesse:\n${confirmLink}\n\nPara cancelar, acesse:\n${cancelLink}`
 
-            if (appointment.patient.phone) {
+            // B10: honour LGPD consent flags. Skip channels the patient revoked.
+            if (appointment.patient.phone && appointment.patient.consentWhatsApp) {
               createNotification({
                 clinicId: user.clinicId,
                 patientId: appointment.patient.id,
@@ -398,7 +399,7 @@ export const POST = withFeatureAuth(
               }).catch(() => {})
             }
 
-            if (appointment.patient.email) {
+            if (appointment.patient.email && appointment.patient.consentEmail) {
               createNotification({
                 clinicId: user.clinicId,
                 patientId: appointment.patient.id,
@@ -543,7 +544,8 @@ export const POST = withFeatureAuth(
 
         const notificationContent = `Olá ${appointment.patient.name}!\n\nVocê foi agendado(a) para a sessão do grupo "${group.name}".\n\n📅 Data: ${formattedDate}\n🕐 Horário: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n\nPara confirmar sua presença, acesse:\n${confirmLink}\n\nPara cancelar, acesse:\n${cancelLink}`
 
-        if (appointment.patient.phone) {
+        // B10: honour LGPD consent flags. Skip channels the patient revoked.
+        if (appointment.patient.phone && appointment.patient.consentWhatsApp) {
           createNotification({
             clinicId: user.clinicId,
             patientId: appointment.patient.id,
@@ -555,7 +557,7 @@ export const POST = withFeatureAuth(
           }).catch(() => {})
         }
 
-        if (appointment.patient.email) {
+        if (appointment.patient.email && appointment.patient.consentEmail) {
           createNotification({
             clinicId: user.clinicId,
             patientId: appointment.patient.id,

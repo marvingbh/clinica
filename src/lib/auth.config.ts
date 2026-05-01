@@ -10,6 +10,8 @@ export const authConfig: NextAuthConfig = {
   providers: [],
   session: {
     strategy: "jwt",
+    maxAge: 8 * 60 * 60,     // 8h absolute
+    updateAge: 60 * 60,      // rewrite cookie every hour to pick up role changes
   },
   pages: {
     signIn: "/login",

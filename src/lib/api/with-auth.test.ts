@@ -7,16 +7,19 @@ vi.mock("@/lib/auth", () => ({
   auth: () => mockAuth(),
 }))
 
-// Mock prisma for subscription checks
+// Mock prisma for subscription checks + auth-user DB re-check
 const mockPrismaClinicFindUnique = vi.fn()
+const mockPrismaUserFindUnique = vi.fn()
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     clinic: { findUnique: (...args: unknown[]) => mockPrismaClinicFindUnique(...args) },
+    user: { findUnique: (...args: unknown[]) => mockPrismaUserFindUnique(...args) },
     auditLog: { create: vi.fn() },
   },
 }))
 
 import { withAuth, withAuthentication, withFeatureAuth } from "./with-auth"
+import { __resetAuthUserCache } from "./auth-user"
 import type { AuthUser } from "@/lib/rbac"
 import type { ResolvedPermissions } from "@/lib/rbac/types"
 
@@ -93,10 +96,47 @@ function mockActiveSubscription() {
   })
 }
 
+interface MockUserShape {
+  id: string
+  clinicId: string
+  role: "ADMIN" | "PROFESSIONAL"
+  isActive: boolean
+  professionalProfileId: string | null
+  appointmentDuration: number | null
+}
+
+const MOCK_USERS: Record<string, MockUserShape> = {
+  "user-1": { id: "user-1", clinicId: "clinic-1", role: "ADMIN", isActive: true, professionalProfileId: "prof-1", appointmentDuration: 50 },
+  "user-2": { id: "user-2", clinicId: "clinic-1", role: "PROFESSIONAL", isActive: true, professionalProfileId: "prof-2", appointmentDuration: 50 },
+}
+
+function mockFreshUser() {
+  mockPrismaUserFindUnique.mockImplementation((args: { where: { id: string } }) => {
+    const u = MOCK_USERS[args.where.id]
+    if (!u) return Promise.resolve(null)
+    return Promise.resolve({
+      id: u.id,
+      isActive: u.isActive,
+      role: u.role,
+      clinicId: u.clinicId,
+      professionalProfile: u.professionalProfileId
+        ? { id: u.professionalProfileId, appointmentDuration: u.appointmentDuration }
+        : null,
+      permissions: [],
+    })
+  })
+}
+
+function setUserActive(userId: string, isActive: boolean) {
+  if (MOCK_USERS[userId]) MOCK_USERS[userId].isActive = isActive
+}
+
 describe("withAuth", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    __resetAuthUserCache()
     mockActiveSubscription()
+    mockFreshUser()
   })
 
   it("returns 401 when no session exists", async () => {
@@ -315,7 +355,9 @@ describe("withAuth", () => {
 describe("withAuthentication", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    __resetAuthUserCache()
     mockActiveSubscription()
+    mockFreshUser()
   })
 
   it("returns 401 when no session exists", async () => {
@@ -368,7 +410,9 @@ describe("withAuthentication", () => {
 describe("withFeatureAuth", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    __resetAuthUserCache()
     mockActiveSubscription()
+    mockFreshUser()
   })
 
   it("returns 401 when no session exists", async () => {

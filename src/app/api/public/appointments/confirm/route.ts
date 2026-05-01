@@ -50,39 +50,12 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Verify HMAC signature
+  // Verify HMAC signature. B13: do NOT fall back to a DB lookup that leaks
+  // `professionalName`/`scheduledAt` to anyone guessing an appointment ID.
+  // Generic error only.
   const verification = verifyLink(id, "confirm", expires, sig)
 
   if (!verification.valid) {
-    // Even if link is invalid/expired, check if appointment is already confirmed (preserve UX)
-    const appointment = await prisma.appointment.findUnique({
-      where: { id },
-      include: {
-        professionalProfile: {
-          include: {
-            user: { select: { name: true } },
-          },
-        },
-      },
-    })
-
-    if (appointment?.status === "CONFIRMADO") {
-      return NextResponse.json(
-        {
-          error: "Este agendamento ja foi confirmado",
-          alreadyConfirmed: true,
-          appointment: {
-            id: appointment.id,
-            professionalName: appointment.professionalProfile.user.name,
-            scheduledAt: appointment.scheduledAt.toISOString(),
-            endAt: appointment.endAt.toISOString(),
-            modality: appointment.modality,
-          },
-        },
-        { status: 400 }
-      )
-    }
-
     return NextResponse.json(
       { error: verification.error },
       { status: 400 }

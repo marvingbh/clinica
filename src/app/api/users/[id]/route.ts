@@ -1,7 +1,19 @@
 import { NextResponse } from "next/server"
+import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
-import { hashPassword } from "@/lib/password"
+import { hashPassword, validatePasswordStrength, verifyPassword } from "@/lib/password"
+import { revokeUser } from "@/lib/api/auth-user"
+import { audit, AuditAction } from "@/lib/rbac/audit"
+
+const patchSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  email: z.string().email().max(200).optional(),
+  password: z.string().min(12).max(200).optional(),
+  currentPassword: z.string().max(200).optional(),
+  role: z.enum(["ADMIN", "PROFESSIONAL"]).optional(),
+  isActive: z.boolean().optional(),
+})
 
 /**
  * GET /api/users/:id
@@ -56,10 +68,16 @@ export const PATCH = withFeatureAuth(
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
     }
 
-    const body = await req.json()
-    const { name, email, password, role, isActive } = body
+    const body = await req.json().catch(() => null)
+    const parsed = patchSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Dados invalidos", details: parsed.error.flatten() },
+        { status: 400 },
+      )
+    }
+    const { name, email, password, currentPassword, role, isActive } = parsed.data
 
-    // Prevent changing own role
     if (role !== undefined && existing.id === user.id && role !== existing.role) {
       return NextResponse.json(
         { error: "Você não pode alterar seu próprio perfil de acesso" },
@@ -67,7 +85,6 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    // Prevent deactivating yourself
     if (isActive === false && existing.id === user.id) {
       return NextResponse.json(
         { error: "Você não pode desativar sua própria conta" },
@@ -75,7 +92,6 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    // Check for duplicate email if changing
     if (email && email !== existing.email) {
       const existingEmail = await prisma.user.findFirst({
         where: {
@@ -93,14 +109,39 @@ export const PATCH = withFeatureAuth(
       }
     }
 
+    // Password change path: require acting admin to re-enter their own
+    // current password. Prevents a stolen admin session from silently
+    // resetting every user's password to lock out a clinic.
+    if (password !== undefined) {
+      const strength = validatePasswordStrength(password)
+      if (!strength.ok) {
+        return NextResponse.json({ error: strength.reason }, { status: 400 })
+      }
+      if (!currentPassword) {
+        return NextResponse.json(
+          { error: "Informe sua senha atual para redefinir senhas de outros usuarios" },
+          { status: 400 },
+        )
+      }
+      const actingAdmin = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { passwordHash: true },
+      })
+      if (!actingAdmin) {
+        return NextResponse.json({ error: "Acao nao autorizada" }, { status: 403 })
+      }
+      const valid = await verifyPassword(currentPassword, actingAdmin.passwordHash)
+      if (!valid) {
+        return NextResponse.json({ error: "Senha atual incorreta" }, { status: 400 })
+      }
+    }
+
     const updateData: Record<string, unknown> = {}
     if (name !== undefined) updateData.name = name
     if (email !== undefined) updateData.email = email
     if (isActive !== undefined) updateData.isActive = isActive
-    if (role !== undefined && (role === "ADMIN" || role === "PROFESSIONAL")) {
-      updateData.role = role
-    }
-    if (password !== undefined && password.length > 0) {
+    if (role !== undefined) updateData.role = role
+    if (password !== undefined) {
       updateData.passwordHash = await hashPassword(password)
     }
 
@@ -121,6 +162,22 @@ export const PATCH = withFeatureAuth(
         },
       },
     })
+
+    // Force session re-check on the target user after any sensitive change.
+    if (password !== undefined || role !== undefined || isActive === false) {
+      revokeUser(params.id)
+    }
+
+    if (password !== undefined && existing.id !== user.id) {
+      audit.log({
+        user,
+        action: AuditAction.USER_PASSWORD_CHANGED,
+        entityType: "User",
+        entityId: existing.id,
+        newValues: { actor: "admin" },
+        request: req,
+      }).catch(() => {})
+    }
 
     return NextResponse.json({ user: updatedUser })
   }
@@ -156,6 +213,8 @@ export const DELETE = withFeatureAuth(
       where: { id: params.id },
       data: { isActive: false },
     })
+
+    revokeUser(params.id)
 
     return NextResponse.json({ success: true })
   }

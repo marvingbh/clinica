@@ -22,6 +22,7 @@ import {
 describe("superadmin-auth", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.stubEnv("SUPERADMIN_JWT_SECRET", "test-superadmin-secret-very-long-value-for-jwt")
   })
 
   const testAdmin: SuperAdminSession = {
