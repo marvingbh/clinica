@@ -1,3 +1,6 @@
+"use client"
+
+import { useEffect, useRef, useState } from "react"
 import { ExpenseStatusBadge } from "./ExpenseStatusBadge"
 import type { ExpenseStatus } from "@prisma/client"
 
@@ -13,17 +16,30 @@ interface Expense {
   category: { id: string; name: string; color: string } | null
 }
 
+interface Category {
+  id: string
+  name: string
+  color: string
+}
+
+export type InlinePatch = {
+  supplierName?: string | null
+  categoryId?: string | null
+}
+
 interface ExpenseTableProps {
   expenses: Expense[]
+  categories: Category[]
   formatCurrency: (value: string | number) => string
   formatDate: (dateStr: string) => string
   onPay: (id: string) => void
   onEdit: (expense: Expense) => void
   onDelete: (id: string) => void
+  onPatch: (id: string, patch: InlinePatch) => Promise<void>
 }
 
 export function ExpenseTable({
-  expenses, formatCurrency, formatDate, onPay, onEdit, onDelete,
+  expenses, categories, formatCurrency, formatDate, onPay, onEdit, onDelete, onPatch,
 }: ExpenseTableProps) {
   if (expenses.length === 0) {
     return (
@@ -53,14 +69,18 @@ export function ExpenseTable({
             <tr key={expense.id} className="hover:bg-muted/30">
               <td className="px-4 py-2">{formatDate(expense.dueDate)}</td>
               <td className="px-4 py-2">{expense.description}</td>
-              <td className="px-4 py-2 hidden md:table-cell text-muted-foreground">{expense.supplierName || "—"}</td>
               <td className="px-4 py-2 hidden md:table-cell">
-                {expense.category ? (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: expense.category.color }} />
-                    {expense.category.name}
-                  </span>
-                ) : "—"}
+                <SupplierCell
+                  value={expense.supplierName}
+                  onSave={(next) => onPatch(expense.id, { supplierName: next })}
+                />
+              </td>
+              <td className="px-4 py-2 hidden md:table-cell">
+                <CategoryCell
+                  value={expense.category}
+                  categories={categories}
+                  onSave={(nextId) => onPatch(expense.id, { categoryId: nextId })}
+                />
               </td>
               <td className="px-4 py-2 text-right font-medium">{formatCurrency(expense.amount)}</td>
               <td className="px-4 py-2 text-center"><ExpenseStatusBadge status={expense.status} /></td>
@@ -93,5 +113,171 @@ export function ExpenseTable({
         </tbody>
       </table>
     </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Inline-edit cells
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SupplierCell({
+  value,
+  onSave,
+}: {
+  value: string | null
+  onSave: (next: string | null) => Promise<void>
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value ?? "")
+  const [saving, setSaving] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Sync draft if the upstream value changes (e.g., after another save)
+  useEffect(() => {
+    if (!editing) setDraft(value ?? "")
+  }, [value, editing])
+
+  useEffect(() => {
+    if (editing) inputRef.current?.select()
+  }, [editing])
+
+  async function commit() {
+    const trimmed = draft.trim()
+    const next = trimmed === "" ? null : trimmed
+    if (next === (value ?? null) || (next === null && (value === null || value === ""))) {
+      setEditing(false)
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave(next)
+      setEditing(false)
+    } catch {
+      // page-level handler reverts state and shows a toast — bring the cell
+      // back to read mode showing the original value
+      setDraft(value ?? "")
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function cancel() {
+    setDraft(value ?? "")
+    setEditing(false)
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className={`text-left w-full block px-1 -mx-1 rounded hover:bg-muted/40 transition-colors ${value ? "" : "text-muted-foreground"} ${saving ? "opacity-60" : ""}`}
+        title="Clique para editar fornecedor"
+        disabled={saving}
+      >
+        {value || "—"}
+      </button>
+    )
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault()
+          commit()
+        } else if (e.key === "Escape") {
+          e.preventDefault()
+          cancel()
+        }
+      }}
+      disabled={saving}
+      placeholder="Fornecedor"
+      className="w-full px-1 -mx-1 py-0.5 rounded border border-primary/40 bg-background outline-none focus:border-primary"
+    />
+  )
+}
+
+function CategoryCell({
+  value,
+  categories,
+  onSave,
+}: {
+  value: { id: string; name: string; color: string } | null
+  categories: Category[]
+  onSave: (nextId: string | null) => Promise<void>
+}) {
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const selectRef = useRef<HTMLSelectElement>(null)
+
+  useEffect(() => {
+    if (editing) selectRef.current?.focus()
+  }, [editing])
+
+  async function handleChange(nextId: string) {
+    const normalized = nextId === "" ? null : nextId
+    if (normalized === (value?.id ?? null)) {
+      setEditing(false)
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave(normalized)
+    } catch {
+      // page-level handler reverts; just exit edit mode
+    } finally {
+      setSaving(false)
+      setEditing(false)
+    }
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className={`text-left w-full block px-1 -mx-1 rounded hover:bg-muted/40 transition-colors ${saving ? "opacity-60" : ""}`}
+        title="Clique para editar categoria"
+        disabled={saving}
+      >
+        {value ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: value.color }} />
+            {value.name}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </button>
+    )
+  }
+
+  return (
+    <select
+      ref={selectRef}
+      defaultValue={value?.id ?? ""}
+      onChange={(e) => handleChange(e.target.value)}
+      onBlur={() => setEditing(false)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault()
+          setEditing(false)
+        }
+      }}
+      disabled={saving}
+      className="w-full px-1 -mx-1 py-0.5 rounded border border-primary/40 bg-background outline-none focus:border-primary"
+    >
+      <option value="">— Sem categoria —</option>
+      {categories.map((c) => (
+        <option key={c.id} value={c.id}>{c.name}</option>
+      ))}
+    </select>
   )
 }

@@ -86,6 +86,54 @@ export default function DespesasPage() {
     }
   }
 
+  // Inline patch (used by the table for fornecedor/categoria auto-save).
+  // Optimistically updates local state so the row reflects the change
+  // immediately; rolls back if the API rejects the patch.
+  async function handleInlinePatch(
+    id: string,
+    patch: { supplierName?: string | null; categoryId?: string | null }
+  ) {
+    const previous = expenses.find((e) => e.id === id)
+    if (!previous) return
+
+    const nextCategory =
+      patch.categoryId === undefined
+        ? previous.category
+        : patch.categoryId === null
+          ? null
+          : categories.find((c) => c.id === patch.categoryId) ?? previous.category
+
+    setExpenses((list) =>
+      list.map((e) =>
+        e.id === id
+          ? {
+              ...e,
+              supplierName: patch.supplierName === undefined ? e.supplierName : patch.supplierName,
+              category: nextCategory,
+            }
+          : e
+      )
+    )
+
+    try {
+      const res = await fetch(`/api/financeiro/despesas/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Erro ao salvar")
+      }
+      toast.success("Salvo")
+    } catch (error) {
+      // revert
+      setExpenses((list) => list.map((e) => (e.id === id ? previous : e)))
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar")
+      throw error
+    }
+  }
+
   // Client-side description search filter
   const filteredExpenses = searchQuery
     ? expenses.filter((e) => {
@@ -131,11 +179,13 @@ export default function DespesasPage() {
       {/* Expense Table */}
       <ExpenseTable
         expenses={filteredExpenses}
+        categories={categories}
         formatCurrency={formatCurrency}
         formatDate={formatDate}
         onPay={handlePay}
         onEdit={(expense) => { setEditingExpense(expense); setShowForm(true) }}
         onDelete={handleDelete}
+        onPatch={handleInlinePatch}
       />
 
       {/* Form Dialog */}
