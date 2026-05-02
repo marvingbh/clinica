@@ -34,9 +34,11 @@ function PerInvoiceNfseSection({ invoice, nfseConfig, onRefresh }: NfseSectionPr
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [markingExternal, setMarkingExternal] = useState(false)
 
+  const isZeroValue = Number(invoice.totalAmount) <= 0
   const canEmit =
     (invoice.status === "PAGO" || invoice.status === "ENVIADO") &&
-    (invoice.nfseStatus === null || invoice.nfseStatus === "ERRO")
+    (invoice.nfseStatus === null || invoice.nfseStatus === "ERRO") &&
+    !isZeroValue
 
   async function handleMarkExternal() {
     setMarkingExternal(true)
@@ -202,7 +204,11 @@ function PerInvoiceNfseSection({ invoice, nfseConfig, onRefresh }: NfseSectionPr
       {showCancelConfirm && <CancelConfirmBox cancelReason={cancelReason} setCancelReason={setCancelReason} cancelling={cancelling} onConfirm={handleCancel} onBack={() => { setShowCancelConfirm(false); setCancelReason("") }} />}
 
       {!invoice.nfseStatus && !canEmit && invoice.status !== "CANCELADO" && (
-        <p className="text-xs text-muted-foreground">A fatura precisa estar com status Pago ou Enviado para emitir NFS-e.</p>
+        <p className="text-xs text-muted-foreground">
+          {isZeroValue
+            ? "Fatura com valor zero — NFS-e não pode ser emitida."
+            : "A fatura precisa estar com status Pago ou Enviado para emitir NFS-e."}
+        </p>
       )}
 
       <HistoryToggle invoiceId={invoice.id} showHistory={showHistory} historyLogs={historyLogs} loadingHistory={loadingHistory} onToggle={loadHistory} />

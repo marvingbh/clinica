@@ -30,7 +30,8 @@ export default function PerItemNfseSection({ invoice, nfseConfig, onRefresh }: N
   const [historyLogs, setHistoryLogs] = useState<NfseLogEntry[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
 
-  const canEmit = invoice.status === "PAGO" || invoice.status === "ENVIADO"
+  const isZeroValue = Number(invoice.totalAmount) <= 0
+  const canEmit = (invoice.status === "PAGO" || invoice.status === "ENVIADO") && !isZeroValue
 
   function loadHistory() {
     if (showHistory) { setShowHistory(false); return }
@@ -103,7 +104,11 @@ export default function PerItemNfseSection({ invoice, nfseConfig, onRefresh }: N
       </div>
 
       {!canEmit && invoice.status !== "CANCELADO" && (
-        <p className="text-xs text-muted-foreground">A fatura precisa estar com status Pago ou Enviado para emitir NFS-e.</p>
+        <p className="text-xs text-muted-foreground">
+          {isZeroValue
+            ? "Fatura com valor zero — NFS-e não pode ser emitida."
+            : "A fatura precisa estar com status Pago ou Enviado para emitir NFS-e."}
+        </p>
       )}
 
       {loadingPreviews ? (

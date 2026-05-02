@@ -147,6 +147,7 @@ function ActionButtons({
 }) {
   const canEmit = (invoice.status === "PAGO" || invoice.status === "ENVIADO")
     && (!invoice.nfseStatus || invoice.nfseStatus === "ERRO")
+    && Number(invoice.totalAmount) > 0
 
   return (
     <div className="flex items-center justify-end gap-1">

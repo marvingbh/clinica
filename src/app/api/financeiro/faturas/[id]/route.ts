@@ -103,6 +103,14 @@ export const PATCH = withFeatureAuth(
       )
     }
 
+    // Guard: zero-value invoices cannot be marked as having NFS-e emitted
+    if (parsed.data.nfseStatus === "EMITIDA_EXTERNA" && Number(invoice.totalAmount) <= 0) {
+      return NextResponse.json(
+        { error: "Não é possível emitir NFS-e para fatura com valor zero" },
+        { status: 400 }
+      )
+    }
+
     const updateData: Record<string, unknown> = {}
     if (parsed.data.status) updateData.status = parsed.data.status
     if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes

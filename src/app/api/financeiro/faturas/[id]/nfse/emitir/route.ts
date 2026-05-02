@@ -73,6 +73,13 @@ export const POST = withFeatureAuth(
       )
     }
 
+    if (Number(invoice.totalAmount) <= 0) {
+      return NextResponse.json(
+        { error: "Não é possível emitir NFS-e para fatura com valor zero" },
+        { status: 400 }
+      )
+    }
+
     // Parse body (overrides + billingCpf)
     let overrides: Record<string, unknown> = {}
     let billingCpfFromBody: string | undefined
