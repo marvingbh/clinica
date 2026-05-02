@@ -10,6 +10,7 @@ interface MemberScopeDialogProps {
   onSelect: (scope: MemberScope) => void
   action: "add" | "remove"
   patientName: string
+  isProcessing?: boolean
 }
 
 export function MemberScopeDialog({
@@ -18,6 +19,7 @@ export function MemberScopeDialog({
   onSelect,
   action,
   patientName,
+  isProcessing = false,
 }: MemberScopeDialogProps) {
   const title = action === "add"
     ? `Adicionar ${patientName}`
@@ -35,7 +37,8 @@ export function MemberScopeDialog({
         <button
           type="button"
           onClick={() => onSelect("this_only")}
-          className="w-full h-12 px-4 rounded-xl border border-input bg-background text-foreground text-sm font-medium hover:bg-muted transition-colors text-left"
+          disabled={isProcessing}
+          className="w-full h-12 px-4 rounded-xl border border-input bg-background text-foreground text-sm font-medium hover:bg-muted transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span className="font-semibold">Apenas esta sessão</span>
           <span className="block text-xs text-muted-foreground mt-0.5">
@@ -48,7 +51,8 @@ export function MemberScopeDialog({
         <button
           type="button"
           onClick={() => onSelect("all_future")}
-          className="w-full h-12 px-4 rounded-xl border border-primary/30 bg-primary/5 text-foreground text-sm font-medium hover:bg-primary/10 transition-colors text-left"
+          disabled={isProcessing}
+          className="w-full h-12 px-4 rounded-xl border border-primary/30 bg-primary/5 text-foreground text-sm font-medium hover:bg-primary/10 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span className="font-semibold">Esta e todas as futuras</span>
           <span className="block text-xs text-muted-foreground mt-0.5">
@@ -62,7 +66,8 @@ export function MemberScopeDialog({
       <button
         type="button"
         onClick={onClose}
-        className="w-full h-10 mt-3 rounded-xl border border-input bg-background text-foreground text-sm font-medium hover:bg-muted transition-colors"
+        disabled={isProcessing}
+        className="w-full h-10 mt-3 rounded-xl border border-input bg-background text-foreground text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Cancelar
       </button>

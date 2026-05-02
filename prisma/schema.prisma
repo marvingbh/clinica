@@ -606,6 +606,10 @@ model Appointment {
   @@index([sessionGroupId])
   @@index([clinicId, sessionGroupId])
   @@index([attendingProfessionalId])
+  // Prevents the same patient from being scheduled twice in the same group session.
+  // NULLs in groupId/patientId are treated as distinct by Postgres, so non-group
+  // and non-patient rows are not constrained by this index.
+  @@unique([groupId, patientId, scheduledAt], name: "Appointment_group_patient_time_uniq")
 }
 
 /// Defines a recurring appointment pattern

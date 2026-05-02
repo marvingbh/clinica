@@ -312,9 +312,11 @@ export const POST = withFeatureAuth(
           cancelled += deleteResult.count
         }
 
-        // Bulk create appointments
+        // Bulk create appointments. skipDuplicates relies on the
+        // partial unique index on (groupId, patientId, scheduledAt)
+        // to make concurrent regenerate calls idempotent.
         if (appointmentsToCreate.length > 0) {
-          await tx.appointment.createMany({ data: appointmentsToCreate })
+          await tx.appointment.createMany({ data: appointmentsToCreate, skipDuplicates: true })
         }
 
         // Create additional professional records for newly created appointments
@@ -486,8 +488,10 @@ export const POST = withFeatureAuth(
     const groupAdditionalProfIds = group.additionalProfessionals.map(ap => ap.professionalProfileId)
 
     const result = await prisma.$transaction(async (tx) => {
-      // Bulk create all appointments
-      await tx.appointment.createMany({ data: appointmentsData })
+      // Bulk create all appointments. skipDuplicates makes the call
+      // idempotent against the partial unique index on
+      // (groupId, patientId, scheduledAt).
+      await tx.appointment.createMany({ data: appointmentsData, skipDuplicates: true })
 
       // Fetch created appointments with patient info
       const createdAppointments = await tx.appointment.findMany({

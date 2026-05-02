@@ -97,19 +97,12 @@ export function GroupMemberActions({ session, onMemberChanged }: GroupMemberActi
     } else {
       const addResult = await addGroupMember(session.groupId!, patient.id, sessionDateStr)
       if (addResult.error) {
-        // If already a member, just regenerate to sync sessions
-        if (addResult.error.includes("já é membro")) {
-          const regenResult = await regenerateGroupSessions(session.groupId!)
-          if (regenResult.error) { toast.error(regenResult.error); return }
-          toast.success(`${patient.name} já é membro — sessões atualizadas`)
-        } else {
-          toast.error(addResult.error); return
-        }
-      } else {
-        const regenResult = await regenerateGroupSessions(session.groupId!)
-        if (regenResult.error) { toast.error(regenResult.error); return }
-        toast.success(`${patient.name} adicionado ao grupo`)
+        toast.error(addResult.error)
+        return
       }
+      const regenResult = await regenerateGroupSessions(session.groupId!)
+      if (regenResult.error) { toast.error(regenResult.error); return }
+      toast.success(`${patient.name} adicionado ao grupo`)
     }
     onMemberChanged()
   }
@@ -203,6 +196,7 @@ export function GroupMemberActions({ session, onMemberChanged }: GroupMemberActi
           onSelect={handleScopeSelect}
           action={pendingAction.type}
           patientName={pendingAction.patient.name}
+          isProcessing={isProcessing}
         />
       )}
     </div>
