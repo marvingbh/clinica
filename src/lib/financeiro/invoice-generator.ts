@@ -75,7 +75,10 @@ function getItemDescription(type: InvoiceItemData["type"], apt: AppointmentForIn
   switch (type) {
     case "SESSAO_REGULAR": return `Psicoterapia individual${dateStr}`
     case "SESSAO_EXTRA": return `Psicoterapia Individual (extra)${dateStr}`
-    case "SESSAO_GRUPO": return `Psicoterapia em grupo${dateStr}`
+    case "SESSAO_GRUPO": {
+      const groupSuffix = apt.groupName ? ` — ${apt.groupName}` : ""
+      return `Psicoterapia em grupo${groupSuffix}${dateStr}`
+    }
     case "REUNIAO_ESCOLA": return `${apt.title || "Reunião Agendada"}${dateStr}`
     default: return `Item${dateStr}`
   }

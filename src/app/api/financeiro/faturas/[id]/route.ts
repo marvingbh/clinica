@@ -31,15 +31,13 @@ export const GET = withFeatureAuth(
         professionalProfile: { select: { id: true, user: { select: { name: true } } } },
         items: {
           include: {
-            appointment: {
-              select: {
-                id: true, scheduledAt: true, status: true,
-                group: { select: { id: true, name: true } },
-              },
-            },
+            appointment: { select: { id: true, scheduledAt: true, status: true } },
             attendingProfessional: { select: { id: true, user: { select: { name: true } } } },
           },
-          orderBy: { createdAt: "asc" },
+          orderBy: [
+            { appointment: { scheduledAt: "asc" } },
+            { createdAt: "asc" },
+          ],
         },
         consumedCredits: {
           select: { id: true, reason: true, createdAt: true },

@@ -3,7 +3,7 @@ import { renderInvoiceTemplate, buildDetailBlock, DEFAULT_INVOICE_TEMPLATE } fro
 import { getMonthName, formatCurrencyBRL, formatDateBR, formatDateShort } from "./format"
 import { shouldSkipInvoice } from "./invoice-generation"
 import { recalculateInvoice } from "./recalculate-invoice"
-import { getAttributionLayout, enrichItemDescription } from "./professional-attribution"
+import { getAttributionLayout } from "./professional-attribution"
 
 export interface PerSessionInvoiceParams {
   clinicId: string
@@ -277,11 +277,9 @@ async function createPerSessionInvoice(
   const refYear = aptDate.getFullYear()
 
   // PER_SESSION invoice has a single appointment so the layout is always
-  // single; the helper still gives us the right headerLine.
-  const groupName = (apt as AppointmentForInvoice & { groupName?: string | null }).groupName ?? null
+  // single; the helper still gives us the right header line.
   const layout = getAttributionLayout({
     items: items.map(i => ({
-      appointmentId: i.appointmentId,
       type: i.type,
       attendingProfessionalId: i.attendingProfessionalId ?? null,
       attendingProfessionalName: null,
@@ -292,10 +290,7 @@ async function createPerSessionInvoice(
 
   const detalhes = buildDetailBlock(
     items.map(i => ({
-      description: enrichItemDescription(
-        { type: i.type, baseDescription: i.description, groupName },
-        { includeGroupName: true },
-      ),
+      description: i.description,
       total: formatCurrencyBRL(i.total),
       type: i.type,
     })),
@@ -313,7 +308,7 @@ async function createPerSessionInvoice(
     vencimento: formatDateBR(dueDate.toISOString()),
     sessoes: String(totals.totalSessions),
     profissional: ctx.profName,
-    tecnico_referencia: layout.headerLine ?? "",
+    tecnico_referencia: layout.header ? `${layout.header.label}: ${layout.header.name}` : "",
     sessoes_regulares: String(classified.regular.length),
     sessoes_extras: String(classified.extra.length),
     sessoes_grupo: String(classified.group.length),
@@ -387,7 +382,10 @@ function buildItemDescription(
   switch (type) {
     case "SESSAO_REGULAR": return `Psicoterapia individual${dateStr}`
     case "SESSAO_EXTRA": return `Psicoterapia Individual (extra)${dateStr}`
-    case "SESSAO_GRUPO": return `Psicoterapia em grupo${dateStr}`
+    case "SESSAO_GRUPO": {
+      const groupSuffix = apt.groupName ? ` — ${apt.groupName}` : ""
+      return `Psicoterapia em grupo${groupSuffix}${dateStr}`
+    }
     case "REUNIAO_ESCOLA": return `${apt.title || "Reunião Agendada"}${dateStr}`
     default: return `Item${dateStr}`
   }

@@ -1,6 +1,7 @@
 import React from "react"
 import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer"
 import path from "path"
+import type { InvoiceItemType } from "@prisma/client"
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: "Helvetica" },
@@ -106,7 +107,7 @@ export interface InvoicePDFItem {
   quantity: number
   unitPrice: string
   total: string
-  type: string
+  type: InvoiceItemType
 }
 
 export interface InvoicePDFItemSection {

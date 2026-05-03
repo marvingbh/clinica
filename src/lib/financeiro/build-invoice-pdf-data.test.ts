@@ -94,13 +94,10 @@ describe("buildInvoicePDFData", () => {
       makeItem({
         appointmentId: "a2",
         type: "SESSAO_GRUPO",
-        description: "Psicoterapia em grupo",
+        description: "Psicoterapia em grupo — Keep Lua",
         attendingProfessionalId: "p2",
         attendingProfessional: { user: { name: "Cherlen" } },
-        appointment: {
-          scheduledAt: new Date("2026-05-10T13:00:00Z"),
-          group: { name: "Keep Lua" },
-        },
+        appointment: { scheduledAt: new Date("2026-05-10T13:00:00Z") },
       }),
       makeItem({
         appointmentId: "a3",

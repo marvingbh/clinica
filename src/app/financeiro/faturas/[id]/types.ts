@@ -5,14 +5,7 @@ export interface InvoiceItem {
   quantity: number
   unitPrice: string
   total: string
-  appointment:
-    | {
-        id: string
-        scheduledAt: string
-        status: string
-        group?: { id: string; name: string } | null
-      }
-    | null
+  appointment: { id: string; scheduledAt: string; status: string } | null
   attendingProfessional?: { id: string; user: { name: string } } | null
 }
 

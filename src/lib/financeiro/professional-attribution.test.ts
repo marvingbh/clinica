@@ -1,13 +1,12 @@
 import { describe, it, expect } from "vitest"
 import {
   getAttributionLayout,
-  enrichItemDescription,
   CREDITS_SECTION_LABEL,
   OTHERS_SECTION_LABEL,
 } from "./professional-attribution"
 
 interface Item {
-  appointmentId: string | null
+  id: string
   type: string
   attendingProfessionalId: string | null
   attendingProfessionalName: string | null
@@ -18,19 +17,9 @@ const apt = (
   type: string,
   profId: string | null,
   profName: string | null,
-): Item => ({
-  appointmentId: id,
-  type,
-  attendingProfessionalId: profId,
-  attendingProfessionalName: profName,
-})
+): Item => ({ id, type, attendingProfessionalId: profId, attendingProfessionalName: profName })
 
-const credit = (): Item => ({
-  appointmentId: null,
-  type: "CREDITO",
-  attendingProfessionalId: null,
-  attendingProfessionalName: null,
-})
+const credit = (id: string): Item => apt(id, "CREDITO", null, null)
 
 describe("getAttributionLayout", () => {
   it("single mode when zero attending professionals (all manual)", () => {
@@ -57,9 +46,24 @@ describe("getAttributionLayout", () => {
       invoiceProfessionalName: "Elena",
     })
     expect(out.mode).toBe("single")
-    expect(out.headerLine).toBe("Técnico de referência: Elena")
+    expect(out.header).toEqual({ label: "Técnico de referência", name: "Elena" })
     expect(out.sections).toHaveLength(1)
     expect(out.sections[0].items).toHaveLength(2)
+  })
+
+  it("preserves the source items in section.items (no projection)", () => {
+    const items = [
+      apt("a", "SESSAO_REGULAR", "p1", "Elena"),
+      apt("b", "SESSAO_GRUPO", "p2", "Cherlen"),
+    ]
+    const out = getAttributionLayout({
+      items,
+      referenceProfessionalName: "Elena",
+      invoiceProfessionalName: "Elena",
+    })
+    // Identity is preserved — same object references come back inside sections.
+    expect(out.sections[0].items[0]).toBe(items[0])
+    expect(out.sections[1].items[0]).toBe(items[1])
   })
 
   it("multi mode with two attending professionals — preserves input order", () => {
@@ -78,8 +82,8 @@ describe("getAttributionLayout", () => {
       "Atendido por Elena",
       "Atendido por Cherlen",
     ])
-    expect(out.sections[0].items.map(i => i.appointmentId)).toEqual(["a", "c"])
-    expect(out.sections[1].items.map(i => i.appointmentId)).toEqual(["b"])
+    expect(out.sections[0].items.map(i => i.id)).toEqual(["a", "c"])
+    expect(out.sections[1].items.map(i => i.id)).toEqual(["b"])
   })
 
   it("multi mode appends an Outros section for items without attending prof", () => {
@@ -93,27 +97,25 @@ describe("getAttributionLayout", () => {
       referenceProfessionalName: "Elena",
       invoiceProfessionalName: "Elena",
     })
-    const headers = out.sections.map(s => s.header)
-    expect(headers).toContain(OTHERS_SECTION_LABEL)
-    const others = out.sections.find(s => s.kind === "others")!
-    expect(others.items.map(i => i.appointmentId)).toEqual(["c"])
+    expect(out.sections.map(s => s.header)).toContain(OTHERS_SECTION_LABEL)
+    const others = out.sections.find(s => s.header === OTHERS_SECTION_LABEL)!
+    expect(others.items.map(i => i.id)).toEqual(["c"])
   })
 
   it("multi mode appends a Créditos section for credit items", () => {
     const items = [
       apt("a", "SESSAO_REGULAR", "p1", "Elena"),
       apt("b", "SESSAO_GRUPO", "p2", "Cherlen"),
-      credit(),
-      credit(),
+      credit("c1"),
+      credit("c2"),
     ]
     const out = getAttributionLayout({
       items,
       referenceProfessionalName: "Elena",
       invoiceProfessionalName: "Elena",
     })
-    const credits = out.sections.find(s => s.kind === "credits")!
-    expect(credits.header).toBe(CREDITS_SECTION_LABEL)
-    expect(credits.items).toHaveLength(2)
+    const credits = out.sections.find(s => s.header === CREDITS_SECTION_LABEL)!
+    expect(credits.items.map(i => i.id)).toEqual(["c1", "c2"])
     // Credits do not contribute to the prof count
     expect(out.mode).toBe("multi")
   })
@@ -125,7 +127,7 @@ describe("getAttributionLayout", () => {
       referenceProfessionalName: null,
       invoiceProfessionalName: "Invoice Owner",
     })
-    expect(out.headerLine).toBe("Profissional: Elena")
+    expect(out.header).toEqual({ label: "Profissional", name: "Elena" })
   })
 
   it("header omitted when no reference and multiple attending", () => {
@@ -138,7 +140,7 @@ describe("getAttributionLayout", () => {
       referenceProfessionalName: null,
       invoiceProfessionalName: "Invoice Owner",
     })
-    expect(out.headerLine).toBeNull()
+    expect(out.header).toBeNull()
   })
 
   it("falls back to invoiceProfessionalName when no reference and zero attendings", () => {
@@ -148,7 +150,7 @@ describe("getAttributionLayout", () => {
       referenceProfessionalName: null,
       invoiceProfessionalName: "Invoice Owner",
     })
-    expect(out.headerLine).toBe("Profissional: Invoice Owner")
+    expect(out.header).toEqual({ label: "Profissional", name: "Invoice Owner" })
   })
 
   it("treats a missing attendingProfessionalName as 'Profissional' label", () => {
@@ -162,86 +164,9 @@ describe("getAttributionLayout", () => {
       invoiceProfessionalName: "Elena",
     })
     expect(out.mode).toBe("multi")
-    const headers = out.sections.filter(s => s.kind === "professional").map(s => s.header)
-    expect(headers).toEqual(["Atendido por Profissional", "Atendido por Cherlen"])
-  })
-})
-
-describe("enrichItemDescription", () => {
-  it("injects the group name into a freshly generated SESSAO_GRUPO description", () => {
-    const out = enrichItemDescription(
-      { type: "SESSAO_GRUPO", baseDescription: "Psicoterapia em grupo - 10/03", groupName: "Keep Lua" },
-      { includeGroupName: true },
-    )
-    expect(out).toBe("Psicoterapia em grupo — Keep Lua - 10/03")
-  })
-
-  it("leaves a SESSAO_GRUPO description untouched when group name is missing", () => {
-    const out = enrichItemDescription(
-      { type: "SESSAO_GRUPO", baseDescription: "Psicoterapia em grupo - 10/03" },
-      { includeGroupName: true },
-    )
-    expect(out).toBe("Psicoterapia em grupo - 10/03")
-  })
-
-  it("does not double-inject the group name when one is already present", () => {
-    const out = enrichItemDescription(
-      { type: "SESSAO_GRUPO", baseDescription: "Psicoterapia em grupo — Existing - 10/03", groupName: "Keep Lua" },
-      { includeGroupName: true },
-    )
-    expect(out).toBe("Psicoterapia em grupo — Existing - 10/03")
-  })
-
-  it("does not rewrite legacy 'Sessão grupo' prefixes — recalcular regenerates them", () => {
-    const out = enrichItemDescription(
-      { type: "SESSAO_GRUPO", baseDescription: "Sessão grupo - 10/03", groupName: "Keep Lua" },
-      { includeGroupName: true },
-    )
-    expect(out).toBe("Sessão grupo - 10/03")
-  })
-
-  it("does not rewrite non-group types even when groupName is set", () => {
-    const out = enrichItemDescription(
-      { type: "SESSAO_REGULAR", baseDescription: "Psicoterapia individual - 02/03", groupName: "Keep Lua" },
-      { includeGroupName: true },
-    )
-    expect(out).toBe("Psicoterapia individual - 02/03")
-  })
-
-  it("appends attending name when includeAttendingName is true", () => {
-    const out = enrichItemDescription(
-      {
-        type: "SESSAO_REGULAR",
-        baseDescription: "Psicoterapia individual - 02/03",
-        attendingProfessionalName: "Elena",
-      },
-      { includeAttendingName: true },
-    )
-    expect(out).toBe("Psicoterapia individual - 02/03 · Elena")
-  })
-
-  it("does not append attending name on CREDITO items", () => {
-    const out = enrichItemDescription(
-      {
-        type: "CREDITO",
-        baseDescription: "Crédito: Desmarcou - 17/03",
-        attendingProfessionalName: "Elena",
-      },
-      { includeAttendingName: true },
-    )
-    expect(out).toBe("Crédito: Desmarcou - 17/03")
-  })
-
-  it("composes group name + attending name when both options are on", () => {
-    const out = enrichItemDescription(
-      {
-        type: "SESSAO_GRUPO",
-        baseDescription: "Psicoterapia em grupo - 10/03",
-        groupName: "Keep Lua",
-        attendingProfessionalName: "Cherlen",
-      },
-      { includeGroupName: true, includeAttendingName: true },
-    )
-    expect(out).toBe("Psicoterapia em grupo — Keep Lua - 10/03 · Cherlen")
+    expect(out.sections.map(s => s.header)).toEqual([
+      "Atendido por Profissional",
+      "Atendido por Cherlen",
+    ])
   })
 })

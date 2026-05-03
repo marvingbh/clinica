@@ -9,14 +9,12 @@ export const INVOICE_INCLUDE = {
   },
   professionalProfile: { select: { id: true, user: { select: { name: true } } } },
   items: {
-    orderBy: { createdAt: "asc" as const },
+    orderBy: [
+      { appointment: { scheduledAt: "asc" as const } },
+      { createdAt: "asc" as const },
+    ],
     include: {
-      appointment: {
-        select: {
-          scheduledAt: true,
-          group: { select: { name: true } },
-        },
-      },
+      appointment: { select: { scheduledAt: true } },
       attendingProfessional: { select: { user: { select: { name: true } } } },
     },
   },

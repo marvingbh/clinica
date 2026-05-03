@@ -3,7 +3,7 @@ import { renderInvoiceTemplate, buildDetailBlock, DEFAULT_INVOICE_TEMPLATE } fro
 import { getMonthName, formatCurrencyBRL, formatDateBR } from "./format"
 import { recalculateInvoice } from "./recalculate-invoice"
 import { shouldSkipInvoice, separateManualItems } from "./invoice-generation"
-import { getAttributionLayout, enrichItemDescription } from "./professional-attribution"
+import { getAttributionLayout } from "./professional-attribution"
 
 export interface MonthlyInvoiceParams {
   clinicId: string
@@ -283,23 +283,11 @@ async function createNewInvoice(
     ? items
     : buildInvoiceItems(classified, sessionFee, availableCredits, true)
 
-  // Build a per-appointment groupName map so SESSAO_GRUPO items show the
-  // therapy group name, and a per-appointment attending name map so the
-  // attribution helper can decide single vs multi-professional layout.
-  const aptMeta = new Map<string, { groupName: string | null; attendingName: string | null }>()
-  for (const apt of [...classified.regular, ...classified.extra, ...classified.group, ...classified.schoolMeeting]) {
-    aptMeta.set(apt.id, {
-      groupName: apt.groupName ?? null,
-      attendingName: null,
-    })
-  }
-
   const layout = getAttributionLayout({
     items: detailItems.map(i => ({
-      appointmentId: i.appointmentId,
       type: i.type,
       attendingProfessionalId: i.attendingProfessionalId ?? null,
-      attendingProfessionalName: aptMeta.get(i.appointmentId ?? "")?.attendingName ?? null,
+      attendingProfessionalName: null,
     })),
     referenceProfessionalName: patient.referenceProfessional?.user.name ?? null,
     invoiceProfessionalName: profName,
@@ -307,14 +295,7 @@ async function createNewInvoice(
 
   const detalhes = buildDetailBlock(
     detailItems.map(i => ({
-      description: enrichItemDescription(
-        {
-          type: i.type,
-          baseDescription: i.description,
-          groupName: aptMeta.get(i.appointmentId ?? "")?.groupName ?? null,
-        },
-        { includeGroupName: true },
-      ),
+      description: i.description,
       total: formatCurrencyBRL(i.total),
       type: i.type,
     })),
@@ -334,7 +315,7 @@ async function createNewInvoice(
     vencimento: formatDateBR(dueDate.toISOString()),
     sessoes: String(totals.totalSessions),
     profissional: profName,
-    tecnico_referencia: layout.headerLine ?? "",
+    tecnico_referencia: layout.header ? `${layout.header.label}: ${layout.header.name}` : "",
     sessoes_regulares: String(classified.regular.length),
     sessoes_extras: String(classified.extra.length),
     sessoes_grupo: String(classified.group.length),

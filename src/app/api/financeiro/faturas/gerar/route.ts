@@ -6,6 +6,7 @@ import { generateMonthlyInvoice } from "@/lib/financeiro/generate-monthly-invoic
 import { generatePerSessionInvoices } from "@/lib/financeiro/generate-per-session-invoices"
 import { resolveGrouping } from "@/lib/financeiro/invoice-grouping"
 import { fetchUninvoicedPriorAppointmentsBulk } from "@/lib/financeiro/uninvoiced-appointments"
+import { PATIENT_FOR_INVOICE_SELECT, APPOINTMENT_FOR_INVOICE_SELECT } from "@/lib/financeiro/invoice-includes"
 
 const schema = z.object({
   month: z.number().int().min(1).max(12),
@@ -70,25 +71,14 @@ export const POST = withFeatureAuth(
         scheduledAt: { gte: startDate, lt: endDate },
         type: { in: ["CONSULTA", "REUNIAO"] },
       },
-      select: {
-        id: true, scheduledAt: true, status: true, type: true, title: true,
-        recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
-        patientId: true, professionalProfileId: true, attendingProfessionalId: true,
-        group: { select: { name: true } },
-      },
+      select: { ...APPOINTMENT_FOR_INVOICE_SELECT, patientId: true },
     })
 
     // Load patient + clinic data early (needed for grouping decision)
     const [patients, clinic] = await Promise.all([
       prisma.patient.findMany({
         where: { id: { in: patientIds } },
-        select: {
-          id: true, name: true, motherName: true, fatherName: true,
-          sessionFee: true, showAppointmentDaysOnInvoice: true,
-          invoiceDueDay: true, invoiceMessageTemplate: true, referenceProfessionalId: true,
-          invoiceGrouping: true, splitInvoiceByProfessional: true,
-          referenceProfessional: { select: { user: { select: { name: true } } } },
-        },
+        select: PATIENT_FOR_INVOICE_SELECT,
       }),
       prisma.clinic.findUnique({
         where: { id: user.clinicId },
@@ -270,7 +260,7 @@ export const POST = withFeatureAuth(
             sessionGroupId: a.sessionGroupId,
             price: a.price ? Number(a.price) : null,
             attendingProfessionalId: a.attendingProfessionalId ?? a.professionalProfileId,
-            groupName: (a as { group?: { name: string } | null }).group?.name ?? null,
+            groupName: a.group?.name ?? null,
           }))
 
           const referenceProfessional = patient.referenceProfessionalId

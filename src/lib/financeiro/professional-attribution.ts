@@ -1,43 +1,46 @@
+import type { InvoiceItemType } from "@prisma/client"
+
 /**
- * Decides how an invoice should display the attending professional(s):
- *  - "single" mode: 0 or 1 distinct attending professional → flat layout, no
- *    per-section header, today's appearance.
- *  - "multi" mode: 2+ distinct attending professionals → one section per
- *    professional plus an "Outros" bucket for items without an attending
- *    professional, plus a final dedicated "Créditos" bucket.
+ * Decides how an invoice should display the attending professional(s).
  *
- * Pure module — no Prisma, no I/O. Consumed by the email template helper, the
- * PDF data builder, and the HTML invoice page.
+ * Pure module — no Prisma, no I/O. Consumed by the email template helper,
+ * the PDF data builder, and the HTML invoice page.
+ *
+ * - **single** mode (0 or 1 distinct attending professional): one section
+ *   with a null header, items pass through in caller order.
+ * - **multi** mode (2+ distinct attending professionals): one section per
+ *   attending professional, plus an "Outros" bucket for items without one
+ *   and a trailing "Créditos" bucket for `CREDITO` items.
  */
 
 export const OTHERS_SECTION_LABEL = "Outros"
 export const CREDITS_SECTION_LABEL = "Créditos"
 export const SECTION_HEADER_PREFIX = "Atendido por "
 
+/** Minimum shape an item must satisfy to be classified by the layout helper. */
 export interface AttributionItem {
-  appointmentId: string | null
-  type: string
+  type: InvoiceItemType | string
   attendingProfessionalId: string | null
   attendingProfessionalName: string | null
 }
 
 export interface AttributionSection<T> {
-  /** Header label, or null when single-mode (flat). */
+  /** Section label rendered before the items. Null in single mode. */
   header: string | null
-  /** "professional" | "others" | "credits" — useful for callers that want to style sections differently. */
-  kind: "professional" | "others" | "credits"
-  /** Stable identifier for "professional" sections (the attending professional id). */
-  professionalId: string | null
   items: T[]
+}
+
+/** Structured header for the patient-facing invoice. */
+export interface AttributionHeader {
+  /** "Técnico de referência" or "Profissional". */
+  label: string
+  name: string
 }
 
 export interface AttributionLayout<T> {
   mode: "single" | "multi"
-  /**
-   * Header line shown near the patient name. Null when there is nothing
-   * meaningful to display (no reference professional and multi-attending).
-   */
-  headerLine: string | null
+  /** Header info shown near the patient name; null when there is nothing useful to display. */
+  header: AttributionHeader | null
   sections: Array<AttributionSection<T>>
 }
 
@@ -45,20 +48,13 @@ export interface AttributionInputs<T extends AttributionItem> {
   items: T[]
   referenceProfessionalName: string | null
   /**
-   * Fallback professional name shown in single-mode when the patient has no
-   * referenceProfessional. Typically the invoice's own
+   * Fallback used in single-mode when the patient has no
+   * `referenceProfessional`. Typically the invoice's own
    * `professionalProfile.user.name`.
    */
   invoiceProfessionalName: string | null
 }
 
-/**
- * Compute layout sections + header line for the items of a single invoice.
- *
- * Sort order inside each section: items keep the caller-provided order. The
- * caller is expected to pre-sort (typically by appointment.scheduledAt asc),
- * which matches the existing PDF behaviour and avoids having two sort sites.
- */
 export function getAttributionLayout<T extends AttributionItem>(
   inputs: AttributionInputs<T>,
 ): AttributionLayout<T> {
@@ -69,46 +65,35 @@ export function getAttributionLayout<T extends AttributionItem>(
     if (it.type === "CREDITO") continue
     if (it.attendingProfessionalId) distinctProfIds.add(it.attendingProfessionalId)
   }
-
   const mode: "single" | "multi" = distinctProfIds.size >= 2 ? "multi" : "single"
 
-  // ----- Header line -----
-  let headerLine: string | null = null
+  // ----- Header -----
+  let header: AttributionHeader | null = null
   if (referenceProfessionalName) {
-    headerLine = `Técnico de referência: ${referenceProfessionalName}`
+    header = { label: "Técnico de referência", name: referenceProfessionalName }
   } else if (mode === "single") {
-    // Prefer the single distinct attending professional's name; if none,
-    // fall back to the invoice's own professionalProfile name (if provided).
     const onlyAttending = items.find(
       i => i.type !== "CREDITO" && i.attendingProfessionalName,
     )?.attendingProfessionalName
-    const fallbackName = onlyAttending ?? invoiceProfessionalName
-    if (fallbackName) headerLine = `Profissional: ${fallbackName}`
+    const fallback = onlyAttending ?? invoiceProfessionalName
+    if (fallback) header = { label: "Profissional", name: fallback }
   }
-  // multi-mode without referenceProfessionalName → no header line
 
   // ----- Sections -----
   if (mode === "single") {
-    return {
-      mode,
-      headerLine,
-      sections: [
-        { header: null, kind: "professional", professionalId: null, items: [...items] },
-      ],
-    }
+    return { mode, header, sections: [{ header: null, items: [...items] }] }
   }
 
-  // Multi mode — one section per attending professional + "Outros" + "Créditos"
-  // Preserve first-seen order of professionals based on input items (callers
-  // pre-sort by date, so this gives a stable, date-based section order too).
+  // First-seen order so sections follow the order items were passed in
+  // (callers pre-sort by date — this gives a stable, date-based ordering).
   const profOrder: string[] = []
-  const profSeen = new Set<string>()
+  const seen = new Set<string>()
   const profNameById = new Map<string, string>()
   for (const it of items) {
     if (it.type === "CREDITO") continue
     if (!it.attendingProfessionalId) continue
-    if (!profSeen.has(it.attendingProfessionalId)) {
-      profSeen.add(it.attendingProfessionalId)
+    if (!seen.has(it.attendingProfessionalId)) {
+      seen.add(it.attendingProfessionalId)
       profOrder.push(it.attendingProfessionalId)
       profNameById.set(
         it.attendingProfessionalId,
@@ -117,85 +102,20 @@ export function getAttributionLayout<T extends AttributionItem>(
     }
   }
 
-  const profSections: Array<AttributionSection<T>> = profOrder.map(profId => ({
+  const sections: Array<AttributionSection<T>> = profOrder.map(profId => ({
     header: `${SECTION_HEADER_PREFIX}${profNameById.get(profId)}`,
-    kind: "professional",
-    professionalId: profId,
     items: items.filter(
       i => i.type !== "CREDITO" && i.attendingProfessionalId === profId,
     ),
   }))
 
-  const othersItems = items.filter(
+  const others = items.filter(
     i => i.type !== "CREDITO" && !i.attendingProfessionalId,
   )
-  const creditItems = items.filter(i => i.type === "CREDITO")
+  const credits = items.filter(i => i.type === "CREDITO")
 
-  const sections: Array<AttributionSection<T>> = [...profSections]
-  if (othersItems.length > 0) {
-    sections.push({
-      header: OTHERS_SECTION_LABEL,
-      kind: "others",
-      professionalId: null,
-      items: othersItems,
-    })
-  }
-  if (creditItems.length > 0) {
-    sections.push({
-      header: CREDITS_SECTION_LABEL,
-      kind: "credits",
-      professionalId: null,
-      items: creditItems,
-    })
-  }
+  if (others.length > 0) sections.push({ header: OTHERS_SECTION_LABEL, items: others })
+  if (credits.length > 0) sections.push({ header: CREDITS_SECTION_LABEL, items: credits })
 
-  return { mode, headerLine, sections }
-}
-
-export interface DescriptionInputs {
-  type: string
-  /** Existing description (e.g. "Sessão grupo - 10/03"). */
-  baseDescription: string
-  /** Therapy group name when the appointment was a group session. */
-  groupName?: string | null
-  /** Attending professional name — only applied when caller asks. */
-  attendingProfessionalName?: string | null
-}
-
-export interface EnrichOptions {
-  /** Inject the group name on SESSAO_GRUPO items. */
-  includeGroupName?: boolean
-  /** Append " · <name>" to the description (only used by flat email rendering). */
-  includeAttendingName?: boolean
-}
-
-/**
- * Enrich a line's description with the therapy group name and/or attending
- * professional name. Other types pass through unchanged. Existing cached
- * descriptions render as-is until the invoice is regenerated.
- *
- * Output examples (when the description is already in the new format):
- *   - SESSAO_GRUPO base "Psicoterapia em grupo - 10/03" + group "Keep Lua"
- *     → "Psicoterapia em grupo — Keep Lua - 10/03"
- *   - SESSAO_REGULAR base "Psicoterapia individual - 02/03" + attending "Elena"
- *     → "Psicoterapia individual - 02/03 · Elena"
- */
-export function enrichItemDescription(
-  inputs: DescriptionInputs,
-  options: EnrichOptions = {},
-): string {
-  const { type, baseDescription, groupName, attendingProfessionalName } = inputs
-  const { includeGroupName = false, includeAttendingName = false } = options
-
-  let description = baseDescription
-  if (includeGroupName && type === "SESSAO_GRUPO" && groupName && !description.includes("—")) {
-    // Inject the therapy group name once after the prefix produced by the
-    // current generator. Pre-existing items with older descriptions are left
-    // alone — recalculating the invoice regenerates them with the new label.
-    description = description.replace(/^Psicoterapia em grupo/, `Psicoterapia em grupo — ${groupName}`)
-  }
-  if (includeAttendingName && attendingProfessionalName && type !== "CREDITO") {
-    description = `${description} · ${attendingProfessionalName}`
-  }
-  return description
+  return { mode, header, sections }
 }

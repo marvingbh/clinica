@@ -1,9 +1,10 @@
 ---
 title: "feat: Show attending professional and group name on invoice"
 type: feat
-status: active
+status: completed
 date: 2026-05-03
 origin: docs/brainstorms/2026-05-03-invoice-professional-attribution-brainstorm.md
+pr: https://github.com/marvingbh/clinica/pull/18
 ---
 
 # Show Attending Professional and Group Name on Invoice

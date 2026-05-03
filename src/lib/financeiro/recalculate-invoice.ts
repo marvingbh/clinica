@@ -1,25 +1,39 @@
+import { Prisma } from "@prisma/client"
 import { renderInvoiceTemplate, buildDetailBlock, DEFAULT_INVOICE_TEMPLATE } from "./invoice-template"
 import { getMonthName, formatCurrencyBRL, formatDateBR as formatDateFull, formatDateShort } from "./format"
-import { getAttributionLayout, enrichItemDescription } from "./professional-attribution"
+import { getAttributionLayout } from "./professional-attribution"
+
+const itemInclude = {
+  appointment: {
+    select: {
+      scheduledAt: true,
+      group: { select: { name: true } },
+    },
+  },
+  attendingProfessional: { select: { user: { select: { name: true } } } },
+} as const satisfies Prisma.InvoiceItemInclude
+
+type RecalcRow = Prisma.InvoiceItemGetPayload<{ include: typeof itemInclude }>
 
 /**
  * Builds an item description that always includes the session date for detalhes.
- * If the stored description already has a date (e.g. "Sessão - 01/03"), use it as-is.
- * Otherwise append the date from the linked appointment.
+ * If the stored description already has a date, use it as-is. Otherwise append
+ * the date from the linked appointment.
  */
 function descriptionWithDate(description: string, appointmentDate: Date | null): string {
   if (!appointmentDate) return description
-  // If description already contains a date pattern like "- DD/MM", keep as-is
   if (/\d{2}\/\d{2}/.test(description)) return description
   return `${description} - ${formatDateShort(appointmentDate)}`
 }
 
 /**
- * Recalculates invoice totals and regenerates the message body after items change.
+ * Recalculates invoice totals and regenerates the message body after items
+ * change. Trusts the cached `InvoiceItem.description` — the generators
+ * materialize the final string (including the therapy group name) at write
+ * time, so no render-time rewrite happens here.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function recalculateInvoice(
-  tx: any,
+  tx: Prisma.TransactionClient,
   invoiceId: string,
   invoice: {
     referenceMonth: number
@@ -38,17 +52,9 @@ export async function recalculateInvoice(
   clinicTemplate: string | null,
   profName: string,
 ) {
-  const allItems = await tx.invoiceItem.findMany({
+  const allItems: RecalcRow[] = await tx.invoiceItem.findMany({
     where: { invoiceId },
-    include: {
-      appointment: {
-        select: {
-          scheduledAt: true,
-          group: { select: { name: true } },
-        },
-      },
-      attendingProfessional: { select: { user: { select: { name: true } } } },
-    },
+    include: itemInclude,
     orderBy: [
       { appointment: { scheduledAt: "asc" } },
       { id: "asc" },
@@ -80,42 +86,20 @@ export async function recalculateInvoice(
   const sessionFee = patient.sessionFee ? Number(patient.sessionFee) : 0
 
   // Decide layout based on distinct attending professionals on this invoice.
+  const layoutItems = allItems.map(i => ({
+    type: i.type,
+    attendingProfessionalId: i.attendingProfessionalId,
+    attendingProfessionalName: i.attendingProfessional?.user.name ?? null,
+  }))
   const layout = getAttributionLayout({
-    items: allItems.map((i: {
-      appointmentId: string | null
-      type: string
-      attendingProfessionalId: string | null
-      attendingProfessional?: { user: { name: string } } | null
-    }) => ({
-      appointmentId: i.appointmentId,
-      type: i.type,
-      attendingProfessionalId: i.attendingProfessionalId,
-      attendingProfessionalName: i.attendingProfessional?.user.name ?? null,
-    })),
+    items: layoutItems,
     referenceProfessionalName: patient.referenceProfessional?.user.name ?? null,
     invoiceProfessionalName: profName,
   })
 
-  // For detalhes, always include session dates and the therapy group name
-  // for SESSAO_GRUPO items. When the layout switched to multi-professional,
-  // group items by attending professional and let the section headers carry
-  // the name (no per-line "· Name" suffix to keep the message readable).
   const detalhes = buildDetailBlock(
-    allItems.map((i: {
-      description: string
-      total: number | string
-      type: string
-      appointment?: { scheduledAt: Date | null; group?: { name: string } | null } | null
-      attendingProfessional?: { user: { name: string } } | null
-    }) => ({
-      description: enrichItemDescription(
-        {
-          type: i.type,
-          baseDescription: descriptionWithDate(i.description, i.appointment?.scheduledAt ?? null),
-          groupName: i.appointment?.group?.name ?? null,
-        },
-        { includeGroupName: true },
-      ),
+    allItems.map(i => ({
+      description: descriptionWithDate(i.description, i.appointment?.scheduledAt ?? null),
       total: formatCurrencyBRL(Number(i.total)),
       type: i.type,
       professionalName: i.attendingProfessional?.user.name ?? null,
@@ -137,7 +121,7 @@ export async function recalculateInvoice(
     vencimento: formatDateFull(invoice.dueDate instanceof Date ? invoice.dueDate.toISOString() : String(invoice.dueDate)),
     sessoes: String(totalSessions),
     profissional: profName,
-    tecnico_referencia: layout.headerLine ?? "",
+    tecnico_referencia: layout.header ? `${layout.header.label}: ${layout.header.name}` : "",
     sessoes_regulares: String(regularCount),
     sessoes_extras: String(extraCount),
     sessoes_grupo: String(groupCount),

@@ -1,3 +1,5 @@
+import type { InvoiceItemType } from "@prisma/client"
+
 export interface TemplateVariables {
   paciente: string
   mae: string
@@ -22,7 +24,7 @@ export interface TemplateVariables {
 export interface DetailItem {
   description: string
   total: string
-  type?: string
+  type?: InvoiceItemType | string
   /** Attending professional name; used when grouping by professional. */
   professionalName?: string | null
 }
