@@ -12,6 +12,7 @@ import {
   handleGroupingTransition,
 } from "@/lib/financeiro/recalculate-dispatch"
 import { generateInvoicesForPatient } from "@/lib/financeiro/generate-patient-invoices"
+import { PATIENT_FOR_INVOICE_SELECT } from "@/lib/financeiro/invoice-includes"
 import { audit, AuditAction } from "@/lib/rbac/audit"
 
 export const POST = withFeatureAuth(
@@ -50,13 +51,7 @@ export const POST = withFeatureAuth(
 
     const patient = await prisma.patient.findUnique({
       where: { id: invoice.patientId },
-      select: {
-        id: true, name: true, motherName: true, fatherName: true,
-        sessionFee: true, showAppointmentDaysOnInvoice: true,
-        invoiceDueDay: true, invoiceMessageTemplate: true,
-        invoiceGrouping: true, splitInvoiceByProfessional: true,
-        referenceProfessionalId: true,
-      },
+      select: PATIENT_FOR_INVOICE_SELECT,
     })
 
     if (!patient || !patient.sessionFee) {

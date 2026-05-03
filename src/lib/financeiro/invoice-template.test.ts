@@ -161,4 +161,58 @@ describe("buildDetailBlock", () => {
     expect(result).not.toContain("Sessões grupo:")
     expect(result).not.toContain("Créditos:")
   })
+
+  describe("groupBy: 'professional'", () => {
+    it("groups items by attending professional name in input order", () => {
+      const items: DetailItem[] = [
+        { description: "Psicoterapia individual - 02/03", total: "R$ 240,00", type: "SESSAO_REGULAR", professionalName: "Elena" },
+        { description: "Psicoterapia em grupo — Keep Lua - 10/03", total: "R$ 240,00", type: "SESSAO_GRUPO", professionalName: "Cherlen" },
+        { description: "Psicoterapia individual - 09/03", total: "R$ 240,00", type: "SESSAO_REGULAR", professionalName: "Elena" },
+      ]
+      const result = buildDetailBlock(items, { grouped: true, groupBy: "professional" })
+      const sections = result.split("\n\n")
+
+      expect(sections[0]).toContain("Atendido por Elena:")
+      expect(sections[0]).toContain("Psicoterapia individual - 02/03")
+      expect(sections[0]).toContain("Psicoterapia individual - 09/03")
+      expect(sections[1]).toContain("Atendido por Cherlen:")
+      expect(sections[1]).toContain("Psicoterapia em grupo — Keep Lua - 10/03")
+    })
+
+    it("buckets items without a professionalName under Outros (after pro sections)", () => {
+      const items: DetailItem[] = [
+        { description: "Psicoterapia individual - 02/03", total: "R$ 240,00", type: "SESSAO_REGULAR", professionalName: "Elena" },
+        { description: "Psicoterapia em grupo - 10/03", total: "R$ 240,00", type: "SESSAO_GRUPO", professionalName: "Cherlen" },
+        { description: "Psicoterapia Individual (extra) - 12/03", total: "R$ 240,00", type: "SESSAO_EXTRA" },
+      ]
+      const result = buildDetailBlock(items, { grouped: true, groupBy: "professional" })
+
+      expect(result.indexOf("Atendido por Elena:")).toBeLessThan(result.indexOf("Outros:"))
+      expect(result.indexOf("Atendido por Cherlen:")).toBeLessThan(result.indexOf("Outros:"))
+      expect(result).toMatch(/Outros:\n\s+- Psicoterapia Individual \(extra\) - 12\/03/)
+    })
+
+    it("places CREDITO items in a trailing Créditos section regardless of professional", () => {
+      const items: DetailItem[] = [
+        { description: "Psicoterapia individual - 02/03", total: "R$ 240,00", type: "SESSAO_REGULAR", professionalName: "Elena" },
+        { description: "Crédito: Desmarcou - 17/03", total: "-R$ 240,00", type: "CREDITO" },
+      ]
+      const result = buildDetailBlock(items, { grouped: true, groupBy: "professional" })
+
+      expect(result).toContain("Atendido por Elena:")
+      expect(result).toContain("Créditos:")
+      expect(result.indexOf("Atendido por Elena:")).toBeLessThan(result.indexOf("Créditos:"))
+    })
+
+    it("emits no professional sections when only credits are present", () => {
+      const items: DetailItem[] = [
+        { description: "Crédito: Desmarcou", total: "-R$ 240,00", type: "CREDITO" },
+      ]
+      const result = buildDetailBlock(items, { grouped: true, groupBy: "professional" })
+
+      expect(result).toBe("Créditos:\n  - Crédito: Desmarcou: -R$ 240,00")
+      expect(result).not.toContain("Atendido por")
+      expect(result).not.toContain("Outros:")
+    })
+  })
 })

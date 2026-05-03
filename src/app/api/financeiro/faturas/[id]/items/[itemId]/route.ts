@@ -3,6 +3,7 @@ import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { recalculateInvoice } from "@/lib/financeiro/recalculate-invoice"
+import { PATIENT_FOR_INVOICE_RECALC_SELECT } from "@/lib/financeiro/invoice-includes"
 import { audit, AuditAction } from "@/lib/rbac/audit"
 
 const updateItemSchema = z.object({
@@ -21,7 +22,7 @@ async function getInvoiceWithContext(invoiceId: string, clinicId: string, scope:
         : {}),
     },
     include: {
-      patient: { select: { name: true, motherName: true, fatherName: true, sessionFee: true, invoiceMessageTemplate: true } },
+      patient: { select: PATIENT_FOR_INVOICE_RECALC_SELECT },
       professionalProfile: { select: { user: { select: { name: true } } } },
     },
   })

@@ -154,7 +154,7 @@ describe("buildInvoiceItems", () => {
     expect(items[0].description).toBe("Reunião com escola ABC")
   })
 
-  it("falls back to 'Reunião escola' when REUNIAO has no title", () => {
+  it("falls back to 'Reunião Agendada' when REUNIAO has no title", () => {
     const classified = {
       regular: [],
       extra: [],
@@ -162,7 +162,7 @@ describe("buildInvoiceItems", () => {
       schoolMeeting: [makeAppointment({ id: "s1", type: "REUNIAO", title: null })],
     }
     const items = buildInvoiceItems(classified, sessionFee, [], false)
-    expect(items[0].description).toBe("Reunião escola")
+    expect(items[0].description).toBe("Reunião Agendada")
   })
 
   it("creates correct types for extras, groups, and school meetings", () => {

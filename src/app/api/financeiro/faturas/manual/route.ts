@@ -153,6 +153,7 @@ export const POST = withFeatureAuth(
       vencimento: formatDateBR(dueDate.toISOString()),
       sessoes: String(totals.totalSessions),
       profissional: profName,
+      tecnico_referencia: "",
       sessoes_regulares: String(items.filter(i => i.type === "SESSAO_REGULAR").length),
       sessoes_extras: String(items.filter(i => i.type === "SESSAO_EXTRA").length),
       sessoes_grupo: String(items.filter(i => i.type === "SESSAO_GRUPO").length),

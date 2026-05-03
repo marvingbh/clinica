@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { generatePerSessionInvoices } from "@/lib/financeiro/generate-per-session-invoices"
 import { fetchUninvoicedPriorAppointments } from "@/lib/financeiro/uninvoiced-appointments"
+import { APPOINTMENT_FOR_INVOICE_SELECT } from "@/lib/financeiro/invoice-includes"
 import { audit, AuditAction } from "@/lib/rbac/audit"
 
 const schema = z.object({
@@ -37,6 +38,7 @@ export const POST = withFeatureAuth(
           id: true, name: true, motherName: true, fatherName: true,
           sessionFee: true, showAppointmentDaysOnInvoice: true,
           invoiceMessageTemplate: true,
+          referenceProfessional: { select: { user: { select: { name: true } } } },
         },
       }),
       prisma.clinic.findUnique({
@@ -63,10 +65,7 @@ export const POST = withFeatureAuth(
           scheduledAt: { gte: startDate, lt: endDate },
           type: { in: ["CONSULTA", "REUNIAO"] },
         },
-        select: {
-          id: true, scheduledAt: true, status: true, type: true, title: true,
-          recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
-        },
+        select: APPOINTMENT_FOR_INVOICE_SELECT,
       }),
       fetchUninvoicedPriorAppointments(prisma, {
         clinicId: user.clinicId, patientId, professionalProfileId,
@@ -79,6 +78,7 @@ export const POST = withFeatureAuth(
     const mappedApts = appointments.map(a => ({
       ...a,
       price: a.price ? Number(a.price) : null,
+      groupName: a.group?.name ?? null,
     }))
 
     const profName = professional?.user?.name || ""
@@ -100,6 +100,7 @@ export const POST = withFeatureAuth(
         motherName: patient.motherName,
         fatherName: patient.fatherName,
         showAppointmentDays: patient.showAppointmentDaysOnInvoice,
+        referenceProfessional: patient.referenceProfessional ?? null,
       })
     }, { timeout: 15000 })
 

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest"
+import type { Prisma } from "@prisma/client"
 import { recalculateInvoice, _internal } from "./recalculate-invoice"
 
 const { descriptionWithDate } = _internal
@@ -40,7 +41,12 @@ describe("descriptionWithDate", () => {
 // recalculateInvoice (integration with mocked tx)
 // ---------------------------------------------------------------------------
 
-function makeMockTx(items: Record<string, unknown>[]) {
+type MockTx = {
+  invoiceItem: { findMany: ReturnType<typeof vi.fn> }
+  invoice: { update: ReturnType<typeof vi.fn> }
+}
+
+function makeMockTx(items: Record<string, unknown>[]): MockTx {
   return {
     invoiceItem: {
       findMany: vi.fn().mockResolvedValue(items),
@@ -50,6 +56,9 @@ function makeMockTx(items: Record<string, unknown>[]) {
     },
   }
 }
+
+const asTx = (mock: MockTx): Prisma.TransactionClient =>
+  mock as unknown as Prisma.TransactionClient
 
 const baseInvoice = {
   referenceMonth: 3,
@@ -69,7 +78,7 @@ const basePatient = {
 describe("recalculateInvoice", () => {
   it("updates invoice with zero totals when there are no items", async () => {
     const tx = makeMockTx([])
-    await recalculateInvoice(tx, "inv-1", baseInvoice, basePatient, null, "Dra. Ana")
+    await recalculateInvoice(asTx(tx), "inv-1", baseInvoice, basePatient, null, "Dra. Ana")
 
     expect(tx.invoice.update).toHaveBeenCalledWith({
       where: { id: "inv-1" },
@@ -88,7 +97,7 @@ describe("recalculateInvoice", () => {
       { type: "SESSAO_REGULAR", quantity: 1, total: 150, description: "Sessão", appointment: { scheduledAt: new Date("2026-03-12") } },
     ]
     const tx = makeMockTx(items)
-    await recalculateInvoice(tx, "inv-1", baseInvoice, basePatient, null, "Dra. Ana")
+    await recalculateInvoice(asTx(tx), "inv-1", baseInvoice, basePatient, null, "Dra. Ana")
 
     expect(tx.invoice.update).toHaveBeenCalledWith({
       where: { id: "inv-1" },
@@ -107,7 +116,7 @@ describe("recalculateInvoice", () => {
       { type: "CREDITO", quantity: 1, total: -150, description: "Crédito", appointment: null },
     ]
     const tx = makeMockTx(items)
-    await recalculateInvoice(tx, "inv-1", baseInvoice, basePatient, null, "Dra. Ana")
+    await recalculateInvoice(asTx(tx), "inv-1", baseInvoice, basePatient, null, "Dra. Ana")
 
     expect(tx.invoice.update).toHaveBeenCalledWith({
       where: { id: "inv-1" },
@@ -125,7 +134,7 @@ describe("recalculateInvoice", () => {
       { type: "REUNIAO_ESCOLA", quantity: 1, total: 150, description: "Reunião escola", appointment: null },
     ]
     const tx = makeMockTx(items)
-    await recalculateInvoice(tx, "inv-1", baseInvoice, basePatient, null, "Dra. Ana")
+    await recalculateInvoice(asTx(tx), "inv-1", baseInvoice, basePatient, null, "Dra. Ana")
 
     expect(tx.invoice.update).toHaveBeenCalledWith({
       where: { id: "inv-1" },
@@ -142,7 +151,7 @@ describe("recalculateInvoice", () => {
       { type: "SESSAO_GRUPO", quantity: 2, total: 200, description: "Grupo", appointment: null },
     ]
     const tx = makeMockTx(items)
-    await recalculateInvoice(tx, "inv-1", baseInvoice, basePatient, null, "Dra. Ana")
+    await recalculateInvoice(asTx(tx), "inv-1", baseInvoice, basePatient, null, "Dra. Ana")
 
     expect(tx.invoice.update).toHaveBeenCalledWith({
       where: { id: "inv-1" },
@@ -161,7 +170,7 @@ describe("recalculateInvoice", () => {
     const tx = makeMockTx([
       { type: "SESSAO_REGULAR", quantity: 1, total: 150, description: "Sessão", appointment: null },
     ])
-    await recalculateInvoice(tx, "inv-1", baseInvoice, patient, "Clinic tmpl: {{paciente}}", "Dra. Ana")
+    await recalculateInvoice(asTx(tx), "inv-1", baseInvoice, patient, "Clinic tmpl: {{paciente}}", "Dra. Ana")
 
     const updateCall = tx.invoice.update.mock.calls[0][0]
     expect(updateCall.data.messageBody).toContain("Custom: João Silva")
@@ -172,7 +181,7 @@ describe("recalculateInvoice", () => {
     const tx = makeMockTx([
       { type: "SESSAO_REGULAR", quantity: 1, total: 150, description: "Sessão", appointment: null },
     ])
-    await recalculateInvoice(tx, "inv-1", baseInvoice, basePatient, "Clinic: {{paciente}}", "Dra. Ana")
+    await recalculateInvoice(asTx(tx), "inv-1", baseInvoice, basePatient, "Clinic: {{paciente}}", "Dra. Ana")
 
     const updateCall = tx.invoice.update.mock.calls[0][0]
     expect(updateCall.data.messageBody).toContain("Clinic: João Silva")
@@ -186,7 +195,7 @@ describe("recalculateInvoice", () => {
     const tx = makeMockTx([
       { type: "SESSAO_REGULAR", quantity: 1, total: 200, description: "Sessão", appointment: null },
     ])
-    await recalculateInvoice(tx, "inv-1", baseInvoice, patient, "Valor sessão: {{valor_sessao}}", "Dra. Ana")
+    await recalculateInvoice(asTx(tx), "inv-1", baseInvoice, patient, "Valor sessão: {{valor_sessao}}", "Dra. Ana")
 
     const updateCall = tx.invoice.update.mock.calls[0][0]
     expect(updateCall.data.messageBody).toContain("R$ 0,00")
@@ -194,13 +203,23 @@ describe("recalculateInvoice", () => {
 
   it("queries invoiceItem.findMany with the correct invoiceId", async () => {
     const tx = makeMockTx([])
-    await recalculateInvoice(tx, "inv-42", baseInvoice, basePatient, null, "Dra. Ana")
+    await recalculateInvoice(asTx(tx), "inv-42", baseInvoice, basePatient, null, "Dra. Ana")
 
     expect(tx.invoiceItem.findMany).toHaveBeenCalledWith({
       where: { invoiceId: "inv-42" },
       include: {
-        appointment: { select: { scheduledAt: true } },
+        appointment: {
+          select: {
+            scheduledAt: true,
+            group: { select: { name: true } },
+          },
+        },
+        attendingProfessional: { select: { user: { select: { name: true } } } },
       },
+      orderBy: [
+        { appointment: { scheduledAt: "asc" } },
+        { id: "asc" },
+      ],
     })
   })
 })

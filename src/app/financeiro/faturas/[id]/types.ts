@@ -6,6 +6,7 @@ export interface InvoiceItem {
   unitPrice: string
   total: string
   appointment: { id: string; scheduledAt: string; status: string } | null
+  attendingProfessional?: { id: string; user: { name: string } } | null
 }
 
 export interface InvoiceDetail {
@@ -44,6 +45,7 @@ export interface InvoiceDetail {
     addressStreet: string | null; addressNumber: string | null; addressNeighborhood: string | null
     addressCity: string | null; addressState: string | null; addressZip: string | null
     motherName: string | null; sessionFee: string | null
+    referenceProfessional?: { id: string; user: { name: string } } | null
   }
   professionalProfile: { id: string; user: { name: string } }
   items: InvoiceItem[]

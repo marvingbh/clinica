@@ -1,5 +1,7 @@
+import type { InvoiceItemType } from "@prisma/client"
 import { formatCurrencyBRL, formatDateBR } from "./format"
-import type { InvoicePDFData } from "./invoice-pdf"
+import { getAttributionLayout } from "./professional-attribution"
+import type { InvoicePDFData, InvoicePDFItem, InvoicePDFItemSection } from "./invoice-pdf"
 
 /** Invoice with the relations needed for PDF generation (Prisma query result shape). */
 export interface InvoiceWithRelations {
@@ -19,19 +21,54 @@ export interface InvoiceWithRelations {
     logoData: Uint8Array | null
     logoMime: string | null
   }
-  patient: { name: string }
+  patient: {
+    name: string
+    referenceProfessional?: { user: { name: string } } | null
+  }
   professionalProfile: { user: { name: string } }
   items: Array<{
     description: string
     quantity: number
     unitPrice: unknown // Prisma Decimal
     total: unknown // Prisma Decimal
-    type: string
+    type: InvoiceItemType
+    appointmentId: string | null
+    attendingProfessionalId: string | null
     appointment: { scheduledAt: Date } | null
+    attendingProfessional?: { user: { name: string } } | null
   }>
 }
 
 export function buildInvoicePDFData(invoice: InvoiceWithRelations): InvoicePDFData {
+  // Decorate each row with the attribution shape so the helper can return
+  // sections that already contain the rendered rows — no second-pass lookups.
+  const rows = invoice.items.map(item => ({
+    type: item.type,
+    attendingProfessionalId: item.attendingProfessionalId,
+    attendingProfessionalName: item.attendingProfessional?.user.name ?? null,
+    rendered: {
+      description: item.description,
+      date: item.appointment?.scheduledAt
+        ? new Date(item.appointment.scheduledAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+        : undefined,
+      quantity: item.quantity,
+      unitPrice: formatCurrencyBRL(Number(item.unitPrice)),
+      total: formatCurrencyBRL(Number(item.total)),
+      type: item.type,
+    } satisfies InvoicePDFItem,
+  }))
+
+  const layout = getAttributionLayout({
+    items: rows,
+    referenceProfessionalName: invoice.patient.referenceProfessional?.user.name ?? null,
+    invoiceProfessionalName: invoice.professionalProfile.user.name,
+  })
+
+  const itemSections: InvoicePDFItemSection[] = layout.sections.map(section => ({
+    header: section.header,
+    items: section.items.map(row => row.rendered),
+  }))
+
   return {
     clinicName: invoice.clinic.name,
     clinicPhone: invoice.clinic.phone || undefined,
@@ -42,6 +79,8 @@ export function buildInvoicePDFData(invoice: InvoiceWithRelations): InvoicePDFDa
       : undefined,
     patientName: invoice.patient.name.replace(/\s*\(.*?\)\s*/g, "").trim(),
     professionalName: invoice.professionalProfile.user.name,
+    referenceProfessionalLabel: layout.header?.label ?? null,
+    referenceProfessionalName: layout.header?.name ?? null,
     referenceMonth: invoice.referenceMonth,
     referenceYear: invoice.referenceYear,
     status: invoice.status,
@@ -50,19 +89,6 @@ export function buildInvoicePDFData(invoice: InvoiceWithRelations): InvoicePDFDa
     totalSessions: invoice.totalSessions,
     creditsApplied: invoice.creditsApplied,
     paymentInfo: invoice.clinic.paymentInfo,
-    items: [...invoice.items].sort((a, b) => {
-      const dateA = a.appointment?.scheduledAt ? new Date(a.appointment.scheduledAt).getTime() : 0
-      const dateB = b.appointment?.scheduledAt ? new Date(b.appointment.scheduledAt).getTime() : 0
-      return dateA - dateB
-    }).map(item => ({
-      description: item.description,
-      date: item.appointment?.scheduledAt
-        ? new Date(item.appointment.scheduledAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
-        : undefined,
-      quantity: item.quantity,
-      unitPrice: formatCurrencyBRL(Number(item.unitPrice)),
-      total: formatCurrencyBRL(Number(item.total)),
-      type: item.type,
-    })),
+    itemSections,
   }
 }

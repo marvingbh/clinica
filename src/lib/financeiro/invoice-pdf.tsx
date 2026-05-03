@@ -1,6 +1,7 @@
 import React from "react"
 import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer"
 import path from "path"
+import type { InvoiceItemType } from "@prisma/client"
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: "Helvetica" },
@@ -43,9 +44,24 @@ const styles = StyleSheet.create({
     borderBottomColor: "#eee",
   },
   colDate: { width: 50 },
-  colDesc: { flex: 3 },
-  colPrice: { width: 70, textAlign: "right" },
+  colDesc: { flex: 4 },
+  colPrice: { width: 60, textAlign: "right" },
   colTotal: { width: 70, textAlign: "right" },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    paddingVertical: 5,
+    paddingHorizontal: 4,
+    backgroundColor: "#f0f0f0",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#ccc",
+    marginTop: 4,
+  },
+  sectionHeaderText: {
+    fontSize: 9,
+    fontWeight: "bold",
+    color: "#333",
+    textTransform: "uppercase",
+  },
   totalRow: {
     flexDirection: "row",
     paddingVertical: 8,
@@ -85,6 +101,21 @@ const styles = StyleSheet.create({
   footerText: { fontSize: 7, color: "#999" },
 })
 
+export interface InvoicePDFItem {
+  description: string
+  date?: string
+  quantity: number
+  unitPrice: string
+  total: string
+  type: InvoiceItemType
+}
+
+export interface InvoicePDFItemSection {
+  /** When non-null, render a section divider row with this label. */
+  header: string | null
+  items: InvoicePDFItem[]
+}
+
 export interface InvoicePDFData {
   clinicName: string
   clinicPhone?: string
@@ -93,6 +124,15 @@ export interface InvoicePDFData {
   logoSrc?: string
   patientName: string
   professionalName: string
+  /**
+   * Label for the professional row in the header.
+   * "Técnico de referência" when the patient has one,
+   * "Profissional" when single attending without reference,
+   * null when multi-attending without reference (row omitted).
+   */
+  referenceProfessionalLabel?: string | null
+  /** Name shown next to the label, or null to omit the row. */
+  referenceProfessionalName?: string | null
   referenceMonth: number
   referenceYear: number
   status: string
@@ -101,14 +141,7 @@ export interface InvoicePDFData {
   totalSessions: number
   creditsApplied: number
   paymentInfo?: string | null
-  items: Array<{
-    description: string
-    date?: string
-    quantity: number
-    unitPrice: string
-    total: string
-    type: string
-  }>
+  itemSections: InvoicePDFItemSection[]
 }
 
 const MONTH_NAMES = [
@@ -169,10 +202,12 @@ function InvoicePage({ data }: { data: InvoicePDFData }) {
             <Text style={styles.infoLabel}>Paciente</Text>
             <Text style={styles.infoValue}>{data.patientName}</Text>
           </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Profissional</Text>
-            <Text style={styles.infoValue}>{data.professionalName}</Text>
-          </View>
+          {data.referenceProfessionalLabel && data.referenceProfessionalName && (
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>{data.referenceProfessionalLabel}</Text>
+              <Text style={styles.infoValue}>{data.referenceProfessionalName}</Text>
+            </View>
+          )}
         </View>
         <View style={styles.infoCol}>
           <View style={styles.infoItem}>
@@ -202,14 +237,27 @@ function InvoicePage({ data }: { data: InvoicePDFData }) {
           <Text style={styles.colPrice}>Valor Unit.</Text>
           <Text style={styles.colTotal}>Total</Text>
         </View>
-        {data.items.map((item, idx) => (
-          <View key={idx} style={styles.tableRow}>
-            <Text style={styles.colDate}>{item.date || "—"}</Text>
-            <Text style={styles.colDesc}>{item.description}</Text>
-            <Text style={styles.colPrice}>{item.unitPrice}</Text>
-            <Text style={styles.colTotal}>{item.total}</Text>
-          </View>
-        ))}
+        {data.itemSections.flatMap((section, sIdx) => {
+          const rows = []
+          if (section.header) {
+            rows.push(
+              <View key={`section-${sIdx}`} style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeaderText}>{section.header}</Text>
+              </View>,
+            )
+          }
+          section.items.forEach((item, idx) => {
+            rows.push(
+              <View key={`row-${sIdx}-${idx}`} style={styles.tableRow}>
+                <Text style={styles.colDate}>{item.date || "—"}</Text>
+                <Text style={styles.colDesc}>{item.description}</Text>
+                <Text style={styles.colPrice}>{item.unitPrice}</Text>
+                <Text style={styles.colTotal}>{item.total}</Text>
+              </View>,
+            )
+          })
+          return rows
+        })}
       </View>
 
       {/* Summary */}

@@ -3,6 +3,7 @@ import { renderInvoiceTemplate, buildDetailBlock, DEFAULT_INVOICE_TEMPLATE } fro
 import { getMonthName, formatCurrencyBRL, formatDateBR, formatDateShort } from "./format"
 import { shouldSkipInvoice } from "./invoice-generation"
 import { recalculateInvoice } from "./recalculate-invoice"
+import { getAttributionLayout } from "./professional-attribution"
 
 export interface PerSessionInvoiceParams {
   clinicId: string
@@ -20,6 +21,7 @@ export interface PerSessionInvoiceParams {
   motherName: string | null
   fatherName: string | null
   showAppointmentDays: boolean
+  referenceProfessional?: { user: { name: string } } | null
 }
 
 interface GenerationResult {
@@ -109,6 +111,7 @@ export async function generatePerSessionInvoices(
       patientTemplate, clinicTemplate, profName, patientName,
       motherName, fatherName, showAppointmentDays,
       unconsumedCredits, creditIndex,
+      referenceProfessional: params.referenceProfessional ?? null,
     })
 
     if (result.outcome === "generated") generated++
@@ -142,6 +145,7 @@ async function processAppointment(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     unconsumedCredits: any[]
     creditIndex: number
+    referenceProfessional: { user: { name: string } } | null
   },
 ): Promise<{ outcome: "generated" | "updated" | "skipped"; creditIndex: number }> {
   let { creditIndex } = ctx
@@ -176,6 +180,7 @@ async function handleExistingInvoice(
     patientName: string
     motherName: string | null
     fatherName: string | null
+    referenceProfessional: { user: { name: string } } | null
   },
   creditIndex: number,
 ): Promise<{ outcome: "updated" | "skipped"; creditIndex: number }> {
@@ -194,6 +199,7 @@ async function handleExistingInvoice(
       fatherName: ctx.fatherName,
       sessionFee: ctx.sessionFee,
       invoiceMessageTemplate: ctx.patientTemplate,
+      referenceProfessional: ctx.referenceProfessional,
     },
     ctx.clinicTemplate,
     ctx.profName,
@@ -223,6 +229,7 @@ async function createPerSessionInvoice(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     unconsumedCredits: any[]
     creditIndex: number
+    referenceProfessional: { user: { name: string } } | null
   },
   creditIndex: number,
 ): Promise<{ outcome: "generated"; creditIndex: number }> {
@@ -269,6 +276,18 @@ async function createPerSessionInvoice(
   const refMonth = aptDate.getMonth() + 1
   const refYear = aptDate.getFullYear()
 
+  // PER_SESSION invoice has a single appointment so the layout is always
+  // single; the helper still gives us the right header line.
+  const layout = getAttributionLayout({
+    items: items.map(i => ({
+      type: i.type,
+      attendingProfessionalId: i.attendingProfessionalId ?? null,
+      attendingProfessionalName: null,
+    })),
+    referenceProfessionalName: ctx.referenceProfessional?.user.name ?? null,
+    invoiceProfessionalName: ctx.profName,
+  })
+
   const detalhes = buildDetailBlock(
     items.map(i => ({
       description: i.description,
@@ -289,6 +308,7 @@ async function createPerSessionInvoice(
     vencimento: formatDateBR(dueDate.toISOString()),
     sessoes: String(totals.totalSessions),
     profissional: ctx.profName,
+    tecnico_referencia: layout.header ? `${layout.header.label}: ${layout.header.name}` : "",
     sessoes_regulares: String(classified.regular.length),
     sessoes_extras: String(classified.extra.length),
     sessoes_grupo: String(classified.group.length),
@@ -360,10 +380,13 @@ function buildItemDescription(
 ): string {
   const dateStr = showDate ? ` - ${formatDateShort(apt.scheduledAt)}` : ""
   switch (type) {
-    case "SESSAO_REGULAR": return `Sessão${dateStr}`
-    case "SESSAO_EXTRA": return `Sessão extra${dateStr}`
-    case "SESSAO_GRUPO": return `Sessão grupo${dateStr}`
-    case "REUNIAO_ESCOLA": return `${apt.title || "Reunião escola"}${dateStr}`
+    case "SESSAO_REGULAR": return `Psicoterapia individual${dateStr}`
+    case "SESSAO_EXTRA": return `Psicoterapia Individual (extra)${dateStr}`
+    case "SESSAO_GRUPO": {
+      const groupSuffix = apt.groupName ? ` — ${apt.groupName}` : ""
+      return `Psicoterapia em grupo${groupSuffix}${dateStr}`
+    }
+    case "REUNIAO_ESCOLA": return `${apt.title || "Reunião Agendada"}${dateStr}`
     default: return `Item${dateStr}`
   }
 }

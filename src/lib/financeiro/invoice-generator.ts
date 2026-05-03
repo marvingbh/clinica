@@ -9,6 +9,8 @@ export interface AppointmentForInvoice {
   sessionGroupId: string | null
   price: number | null
   attendingProfessionalId?: string | null
+  /** Therapy group name for SESSAO_GRUPO items (optional; callers may include it for the rendering pipeline). */
+  groupName?: string | null
 }
 
 export interface CreditForInvoice {
@@ -71,10 +73,13 @@ function formatDateBR(date: Date): string {
 function getItemDescription(type: InvoiceItemData["type"], apt: AppointmentForInvoice, showDays: boolean): string {
   const dateStr = showDays ? ` - ${formatDateBR(apt.scheduledAt)}` : ""
   switch (type) {
-    case "SESSAO_REGULAR": return `Sessão${dateStr}`
-    case "SESSAO_EXTRA": return `Sessão extra${dateStr}`
-    case "SESSAO_GRUPO": return `Sessão grupo${dateStr}`
-    case "REUNIAO_ESCOLA": return `${apt.title || "Reunião escola"}${dateStr}`
+    case "SESSAO_REGULAR": return `Psicoterapia individual${dateStr}`
+    case "SESSAO_EXTRA": return `Psicoterapia Individual (extra)${dateStr}`
+    case "SESSAO_GRUPO": {
+      const groupSuffix = apt.groupName ? ` — ${apt.groupName}` : ""
+      return `Psicoterapia em grupo${groupSuffix}${dateStr}`
+    }
+    case "REUNIAO_ESCOLA": return `${apt.title || "Reunião Agendada"}${dateStr}`
     default: return `Item${dateStr}`
   }
 }

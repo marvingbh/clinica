@@ -3,6 +3,7 @@ import { renderInvoiceTemplate, buildDetailBlock, DEFAULT_INVOICE_TEMPLATE } fro
 import { getMonthName, formatCurrencyBRL, formatDateBR } from "./format"
 import { recalculateInvoice } from "./recalculate-invoice"
 import { shouldSkipInvoice, separateManualItems } from "./invoice-generation"
+import { getAttributionLayout } from "./professional-attribution"
 
 export interface MonthlyInvoiceParams {
   clinicId: string
@@ -20,6 +21,7 @@ export interface MonthlyInvoiceParams {
     motherName: string | null
     fatherName: string | null
     invoiceMessageTemplate: string | null
+    referenceProfessional?: { user: { name: string } } | null
   }
   clinicInvoiceMessageTemplate: string | null
   appointments: {
@@ -280,13 +282,24 @@ async function createNewInvoice(
   const detailItems = billingMode === "MONTHLY_FIXED"
     ? items
     : buildInvoiceItems(classified, sessionFee, availableCredits, true)
+
+  const layout = getAttributionLayout({
+    items: detailItems.map(i => ({
+      type: i.type,
+      attendingProfessionalId: i.attendingProfessionalId ?? null,
+      attendingProfessionalName: null,
+    })),
+    referenceProfessionalName: patient.referenceProfessional?.user.name ?? null,
+    invoiceProfessionalName: profName,
+  })
+
   const detalhes = buildDetailBlock(
     detailItems.map(i => ({
       description: i.description,
       total: formatCurrencyBRL(i.total),
       type: i.type,
     })),
-    { grouped: true }
+    { grouped: true, groupBy: layout.mode === "multi" ? "professional" : "type" }
   )
 
   const template = patient.invoiceMessageTemplate
@@ -302,6 +315,7 @@ async function createNewInvoice(
     vencimento: formatDateBR(dueDate.toISOString()),
     sessoes: String(totals.totalSessions),
     profissional: profName,
+    tecnico_referencia: layout.header ? `${layout.header.label}: ${layout.header.name}` : "",
     sessoes_regulares: String(classified.regular.length),
     sessoes_extras: String(classified.extra.length),
     sessoes_grupo: String(classified.group.length),
