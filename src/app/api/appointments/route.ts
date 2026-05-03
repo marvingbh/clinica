@@ -264,6 +264,7 @@ export const GET = withFeatureAuth(
         isActive: true,
         type: "CONSULTA",
         patientId: { not: null },
+        patient: { isActive: true },
         ...(profFilterForQuery ? { professionalProfileId: profFilterForQuery } : {}),
       },
       select: {
