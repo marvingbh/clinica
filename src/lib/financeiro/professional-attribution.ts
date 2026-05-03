@@ -171,15 +171,13 @@ export interface EnrichOptions {
 
 /**
  * Enrich a line's description with the therapy group name and/or attending
- * professional name. Also rewrites legacy prefixes ("Sessão", "Sessão extra",
- * "Sessão grupo", "Reunião escola") into the current labels so previously
- * cached invoice items render with the up-to-date wording without needing a
- * recalcular.
+ * professional name. Other types pass through unchanged. Existing cached
+ * descriptions render as-is until the invoice is regenerated.
  *
- * Output examples:
- *   - SESSAO_GRUPO + group "Keep Lua"
+ * Output examples (when the description is already in the new format):
+ *   - SESSAO_GRUPO base "Psicoterapia em grupo - 10/03" + group "Keep Lua"
  *     → "Psicoterapia em grupo — Keep Lua - 10/03"
- *   - SESSAO_REGULAR + includeAttendingName "Elena"
+ *   - SESSAO_REGULAR base "Psicoterapia individual - 02/03" + attending "Elena"
  *     → "Psicoterapia individual - 02/03 · Elena"
  */
 export function enrichItemDescription(
@@ -190,28 +188,12 @@ export function enrichItemDescription(
   const { includeGroupName = false, includeAttendingName = false } = options
 
   let description = baseDescription
-
-  // Type-driven prefix rewrite. Normalises legacy ("Sessão grupo", "Sessão",
-  // "Sessão extra", "Reunião escola") and current ("Psicoterapia em grupo",
-  // "Psicoterapia individual", ...) prefixes into the current label, then
-  // injects the group name on SESSAO_GRUPO when requested. Anything after the
-  // prefix (typically " - DD/MM") is preserved.
-  if (type === "SESSAO_GRUPO") {
-    description = description.replace(
-      /^(?:Sessão grupo|Psicoterapia em grupo(?: — [^-]*?)?)/,
-      includeGroupName && groupName
-        ? `Psicoterapia em grupo — ${groupName}`
-        : "Psicoterapia em grupo",
-    )
-  } else if (type === "SESSAO_EXTRA") {
-    description = description.replace(/^Sessão extra/, "Psicoterapia Individual (extra)")
-  } else if (type === "SESSAO_REGULAR") {
-    // Match "Sessão" only when it's not followed by "extra" or "grupo".
-    description = description.replace(/^Sessão(?!\s+(?:extra|grupo)\b)/, "Psicoterapia individual")
-  } else if (type === "REUNIAO_ESCOLA") {
-    description = description.replace(/^Reunião escola/, "Reunião Agendada")
+  if (includeGroupName && type === "SESSAO_GRUPO" && groupName && !description.includes("—")) {
+    // Inject the therapy group name once after the prefix produced by the
+    // current generator. Pre-existing items with older descriptions are left
+    // alone — recalculating the invoice regenerates them with the new label.
+    description = description.replace(/^Psicoterapia em grupo/, `Psicoterapia em grupo — ${groupName}`)
   }
-
   if (includeAttendingName && attendingProfessionalName && type !== "CREDITO") {
     description = `${description} · ${attendingProfessionalName}`
   }

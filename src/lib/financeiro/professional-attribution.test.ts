@@ -168,23 +168,7 @@ describe("getAttributionLayout", () => {
 })
 
 describe("enrichItemDescription", () => {
-  it("rewrites legacy SESSAO_GRUPO with the therapy group name", () => {
-    const out = enrichItemDescription(
-      { type: "SESSAO_GRUPO", baseDescription: "Sessão grupo - 10/03", groupName: "Keep Lua" },
-      { includeGroupName: true },
-    )
-    expect(out).toBe("Psicoterapia em grupo — Keep Lua - 10/03")
-  })
-
-  it("rewrites legacy SESSAO_GRUPO without group name to the new label", () => {
-    const out = enrichItemDescription(
-      { type: "SESSAO_GRUPO", baseDescription: "Sessão grupo - 10/03" },
-      { includeGroupName: true },
-    )
-    expect(out).toBe("Psicoterapia em grupo - 10/03")
-  })
-
-  it("injects the group name when the description already uses the new label", () => {
+  it("injects the group name into a freshly generated SESSAO_GRUPO description", () => {
     const out = enrichItemDescription(
       { type: "SESSAO_GRUPO", baseDescription: "Psicoterapia em grupo - 10/03", groupName: "Keep Lua" },
       { includeGroupName: true },
@@ -192,43 +176,28 @@ describe("enrichItemDescription", () => {
     expect(out).toBe("Psicoterapia em grupo — Keep Lua - 10/03")
   })
 
-  it("rewrites legacy SESSAO_REGULAR to Psicoterapia individual", () => {
+  it("leaves a SESSAO_GRUPO description untouched when group name is missing", () => {
     const out = enrichItemDescription(
-      { type: "SESSAO_REGULAR", baseDescription: "Sessão - 02/03" },
+      { type: "SESSAO_GRUPO", baseDescription: "Psicoterapia em grupo - 10/03" },
+      { includeGroupName: true },
     )
-    expect(out).toBe("Psicoterapia individual - 02/03")
+    expect(out).toBe("Psicoterapia em grupo - 10/03")
   })
 
-  it("does not rewrite SESSAO_REGULAR when description starts with 'Sessão extra' or 'Sessão grupo'", () => {
-    const safe1 = enrichItemDescription(
-      { type: "SESSAO_REGULAR", baseDescription: "Sessão extra - 05/03" },
+  it("does not double-inject the group name when one is already present", () => {
+    const out = enrichItemDescription(
+      { type: "SESSAO_GRUPO", baseDescription: "Psicoterapia em grupo — Existing - 10/03", groupName: "Keep Lua" },
+      { includeGroupName: true },
     )
-    const safe2 = enrichItemDescription(
-      { type: "SESSAO_REGULAR", baseDescription: "Sessão grupo - 05/03" },
-    )
-    expect(safe1).toBe("Sessão extra - 05/03")
-    expect(safe2).toBe("Sessão grupo - 05/03")
+    expect(out).toBe("Psicoterapia em grupo — Existing - 10/03")
   })
 
-  it("rewrites SESSAO_EXTRA to Psicoterapia Individual (extra)", () => {
+  it("does not rewrite legacy 'Sessão grupo' prefixes — recalcular regenerates them", () => {
     const out = enrichItemDescription(
-      { type: "SESSAO_EXTRA", baseDescription: "Sessão extra - 05/03" },
+      { type: "SESSAO_GRUPO", baseDescription: "Sessão grupo - 10/03", groupName: "Keep Lua" },
+      { includeGroupName: true },
     )
-    expect(out).toBe("Psicoterapia Individual (extra) - 05/03")
-  })
-
-  it("rewrites legacy REUNIAO_ESCOLA fallback to Reunião Agendada", () => {
-    const out = enrichItemDescription(
-      { type: "REUNIAO_ESCOLA", baseDescription: "Reunião escola - 17/04" },
-    )
-    expect(out).toBe("Reunião Agendada - 17/04")
-  })
-
-  it("preserves a custom REUNIAO_ESCOLA title untouched", () => {
-    const out = enrichItemDescription(
-      { type: "REUNIAO_ESCOLA", baseDescription: "Reunião na escola Marista - 17/04" },
-    )
-    expect(out).toBe("Reunião na escola Marista - 17/04")
+    expect(out).toBe("Sessão grupo - 10/03")
   })
 
   it("does not rewrite non-group types even when groupName is set", () => {
@@ -243,7 +212,7 @@ describe("enrichItemDescription", () => {
     const out = enrichItemDescription(
       {
         type: "SESSAO_REGULAR",
-        baseDescription: "Sessão - 02/03",
+        baseDescription: "Psicoterapia individual - 02/03",
         attendingProfessionalName: "Elena",
       },
       { includeAttendingName: true },
@@ -267,7 +236,7 @@ describe("enrichItemDescription", () => {
     const out = enrichItemDescription(
       {
         type: "SESSAO_GRUPO",
-        baseDescription: "Sessão grupo - 10/03",
+        baseDescription: "Psicoterapia em grupo - 10/03",
         groupName: "Keep Lua",
         attendingProfessionalName: "Cherlen",
       },
