@@ -10,6 +10,7 @@ const appointmentSelect = {
   id: true, scheduledAt: true, status: true, type: true, title: true,
   recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
   attendingProfessionalId: true,
+  group: { select: { name: true } },
 } as const
 
 type AppointmentSelect = Prisma.AppointmentGetPayload<{ select: typeof appointmentSelect }>

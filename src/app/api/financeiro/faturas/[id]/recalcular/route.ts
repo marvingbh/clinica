@@ -56,6 +56,7 @@ export const POST = withFeatureAuth(
         invoiceDueDay: true, invoiceMessageTemplate: true,
         invoiceGrouping: true, splitInvoiceByProfessional: true,
         referenceProfessionalId: true,
+        referenceProfessional: { select: { user: { select: { name: true } } } },
       },
     })
 

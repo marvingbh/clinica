@@ -1,5 +1,6 @@
 import { renderInvoiceTemplate, buildDetailBlock, DEFAULT_INVOICE_TEMPLATE } from "./invoice-template"
 import { getMonthName, formatCurrencyBRL, formatDateBR as formatDateFull, formatDateShort } from "./format"
+import { getAttributionLayout, enrichItemDescription } from "./professional-attribution"
 
 /**
  * Builds an item description that always includes the session date for detalhes.
@@ -32,6 +33,7 @@ export async function recalculateInvoice(
     fatherName: string | null
     sessionFee: number | { toNumber(): number } | null
     invoiceMessageTemplate: string | null
+    referenceProfessional?: { user: { name: string } } | null
   },
   clinicTemplate: string | null,
   profName: string,
@@ -39,8 +41,18 @@ export async function recalculateInvoice(
   const allItems = await tx.invoiceItem.findMany({
     where: { invoiceId },
     include: {
-      appointment: { select: { scheduledAt: true } },
+      appointment: {
+        select: {
+          scheduledAt: true,
+          group: { select: { name: true } },
+        },
+      },
+      attendingProfessional: { select: { user: { select: { name: true } } } },
     },
+    orderBy: [
+      { appointment: { scheduledAt: "asc" } },
+      { id: "asc" },
+    ],
   })
 
   let totalSessions = 0
@@ -67,14 +79,48 @@ export async function recalculateInvoice(
 
   const sessionFee = patient.sessionFee ? Number(patient.sessionFee) : 0
 
-  // For detalhes, always include session dates
+  // Decide layout based on distinct attending professionals on this invoice.
+  const layout = getAttributionLayout({
+    items: allItems.map((i: {
+      appointmentId: string | null
+      type: string
+      attendingProfessionalId: string | null
+      attendingProfessional?: { user: { name: string } } | null
+    }) => ({
+      appointmentId: i.appointmentId,
+      type: i.type,
+      attendingProfessionalId: i.attendingProfessionalId,
+      attendingProfessionalName: i.attendingProfessional?.user.name ?? null,
+    })),
+    referenceProfessionalName: patient.referenceProfessional?.user.name ?? null,
+    invoiceProfessionalName: profName,
+  })
+
+  // For detalhes, always include session dates and the therapy group name
+  // for SESSAO_GRUPO items. When the layout switched to multi-professional,
+  // group items by attending professional and let the section headers carry
+  // the name (no per-line "· Name" suffix to keep the message readable).
   const detalhes = buildDetailBlock(
-    allItems.map((i: { description: string; total: number; type: string; appointment?: { scheduledAt: Date } | null }) => ({
-      description: descriptionWithDate(i.description, i.appointment?.scheduledAt ?? null),
+    allItems.map((i: {
+      description: string
+      total: number | string
+      type: string
+      appointment?: { scheduledAt: Date | null; group?: { name: string } | null } | null
+      attendingProfessional?: { user: { name: string } } | null
+    }) => ({
+      description: enrichItemDescription(
+        {
+          type: i.type,
+          baseDescription: descriptionWithDate(i.description, i.appointment?.scheduledAt ?? null),
+          groupName: i.appointment?.group?.name ?? null,
+        },
+        { includeGroupName: true },
+      ),
       total: formatCurrencyBRL(Number(i.total)),
       type: i.type,
+      professionalName: i.attendingProfessional?.user.name ?? null,
     })),
-    { grouped: true }
+    { grouped: true, groupBy: layout.mode === "multi" ? "professional" : "type" },
   )
 
   const template = patient.invoiceMessageTemplate
@@ -91,6 +137,7 @@ export async function recalculateInvoice(
     vencimento: formatDateFull(invoice.dueDate instanceof Date ? invoice.dueDate.toISOString() : String(invoice.dueDate)),
     sessoes: String(totalSessions),
     profissional: profName,
+    tecnico_referencia: layout.headerLine ?? "",
     sessoes_regulares: String(regularCount),
     sessoes_extras: String(extraCount),
     sessoes_grupo: String(groupCount),

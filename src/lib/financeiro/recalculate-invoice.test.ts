@@ -199,8 +199,18 @@ describe("recalculateInvoice", () => {
     expect(tx.invoiceItem.findMany).toHaveBeenCalledWith({
       where: { invoiceId: "inv-42" },
       include: {
-        appointment: { select: { scheduledAt: true } },
+        appointment: {
+          select: {
+            scheduledAt: true,
+            group: { select: { name: true } },
+          },
+        },
+        attendingProfessional: { select: { user: { select: { name: true } } } },
       },
+      orderBy: [
+        { appointment: { scheduledAt: "asc" } },
+        { id: "asc" },
+      ],
     })
   })
 })

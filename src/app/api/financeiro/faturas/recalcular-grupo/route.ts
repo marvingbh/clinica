@@ -37,6 +37,7 @@ export const POST = withFeatureAuth(
           id: true, name: true, motherName: true, fatherName: true,
           sessionFee: true, showAppointmentDaysOnInvoice: true,
           invoiceMessageTemplate: true,
+          referenceProfessional: { select: { user: { select: { name: true } } } },
         },
       }),
       prisma.clinic.findUnique({
@@ -66,6 +67,8 @@ export const POST = withFeatureAuth(
         select: {
           id: true, scheduledAt: true, status: true, type: true, title: true,
           recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
+          attendingProfessionalId: true,
+          group: { select: { name: true } },
         },
       }),
       fetchUninvoicedPriorAppointments(prisma, {
@@ -76,10 +79,14 @@ export const POST = withFeatureAuth(
 
     const appointments = [...monthApts, ...uninvoicedPriorApts]
 
-    const mappedApts = appointments.map(a => ({
-      ...a,
-      price: a.price ? Number(a.price) : null,
-    }))
+    const mappedApts = appointments.map(a => {
+      const withGroup = a as typeof a & { group?: { name: string } | null }
+      return {
+        ...a,
+        price: a.price ? Number(a.price) : null,
+        groupName: withGroup.group?.name ?? null,
+      }
+    })
 
     const profName = professional?.user?.name || ""
 
@@ -100,6 +107,7 @@ export const POST = withFeatureAuth(
         motherName: patient.motherName,
         fatherName: patient.fatherName,
         showAppointmentDays: patient.showAppointmentDaysOnInvoice,
+        referenceProfessional: patient.referenceProfessional ?? null,
       })
     }, { timeout: 15000 })
 

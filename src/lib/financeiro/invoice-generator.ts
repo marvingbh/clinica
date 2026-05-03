@@ -9,6 +9,8 @@ export interface AppointmentForInvoice {
   sessionGroupId: string | null
   price: number | null
   attendingProfessionalId?: string | null
+  /** Therapy group name for SESSAO_GRUPO items (optional; callers may include it for the rendering pipeline). */
+  groupName?: string | null
 }
 
 export interface CreditForInvoice {

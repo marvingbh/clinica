@@ -17,11 +17,27 @@ export const GET = withFeatureAuth(
           : {}),
       },
       include: {
-        patient: { select: { id: true, name: true, phone: true, email: true, cpf: true, billingCpf: true, billingResponsibleName: true, nfsePerAppointment: true, nfseObs: true, addressStreet: true, addressNumber: true, addressNeighborhood: true, addressCity: true, addressState: true, addressZip: true, motherName: true, sessionFee: true } },
+        patient: {
+          select: {
+            id: true, name: true, phone: true, email: true, cpf: true,
+            billingCpf: true, billingResponsibleName: true,
+            nfsePerAppointment: true, nfseObs: true,
+            addressStreet: true, addressNumber: true, addressNeighborhood: true,
+            addressCity: true, addressState: true, addressZip: true,
+            motherName: true, sessionFee: true,
+            referenceProfessional: { select: { id: true, user: { select: { name: true } } } },
+          },
+        },
         professionalProfile: { select: { id: true, user: { select: { name: true } } } },
         items: {
           include: {
-            appointment: { select: { id: true, scheduledAt: true, status: true } },
+            appointment: {
+              select: {
+                id: true, scheduledAt: true, status: true,
+                group: { select: { id: true, name: true } },
+              },
+            },
+            attendingProfessional: { select: { id: true, user: { select: { name: true } } } },
           },
           orderBy: { createdAt: "asc" },
         },

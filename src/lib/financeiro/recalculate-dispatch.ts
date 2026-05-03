@@ -24,6 +24,7 @@ export interface RecalculatePerSessionParams {
     fatherName: string | null
     sessionFee: { toNumber(): number } | number | null
     invoiceMessageTemplate: string | null
+    referenceProfessional?: { user: { name: string } } | null
   }
   clinicId: string
 }
@@ -126,6 +127,7 @@ export interface GroupingTransitionParams {
     showAppointmentDaysOnInvoice: boolean
     invoiceMessageTemplate: string | null
     invoiceDueDay: number | null
+    referenceProfessional?: { user: { name: string } } | null
   }
   clinic: {
     invoiceDueDay?: number | null
@@ -226,6 +228,7 @@ export async function handleGroupingTransition(
       motherName: patient.motherName,
       fatherName: patient.fatherName,
       showAppointmentDays: patient.showAppointmentDaysOnInvoice,
+      referenceProfessional: patient.referenceProfessional ?? null,
     })
   } else {
     const clinicDueDay = clinic?.invoiceDueDay ?? 15
@@ -249,6 +252,7 @@ export async function handleGroupingTransition(
         motherName: patient.motherName,
         fatherName: patient.fatherName,
         invoiceMessageTemplate: patient.invoiceMessageTemplate,
+        referenceProfessional: patient.referenceProfessional ?? null,
       },
       clinicInvoiceMessageTemplate: clinic?.invoiceMessageTemplate ?? null,
       appointments: mappedApts,

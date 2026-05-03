@@ -147,6 +147,11 @@ export default function InvoiceDetailPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold">{invoice.patient.name}</h2>
+          {invoice.patient.referenceProfessional && (
+            <p className="text-sm text-muted-foreground">
+              Técnico de referência: <span className="font-medium text-foreground">{invoice.patient.referenceProfessional.user.name}</span>
+            </p>
+          )}
           <p className="text-muted-foreground">
             {MONTH_NAMES[invoice.referenceMonth - 1]}/{invoice.referenceYear} — {invoice.professionalProfile.user.name}
           </p>

@@ -31,7 +31,13 @@ export const POST = withFeatureAuth(
           : {}),
       },
       include: {
-        patient: { select: { name: true, motherName: true, fatherName: true, sessionFee: true, invoiceMessageTemplate: true } },
+        patient: {
+          select: {
+            name: true, motherName: true, fatherName: true,
+            sessionFee: true, invoiceMessageTemplate: true,
+            referenceProfessional: { select: { user: { select: { name: true } } } },
+          },
+        },
         professionalProfile: { select: { user: { select: { name: true } } } },
       },
     })

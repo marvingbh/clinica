@@ -57,7 +57,12 @@ export async function generateInvoicesForPatient(params: {
   // 2. Fetch all appointments (current month + prior uninvoiced)
   const monthApts = await prisma.appointment.findMany({
     where: { clinicId, patientId: patient.id, scheduledAt: { gte: startDate, lt: endDate }, type: { in: ["CONSULTA", "REUNIAO"] } },
-    select: { id: true, scheduledAt: true, status: true, type: true, title: true, recurrenceId: true, groupId: true, sessionGroupId: true, price: true, professionalProfileId: true, attendingProfessionalId: true },
+    select: {
+      id: true, scheduledAt: true, status: true, type: true, title: true,
+      recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
+      professionalProfileId: true, attendingProfessionalId: true,
+      group: { select: { name: true } },
+    },
   })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -110,7 +115,12 @@ export async function generateInvoicesForPatient(params: {
       recurrenceId: a.recurrenceId, groupId: a.groupId, sessionGroupId: a.sessionGroupId,
       price: a.price ? Number(a.price) : null,
       attendingProfessionalId: (a.attendingProfessionalId ?? a.professionalProfileId) as string | null,
+      groupName: (a as { group?: { name: string } | null }).group?.name ?? null,
     }))
+
+    const referenceProfessional = patient.referenceProfessionalId
+      ? (profMap.get(patient.referenceProfessionalId) ?? null)
+      : null
 
     try {
       if (grouping === "PER_SESSION") {
@@ -125,6 +135,7 @@ export async function generateInvoicesForPatient(params: {
             profName: profMap.get(billingProfId)?.user?.name || "",
             patientName: patient.name, motherName: patient.motherName, fatherName: patient.fatherName,
             showAppointmentDays: patient.showAppointmentDaysOnInvoice,
+            referenceProfessional,
           })
           generated += result.generated
           updated += result.updated
@@ -140,7 +151,11 @@ export async function generateInvoicesForPatient(params: {
             showAppointmentDays: patient.showAppointmentDaysOnInvoice,
             profName: profMap.get(billingProfId)?.user?.name || "",
             billingMode: clinic.billingMode ?? null,
-            patient: { name: patient.name, motherName: patient.motherName, fatherName: patient.fatherName, invoiceMessageTemplate: patient.invoiceMessageTemplate },
+            patient: {
+              name: patient.name, motherName: patient.motherName, fatherName: patient.fatherName,
+              invoiceMessageTemplate: patient.invoiceMessageTemplate,
+              referenceProfessional,
+            },
             clinicInvoiceMessageTemplate: clinic.invoiceMessageTemplate ?? null,
             appointments: mappedApts,
           })

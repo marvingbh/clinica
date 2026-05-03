@@ -74,6 +74,7 @@ export const POST = withFeatureAuth(
         id: true, scheduledAt: true, status: true, type: true, title: true,
         recurrenceId: true, groupId: true, sessionGroupId: true, price: true,
         patientId: true, professionalProfileId: true, attendingProfessionalId: true,
+        group: { select: { name: true } },
       },
     })
 
@@ -86,6 +87,7 @@ export const POST = withFeatureAuth(
           sessionFee: true, showAppointmentDaysOnInvoice: true,
           invoiceDueDay: true, invoiceMessageTemplate: true, referenceProfessionalId: true,
           invoiceGrouping: true, splitInvoiceByProfessional: true,
+          referenceProfessional: { select: { user: { select: { name: true } } } },
         },
       }),
       prisma.clinic.findUnique({
@@ -268,7 +270,12 @@ export const POST = withFeatureAuth(
             sessionGroupId: a.sessionGroupId,
             price: a.price ? Number(a.price) : null,
             attendingProfessionalId: a.attendingProfessionalId ?? a.professionalProfileId,
+            groupName: (a as { group?: { name: string } | null }).group?.name ?? null,
           }))
+
+          const referenceProfessional = patient.referenceProfessionalId
+            ? (profMap.get(patient.referenceProfessionalId) ?? null)
+            : null
 
           try {
             if (grouping === "PER_SESSION") {
@@ -289,6 +296,7 @@ export const POST = withFeatureAuth(
                   motherName: patient.motherName,
                   fatherName: patient.fatherName,
                   showAppointmentDays: patient.showAppointmentDaysOnInvoice,
+                  referenceProfessional,
                 })
                 generated += result.generated
                 updated += result.updated
@@ -313,6 +321,7 @@ export const POST = withFeatureAuth(
                     motherName: patient.motherName,
                     fatherName: patient.fatherName,
                     invoiceMessageTemplate: patient.invoiceMessageTemplate,
+                    referenceProfessional,
                   },
                   clinicInvoiceMessageTemplate: clinic?.invoiceMessageTemplate ?? null,
                   appointments: mappedApts,
