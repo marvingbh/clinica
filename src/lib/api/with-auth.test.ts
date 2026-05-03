@@ -43,6 +43,7 @@ const adminPermissions: ResolvedPermissions = {
   availability_others: "WRITE",
   finances: "WRITE",
   expenses: "WRITE",
+  todos: "WRITE",
 }
 
 const professionalPermissions: ResolvedPermissions = {
@@ -59,6 +60,7 @@ const professionalPermissions: ResolvedPermissions = {
   availability_others: "NONE",
   finances: "WRITE",
   expenses: "NONE",
+  todos: "WRITE",
 }
 
 function makeAdminSession() {

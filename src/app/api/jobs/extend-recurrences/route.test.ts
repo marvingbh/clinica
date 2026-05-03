@@ -6,6 +6,8 @@ const { mockPrisma, calculateNextWindowDates } = vi.hoisted(() => {
   const mp: Record<string, unknown> = {
     appointmentRecurrence: { findMany: vi.fn(), update: vi.fn() },
     appointment: { findMany: vi.fn(), createMany: vi.fn() },
+    todoRecurrence: { findMany: vi.fn(), update: vi.fn() },
+    todo: { createMany: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn((fn: (tx: unknown) => Promise<unknown>) => fn(mp)),
   }
@@ -13,6 +15,8 @@ const { mockPrisma, calculateNextWindowDates } = vi.hoisted(() => {
     mockPrisma: mp as {
       appointmentRecurrence: { findMany: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> }
       appointment: { findMany: ReturnType<typeof vi.fn>; createMany: ReturnType<typeof vi.fn> }
+      todoRecurrence: { findMany: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> }
+      todo: { createMany: ReturnType<typeof vi.fn> }
       auditLog: { create: ReturnType<typeof vi.fn> }
       $transaction: ReturnType<typeof vi.fn>
     },
@@ -86,6 +90,9 @@ beforeEach(() => {
   mockPrisma.appointmentRecurrence.update.mockResolvedValue({})
   mockPrisma.appointment.findMany.mockResolvedValue([])
   mockPrisma.appointment.createMany.mockResolvedValue({ count: 0 })
+  mockPrisma.todoRecurrence.findMany.mockResolvedValue([])
+  mockPrisma.todoRecurrence.update.mockResolvedValue({})
+  mockPrisma.todo.createMany.mockResolvedValue({ count: 0 })
   mockPrisma.auditLog.create.mockResolvedValue({})
   mockPrisma.$transaction.mockImplementation((fn: (tx: unknown) => Promise<unknown>) => fn(mockPrisma))
   calculateNextWindowDates.mockReturnValue([])

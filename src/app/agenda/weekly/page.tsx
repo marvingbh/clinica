@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation"
 import { SwipeContainer } from "@/shared/components/ui"
 
 import type { Appointment } from "../lib"
-import { canMarkStatus, canResendConfirmation, getWeekStart } from "../lib/utils"
+import { canMarkStatus, canResendConfirmation, getWeekStart, getWeekDays, toDateString } from "../lib/utils"
 import {
   AppointmentEditor, GroupSessionSheet, CalendarEntrySheet,
   CreateAppointmentSheet, AgendaFabMenu,
@@ -25,6 +25,7 @@ import { useAgendaContext } from "../context/AgendaContext"
 import { usePermission } from "@/shared/hooks"
 
 import { WeeklyGrid, WeeklyHeader } from "./components"
+import { TodosStrip } from "../components/todos"
 import { createProfessionalColorMap } from "../lib/professional-colors"
 import { useAppointmentDrag } from "../hooks/useAppointmentDrag"
 import { WEEKLY_GRID } from "../lib/grid-config"
@@ -246,6 +247,16 @@ function WeeklyAgendaPageContent() {
           <span className="w-8 h-0.5 bg-muted-foreground/30 rounded-full" />
         </p>
       </SwipeContainer>
+
+      <div className="max-w-[1320px] mx-auto px-4 md:px-6 pb-2">
+        <TodosStrip
+          days={getWeekDays(weekStart).map(toDateString)}
+          enableDrag
+          selectedProfessionalId={selectedProfessionalId}
+          layout="row"
+          professionalColorMap={professionalColorMap}
+        />
+      </div>
 
       <div className="max-w-[1320px] mx-auto px-4 md:px-6 pb-4 relative">
         {isDataLoading && (

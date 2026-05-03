@@ -62,6 +62,13 @@ const navGroups: NavGroup[] = [
         feature: "agenda_own",
       },
       {
+        href: "/tarefas",
+        label: "Tarefas",
+        icon: <ListChecksIcon className="w-4 h-4" strokeWidth={1.75} />,
+        matchPaths: ["/tarefas"],
+        feature: "todos",
+      },
+      {
         href: "/patients",
         label: "Pacientes",
         icon: <UsersIcon className="w-4 h-4" strokeWidth={1.75} />,

@@ -253,6 +253,8 @@ model Clinic {
   expenseRecurrences     ExpenseRecurrence[]
   expenseReconciliationLinks ExpenseReconciliationLink[]
   expenseCategoryPatterns    ExpenseCategoryPattern[]
+  todos                      Todo[]
+  todoRecurrences            TodoRecurrence[]
 
   @@index([slug])
   @@index([isActive])
@@ -321,6 +323,8 @@ model ProfessionalProfile {
   attendedAppointments      Appointment[]              @relation("AttendingProfessional")
   attendedInvoiceItems      InvoiceItem[]              @relation("AttendingInvoiceItems")
   repassePayments           RepassePayment[]
+  todos                     Todo[]
+  todoRecurrences           TodoRecurrence[]
 
   @@index([userId])
 }
@@ -647,6 +651,64 @@ model AppointmentRecurrence {
   @@index([clinicId])
   @@index([professionalProfileId])
   @@index([patientId])
+  @@index([isActive])
+}
+
+/// Standalone todo tasks shown in the agenda strip and managed in /tarefas.
+/// Not tied to a patient or a time slot — just a date-bound task per assignee.
+model Todo {
+  id                    String    @id @default(cuid())
+  clinicId              String
+  professionalProfileId String // assignee
+  recurrenceId          String? // child of a recurring series (nullable)
+  title                 String
+  notes                 String?
+  day                   DateTime  @db.Date
+  done                  Boolean   @default(false)
+  doneAt                DateTime?
+  order                 Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  recurrence          TodoRecurrence?     @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId])
+  @@index([professionalProfileId])
+  @@index([clinicId, day])
+  @@index([recurrenceId])
+}
+
+/// Recurring todo series. Mirrors AppointmentRecurrence but without time-slot fields.
+model TodoRecurrence {
+  id                    String            @id @default(cuid())
+  clinicId              String
+  professionalProfileId String
+  title                 String
+  notes                 String?
+  dayOfWeek             Int // 0 = Sunday, 6 = Saturday
+  recurrenceType        RecurrenceType
+  recurrenceEndType     RecurrenceEndType
+  startDate             DateTime          @db.Date
+  endDate               DateTime?         @db.Date // BY_DATE
+  occurrences           Int? // BY_OCCURRENCES
+  exceptions            String[]          @default([]) // YYYY-MM-DD strings to skip
+  lastGeneratedDate     DateTime?         @db.Date // INDEFINITE extension marker
+  isActive              Boolean           @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  todos               Todo[]
+
+  @@index([clinicId])
+  @@index([professionalProfileId])
   @@index([isActive])
 }
 

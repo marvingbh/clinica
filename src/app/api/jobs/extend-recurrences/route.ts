@@ -8,6 +8,11 @@ import {
   filterConflicts,
   buildAppointmentData,
 } from "@/lib/jobs/extend-recurrences"
+import {
+  needsTodoExtension,
+  nextBatchForRecurrence as nextBatchForTodoRecurrence,
+  parseDay,
+} from "@/lib/todos"
 
 /**
  * GET /api/jobs/extend-recurrences
@@ -33,6 +38,9 @@ export async function GET(req: Request) {
     recurrencesProcessed: 0,
     appointmentsCreated: 0,
     recurrencesSkipped: 0,
+    todoRecurrencesProcessed: 0,
+    todosCreated: 0,
+    todoRecurrencesSkipped: 0,
     errors: [] as string[],
   }
 
@@ -185,8 +193,74 @@ export async function GET(req: Request) {
       }
     }
 
+    // ----- Extend INDEFINITE todo recurrences -----
+    const todoRecurrences = await prisma.todoRecurrence.findMany({
+      where: {
+        recurrenceEndType: RecurrenceEndType.INDEFINITE,
+        isActive: true,
+      },
+      include: { clinic: { select: { id: true, isActive: true } } },
+    })
+
+    for (const rec of todoRecurrences) {
+      try {
+        if (!rec.clinic.isActive) {
+          results.todoRecurrencesSkipped++
+          continue
+        }
+        const now = new Date()
+        const lastGenerated = rec.lastGeneratedDate ? new Date(rec.lastGeneratedDate) : null
+        const startDate = new Date(rec.startDate)
+        if (!needsTodoExtension(lastGenerated, startDate, now)) {
+          results.todoRecurrencesSkipped++
+          continue
+        }
+
+        const effectiveDate = lastGenerated ?? startDate
+        const newDates = nextBatchForTodoRecurrence(
+          effectiveDate,
+          rec.recurrenceType,
+          rec.dayOfWeek,
+          rec.exceptions
+        )
+        if (newDates.length === 0) {
+          results.todoRecurrencesSkipped++
+          continue
+        }
+
+        await prisma.$transaction(async (tx) => {
+          await tx.todo.createMany({
+            data: newDates.map((iso) => ({
+              clinicId: rec.clinicId,
+              professionalProfileId: rec.professionalProfileId,
+              recurrenceId: rec.id,
+              title: rec.title,
+              notes: rec.notes,
+              day: parseDay(iso),
+              done: false,
+            })),
+          })
+          await tx.todoRecurrence.update({
+            where: { id: rec.id },
+            data: { lastGeneratedDate: parseDay(newDates[newDates.length - 1]) },
+          })
+        })
+
+        results.todosCreated += newDates.length
+        results.todoRecurrencesProcessed++
+      } catch (error) {
+        results.errors.push(
+          `TodoRecurrence ${rec.id}: ${error instanceof Error ? error.message : "Unknown error"}`
+        )
+        console.error(`[extend-recurrences] Error processing todo recurrence ${rec.id}:`, error)
+      }
+    }
+
     // Log execution to AuditLog for tracking
-    const clinicIds = [...new Set(recurrences.map((r) => r.clinicId))]
+    const clinicIds = [...new Set([
+      ...recurrences.map((r) => r.clinicId),
+      ...todoRecurrences.map((r) => r.clinicId),
+    ])]
     for (const clinicId of clinicIds) {
       await prisma.auditLog.create({
         data: {
@@ -201,6 +275,9 @@ export async function GET(req: Request) {
               recurrencesProcessed: results.recurrencesProcessed,
               appointmentsCreated: results.appointmentsCreated,
               recurrencesSkipped: results.recurrencesSkipped,
+              todoRecurrencesProcessed: results.todoRecurrencesProcessed,
+              todosCreated: results.todosCreated,
+              todoRecurrencesSkipped: results.todoRecurrencesSkipped,
               errorsCount: results.errors.length,
             },
           },
