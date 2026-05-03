@@ -257,6 +257,11 @@ export const GET = withFeatureAuth(
 
     const profFilterForQuery = professionalProfileId || (!canSeeOthers ? user.professionalProfileId : null)
 
+    // Drop recurrences whose endDate has passed — biweekly hints should not
+    // suggest a slot whose alternating partner already finished their cycle.
+    const todayDateOnly = new Date()
+    todayDateOnly.setHours(0, 0, 0, 0)
+
     const biweeklyRecurrences = await prisma.appointmentRecurrence.findMany({
       where: {
         clinicId: user.clinicId,
@@ -265,6 +270,10 @@ export const GET = withFeatureAuth(
         type: "CONSULTA",
         patientId: { not: null },
         patient: { isActive: true },
+        OR: [
+          { endDate: null },
+          { endDate: { gte: todayDateOnly } },
+        ],
         ...(profFilterForQuery ? { professionalProfileId: profFilterForQuery } : {}),
       },
       select: {
