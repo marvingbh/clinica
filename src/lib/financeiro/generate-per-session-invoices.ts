@@ -385,10 +385,10 @@ function buildItemDescription(
 ): string {
   const dateStr = showDate ? ` - ${formatDateShort(apt.scheduledAt)}` : ""
   switch (type) {
-    case "SESSAO_REGULAR": return `Sessão${dateStr}`
-    case "SESSAO_EXTRA": return `Sessão extra${dateStr}`
-    case "SESSAO_GRUPO": return `Sessão grupo${dateStr}`
-    case "REUNIAO_ESCOLA": return `${apt.title || "Reunião escola"}${dateStr}`
+    case "SESSAO_REGULAR": return `Psicoterapia individual${dateStr}`
+    case "SESSAO_EXTRA": return `Psicoterapia Individual (extra)${dateStr}`
+    case "SESSAO_GRUPO": return `Psicoterapia em grupo${dateStr}`
+    case "REUNIAO_ESCOLA": return `${apt.title || "Reunião Agendada"}${dateStr}`
     default: return `Item${dateStr}`
   }
 }

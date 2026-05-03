@@ -168,28 +168,75 @@ describe("getAttributionLayout", () => {
 })
 
 describe("enrichItemDescription", () => {
-  it("rewrites SESSAO_GRUPO to include the therapy group name", () => {
+  it("rewrites legacy SESSAO_GRUPO with the therapy group name", () => {
     const out = enrichItemDescription(
       { type: "SESSAO_GRUPO", baseDescription: "Sessão grupo - 10/03", groupName: "Keep Lua" },
       { includeGroupName: true },
     )
-    expect(out).toBe("Sessão em grupo — Keep Lua - 10/03")
+    expect(out).toBe("Psicoterapia em grupo — Keep Lua - 10/03")
   })
 
-  it("leaves description untouched when group name is missing", () => {
+  it("rewrites legacy SESSAO_GRUPO without group name to the new label", () => {
     const out = enrichItemDescription(
       { type: "SESSAO_GRUPO", baseDescription: "Sessão grupo - 10/03" },
       { includeGroupName: true },
     )
-    expect(out).toBe("Sessão grupo - 10/03")
+    expect(out).toBe("Psicoterapia em grupo - 10/03")
+  })
+
+  it("injects the group name when the description already uses the new label", () => {
+    const out = enrichItemDescription(
+      { type: "SESSAO_GRUPO", baseDescription: "Psicoterapia em grupo - 10/03", groupName: "Keep Lua" },
+      { includeGroupName: true },
+    )
+    expect(out).toBe("Psicoterapia em grupo — Keep Lua - 10/03")
+  })
+
+  it("rewrites legacy SESSAO_REGULAR to Psicoterapia individual", () => {
+    const out = enrichItemDescription(
+      { type: "SESSAO_REGULAR", baseDescription: "Sessão - 02/03" },
+    )
+    expect(out).toBe("Psicoterapia individual - 02/03")
+  })
+
+  it("does not rewrite SESSAO_REGULAR when description starts with 'Sessão extra' or 'Sessão grupo'", () => {
+    const safe1 = enrichItemDescription(
+      { type: "SESSAO_REGULAR", baseDescription: "Sessão extra - 05/03" },
+    )
+    const safe2 = enrichItemDescription(
+      { type: "SESSAO_REGULAR", baseDescription: "Sessão grupo - 05/03" },
+    )
+    expect(safe1).toBe("Sessão extra - 05/03")
+    expect(safe2).toBe("Sessão grupo - 05/03")
+  })
+
+  it("rewrites SESSAO_EXTRA to Psicoterapia Individual (extra)", () => {
+    const out = enrichItemDescription(
+      { type: "SESSAO_EXTRA", baseDescription: "Sessão extra - 05/03" },
+    )
+    expect(out).toBe("Psicoterapia Individual (extra) - 05/03")
+  })
+
+  it("rewrites legacy REUNIAO_ESCOLA fallback to Reunião Agendada", () => {
+    const out = enrichItemDescription(
+      { type: "REUNIAO_ESCOLA", baseDescription: "Reunião escola - 17/04" },
+    )
+    expect(out).toBe("Reunião Agendada - 17/04")
+  })
+
+  it("preserves a custom REUNIAO_ESCOLA title untouched", () => {
+    const out = enrichItemDescription(
+      { type: "REUNIAO_ESCOLA", baseDescription: "Reunião na escola Marista - 17/04" },
+    )
+    expect(out).toBe("Reunião na escola Marista - 17/04")
   })
 
   it("does not rewrite non-group types even when groupName is set", () => {
     const out = enrichItemDescription(
-      { type: "SESSAO_REGULAR", baseDescription: "Sessão - 02/03", groupName: "Keep Lua" },
+      { type: "SESSAO_REGULAR", baseDescription: "Psicoterapia individual - 02/03", groupName: "Keep Lua" },
       { includeGroupName: true },
     )
-    expect(out).toBe("Sessão - 02/03")
+    expect(out).toBe("Psicoterapia individual - 02/03")
   })
 
   it("appends attending name when includeAttendingName is true", () => {
@@ -201,7 +248,7 @@ describe("enrichItemDescription", () => {
       },
       { includeAttendingName: true },
     )
-    expect(out).toBe("Sessão - 02/03 · Elena")
+    expect(out).toBe("Psicoterapia individual - 02/03 · Elena")
   })
 
   it("does not append attending name on CREDITO items", () => {
@@ -226,6 +273,6 @@ describe("enrichItemDescription", () => {
       },
       { includeGroupName: true, includeAttendingName: true },
     )
-    expect(out).toBe("Sessão em grupo — Keep Lua - 10/03 · Cherlen")
+    expect(out).toBe("Psicoterapia em grupo — Keep Lua - 10/03 · Cherlen")
   })
 })
