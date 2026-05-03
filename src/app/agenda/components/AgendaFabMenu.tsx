@@ -54,7 +54,7 @@ const MENU_ITEMS: Array<{ type: FabMenuSelection; label: string; icon: React.Rea
   },
   {
     type: "REUNIAO",
-    label: "Reuniao",
+    label: "Reunião",
     icon: <UsersRoundIcon className="w-4 h-4 text-violet-600" />,
     bgClass: "bg-violet-100",
   },

@@ -103,7 +103,7 @@ const TYPE_LABELS: Record<string, string> = {
   TAREFA: "Tarefa",
   LEMBRETE: "Lembrete",
   NOTA: "Nota",
-  REUNIAO: "Reuniao",
+  REUNIAO: "Reunião",
 }
 
 const RECURRENCE_TYPE_LABELS: Record<string, string> = {

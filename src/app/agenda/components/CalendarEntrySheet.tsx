@@ -6,7 +6,7 @@ import { Sheet } from "./Sheet"
 import { InlineAlert } from "./InlineAlert"
 import { TimeInput } from "./TimeInput"
 import { DateInput } from "./DateInput"
-import { ENTRY_TYPE_LABELS } from "../lib/constants"
+import { ENTRY_TYPE_LABELS, NEW_ENTRY_TITLES } from "../lib/constants"
 import { calculateEndTime, addMonthsToDate } from "../lib/utils"
 import { PatientSearch } from "./PatientSearch"
 import { Badge } from "@/shared/components/ui/badge"
@@ -271,7 +271,7 @@ export function CalendarEntrySheet({
   ])
 
   return (
-    <Sheet isOpen={isOpen} onClose={onClose} title={`Novo(a) ${typeLabel}`}>
+    <Sheet isOpen={isOpen} onClose={onClose} title={NEW_ENTRY_TITLES[entryType]}>
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <div className="grid md:grid-cols-[1fr_320px]">
           {/* ============================================

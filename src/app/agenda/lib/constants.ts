@@ -61,7 +61,17 @@ export const ENTRY_TYPE_LABELS: Record<CalendarEntryType, string> = {
   TAREFA: "Tarefa",
   LEMBRETE: "Lembrete",
   NOTA: "Nota",
-  REUNIAO: "Reuniao",
+  REUNIAO: "Reunião",
+}
+
+// Gendered "new <type>" titles used by sheet headers. "Reunião", "Tarefa",
+// "Nota" are feminine ("Nova"); "Lembrete" is masculine ("Novo").
+export const NEW_ENTRY_TITLES: Record<CalendarEntryType, string> = {
+  CONSULTA: "Nova Consulta",
+  TAREFA: "Nova Tarefa",
+  LEMBRETE: "Novo Lembrete",
+  NOTA: "Nova Nota",
+  REUNIAO: "Nova Reunião",
 }
 
 export const ENTRY_TYPE_COLORS: Record<CalendarEntryType, {

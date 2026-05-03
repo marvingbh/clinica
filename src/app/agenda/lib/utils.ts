@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react"
 import { Appointment } from "./types"
 
 /**
@@ -232,6 +233,44 @@ export function isSameDay(date1: Date, date2: Date): boolean {
 export function isWeekend(date: Date): boolean {
   const day = date.getDay()
   return day === 0 || day === 6
+}
+
+/**
+ * Same check from a YYYY-MM-DD ISO string. Parsed as local time so the
+ * weekday matches what the user sees in the UI, regardless of timezone.
+ */
+export function isIsoWeekend(iso: string): boolean {
+  const [y, m, d] = iso.split("-").map(Number)
+  if (!y || !m || !d) return false
+  return isWeekend(new Date(y, m - 1, d))
+}
+
+/** Px widths for weekly day columns. Weekends are shrunk so weekdays get more room. */
+export const WEEKDAY_COL_MIN_PX = 120
+export const WEEKEND_COL_MIN_PX = 60
+const WEEKDAY_FLEX_GROW = 2
+const WEEKEND_FLEX_GROW = 1
+
+/** Time column width in px (matches the `w-14` Tailwind class). */
+export const TIME_COL_WIDTH_PX = 56
+
+/**
+ * Builds a `grid-template-columns` string for the weekly grid: a 56px time
+ * column followed by per-day tracks (`minmax(120px, 2fr)` weekday, or
+ * `minmax(60px, 1fr)` weekend). All three grid rows — header, todos, body —
+ * apply the same template, so columns align pixel-perfectly across rows
+ * without depending on the flex algorithm at all.
+ */
+export function dayGridTemplate(days: (Date | string)[]): string {
+  const cols = days
+    .map((d) => {
+      const isEnd = typeof d === "string" ? isIsoWeekend(d) : isWeekend(d)
+      return isEnd
+        ? `minmax(${WEEKEND_COL_MIN_PX}px, ${WEEKEND_FLEX_GROW}fr)`
+        : `minmax(${WEEKDAY_COL_MIN_PX}px, ${WEEKDAY_FLEX_GROW}fr)`
+    })
+    .join(" ")
+  return `${TIME_COL_WIDTH_PX}px ${cols}`
 }
 
 /**

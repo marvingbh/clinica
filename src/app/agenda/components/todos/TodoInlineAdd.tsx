@@ -39,6 +39,10 @@ export function TodoInlineAdd({
   const [localAssignee, setLocalAssignee] = useState(defaultProfessionalId)
   const [recurrence, setRecurrence] = useState<RecurrenceChoice>("")
   const inputRef = useRef<HTMLInputElement>(null)
+  // Ref guard (not state) so synchronous double-fires — sensitive mouse,
+  // double Enter, Enter+click — see the lock immediately. State updates
+  // batch and would let the second call slip through before the re-render.
+  const submittingRef = useRef(false)
 
   // Derive the effective assignee — when locked, the parent's choice always
   // wins, so we never need to mutate state to "stay in sync".
@@ -53,19 +57,25 @@ export function TodoInlineAdd({
   }
 
   async function commit() {
+    if (submittingRef.current) return
     const t = title.trim()
     if (!t) {
       reset()
       return
     }
-    await onAdd({
-      day: dayIso,
-      title: t,
-      professionalProfileId: assignee || defaultProfessionalId,
-      notes: notes.trim() || undefined,
-      recurrenceType: recurrence || undefined,
-    })
-    reset()
+    submittingRef.current = true
+    try {
+      await onAdd({
+        day: dayIso,
+        title: t,
+        professionalProfileId: assignee || defaultProfessionalId,
+        notes: notes.trim() || undefined,
+        recurrenceType: recurrence || undefined,
+      })
+      reset()
+    } finally {
+      submittingRef.current = false
+    }
   }
 
   return (

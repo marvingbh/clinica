@@ -6,7 +6,16 @@ import { useMountEffect } from "@/shared/hooks"
 import { useEffect } from "react"
 import { useDroppable } from "@dnd-kit/core"
 import { Appointment, GroupSession, TimeSlot } from "../../lib/types"
-import { getWeekDays, toDateString, isSameDay, isWeekend } from "../../lib/utils"
+import {
+  getWeekDays,
+  toDateString,
+  isSameDay,
+  isWeekend,
+  dayGridTemplate,
+  WEEKDAY_COL_MIN_PX,
+  WEEKEND_COL_MIN_PX,
+  TIME_COL_WIDTH_PX,
+} from "../../lib/utils"
 import { DayHeader } from "./DayHeader"
 import { AppointmentBlock } from "./AppointmentBlock"
 import { GroupSessionBlock } from "./GroupSessionBlock"
@@ -38,6 +47,8 @@ interface WeeklyGridProps {
   onAvailabilitySlotClick?: (date: string, time: string) => void
   onBiweeklyHintClick?: (date: string, time: string) => void
   showProfessional?: boolean
+  /** Row rendered between the day-of-week header and the time grid. */
+  todosRow?: React.ReactNode
   // Drag-and-drop
   canWriteAgenda?: boolean
   isDragging?: boolean
@@ -141,7 +152,7 @@ function calculateDayLayout(
   return { appointments: appointmentsWithLayout, groupSessions: groupSessionsWithLayout }
 }
 
-export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availabilitySlots, appointmentDuration, birthdayPatients = [], onAppointmentClick, onGroupSessionClick, onAlternateWeekClick, onAvailabilitySlotClick, onBiweeklyHintClick, showProfessional = false, canWriteAgenda = false, isDragging = false, projectedMinutes, projectedDate, overlappingIds = [], activeAppointmentId }: WeeklyGridProps) {
+export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availabilitySlots, appointmentDuration, birthdayPatients = [], onAppointmentClick, onGroupSessionClick, onAlternateWeekClick, onAvailabilitySlotClick, onBiweeklyHintClick, showProfessional = false, todosRow, canWriteAgenda = false, isDragging = false, projectedMinutes, projectedDate, overlappingIds = [], activeAppointmentId }: WeeklyGridProps) {
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart])
   const today = new Date()
 
@@ -210,8 +221,14 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
 
   const gridHeight = hours.length * HOUR_HEIGHT
 
-  // Minimum width for the scrollable content: time column (56px) + 7 days * 120px
-  const minContentWidth = 56 + weekDays.length * 120
+  // Minimum width for the scrollable content: time column + per-day min widths
+  const minContentWidth =
+    TIME_COL_WIDTH_PX +
+    weekDays.reduce((sum, d) => sum + (isWeekend(d) ? WEEKEND_COL_MIN_PX : WEEKDAY_COL_MIN_PX), 0)
+  // Shared grid-template-columns for header / todos row / body — guarantees
+  // every row's columns line up pixel-perfectly because the template itself is
+  // the source of truth.
+  const gridTemplateColumns = dayGridTemplate(weekDays)
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
@@ -239,16 +256,19 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
       <div className="overflow-x-auto overscroll-x-contain" ref={scrollContainerRef}>
         <div style={{ minWidth: `${minContentWidth}px` }}>
           {/* Day Headers Row */}
-          <div className="flex border-b border-border sticky top-0 bg-card z-10">
+          <div
+            className="grid border-b border-border sticky top-0 bg-card z-10"
+            style={{ gridTemplateColumns }}
+          >
             {/* Time column spacer - sticky left */}
-            <div className="w-14 shrink-0 border-r border-border sticky left-0 bg-card z-20" />
+            <div className="border-r border-border sticky left-0 bg-card z-20" />
 
             {/* Day headers */}
             {weekDays.map((day, index) => (
               <div
                 key={index}
                 className={`
-                  flex-1 min-w-[120px] border-r border-border last:border-r-0
+                  border-r border-border last:border-r-0
                   ${isSameDay(day, today) ? "bg-primary/5" : ""}
                   ${isWeekend(day) ? "bg-muted/30" : ""}
                 `}
@@ -258,10 +278,13 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
             ))}
           </div>
 
+          {/* Optional row rendered between header and time grid (todos strip) */}
+          {todosRow}
+
           {/* Grid Body */}
-          <div className="flex">
+          <div className="grid" style={{ gridTemplateColumns }}>
             {/* Time Column - sticky left so it stays visible while scrolling */}
-            <div className="w-14 shrink-0 border-r border-border sticky left-0 bg-card z-[5]">
+            <div className="border-r border-border sticky left-0 bg-card z-[5]">
               {hours.map((hour) => (
                 <div
                   key={hour}
@@ -445,7 +468,7 @@ function DroppableDayColumn({
       data-date={dateStr}
       {...(isCurrentDay ? { "data-today": true } : {})}
       className={`
-        flex-1 min-w-[120px] border-r border-border last:border-r-0 relative
+        border-r border-border last:border-r-0 relative
         ${isCurrentDay ? "bg-primary/5" : ""}
         ${weekend ? "bg-muted/30" : ""}
         ${isOver ? "bg-primary/[0.03]" : ""}

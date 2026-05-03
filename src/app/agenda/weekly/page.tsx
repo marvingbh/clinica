@@ -248,15 +248,6 @@ function WeeklyAgendaPageContent() {
         </p>
       </SwipeContainer>
 
-      <div className="max-w-[1320px] mx-auto px-4 md:px-6 pb-2">
-        <TodosStrip
-          days={getWeekDays(weekStart).map(toDateString)}
-          selectedProfessionalId={selectedProfessionalId}
-          layout="row"
-          professionalColorMap={professionalColorMap}
-        />
-      </div>
-
       <div className="max-w-[1320px] mx-auto px-4 md:px-6 pb-4 relative">
         {isDataLoading && (
           <div className="absolute inset-0 bg-background/60 z-20 flex items-center justify-center rounded-lg backdrop-blur-[1px]">
@@ -286,6 +277,14 @@ function WeeklyAgendaPageContent() {
             projectedDate={drag.projectedDate}
             overlappingIds={drag.overlappingIds}
             activeAppointmentId={drag.activeAppointment?.id}
+            todosRow={
+              <TodosStrip
+                days={getWeekDays(weekStart).map(toDateString)}
+                selectedProfessionalId={selectedProfessionalId}
+                layout="row"
+                professionalColorMap={professionalColorMap}
+              />
+            }
           />
         </AgendaDndWrapper>
       </div>

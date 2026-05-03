@@ -6,13 +6,17 @@ import { useMountEffect } from "@/shared/hooks"
 import { useTodos } from "./useTodos"
 import { TodoCard } from "./TodoCard"
 import { TodoInlineAdd } from "./TodoInlineAdd"
-import { sortCombined, maxOpenCountByDay } from "@/lib/todos"
+import { sortCombined } from "@/lib/todos"
+import { dayGridTemplate } from "@/app/agenda/lib/utils"
 import { loadProfessionals, type ProfessionalLite } from "@/lib/professionals/list"
 import {
   createProfessionalColorMap,
   type ProfessionalColorMap,
 } from "@/app/agenda/lib/professional-colors"
+import { ChevronUpIcon, ChevronDownIcon } from "@/shared/components/ui/icons"
 import type { TodoListItem } from "@/app/tarefas/types"
+
+const COLLAPSED_KEY = "agenda-todos-strip-collapsed"
 
 interface Props {
   /** YYYY-MM-DD ISO strings, in display order (1 day for daily, 7 for weekly) */
@@ -86,12 +90,20 @@ export function TodosStrip({
     return map
   }, [todos, days])
 
-  const maxOpen = useMemo(() => {
-    const flat = todos.map((t) => ({ day: t.day.slice(0, 10), done: t.done }))
-    return Math.max(1, maxOpenCountByDay(flat))
-  }, [todos])
-
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false
+    return window.localStorage.getItem(COLLAPSED_KEY) === "1"
+  })
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((prev) => {
+      const next = !prev
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(COLLAPSED_KEY, next ? "1" : "0")
+      }
+      return next
+    })
+  }, [])
 
   const handleDragStart = useCallback((e: React.DragEvent, t: TodoListItem) => {
     // Custom MIME so a stray drop into a text field doesn't paste the UUID.
@@ -141,24 +153,81 @@ export function TodosStrip({
   const lockedProfId = isAdmin && selectedProfessionalId ? selectedProfessionalId : !isAdmin ? myProfId : ""
   const defaultProfId = lockedProfId || professionals[0]?.id || ""
   const canPickProfessional = !lockedProfId && isAdmin
-  const stripHeight = Math.max(140, maxOpen * 56 + 60)
 
   if (!defaultProfId && !isAdmin) return null
+
+  // Total counts across all visible days for the collapsed-bar summary.
+  const totalRemaining = todos.filter((t) => !t.done).length
+  const totalCompleted = todos.length - totalRemaining
+
+  if (collapsed) {
+    return (
+      <div className="flex items-center justify-between border-b border-ink-200 bg-ink-50/30 px-3 py-1.5 sticky left-0 z-[5]">
+        <span className="text-[10px] uppercase tracking-[0.12em] text-ink-500 font-semibold">
+          Tarefas
+          {(totalRemaining > 0 || totalCompleted > 0) && (
+            <span className="ml-2 inline-flex items-center gap-0.5 px-1.5 py-[1px] rounded-full bg-ink-100 text-ink-700">
+              {totalRemaining}
+              {totalCompleted > 0 && (
+                <span className="opacity-50 font-normal">· {totalCompleted} ✓</span>
+              )}
+            </span>
+          )}
+        </span>
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className="w-5 h-5 grid place-items-center text-ink-500 hover:text-ink-800 hover:bg-ink-100 rounded"
+          title="Mostrar tarefas"
+        >
+          <ChevronDownIcon className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div
       className={
         layout === "row"
-          ? "flex border-b border-ink-200 bg-ink-50/30"
+          ? "grid border-b border-ink-200 bg-ink-50/30"
           : "border-b border-ink-200 bg-ink-50/30 px-3 py-2"
       }
+      style={layout === "row" ? { gridTemplateColumns: dayGridTemplate(days) } : undefined}
     >
-      {/* Time column spacer to align with weekly grid */}
-      {layout === "row" && <div className="w-14 shrink-0 border-r border-ink-200 bg-card" />}
+      {/* Time column with rotated "Tarefas" label + collapse toggle, aligned to the agenda grid's left column */}
+      {layout === "row" && (
+        <div className="border-r border-border sticky left-0 bg-card z-[5] flex flex-col items-center py-2">
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="w-5 h-5 grid place-items-center text-ink-500 hover:text-ink-800 hover:bg-ink-100 rounded mb-1"
+            title="Esconder tarefas"
+          >
+            <ChevronUpIcon className="w-3.5 h-3.5" />
+          </button>
+          <span className="[writing-mode:vertical-rl] rotate-180 text-[10px] uppercase tracking-[0.12em] text-ink-500 font-semibold">
+            Tarefas
+          </span>
+        </div>
+      )}
+      {layout === "single" && (
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] uppercase tracking-[0.12em] text-ink-500 font-semibold">
+            Tarefas
+          </span>
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="w-5 h-5 grid place-items-center text-ink-500 hover:text-ink-800 hover:bg-ink-100 rounded"
+            title="Esconder tarefas"
+          >
+            <ChevronUpIcon className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       {days.map((day) => {
         const dayTodos = todosByDay.get(day) ?? []
-        const remaining = dayTodos.filter((t) => !t.done).length
-        const completed = dayTodos.filter((t) => t.done).length
         return (
           <div
             key={day}
@@ -166,22 +235,10 @@ export function TodosStrip({
             onDrop={(e) => onDropToDay(day, e)}
             className={
               layout === "row"
-                ? "flex-1 min-w-[120px] border-r border-ink-100 last:border-r-0 px-2 py-2 flex flex-col gap-1.5"
+                ? "border-r border-ink-100 last:border-r-0 px-2 py-2 flex flex-col gap-1.5 min-w-0"
                 : "flex flex-col gap-1.5"
             }
-            style={layout === "row" ? { minHeight: stripHeight } : undefined}
           >
-            {layout === "row" && (
-              <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.08em] text-ink-500 px-0.5 pb-0.5">
-                <span>Tarefas</span>
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-[1px] rounded-full bg-ink-100 text-ink-700 font-semibold">
-                  {remaining}
-                  {completed > 0 && (
-                    <span className="opacity-50 font-normal">· {completed} ✓</span>
-                  )}
-                </span>
-              </div>
-            )}
             <TodoInlineAdd
               dayIso={day}
               defaultProfessionalId={defaultProfId}
@@ -189,15 +246,13 @@ export function TodosStrip({
               canPickProfessional={canPickProfessional}
               onAdd={quickAdd}
             />
-            <div
-              className="flex flex-col gap-1.5 overflow-y-auto"
-              style={layout === "row" ? { maxHeight: maxOpen * 60 } : undefined}
-            >
+            <div className="flex flex-col gap-1.5">
               {dayTodos.map((t) => (
                 <div key={t.id} className={t.id === draggingId ? "opacity-40" : ""}>
                   <TodoCard
                     todo={t}
                     draggable={enableDrag}
+                    compact={layout === "row"}
                     professionalColorMap={colorMap}
                     onToggle={toggleDone}
                     onMove={moveToDay}

@@ -29,7 +29,7 @@ describe("formatFieldValue", () => {
   it("formats appointment type enums", () => {
     expect(formatFieldValue("type", "CONSULTA")).toBe("Consulta")
     expect(formatFieldValue("type", "TAREFA")).toBe("Tarefa")
-    expect(formatFieldValue("type", "REUNIAO")).toBe("Reuniao")
+    expect(formatFieldValue("type", "REUNIAO")).toBe("Reunião")
   })
 
   it("formats recurrence type enums", () => {

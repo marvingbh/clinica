@@ -18,6 +18,8 @@ import { TodoMenu } from "./TodoMenu"
 interface Props {
   todo: TodoListItem
   draggable?: boolean
+  /** When true, only the title is shown by default; metadata and notes are revealed on hover. */
+  compact?: boolean
   professionalColorMap: ProfessionalColorMap
   onToggle: (t: TodoListItem) => void
   onMove: (t: TodoListItem, dayIso: string) => void
@@ -30,6 +32,7 @@ interface Props {
 export function TodoCard({
   todo,
   draggable,
+  compact,
   professionalColorMap,
   onToggle,
   onMove,
@@ -89,7 +92,11 @@ export function TodoCard({
             <MoreHorizontalIcon className="w-3 h-3" />
           </button>
         </div>
-        <div className="pl-5 flex flex-wrap gap-1 text-[10.5px] leading-[1.3]">
+        <div
+          className={`pl-5 flex flex-wrap gap-1 text-[10.5px] leading-[1.3] ${
+            compact ? "hidden group-hover:flex" : ""
+          }`}
+        >
           <span
             className={`inline-flex items-center gap-1 px-1.5 py-[1px] rounded-[4px] font-medium ${profColor.bg} ${profColor.text}`}
           >
@@ -115,7 +122,13 @@ export function TodoCard({
           )}
         </div>
         {todo.notes && (
-          <div className="pl-5 text-[11px] text-ink-500 italic leading-[1.3]">{todo.notes}</div>
+          <div
+            className={`pl-5 text-[11px] text-ink-500 italic leading-[1.3] ${
+              compact ? "hidden group-hover:block" : ""
+            }`}
+          >
+            {todo.notes}
+          </div>
         )}
       </div>
       {menuAt && (
