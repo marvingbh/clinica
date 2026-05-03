@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { Role } from "@prisma/client"
+import { Prisma, Role } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 
@@ -21,14 +21,16 @@ export const POST = withFeatureAuth(
     }
     const { ids, action } = parsed.data
 
-    const where: Record<string, unknown> = { id: { in: ids }, clinicId: user.clinicId }
+    const where: Prisma.TodoWhereInput = { id: { in: ids }, clinicId: user.clinicId }
     if (user.role !== Role.ADMIN && user.professionalProfileId) {
       where.professionalProfileId = user.professionalProfileId
     }
 
     if (action === "delete") {
       const result = await prisma.todo.deleteMany({ where })
-      return NextResponse.json({ count: result.count })
+      // `requested` lets the client surface "X of Y were skipped" if the user
+      // accidentally selected rows they don't own.
+      return NextResponse.json({ requested: ids.length, count: result.count })
     }
 
     const done = action === "complete"
@@ -36,6 +38,6 @@ export const POST = withFeatureAuth(
       where,
       data: { done, doneAt: done ? new Date() : null },
     })
-    return NextResponse.json({ count: result.count })
+    return NextResponse.json({ requested: ids.length, count: result.count })
   }
 )

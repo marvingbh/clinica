@@ -676,10 +676,14 @@ model Todo {
   professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
   recurrence          TodoRecurrence?     @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
 
-  @@index([clinicId])
   @@index([professionalProfileId])
+  // Composite covers any clinicId-only query via leftmost-prefix.
   @@index([clinicId, day])
   @@index([recurrenceId])
+  // A partial unique index `(recurrenceId, day) WHERE recurrenceId IS NOT NULL`
+  // is enforced at the DB level (see migration 20260503100000) to make the
+  // cron's createMany idempotent. Prisma DSL can't express partial uniques,
+  // so it isn't declared here — but skipDuplicates relies on it.
 }
 
 /// Recurring todo series. Mirrors AppointmentRecurrence but without time-slot fields.

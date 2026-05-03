@@ -1,9 +1,7 @@
 import type { RecurrenceType, RecurrenceEndType } from "@prisma/client"
 
-export interface ProfessionalLite {
-  id: string
-  name: string
-}
+// Re-export the shared shape so existing imports keep working.
+export type { ProfessionalLite } from "@/lib/professionals/list"
 
 export interface TodoListItem {
   id: string

@@ -4,15 +4,17 @@ import { useRef, useState } from "react"
 import { PlusIcon } from "@/shared/components/ui/icons"
 import type { ProfessionalLite } from "@/app/tarefas/types"
 
+type RecurrenceChoice = "" | "WEEKLY" | "BIWEEKLY" | "MONTHLY"
+
 interface Props {
   dayIso: string
   defaultProfessionalId: string
   professionals: ProfessionalLite[]
   /**
    * When true, the assignee picker is shown so the user can choose. When false,
-   * `defaultProfessionalId` is used silently. Locked happens when the agenda
-   * already has a specific professional selected — adding a todo there should
-   * inherit that selection.
+   * `defaultProfessionalId` is used silently. The locked case happens when the
+   * agenda already has a specific professional selected — adding a todo there
+   * should inherit that selection.
    */
   canPickProfessional: boolean
   onAdd: (args: {
@@ -20,7 +22,7 @@ interface Props {
     title: string
     professionalProfileId: string
     notes?: string
-    recurrence?: { recurrenceType: "WEEKLY" | "BIWEEKLY" | "MONTHLY"; recurrenceEndType: "INDEFINITE" }
+    recurrenceType?: "WEEKLY" | "BIWEEKLY" | "MONTHLY"
   }) => Promise<void>
 }
 
@@ -34,19 +36,18 @@ export function TodoInlineAdd({
   const [expanded, setExpanded] = useState(false)
   const [title, setTitle] = useState("")
   const [notes, setNotes] = useState("")
-  const [assignee, setAssignee] = useState(defaultProfessionalId)
-  const [recurrence, setRecurrence] = useState<"" | "WEEKLY" | "BIWEEKLY" | "MONTHLY">("")
+  const [localAssignee, setLocalAssignee] = useState(defaultProfessionalId)
+  const [recurrence, setRecurrence] = useState<RecurrenceChoice>("")
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // If the parent locks the professional, keep our internal state synced.
-  if (!canPickProfessional && assignee !== defaultProfessionalId) {
-    setAssignee(defaultProfessionalId)
-  }
+  // Derive the effective assignee — when locked, the parent's choice always
+  // wins, so we never need to mutate state to "stay in sync".
+  const assignee = canPickProfessional ? localAssignee : defaultProfessionalId
 
   function reset() {
     setTitle("")
     setNotes("")
-    setAssignee(defaultProfessionalId)
+    setLocalAssignee(defaultProfessionalId)
     setRecurrence("")
     setExpanded(false)
   }
@@ -60,9 +61,9 @@ export function TodoInlineAdd({
     await onAdd({
       day: dayIso,
       title: t,
-      professionalProfileId: canPickProfessional ? (assignee || defaultProfessionalId) : defaultProfessionalId,
+      professionalProfileId: assignee || defaultProfessionalId,
       notes: notes.trim() || undefined,
-      recurrence: recurrence ? { recurrenceType: recurrence, recurrenceEndType: "INDEFINITE" } : undefined,
+      recurrenceType: recurrence || undefined,
     })
     reset()
   }
@@ -106,8 +107,8 @@ export function TodoInlineAdd({
           <div className="flex flex-wrap gap-1 items-center pt-0.5">
             {canPickProfessional && (
               <select
-                value={assignee}
-                onChange={(e) => setAssignee(e.target.value)}
+                value={localAssignee}
+                onChange={(e) => setLocalAssignee(e.target.value)}
                 className="bg-card border border-ink-200 rounded-[6px] px-1.5 py-[1px] text-[10.5px]! text-ink-700"
               >
                 {professionals.map((p) => (
@@ -119,9 +120,7 @@ export function TodoInlineAdd({
             )}
             <select
               value={recurrence}
-              onChange={(e) =>
-                setRecurrence(e.target.value as "" | "WEEKLY" | "BIWEEKLY" | "MONTHLY")
-              }
+              onChange={(e) => setRecurrence(e.target.value as RecurrenceChoice)}
               className="bg-card border border-ink-200 rounded-[6px] px-1.5 py-[1px] text-[10.5px]! text-ink-700"
             >
               <option value="">Sem recorrência</option>

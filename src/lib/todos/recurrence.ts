@@ -94,9 +94,13 @@ export function calculateTodoRecurrenceDates(
 export function calculateNextWindowTodoDates(
   lastGeneratedDate: string | Date,
   recurrenceType: RecurrenceType,
-  dayOfWeek: number,
+  _dayOfWeek: number,
   extensionMonths: number = INDEFINITE_EXTENSION_MONTHS
 ): string[] {
+  // _dayOfWeek is kept for parity with the appointment-side helper but is
+  // unused: WEEKLY/BIWEEKLY are anchored to `last` and `last + n*7d` always
+  // returns the same `getDay()`, so a per-occurrence dayOfWeek check would
+  // never reject anything.
   const dates: string[] = []
   const last = typeof lastGeneratedDate === "string" ? parseDay(lastGeneratedDate) : new Date(lastGeneratedDate)
   last.setHours(12, 0, 0, 0)
@@ -114,10 +118,6 @@ export function calculateNextWindowTodoDates(
       current = new Date(last.getTime() + count * intervalDays * 24 * 60 * 60 * 1000)
     }
     if (current > endDate) break
-    if (recurrenceType !== RecurrenceType.MONTHLY && current.getDay() !== dayOfWeek) {
-      count++
-      continue
-    }
     dates.push(formatDay(current))
     count++
   }

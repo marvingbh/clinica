@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { Role } from "@prisma/client"
+import { Prisma, Role } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { parseDay } from "@/lib/todos"
@@ -60,11 +60,24 @@ export const PATCH = withFeatureAuth(
       return NextResponse.json({ error: "Voce so pode atribuir a si mesmo" }, { status: 403 })
     }
 
-    const updateData: Record<string, unknown> = {}
+    // Cross-tenant guard: an admin reassigning the todo MUST land on a
+    // professional that belongs to this clinic, otherwise we'd silently corrupt
+    // the FK across tenants.
+    if (data.professionalProfileId && data.professionalProfileId !== todo.professionalProfileId) {
+      const prof = await prisma.professionalProfile.findFirst({
+        where: { id: data.professionalProfileId, user: { clinicId: user.clinicId } },
+        select: { id: true },
+      })
+      if (!prof) return NextResponse.json({ error: "Responsavel invalido" }, { status: 400 })
+    }
+
+    const updateData: Prisma.TodoUpdateInput = {}
     if (data.title !== undefined) updateData.title = data.title
     if (data.notes !== undefined) updateData.notes = data.notes
     if (data.day !== undefined) updateData.day = parseDay(data.day)
-    if (data.professionalProfileId !== undefined) updateData.professionalProfileId = data.professionalProfileId
+    if (data.professionalProfileId !== undefined) {
+      updateData.professionalProfile = { connect: { id: data.professionalProfileId } }
+    }
     if (data.order !== undefined) updateData.order = data.order
     if (data.done !== undefined) {
       updateData.done = data.done

@@ -251,7 +251,6 @@ function WeeklyAgendaPageContent() {
       <div className="max-w-[1320px] mx-auto px-4 md:px-6 pb-2">
         <TodosStrip
           days={getWeekDays(weekStart).map(toDateString)}
-          enableDrag
           selectedProfessionalId={selectedProfessionalId}
           layout="row"
           professionalColorMap={professionalColorMap}

@@ -1,6 +1,8 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { useMountEffect, useRequireAuth, usePermission } from "@/shared/hooks"
@@ -10,6 +12,8 @@ import { PendenciasStatCards } from "./components/PendenciasStatCards"
 import { PendenciasFiltersBar } from "./components/PendenciasFiltersBar"
 import { PendenciasTable } from "./components/PendenciasTable"
 import { PendenciasBulkBar } from "./components/PendenciasBulkBar"
+import { loadProfessionals } from "@/lib/professionals/list"
+import { todayIso, addDays } from "@/lib/todos"
 import type {
   PendingAppointment,
   ProfessionalLite,
@@ -20,16 +24,6 @@ import type {
 
 const PAGE_SIZE = 50
 const DEFAULT_WINDOW_DAYS = 90
-
-function todayIso() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
-function isoDaysAgo(n: number) {
-  const d = new Date()
-  d.setDate(d.getDate() - n)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
 
 function statusFilterToParam(s: StatusFilter): string | null {
   switch (s) {
@@ -59,7 +53,7 @@ export default function PendenciasPage() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pendentes")
   const [profFilter, setProfFilter] = useState("all")
-  const [fromIso, setFromIso] = useState(isoDaysAgo(DEFAULT_WINDOW_DAYS))
+  const [fromIso, setFromIso] = useState(addDays(todayIso(), -DEFAULT_WINDOW_DAYS))
   const [toIso, setToIso] = useState(todayIso())
 
   const [sort, setSort] = useState<SortState>({ key: "date", dir: "asc" })
@@ -68,7 +62,16 @@ export default function PendenciasPage() {
   const [bulkBusy, setBulkBusy] = useState(false)
   const [page, setPage] = useState(0)
 
+  const reqIdRef = useRef(0)
+  const abortRef = useRef<AbortController | null>(null)
+  const mountedRef = useRef(true)
+
   const reload = useCallback(async () => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+    const reqId = ++reqIdRef.current
+
     const params = new URLSearchParams()
     params.set("from", fromIso)
     params.set("to", toIso)
@@ -76,46 +79,47 @@ export default function PendenciasPage() {
     const statusParam = statusFilterToParam(statusFilter)
     if (statusParam) params.set("status", statusParam)
     if (isAdmin && profFilter !== "all") params.set("professionalProfileId", profFilter)
-    const res = await fetch(`/api/appointments/pendencias?${params}`)
-    if (!res.ok) {
-      toast.error("Erro ao carregar pendências")
+
+    try {
+      const res = await fetch(`/api/appointments/pendencias?${params}`, { signal: controller.signal })
+      if (!res.ok) {
+        toast.error("Erro ao carregar pendências")
+        if (mountedRef.current) setLoaded(true)
+        return
+      }
+      const data = await res.json()
+      if (reqId !== reqIdRef.current || !mountedRef.current) return
+      setRows(data.appointments ?? [])
       setLoaded(true)
-      return
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return
+      toast.error("Erro ao carregar pendências")
+      if (mountedRef.current) setLoaded(true)
     }
-    const data = await res.json()
-    setRows(data.appointments ?? [])
-    setLoaded(true)
   }, [fromIso, toIso, search, statusFilter, profFilter, isAdmin])
 
   useMountEffect(() => {
     if (!isReady) return
-    reload()
     if (isAdmin) {
-      fetch("/api/professionals")
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data) => {
-          if (!data) return
-          const list: ProfessionalLite[] = (data.professionals ?? [])
-            .filter((p: { professionalProfile?: { id: string } }) => p.professionalProfile?.id)
-            .map((p: { name: string; professionalProfile: { id: string } }) => ({
-              id: p.professionalProfile.id,
-              name: p.name,
-            }))
-          setProfessionals(list)
-        })
+      loadProfessionals().then((list) => {
+        if (mountedRef.current) setProfessionals(list)
+      })
     } else if (myProfId) {
       setProfessionals([{ id: myProfId, name: session?.user?.name ?? "Eu" }])
     }
+    return () => {
+      mountedRef.current = false
+      abortRef.current?.abort()
+    }
   })
 
-  // refetch when filter args change
-  const refetchKey = `${fromIso}|${toIso}|${statusFilter}|${profFilter}|${search}`
-  const [lastKey, setLastKey] = useState(refetchKey)
-  if (lastKey !== refetchKey) {
-    setLastKey(refetchKey)
+  // Refetch whenever filter args change. The hook closes over them through
+  // `reload`'s dependency list, so a single `[reload]` dep covers all of them.
+  useEffect(() => {
+    if (!isReady) return
     reload()
     setPage(0)
-  }
+  }, [reload, isReady])
 
   const filtered = useMemo(() => {
     const out = rows.slice()
@@ -208,6 +212,7 @@ export default function PendenciasPage() {
   async function applyBulkStatus(status: AppointmentStatus) {
     if (selected.size === 0) return
     const ids = Array.from(selected)
+    const controller = new AbortController()
     setBulkBusy(true)
     setBusyIds((s) => {
       const n = new Set(s)
@@ -215,26 +220,36 @@ export default function PendenciasPage() {
       return n
     })
     try {
-      const results = await Promise.all(
-        ids.map(async (id) => {
-          const res = await fetch(`/api/appointments/${id}/status`, {
+      // allSettled so a single failure doesn't abort the in-flight peers.
+      const results = await Promise.allSettled(
+        ids.map((id) =>
+          fetch(`/api/appointments/${id}/status`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status }),
-          })
-          return { id, ok: res.ok }
-        })
+            signal: controller.signal,
+          }).then((res) => ({ id, ok: res.ok }))
+        )
       )
-      const ok = results.filter((r) => r.ok).length
-      const fail = results.length - ok
+      if (!mountedRef.current) return
+      const ok = results.filter((r) => r.status === "fulfilled" && r.value.ok).length
+      const fail = ids.length - ok
       if (fail === 0) toast.success(`${ok} atualizada${ok === 1 ? "" : "s"}`)
       else if (ok === 0) toast.error(`Falha em todas as ${fail}`)
       else toast.warning(`${ok} atualizadas, ${fail} falharam`)
       setSelected(new Set())
       await reload()
     } finally {
-      setBulkBusy(false)
-      setBusyIds(new Set())
+      if (mountedRef.current) {
+        setBulkBusy(false)
+        // Only clear ids that were part of THIS batch — preserves any
+        // single-row busy state set in parallel.
+        setBusyIds((s) => {
+          const n = new Set(s)
+          for (const id of ids) n.delete(id)
+          return n
+        })
+      }
     }
   }
 

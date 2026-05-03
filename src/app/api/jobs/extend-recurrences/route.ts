@@ -239,6 +239,9 @@ export async function GET(req: Request) {
               day: parseDay(iso),
               done: false,
             })),
+            // Partial unique index on (recurrenceId, day) makes this safe
+            // against retries / partial failures.
+            skipDuplicates: true,
           })
           await tx.todoRecurrence.update({
             where: { id: rec.id },

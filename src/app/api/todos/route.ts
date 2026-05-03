@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { Role, RecurrenceType, RecurrenceEndType } from "@prisma/client"
+import { Prisma, Role, RecurrenceType, RecurrenceEndType } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import {
   calculateTodoRecurrenceDates,
   validateTodoRecurrenceOptions,
   parseDay,
+  todayIso,
 } from "@/lib/todos"
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data invalida (YYYY-MM-DD)")
@@ -38,14 +39,19 @@ export const GET = withFeatureAuth(
   { feature: "todos", minAccess: "READ" },
   async (req, { user }) => {
     const { searchParams } = new URL(req.url)
-    const from = searchParams.get("from")
-    const to = searchParams.get("to")
+    const fromRaw = searchParams.get("from")
+    const toRaw = searchParams.get("to")
     const status = searchParams.get("status") ?? "all"
     const assignee = searchParams.get("assignee") ?? "all"
     const recurrence = searchParams.get("recurrence") ?? "all"
-    const q = searchParams.get("q")?.trim() ?? ""
+    const q = (searchParams.get("q") ?? "").trim().slice(0, 200)
 
-    const where: Record<string, unknown> = { clinicId: user.clinicId }
+    const isoRe = /^\d{4}-\d{2}-\d{2}$/
+    if ((fromRaw && !isoRe.test(fromRaw)) || (toRaw && !isoRe.test(toRaw))) {
+      return NextResponse.json({ error: "Data invalida (YYYY-MM-DD)" }, { status: 400 })
+    }
+
+    const where: Prisma.TodoWhereInput = { clinicId: user.clinicId }
 
     // Scope to professional unless ADMIN
     if (user.role !== Role.ADMIN && user.professionalProfileId) {
@@ -54,19 +60,20 @@ export const GET = withFeatureAuth(
       where.professionalProfileId = assignee
     }
 
-    if (from || to) {
-      const dayFilter: Record<string, Date> = {}
-      if (from) dayFilter.gte = parseDay(from)
-      if (to) dayFilter.lte = parseDay(to)
-      where.day = dayFilter
-    }
+    // Build the day filter once so the overdue branch can extend it without
+    // accidentally clobbering `from`/`to` bounds.
+    const dayFilter: Prisma.DateTimeFilter = {}
+    if (fromRaw) dayFilter.gte = parseDay(fromRaw)
+    if (toRaw) dayFilter.lte = parseDay(toRaw)
 
     if (status === "open") where.done = false
     else if (status === "done") where.done = true
     else if (status === "overdue") {
       where.done = false
-      where.day = { ...(where.day as Record<string, Date> | undefined), lt: parseDay(todayIso()) }
+      dayFilter.lt = parseDay(todayIso())
     }
+
+    if (Object.keys(dayFilter).length > 0) where.day = dayFilter
 
     if (recurrence === "none") where.recurrenceId = null
     else if (recurrence === "weekly" || recurrence === "biweekly" || recurrence === "monthly") {
@@ -148,22 +155,23 @@ export const POST = withFeatureAuth(
       return NextResponse.json({ todo }, { status: 201 })
     }
 
-    // Recurring todo
+    // Recurring todo — control flow has already proven `data.recurrence` is non-null.
+    const recOpts = data.recurrence
     const validation = validateTodoRecurrenceOptions({
-      recurrenceType: data.recurrence.recurrenceType as RecurrenceType,
-      recurrenceEndType: data.recurrence.recurrenceEndType as RecurrenceEndType,
-      endDate: data.recurrence.endDate,
-      occurrences: data.recurrence.occurrences,
+      recurrenceType: recOpts.recurrenceType,
+      recurrenceEndType: recOpts.recurrenceEndType,
+      endDate: recOpts.endDate,
+      occurrences: recOpts.occurrences,
     })
     if (!validation.valid) {
       return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
     const dates = calculateTodoRecurrenceDates(data.day, {
-      recurrenceType: data.recurrence.recurrenceType as RecurrenceType,
-      recurrenceEndType: data.recurrence.recurrenceEndType as RecurrenceEndType,
-      endDate: data.recurrence.endDate,
-      occurrences: data.recurrence.occurrences,
+      recurrenceType: recOpts.recurrenceType,
+      recurrenceEndType: recOpts.recurrenceEndType,
+      endDate: recOpts.endDate,
+      occurrences: recOpts.occurrences,
     })
 
     const dayOfWeek = parseDay(data.day).getDay()
@@ -176,11 +184,11 @@ export const POST = withFeatureAuth(
           title: data.title,
           notes: data.notes ?? null,
           dayOfWeek,
-          recurrenceType: data.recurrence!.recurrenceType as RecurrenceType,
-          recurrenceEndType: data.recurrence!.recurrenceEndType as RecurrenceEndType,
+          recurrenceType: recOpts.recurrenceType,
+          recurrenceEndType: recOpts.recurrenceEndType,
           startDate: parseDay(data.day),
-          endDate: data.recurrence!.endDate ? parseDay(data.recurrence!.endDate) : null,
-          occurrences: data.recurrence!.occurrences ?? null,
+          endDate: recOpts.endDate ? parseDay(recOpts.endDate) : null,
+          occurrences: recOpts.occurrences ?? null,
           lastGeneratedDate: parseDay(dates[dates.length - 1]),
         },
       })
@@ -194,6 +202,7 @@ export const POST = withFeatureAuth(
           day: parseDay(iso),
           done: false,
         })),
+        skipDuplicates: true,
       })
       return rec
     })
@@ -201,11 +210,3 @@ export const POST = withFeatureAuth(
     return NextResponse.json({ recurrence, count: dates.length }, { status: 201 })
   }
 )
-
-function todayIso(): string {
-  const d = new Date()
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, "0")
-  const day = String(d.getDate()).padStart(2, "0")
-  return `${year}-${month}-${day}`
-}

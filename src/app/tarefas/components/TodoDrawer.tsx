@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { createPortal } from "react-dom"
-import { useMountEffect, useHasMounted } from "@/shared/hooks"
+import { useMountEffect } from "@/shared/hooks"
 import { XIcon, TrashIcon } from "@/shared/components/ui/icons"
 import type { ProfessionalLite, TodoFormData } from "../types"
 
@@ -27,7 +27,6 @@ export function TodoDrawer({
 }: Props) {
   const [draft, setDraft] = useState<TodoFormData>(initial)
   const [saving, setSaving] = useState(false)
-  const mounted = useHasMounted()
 
   useMountEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -51,13 +50,24 @@ export function TodoDrawer({
     }
   }
 
-  if (!mounted) return null
-
+  // The drawer can only open from a click handler, so it never renders during
+  // SSR — safe to portal into document.body without a mount gate.
   return createPortal(
     <div
       className="fixed inset-0 z-50 bg-[rgba(15,23,41,0.35)] grid place-items-center p-4"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        // Track that the gesture *started* on the backdrop. Without this, a
+        // mouseup that happens to land on the backdrop after a drag inside an
+        // open <select> would close the drawer mid-form (Safari).
+        if (e.target === e.currentTarget) {
+          ;(e.currentTarget as HTMLElement).dataset.backdropDown = "1"
+        }
+      }}
+      onMouseUp={(e) => {
+        const el = e.currentTarget as HTMLElement
+        const startedOnBackdrop = el.dataset.backdropDown === "1"
+        delete el.dataset.backdropDown
+        if (startedOnBackdrop && e.target === el) onClose()
       }}
     >
       <div className="w-[520px] max-w-[92vw] max-h-[88vh] bg-card rounded-[14px] flex flex-col overflow-hidden shadow-[0_30px_80px_rgba(15,23,41,0.25)] text-[13px]">

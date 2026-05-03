@@ -289,7 +289,6 @@ export default function AgendaPage() {
       <div className="max-w-[1320px] mx-auto px-4 md:px-6 pb-2">
         <TodosStrip
           days={[toDateString(selectedDate)]}
-          enableDrag={false}
           selectedProfessionalId={selectedProfessionalId}
           layout="single"
           professionalColorMap={professionalColorMap}

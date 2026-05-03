@@ -32,10 +32,15 @@ export function TodoMenu({ todo, anchorRect, onClose, onMove, onDuplicate, onDel
       const target = e.target as HTMLElement
       if (!target.closest("[data-todo-menu]")) onClose()
     }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose()
+    }
     const id = setTimeout(() => document.addEventListener("mousedown", handle), 0)
+    document.addEventListener("keydown", onKey)
     return () => {
       clearTimeout(id)
       document.removeEventListener("mousedown", handle)
+      document.removeEventListener("keydown", onKey)
     }
   })
 

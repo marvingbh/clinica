@@ -55,7 +55,7 @@ export const GET = withFeatureAuth(
     const explicitFrom = parseDayParam(searchParams.get("from"))
     const explicitTo = parseDayParam(searchParams.get("to"))
     const requestedProfId = searchParams.get("professionalProfileId")
-    const q = searchParams.get("q")?.trim() ?? ""
+    const q = (searchParams.get("q") ?? "").trim().slice(0, 200)
 
     const from = explicitFrom ?? new Date(now.getTime() - DEFAULT_WINDOW_DAYS * 86400_000)
     // upper bound: end of the user-chosen day if explicit, otherwise "now" (so

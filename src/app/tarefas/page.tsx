@@ -5,13 +5,14 @@ import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { PlusIcon } from "@/shared/components/ui/icons"
 import { useRequireAuth, usePermission, useMountEffect } from "@/shared/hooks"
-import { isOverdue } from "@/lib/todos"
+import { isOverdue, todayIso } from "@/lib/todos"
 import { TodoStatCards } from "./components/TodoStatCards"
 import { TodoFiltersBar } from "./components/TodoFiltersBar"
 import { TodosTable } from "./components/TodosTable"
 import { TodoBulkBar } from "./components/TodoBulkBar"
 import { TodoDrawer } from "./components/TodoDrawer"
 import { Pagination } from "@/shared/components/ui/pagination"
+import { loadProfessionals } from "@/lib/professionals/list"
 
 const PAGE_SIZE = 50
 import type {
@@ -22,11 +23,6 @@ import type {
   SortKey,
   TodoFormData,
 } from "./types"
-
-function todayIso() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
 
 function emptyDraft(professionalProfileId: string): TodoFormData {
   return {
@@ -96,19 +92,7 @@ export default function TarefasPage() {
     if (!isReady) return
     reload()
     if (isAdmin) {
-      fetch("/api/professionals")
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data) => {
-          if (!data) return
-          // /api/professionals returns User objects; the assignee id is the nested professionalProfile.id.
-          const list: ProfessionalLite[] = (data.professionals ?? [])
-            .filter((p: { professionalProfile?: { id: string } }) => p.professionalProfile?.id)
-            .map((p: { name: string; professionalProfile: { id: string } }) => ({
-              id: p.professionalProfile.id,
-              name: p.name,
-            }))
-          setProfessionals(list)
-        })
+      loadProfessionals().then(setProfessionals)
     } else if (session?.user?.professionalProfileId) {
       setProfessionals([
         { id: session.user.professionalProfileId, name: session.user.name ?? "Eu" },
@@ -203,6 +187,16 @@ export default function TarefasPage() {
   }
 
   async function toggleDone(t: TodoListItem) {
+    // Optimistic — flip the row immediately so the checkbox feels responsive.
+    // On failure we rollback the row from snapshot.
+    const snapshot = t
+    setTodos((prev) =>
+      prev.map((x) =>
+        x.id === t.id
+          ? { ...x, done: !t.done, doneAt: !t.done ? new Date().toISOString() : null }
+          : x
+      )
+    )
     const res = await fetch(`/api/todos/${t.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -210,11 +204,8 @@ export default function TarefasPage() {
     })
     if (!res.ok) {
       toast.error("Erro ao atualizar")
-      return
+      setTodos((prev) => prev.map((x) => (x.id === t.id ? snapshot : x)))
     }
-    setTodos((prev) =>
-      prev.map((x) => (x.id === t.id ? { ...x, done: !t.done, doneAt: !t.done ? new Date().toISOString() : null } : x))
-    )
   }
 
   async function deleteTodo(id: string) {

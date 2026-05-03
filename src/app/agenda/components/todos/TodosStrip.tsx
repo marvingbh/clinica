@@ -7,20 +7,23 @@ import { useTodos } from "./useTodos"
 import { TodoCard } from "./TodoCard"
 import { TodoInlineAdd } from "./TodoInlineAdd"
 import { sortCombined, maxOpenCountByDay } from "@/lib/todos"
+import { loadProfessionals, type ProfessionalLite } from "@/lib/professionals/list"
 import {
   createProfessionalColorMap,
   type ProfessionalColorMap,
 } from "@/app/agenda/lib/professional-colors"
-import type { TodoListItem, ProfessionalLite } from "@/app/tarefas/types"
+import type { TodoListItem } from "@/app/tarefas/types"
 
 interface Props {
   /** YYYY-MM-DD ISO strings, in display order (1 day for daily, 7 for weekly) */
   days: string[]
-  /** Whether to allow drag between days (true for weekly, false for daily) */
-  enableDrag?: boolean
   /** Filter shown todos to a specific assignee (empty = all) */
   selectedProfessionalId?: string
-  /** Show one column per day (weekly) or stack to a single strip (daily) */
+  /**
+   * "row" = one column per day (weekly view) — drag-to-reschedule is enabled.
+   * "single" = stacked single strip (daily view) — drag is disabled because
+   * there's only one drop zone, so movement happens via the per-card menu.
+   */
   layout: "row" | "single"
   /**
    * Map from professionalProfileId → palette index. Pass the same map the
@@ -32,7 +35,6 @@ interface Props {
 
 export function TodosStrip({
   days,
-  enableDrag = true,
   selectedProfessionalId,
   layout,
   professionalColorMap,
@@ -42,36 +44,18 @@ export function TodosStrip({
   const toIso = days[days.length - 1]
   const isAdmin = session?.user?.role === "ADMIN"
   const myProfId = session?.user?.professionalProfileId ?? ""
+  const enableDrag = layout === "row"
 
-  const { todos, reload, quickAdd, toggleDone, moveToDay, duplicate, remove } = useTodos({
+  const { todos, quickAdd, toggleDone, moveToDay, duplicate, remove } = useTodos({
     fromIso,
     toIso,
     assigneeFilter: isAdmin ? selectedProfessionalId : myProfId,
   })
 
-  // Refetch when window or filter changes
-  const refetchKey = `${fromIso}:${toIso}:${selectedProfessionalId ?? ""}`
-  const [lastKey, setLastKey] = useState(refetchKey)
-  if (lastKey !== refetchKey) {
-    setLastKey(refetchKey)
-    reload()
-  }
-
   const [professionals, setProfessionals] = useState<ProfessionalLite[]>([])
   useMountEffect(() => {
     if (isAdmin) {
-      fetch("/api/professionals")
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data) => {
-          if (!data) return
-          const list: ProfessionalLite[] = (data.professionals ?? [])
-            .filter((p: { professionalProfile?: { id: string } }) => p.professionalProfile?.id)
-            .map((p: { name: string; professionalProfile: { id: string } }) => ({
-              id: p.professionalProfile.id,
-              name: p.name,
-            }))
-          setProfessionals(list)
-        })
+      loadProfessionals().then(setProfessionals)
     } else if (myProfId) {
       setProfessionals([{ id: myProfId, name: session?.user?.name ?? "Eu" }])
     }
@@ -110,16 +94,40 @@ export function TodosStrip({
   const [draggingId, setDraggingId] = useState<string | null>(null)
 
   const handleDragStart = useCallback((e: React.DragEvent, t: TodoListItem) => {
+    // Custom MIME so a stray drop into a text field doesn't paste the UUID.
+    // Keep `text/plain` only as a fallback for cross-window drags.
+    e.dataTransfer.setData("application/x-clinica-todo-id", t.id)
     e.dataTransfer.setData("text/plain", t.id)
+    e.dataTransfer.effectAllowed = "move"
     setDraggingId(t.id)
   }, [])
   const handleDragEnd = useCallback(() => setDraggingId(null), [])
+
+  // Belt-and-braces: window-level dragend/drop listeners so `draggingId` is
+  // always cleared even when the source element gets unmounted mid-drag (a
+  // reload landing during the drag) or the platform skips firing dragend
+  // (Safari + Escape, Linux Chrome edge cases).
+  useMountEffect(() => {
+    const clear = () => setDraggingId(null)
+    window.addEventListener("dragend", clear)
+    window.addEventListener("drop", clear)
+    return () => {
+      window.removeEventListener("dragend", clear)
+      window.removeEventListener("drop", clear)
+    }
+  })
 
   // Per-day drop handlers
   const onDropToDay = useCallback(
     (dayIso: string, e: React.DragEvent) => {
       e.preventDefault()
-      const id = e.dataTransfer.getData("text/plain")
+      const id =
+        e.dataTransfer.getData("application/x-clinica-todo-id") ||
+        e.dataTransfer.getData("text/plain")
+      if (!id) {
+        setDraggingId(null)
+        return
+      }
       const t = todos.find((x) => x.id === id)
       if (t && t.day.slice(0, 10) !== dayIso) moveToDay(t, dayIso)
       setDraggingId(null)

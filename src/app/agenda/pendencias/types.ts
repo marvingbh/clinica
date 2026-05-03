@@ -16,10 +16,7 @@ export interface PendingAppointment {
   }
 }
 
-export interface ProfessionalLite {
-  id: string
-  name: string
-}
+export type { ProfessionalLite } from "@/lib/professionals/list"
 
 export type StatusFilter = "pendentes" | "agendado" | "confirmado" | "todas"
 
