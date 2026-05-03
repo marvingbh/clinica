@@ -433,11 +433,13 @@ button,
   }
 }
 
-/* Ensure inputs are large enough for touch */
-input,
-select,
-textarea {
-  font-size: 16px; /* Prevents zoom on iOS */
+/* Prevent iOS auto-zoom on focused inputs (only an issue on touch devices). */
+@media (hover: none) and (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 .scroll-smooth {

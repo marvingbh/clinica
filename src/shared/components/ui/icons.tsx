@@ -104,5 +104,9 @@ export { Send as SendIcon } from "lucide-react"
 export { History as HistoryIcon } from "lucide-react"
 export { Filter as FilterIcon } from "lucide-react"
 
+// More menus
+export { MoreHorizontal as MoreHorizontalIcon } from "lucide-react"
+export { Copy as CopyIcon } from "lucide-react"
+
 // Re-export LucideIcon type for custom components
 export type { LucideIcon } from "lucide-react"

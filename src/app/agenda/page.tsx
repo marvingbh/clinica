@@ -10,6 +10,7 @@ import {
 import { BulkCancelDialog } from "./components/BulkCancelDialog"
 import { CreateGroupSessionSheet } from "./components/CreateGroupSessionSheet"
 import { AgendaDndWrapper } from "./components/AgendaDndWrapper"
+import { TodosStrip } from "./components/todos"
 import { AgendaPrintView } from "./components/AgendaPrintView"
 import type { Appointment } from "./lib/types"
 import {
@@ -284,6 +285,15 @@ export default function AgendaPage() {
         professionalColorMap={professionalColorMap}
         onBulkCancel={canWriteAgenda ? openBulkCancel : undefined}
       />
+
+      <div className="max-w-[1320px] mx-auto px-4 md:px-6 pb-2">
+        <TodosStrip
+          days={[toDateString(selectedDate)]}
+          selectedProfessionalId={selectedProfessionalId}
+          layout="single"
+          professionalColorMap={professionalColorMap}
+        />
+      </div>
 
       <AgendaDndWrapper drag={drag}>
         <AgendaTimeline

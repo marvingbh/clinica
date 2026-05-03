@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { HomeIcon, CalendarIcon, StethoscopeIcon, UserIcon, UsersIcon, DollarSignIcon } from "./icons"
+import { HomeIcon, CalendarIcon, StethoscopeIcon, UserIcon, UsersIcon, DollarSignIcon, ListChecksIcon } from "./icons"
 import type { Feature } from "@/lib/rbac/types"
 
 interface NavItem {
@@ -28,6 +28,14 @@ const navItems: NavItem[] = [
     activeIcon: <CalendarIcon className="w-6 h-6" strokeWidth={2} />,
     matchPaths: ["/agenda"],
     feature: "agenda_own",
+  },
+  {
+    href: "/tarefas",
+    label: "Tarefas",
+    icon: <ListChecksIcon className="w-6 h-6" strokeWidth={1.5} />,
+    activeIcon: <ListChecksIcon className="w-6 h-6" strokeWidth={2} />,
+    matchPaths: ["/tarefas"],
+    feature: "todos",
   },
   {
     href: "/professionals",
