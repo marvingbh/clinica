@@ -1,3 +1,5 @@
+import type { AgendaColors } from "@/lib/clinic/colors/types"
+
 export interface ClinicSettings {
   id: string
   name: string
@@ -19,6 +21,7 @@ export interface ClinicSettings {
   invoiceGrouping: "MONTHLY" | "PER_SESSION"
   taxPercentage: number
   hasLogo: boolean
+  agendaColors: AgendaColors
 }
 
 export interface TabProps {

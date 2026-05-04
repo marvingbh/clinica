@@ -9,6 +9,9 @@ import { formatPhone, isBirthdayToday, isRecurrenceModified } from "../lib/utils
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../lib/professional-colors"
 import { DAILY_GRID_BASE } from "../lib/grid-config"
 import { isDraggable } from "@/lib/appointments/drag-constraints"
+import { useAgendaColors } from "./AgendaColorsProvider"
+import { appointmentColorsFor } from "@/lib/clinic/colors/resolvers"
+import type { CalendarEntryType } from "../lib/types"
 
 const { pixelsPerMinute: PIXELS_PER_MINUTE } = DAILY_GRID_BASE
 const SLOT_LEFT_MARGIN = 12
@@ -71,10 +74,16 @@ export const DailyAppointmentBlock = memo(function DailyAppointmentBlock({
     ? getProfessionalColor(appointment.professionalProfile.id, professionalColorMap)
     : PROFESSIONAL_COLORS[0]
 
-  const bgClass = showProfessional ? profColors.bg : "bg-card"
+  // When the per-professional palette isn't being used (single-professional
+  // filter, or PROFESSIONAL role), fall through to the clinic's configured
+  // type-based palette via the agenda colors context.
+  const agendaColors = useAgendaColors()
+  const entryColors = appointmentColorsFor(appointment.type, agendaColors)
+
+  const bgClass = showProfessional ? profColors.bg : entryColors.bg
   const borderClass = showProfessional
     ? profColors.border
-    : STATUS_BORDER_COLORS[appointment.status as AppointmentStatus] || "border-l-primary"
+    : entryColors.borderLeft
 
   const columnWidth = 100 / layout.totalColumns
   const leftPercent = layout.columnIndex * columnWidth

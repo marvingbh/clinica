@@ -2,10 +2,12 @@
 
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { RefreshCwIcon, VideoIcon, BuildingIcon, PhoneIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
-import { STATUS_LABELS, STATUS_COLORS, ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS, CANCELLED_STATUSES } from "../lib/constants"
+import { STATUS_LABELS, STATUS_COLORS, ENTRY_TYPE_LABELS, CANCELLED_STATUSES } from "../lib/constants"
 import { formatPhone, isBirthdayToday, isRecurrenceModified } from "../lib/utils"
 import type { Appointment, AppointmentStatus, CalendarEntryType } from "../lib/types"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../lib/professional-colors"
+import { useAgendaColors } from "./AgendaColorsProvider"
+import { appointmentColorsFor, paletteFor } from "@/lib/clinic/colors/resolvers"
 
 interface AppointmentCardProps {
   appointment: Appointment
@@ -45,8 +47,14 @@ export function AppointmentCard({
     ? getProfessionalColor(appointment.professionalProfile.id, professionalColorMap)
     : PROFESSIONAL_COLORS[0]
 
-  // Entry type colors for non-patient entries
-  const entryColors = !isConsulta ? ENTRY_TYPE_COLORS[appointment.type as CalendarEntryType] : null
+  // Entry type colors for non-patient entries — read from clinic config.
+  // Falls back to legacy ENTRY_TYPE_COLORS for TAREFA/NOTA records.
+  const agendaColors = useAgendaColors()
+  const entryColors = !isConsulta
+    ? appointmentColorsFor(appointment.type, agendaColors)
+    : null
+  // Group-link banner (biweekly alternate week) reuses the configured group palette
+  const groupBannerColors = paletteFor("groupSession", agendaColors)
 
   return (
     <Card
@@ -150,9 +158,9 @@ export function AppointmentCard({
                   e.stopPropagation()
                   onAlternateWeekClick?.(appointment)
                 }}
-                className="mt-2 w-full text-left px-2 py-1.5 bg-purple-50 rounded-md border border-purple-200 hover:bg-purple-100 transition-colors"
+                className={`mt-2 w-full text-left px-2 py-1.5 ${groupBannerColors.bg} rounded-md border ${groupBannerColors.border} hover:brightness-95 transition-colors`}
               >
-                <p className="text-xs text-purple-700 flex items-center gap-1.5">
+                <p className={`text-xs ${groupBannerColors.text} flex items-center gap-1.5`}>
                   <ArrowLeftRightIcon className="w-3 h-3" />
                   <span className="font-medium">Semana alternada:</span>
                   {appointment.alternateWeekInfo.pairedPatientName ? (

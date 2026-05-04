@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Building2, Calendar, DollarSign, Mail, FileText } from "lucide-react"
+import { Building2, Calendar, DollarSign, Mail, FileText, Palette } from "lucide-react"
 import { useRequireAuth } from "@/shared/hooks"
 import type { ClinicSettings } from "./types"
 import GeneralTab from "./components/GeneralTab"
@@ -11,6 +11,7 @@ import SchedulingTab from "./components/SchedulingTab"
 import BillingTab from "./components/BillingTab"
 import EmailTab from "./components/EmailTab"
 import NfseConfigForm from "./components/NfseConfigForm"
+import AgendaColorsTab from "./components/AgendaColorsTab"
 
 // eslint-disable-next-line no-restricted-imports
 import { useEffect } from "react"
@@ -18,6 +19,7 @@ import { useEffect } from "react"
 const TABS = [
   { id: "geral" as const, label: "Clinica", icon: Building2 },
   { id: "agenda" as const, label: "Agenda", icon: Calendar },
+  { id: "cores" as const, label: "Cores", icon: Palette },
   { id: "financeiro" as const, label: "Financeiro", icon: DollarSign },
   { id: "email" as const, label: "E-mail", icon: Mail },
   { id: "nfse" as const, label: "NFS-e", icon: FileText },
@@ -115,6 +117,7 @@ export default function AdminSettingsPage() {
           <>
             {activeTab === "geral" && <GeneralTab settings={settings} onUpdate={setSettings} />}
             {activeTab === "agenda" && <SchedulingTab settings={settings} onUpdate={setSettings} />}
+            {activeTab === "cores" && <AgendaColorsTab settings={settings} onUpdate={setSettings} />}
             {activeTab === "financeiro" && <BillingTab settings={settings} onUpdate={setSettings} />}
             {activeTab === "email" && <EmailTab settings={settings} onUpdate={setSettings} />}
             {activeTab === "nfse" && <NfseConfigForm />}

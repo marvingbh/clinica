@@ -2,7 +2,9 @@
 
 import { useMemo } from "react"
 import type { Appointment, GroupSession, AppointmentStatus, CalendarEntryType } from "../lib/types"
-import { CANCELLED_STATUSES, ENTRY_TYPE_COLORS, ENTRY_TYPE_LABELS, STATUS_BORDER_COLORS } from "../lib/constants"
+import { CANCELLED_STATUSES, ENTRY_TYPE_LABELS, STATUS_BORDER_COLORS } from "../lib/constants"
+import { useAgendaColors } from "./AgendaColorsProvider"
+import { appointmentColorsFor, paletteFor } from "@/lib/clinic/colors/resolvers"
 import { getWeekDays, isWeekend, toDateString } from "../lib/utils"
 import { computeHourRange } from "../lib/hour-range"
 import { PROFESSIONAL_COLORS, type ProfessionalColorMap } from "../lib/professional-colors"
@@ -135,17 +137,20 @@ function PrintBlockView({
   const colW = 100 / block.layout.totalColumns
   const leftPct = block.layout.columnIndex * colW
 
-  // Color: groups always purple-ish; otherwise entry-type colors. Left border
-  // is overridden by professional color when colorMap is provided (Todos view).
+  // Color: groups follow the configured group palette; everything else follows
+  // the per-type clinic palette. Left border is overridden by professional
+  // color when colorMap is provided (Todos view).
+  const agendaColors = useAgendaColors()
   const profIdx = professionalColorMap?.get(block.professionalProfileId)
   const profColor = profIdx !== undefined ? PROFESSIONAL_COLORS[profIdx] : null
   let bgClass: string, borderL: string, textClass: string
   if (block.isGroup) {
-    bgClass = "bg-purple-50"
-    borderL = profColor?.border ?? "border-l-purple-500"
-    textClass = "text-purple-800"
+    const gc = paletteFor("groupSession", agendaColors)
+    bgClass = gc.bg
+    borderL = profColor?.border ?? gc.borderLeft
+    textClass = gc.text
   } else {
-    const ec = ENTRY_TYPE_COLORS[block.type as CalendarEntryType] ?? ENTRY_TYPE_COLORS.CONSULTA
+    const ec = appointmentColorsFor(block.type as CalendarEntryType, agendaColors)
     bgClass = ec.bg
     borderL = profColor?.border ?? (block.status ? STATUS_BORDER_COLORS[block.status] : ec.borderLeft)
     textClass = ec.text
@@ -179,12 +184,12 @@ function PrintBlockView({
           <div className="text-[6px] font-mono tabular-nums text-slate-600 leading-none">
             {timeStr(block.start)}–{timeStr(block.end)}
             {block.isGroup && block.participantCount > 0 && (
-              <span className="ml-0.5 text-purple-700 font-semibold">({block.participantCount})</span>
+              <span className={`ml-0.5 ${textClass} font-semibold`}>({block.participantCount})</span>
             )}
           </div>
         )}
         {showSecond && block.isGroup && (
-          <div className="text-[6px] text-purple-700 truncate leading-none">Grupo</div>
+          <div className={`text-[6px] ${textClass} truncate leading-none`}>Grupo</div>
         )}
       </div>
     </div>

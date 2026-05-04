@@ -9,6 +9,8 @@ import type { Appointment, GroupSession, AppointmentStatus, TimeSlot } from "../
 import { CANCELLED_STATUSES, TERMINAL_STATUSES } from "../lib/constants"
 import { getProfessionalColor, ProfessionalColorMap } from "../lib/professional-colors"
 import { DailyAppointmentBlock } from "./DailyAppointmentBlock"
+import { useAgendaColors } from "./AgendaColorsProvider"
+import { paletteFor } from "@/lib/clinic/colors/resolvers"
 import { DAILY_GRID_BASE } from "../lib/grid-config"
 import { computeHourRange } from "../lib/hour-range"
 
@@ -131,6 +133,10 @@ export function DailyOverviewGrid({
   overlappingIds = [],
   activeAppointmentId,
 }: DailyOverviewGridProps) {
+  const agendaColors = useAgendaColors()
+  const groupCols = paletteFor("groupSession", agendaColors)
+  const availCols = paletteFor("availability", agendaColors)
+
   const individualAppointments = useMemo(() => {
     return appointments.filter(apt => !apt.groupId && !apt.sessionGroupId)
   }, [appointments])
@@ -374,11 +380,11 @@ export function DailyOverviewGrid({
                     height: `${rawHeight - BLOCK_VERTICAL_GAP * 2}px`,
                     ...slotPositionStyle,
                   }}
-                  className="border border-purple-300 border-l-[3px] border-l-purple-500 rounded-xl flex items-center justify-center gap-2 bg-purple-50 text-purple-700 hover:bg-purple-100 transition-all"
+                  className={`border ${groupCols.border} border-l-[3px] ${groupCols.borderLeft} rounded-xl flex items-center justify-center gap-2 ${groupCols.bg} ${groupCols.text} hover:brightness-95 transition-all`}
                 >
                   <ArrowLeftRightIcon className="w-4 h-4 flex-shrink-0" />
                   <span className="text-sm font-semibold truncate">Quinzenal · {slot.biweeklyHint.patientName}</span>
-                  <span className="text-xs text-purple-600/80 tabular-nums">{slot.time} - {endTime}</span>
+                  <span className={`text-xs ${groupCols.text} opacity-80 tabular-nums`}>{slot.time} - {endTime}</span>
                 </button>
               )
             }
@@ -394,11 +400,11 @@ export function DailyOverviewGrid({
                   height: `${rawHeight - BLOCK_VERTICAL_GAP * 2}px`,
                   ...slotPositionStyle,
                 }}
-                className="border border-teal-300 border-l-[3px] border-l-teal-500 rounded-xl flex items-center justify-center gap-2 bg-teal-50/80 text-teal-700 hover:bg-teal-100 transition-all group/slot"
+                className={`border ${availCols.border} border-l-[3px] ${availCols.borderLeft} rounded-xl flex items-center justify-center gap-2 ${availCols.bg} ${availCols.text} hover:brightness-95 transition-all group/slot`}
               >
                 <PlusIcon className="w-4 h-4 transition-transform group-hover/slot:scale-110" />
                 <span className="text-sm font-semibold">Disponivel</span>
-                <span className="text-xs text-teal-700/70 tabular-nums">{slot.time} - {endTime}</span>
+                <span className={`text-xs ${availCols.text} opacity-80 tabular-nums`}>{slot.time} - {endTime}</span>
               </button>
             )
           })}
@@ -512,10 +518,10 @@ export function DailyOverviewGrid({
                   group rounded-xl text-left overflow-hidden cursor-pointer
                   border border-border border-l-[3px] shadow-sm
                   hover:shadow-md hover:z-30 active:scale-[0.98] transition-all
-                  border-t-[3px] ${colors ? colors.accent.replace("bg-", "border-t-") : "border-t-purple-500"}
+                  border-t-[3px] ${colors ? colors.accent.replace("bg-", "border-t-") : groupCols.borderLeft.replace("border-l-", "border-t-")}
                   ${colors
                     ? `${colors.bg} ${colors.border}`
-                    : "bg-purple-50 border-l-purple-500"
+                    : `${groupCols.bg} ${groupCols.borderLeft}`
                   }
                   ${allCancelled ? "opacity-40" : allTerminal ? "opacity-50" : ""}
                 `}
@@ -523,13 +529,13 @@ export function DailyOverviewGrid({
                 <div className={`flex flex-col overflow-hidden h-full ${isCompact ? "px-2 py-1 gap-0" : "px-3 py-2 gap-0.5"}`}>
                   {showProfessional && (
                     <p className={`text-xs font-semibold truncate ${
-                      colors ? colors.text : "text-purple-700"
+                      colors ? colors.text : groupCols.text
                     }`}>
                       {session.professionalName}
                     </p>
                   )}
                   <div className="flex items-center gap-1.5">
-                    <UsersIcon className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                    <UsersIcon className={`w-3.5 h-3.5 ${groupCols.text} shrink-0`} />
                     <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
                       {session.groupName}
                     </p>
