@@ -47,10 +47,11 @@ export function TodoCard({
   const overdue = isOverdue({ done: todo.done, day: todo.day.slice(0, 10) })
   const profName = todo.professionalProfile.user.name.split(" ")[0]
   const profColor = getProfessionalColor(todo.professionalProfileId, professionalColorMap)
-  // Configurable left-stripe per clinic. Card body (bg/border/text) stays as
-  // designed; only the accent stripe color changes. Overdue still wins —
-  // a red stripe surfaces overdue regardless of the configured todo palette.
-  const todoStripe = paletteFor("todo", useAgendaColors()).borderLeft
+  // Full configurable palette — bg, border, left stripe — to match how
+  // appointment blocks render. Overdue still wins on the left stripe so an
+  // urgent task is recognisable regardless of the configured todo palette.
+  const todoColors = paletteFor("todo", useAgendaColors())
+  const stripeClass = overdue ? "border-l-err-500" : todoColors.borderLeft
 
   return (
     <>
@@ -63,9 +64,9 @@ export function TodoCard({
           }
         }}
         onDragEnd={onDragEnd}
-        className={`group relative flex flex-col gap-[3px] rounded-[7px] border bg-card px-2 py-1.5 text-[12px] leading-[1.3] cursor-grab active:cursor-grabbing
-          ${todo.done ? "opacity-70 bg-ink-50/60" : ""}
-          ${overdue ? "border-l-[3px] border-l-err-500 border-ink-200" : `border-l-[3px] ${todoStripe} border-ink-200`}`}
+        className={`group relative flex flex-col gap-[3px] rounded-[7px] border ${todoColors.bg} ${todoColors.border} px-2 py-1.5 text-[12px] leading-[1.3] cursor-grab active:cursor-grabbing
+          ${todo.done ? "opacity-70" : ""}
+          border-l-[3px] ${stripeClass}`}
       >
         <div className="flex items-start gap-1.5">
           <button
