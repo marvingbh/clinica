@@ -2,6 +2,10 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
+import {
+  agendaColorsPatchSchema,
+  resolveAgendaColors,
+} from "@/lib/clinic/colors/schema"
 
 const updateSettingsSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(200).optional(),
@@ -37,6 +41,7 @@ const updateSettingsSchema = z.object({
   billingMode: z.enum(["PER_SESSION", "MONTHLY_FIXED"]).optional(),
   invoiceGrouping: z.enum(["MONTHLY", "PER_SESSION"]).optional(),
   taxPercentage: z.number().min(0).max(100).optional(),
+  agendaColors: agendaColorsPatchSchema.optional(),
 })
 
 /**
@@ -68,6 +73,7 @@ export const GET = withFeatureAuth(
         billingMode: true,
         invoiceGrouping: true,
         taxPercentage: true,
+        agendaColors: true,
         logoData: true,
       },
     })
@@ -79,8 +85,14 @@ export const GET = withFeatureAuth(
       )
     }
 
-    const { logoData, ...rest } = clinic
-    return NextResponse.json({ settings: { ...rest, hasLogo: !!logoData } })
+    const { logoData, agendaColors, ...rest } = clinic
+    return NextResponse.json({
+      settings: {
+        ...rest,
+        hasLogo: !!logoData,
+        agendaColors: resolveAgendaColors(agendaColors),
+      },
+    })
   }
 )
 
@@ -112,7 +124,7 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage } =
+    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors } =
       parsed.data
 
     // Check slug uniqueness
@@ -147,6 +159,16 @@ export const PATCH = withFeatureAuth(
     if (billingMode !== undefined) updateData.billingMode = billingMode
     if (invoiceGrouping !== undefined) updateData.invoiceGrouping = invoiceGrouping
     if (taxPercentage !== undefined) updateData.taxPercentage = taxPercentage
+    if (agendaColors !== undefined) {
+      // Merge partial PATCH on top of stored colors so admins can change one
+      // slot at a time without losing the others.
+      const current = await prisma.clinic.findUnique({
+        where: { id: user.clinicId },
+        select: { agendaColors: true },
+      })
+      const merged = { ...resolveAgendaColors(current?.agendaColors), ...agendaColors }
+      updateData.agendaColors = merged
+    }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
@@ -179,6 +201,7 @@ export const PATCH = withFeatureAuth(
       billingMode: true,
       invoiceGrouping: true,
       taxPercentage: true,
+      agendaColors: true,
     } as const
 
     const updatedClinic = billingMode === "MONTHLY_FIXED"
@@ -201,6 +224,11 @@ export const PATCH = withFeatureAuth(
           select: clinicSelect,
         })
 
-    return NextResponse.json({ settings: updatedClinic })
+    return NextResponse.json({
+      settings: {
+        ...updatedClinic,
+        agendaColors: resolveAgendaColors(updatedClinic.agendaColors),
+      },
+    })
   }
 )

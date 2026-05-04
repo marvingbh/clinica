@@ -1,6 +1,18 @@
 @import "tailwindcss";
 
 /* ============================================
+   CLINIC AGENDA COLOR SAFELIST (Tailwind v4)
+   ============================================
+   Per-clinic agenda colors come from a JSONB column (Clinic.agendaColors)
+   storing palette names (e.g. "red", "violet"). The literal class strings
+   in src/lib/clinic/colors/palette.ts are the primary safelist — Tailwind
+   v4 scans every non-gitignored source file. The directive below is a
+   belt-and-suspenders guarantee in case the map is moved or refactored.
+   Brace-expansion: 17 palettes × 4 utilities × 5 shades = 340 entries.
+*/
+@source inline("{bg,text,border,border-l}-{red,orange,amber,yellow,lime,green,emerald,teal,sky,blue,indigo,violet,purple,fuchsia,pink,rose,slate}-{50,200,500,700,800}");
+
+/* ============================================
    CLINICA DESIGN SYSTEM — brand tokens
    Mirrors /clinica/project/styles/tokens.css from the design handoff.
    Semantic tokens below (--background, --primary, etc.) are aliased to

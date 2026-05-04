@@ -218,6 +218,11 @@ model Clinic {
   emailFromAddress       String? // Verified sender email address (e.g. naoresponda@dominio.com.br)
   emailBcc               String? // BCC address for all outgoing emails (e.g. archive@dominio.com.br)
 
+  /// Per-clinic agenda color preferences. Stored as `{ consulta, reuniao, lembrete, groupSession, availability }`
+  /// where each value is a Tailwind palette name from src/lib/clinic/colors/palette.ts. Reads must always go
+  /// through resolveAgendaColors() in src/lib/clinic/colors/schema.ts — never cast directly.
+  agendaColors           Json        @default("{}")
+
   // SaaS subscription fields
   planId               String?
   plan                 Plan?     @relation(fields: [planId], references: [id])
