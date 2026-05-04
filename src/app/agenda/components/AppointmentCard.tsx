@@ -51,7 +51,7 @@ export function AppointmentCard({
   // Falls back to legacy ENTRY_TYPE_COLORS for TAREFA/NOTA records.
   const agendaColors = useAgendaColors()
   const entryColors = !isConsulta
-    ? appointmentColorsFor(appointment.type as CalendarEntryType, agendaColors)
+    ? appointmentColorsFor(appointment.type, agendaColors)
     : null
   // Group-link banner (biweekly alternate week) reuses the configured group palette
   const groupBannerColors = paletteFor("groupSession", agendaColors)

@@ -30,7 +30,8 @@ export function AvailabilitySlotBlock({
   const height = Math.max(appointmentDuration * PIXELS_PER_MINUTE, 32)
 
   const isBiweeklyHint = !!slot.biweeklyHint
-  const colors = paletteFor("availability", useAgendaColors())
+  const agendaColors = useAgendaColors()
+  const colors = paletteFor("availability", agendaColors)
 
   return (
     <button

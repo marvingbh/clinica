@@ -56,7 +56,8 @@ export function GroupSessionCard({
   const profColors = showProfessional && professionalColorMap
     ? getProfessionalColor(session.professionalProfileId, professionalColorMap)
     : null
-  const groupColors = paletteFor("groupSession", useAgendaColors())
+  const agendaColors = useAgendaColors()
+  const groupColors = paletteFor("groupSession", agendaColors)
 
   return (
     <Card

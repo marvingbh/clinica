@@ -51,7 +51,8 @@ export function TodoCard({
   // choose between minimal (whiteBlue / white) looks and full color tints
   // (red, green, etc.). Overdue still wins on the stripe so urgent tasks
   // remain visible regardless of palette.
-  const todoColors = paletteFor("todo", useAgendaColors())
+  const agendaColors = useAgendaColors()
+  const todoColors = paletteFor("todo", agendaColors)
   const stripeClass = overdue ? "border-l-err-500" : todoColors.borderLeft
 
   return (

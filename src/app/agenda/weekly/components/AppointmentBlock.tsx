@@ -82,7 +82,7 @@ export const AppointmentBlock = memo(function AppointmentBlock({
   // Reads the active clinic's configured palette via context — falls back to
   // legacy `ENTRY_TYPE_COLORS` for TAREFA/NOTA records inside the resolver.
   const agendaColors = useAgendaColors()
-  const entryColors = appointmentColorsFor(appointment.type as CalendarEntryType, agendaColors)
+  const entryColors = appointmentColorsFor(appointment.type, agendaColors)
 
   // Calculate width and left position for overlapping appointments
   const columnWidth = 100 / totalColumns

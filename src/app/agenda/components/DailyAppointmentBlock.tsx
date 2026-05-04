@@ -78,7 +78,7 @@ export const DailyAppointmentBlock = memo(function DailyAppointmentBlock({
   // filter, or PROFESSIONAL role), fall through to the clinic's configured
   // type-based palette via the agenda colors context.
   const agendaColors = useAgendaColors()
-  const entryColors = appointmentColorsFor(appointment.type as CalendarEntryType, agendaColors)
+  const entryColors = appointmentColorsFor(appointment.type, agendaColors)
 
   const bgClass = showProfessional ? profColors.bg : entryColors.bg
   const borderClass = showProfessional

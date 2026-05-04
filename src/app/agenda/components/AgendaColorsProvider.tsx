@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useMemo, type ReactNode } from "react"
-import type { AgendaColors } from "@/lib/clinic/colors/types"
+import { AGENDA_COLOR_SLOTS, type AgendaColors } from "@/lib/clinic/colors/types"
 
 const AgendaColorsContext = createContext<AgendaColors | null>(null)
 
@@ -14,22 +14,18 @@ interface Props {
 /**
  * Provides the current clinic's agenda color preferences to the agenda subtree.
  *
- * IMPORTANT — the `value` is memoized on the 5 palette name strings so that
- * parent re-renders (date change, professional filter, drag) don't invalidate
- * the ~50–200 React.memo'd `AppointmentBlock` consumers via context updates.
- * Without this, `memo` cannot stop the cascade.
+ * IMPORTANT — the `value` is memoized on the per-slot palette name strings so
+ * that parent re-renders (date change, professional filter, drag) don't
+ * invalidate the ~50–200 React.memo'd `AppointmentBlock` consumers via
+ * context updates. The dep list is generated from `AGENDA_COLOR_SLOTS` so
+ * adding a new slot can never silently break the memo (would otherwise leave
+ * the new slot's value stale until another slot changes — caught in review).
  */
 export function AgendaColorsProvider({ value, children }: Props) {
   const memoValue = useMemo(
     () => value,
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: depend on the 5 palette names, not the object identity
-    [
-      value.consulta,
-      value.reuniao,
-      value.lembrete,
-      value.groupSession,
-      value.availability,
-    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: depend on each slot's palette name, not the object identity
+    AGENDA_COLOR_SLOTS.map((slot) => value[slot]),
   )
   return (
     <AgendaColorsContext.Provider value={memoValue}>

@@ -54,7 +54,8 @@ export function GroupSessionBlock({
     p => CANCELLED_STATUSES.includes(p.status)
   )
 
-  const colors = paletteFor("groupSession", useAgendaColors())
+  const agendaColors = useAgendaColors()
+  const colors = paletteFor("groupSession", agendaColors)
 
   return (
     <button

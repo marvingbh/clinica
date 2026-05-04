@@ -1,7 +1,6 @@
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { resolveAgendaColors } from "@/lib/clinic/colors/schema"
-import { DEFAULT_AGENDA_COLORS } from "@/lib/clinic/colors/schema"
+import { DEFAULT_AGENDA_COLORS, resolveAgendaColors } from "@/lib/clinic/colors/schema"
 import { AgendaProvider } from "./context/AgendaContext"
 import { AgendaColorsProvider } from "./components/AgendaColorsProvider"
 
