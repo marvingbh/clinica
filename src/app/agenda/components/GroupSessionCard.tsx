@@ -5,6 +5,8 @@ import { UsersIcon, ClockIcon } from "@/shared/components/ui/icons"
 import type { GroupSession } from "../lib/types"
 import { CANCELLED_STATUSES } from "../lib/constants"
 import { getProfessionalColor, ProfessionalColorMap } from "../lib/professional-colors"
+import { useAgendaColors } from "./AgendaColorsProvider"
+import { paletteFor } from "@/lib/clinic/colors/resolvers"
 
 interface GroupSessionCardProps {
   session: GroupSession
@@ -49,27 +51,29 @@ export function GroupSessionCard({
     p => CANCELLED_STATUSES.includes(p.status)
   )
 
-  // Use professional color when showing all professionals, otherwise default purple
-  const colors = showProfessional && professionalColorMap
+  // Professional color when showing all professionals, otherwise the clinic's
+  // configured group-session palette (default violet).
+  const profColors = showProfessional && professionalColorMap
     ? getProfessionalColor(session.professionalProfileId, professionalColorMap)
     : null
+  const groupColors = paletteFor("groupSession", useAgendaColors())
 
   return (
     <Card
       elevation="sm"
       hoverable
       className={`group cursor-pointer overflow-hidden transition-all duration-normal active:scale-[0.98] ${
-        colors ? `${colors.bg} border-l-[3px] ${colors.border}` : "bg-purple-50"
+        profColors ? `${profColors.bg} border-l-[3px] ${profColors.border}` : groupColors.bg
       } ${allCancelled ? "opacity-50 grayscale" : ""}`}
       onClick={onClick}
     >
       {/* Accent bar */}
-      <div className={`h-1 ${colors ? colors.accent : "bg-purple-500"}`} />
+      <div className={`h-1 ${profColors ? profColors.accent : groupColors.accent}`} />
 
       <CardContent className={compact ? "py-3" : "py-4"}>
         {/* Professional name - shown when viewing all */}
         {showProfessional && (
-          <p className={`text-xs font-semibold mb-2 truncate ${colors ? colors.text : "text-purple-700"}`}>
+          <p className={`text-xs font-semibold mb-2 truncate ${profColors ? profColors.text : groupColors.text}`}>
             {session.professionalName}
           </p>
         )}
@@ -77,8 +81,8 @@ export function GroupSessionCard({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <UsersIcon className="w-4 h-4 text-purple-600 flex-shrink-0" />
-              <h4 className="font-semibold text-foreground truncate group-hover:text-purple-600 transition-colors">
+              <UsersIcon className={`w-4 h-4 ${groupColors.text} flex-shrink-0`} />
+              <h4 className={`font-semibold text-foreground truncate group-hover:${groupColors.text} transition-colors`}>
                 {session.groupName}
               </h4>
             </div>
@@ -91,15 +95,15 @@ export function GroupSessionCard({
           </div>
 
           {/* Participant count badge */}
-          <span className="flex-shrink-0 text-xs px-2.5 py-1 rounded-full font-medium bg-purple-100 text-purple-800">
+          <span className={`flex-shrink-0 text-xs px-2.5 py-1 rounded-full font-medium ${groupColors.bg} ${groupColors.text}`}>
             {session.participants.length} participante{session.participants.length !== 1 ? "s" : ""}
           </span>
         </div>
 
         {/* Status summary row */}
-        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-purple-200/50">
+        <div className={`flex items-center gap-3 mt-3 pt-3 border-t ${groupColors.border}`}>
           {/* Group session badge */}
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-lg bg-purple-100 text-purple-700">
+          <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-lg ${groupColors.bg} ${groupColors.text}`}>
             <UsersIcon className="w-3.5 h-3.5" />
             Sessão em Grupo
           </span>
@@ -131,22 +135,21 @@ export function GroupSessionCard({
 
 export function GroupSessionCardSkeleton({ compact = false }: { compact?: boolean }) {
   return (
-    <Card elevation="sm" className="overflow-hidden bg-purple-50/50">
-      {/* Purple accent bar skeleton */}
-      <div className="h-1 bg-purple-300 animate-pulse" />
+    <Card elevation="sm" className="overflow-hidden bg-muted/30">
+      <div className="h-1 bg-muted-foreground/30 animate-pulse" />
 
       <CardContent className={compact ? "py-3" : "py-4"}>
         <div className="animate-pulse">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 space-y-2">
-              <div className="h-5 w-3/4 bg-purple-200 rounded" />
-              <div className="h-4 w-1/2 bg-purple-200 rounded" />
+              <div className="h-5 w-3/4 bg-muted rounded" />
+              <div className="h-4 w-1/2 bg-muted rounded" />
             </div>
-            <div className="h-6 w-24 bg-purple-200 rounded-full" />
+            <div className="h-6 w-24 bg-muted rounded-full" />
           </div>
-          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-purple-200/50">
-            <div className="h-6 w-28 bg-purple-200 rounded-lg" />
-            <div className="h-4 w-20 bg-purple-200 rounded" />
+          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border">
+            <div className="h-6 w-28 bg-muted rounded-lg" />
+            <div className="h-4 w-20 bg-muted rounded" />
           </div>
         </div>
       </CardContent>

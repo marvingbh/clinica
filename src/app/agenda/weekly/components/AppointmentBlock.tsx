@@ -6,9 +6,11 @@ import { RefreshCwIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import { Appointment } from "../../lib/types"
 import { isBirthdayOnDate } from "../../lib/utils"
 import { getProfessionalColor, ProfessionalColorMap, PROFESSIONAL_COLORS } from "../../lib/professional-colors"
-import { STATUS_LABELS, ENTRY_TYPE_COLORS, ENTRY_TYPE_LABELS, CANCELLED_STATUSES } from "../../lib/constants"
+import { STATUS_LABELS, ENTRY_TYPE_LABELS, CANCELLED_STATUSES } from "../../lib/constants"
 import type { AppointmentStatus, CalendarEntryType } from "../../lib/types"
 import { isDraggable } from "@/lib/appointments/drag-constraints"
+import { useAgendaColors } from "../../components/AgendaColorsProvider"
+import { appointmentColorsFor } from "@/lib/clinic/colors/resolvers"
 
 import { WEEKLY_GRID } from "../../lib/grid-config"
 
@@ -76,8 +78,11 @@ export const AppointmentBlock = memo(function AppointmentBlock({
     ? getProfessionalColor(appointment.professionalProfile.id, professionalColorMap)
     : PROFESSIONAL_COLORS[0]
 
-  // Entry type colors for single-professional view
-  const entryColors = ENTRY_TYPE_COLORS[appointment.type as CalendarEntryType] || ENTRY_TYPE_COLORS.CONSULTA
+  // Entry type colors for single-professional view (and PROFESSIONAL role).
+  // Reads the active clinic's configured palette via context — falls back to
+  // legacy `ENTRY_TYPE_COLORS` for TAREFA/NOTA records inside the resolver.
+  const agendaColors = useAgendaColors()
+  const entryColors = appointmentColorsFor(appointment.type as CalendarEntryType, agendaColors)
 
   // Calculate width and left position for overlapping appointments
   const columnWidth = 100 / totalColumns

@@ -4,6 +4,8 @@ import { UsersIcon } from "@/shared/components/ui/icons"
 import { GroupSession } from "../../lib/types"
 import { CANCELLED_STATUSES, TERMINAL_STATUSES } from "../../lib/constants"
 import { WEEKLY_GRID } from "../../lib/grid-config"
+import { useAgendaColors } from "../../components/AgendaColorsProvider"
+import { paletteFor } from "@/lib/clinic/colors/resolvers"
 
 const { pixelsPerMinute: PIXELS_PER_MINUTE } = WEEKLY_GRID
 
@@ -52,6 +54,8 @@ export function GroupSessionBlock({
     p => CANCELLED_STATUSES.includes(p.status)
   )
 
+  const colors = paletteFor("groupSession", useAgendaColors())
+
   return (
     <button
       type="button"
@@ -64,21 +68,21 @@ export function GroupSessionBlock({
         width: `calc(${columnWidth}% - 2px)`,
       }}
       className={`
-        border border-purple-300 rounded px-1 py-0.5 text-left
-        border-l-[3px] border-l-purple-500 overflow-hidden cursor-pointer
-        bg-purple-50
+        border ${colors.border} rounded px-1 py-0.5 text-left
+        border-l-[3px] ${colors.borderLeft} overflow-hidden cursor-pointer
+        ${colors.bg}
         hover:shadow-md hover:z-10 transition-all
         ${allCancelled ? "opacity-40" : allTerminal ? "opacity-60" : ""}
       `}
     >
       <div className="h-full flex flex-col overflow-hidden gap-0.5">
         {showProfessional && (
-          <p className="text-[10px] font-semibold truncate leading-tight text-purple-700">
+          <p className={`text-[10px] font-semibold truncate leading-tight ${colors.text}`}>
             {session.professionalName}
           </p>
         )}
         <div className="flex items-center gap-1">
-          <UsersIcon className="w-3 h-3 text-purple-600 flex-shrink-0" />
+          <UsersIcon className={`w-3 h-3 ${colors.text} flex-shrink-0`} />
           <p className="text-[11px] font-medium text-foreground truncate leading-tight">
             {session.groupName}
           </p>

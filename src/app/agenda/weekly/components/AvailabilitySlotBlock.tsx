@@ -3,6 +3,8 @@
 import { PlusIcon, ArrowLeftRightIcon } from "@/shared/components/ui/icons"
 import type { TimeSlot } from "../../lib/types"
 import { WEEKLY_GRID } from "../../lib/grid-config"
+import { useAgendaColors } from "../../components/AgendaColorsProvider"
+import { paletteFor } from "@/lib/clinic/colors/resolvers"
 
 const { pixelsPerMinute: PIXELS_PER_MINUTE } = WEEKLY_GRID
 
@@ -28,6 +30,7 @@ export function AvailabilitySlotBlock({
   const height = Math.max(appointmentDuration * PIXELS_PER_MINUTE, 32)
 
   const isBiweeklyHint = !!slot.biweeklyHint
+  const colors = paletteFor("availability", useAgendaColors())
 
   return (
     <button
@@ -46,7 +49,7 @@ export function AvailabilitySlotBlock({
         rounded-md transition-all hover:shadow-sm
         ${isPast
           ? "border border-border/50 border-l-[3px] border-l-muted-foreground/30 bg-muted/30 opacity-40"
-          : "border border-teal-300/70 border-l-[3px] border-l-teal-500 bg-teal-50/80 hover:bg-teal-100"
+          : `border ${colors.border} border-l-[3px] ${colors.borderLeft} ${colors.bg} hover:brightness-95`
         }
       `}
     >
@@ -56,12 +59,12 @@ export function AvailabilitySlotBlock({
             const endMin = hour * 60 + min + appointmentDuration
             const endTime = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`
             return <>
-              <span className="text-[10px] text-teal-700 font-bold leading-tight">+ Disponivel</span>
+              <span className={`text-[10px] ${colors.text} font-bold leading-tight`}>+ Disponivel</span>
               <div className="flex items-center gap-0.5">
-                <ArrowLeftRightIcon className="w-3 h-3 flex-shrink-0 text-teal-600/70" />
-                <span className="text-[9px] text-teal-600/70 leading-tight">{slot.biweeklyHint!.patientName.length > 18 ? `${slot.biweeklyHint!.patientName.slice(0, 18)}…` : slot.biweeklyHint!.patientName}</span>
+                <ArrowLeftRightIcon className={`w-3 h-3 flex-shrink-0 ${colors.text} opacity-70`} />
+                <span className={`text-[9px] ${colors.text} opacity-70 leading-tight`}>{slot.biweeklyHint!.patientName.length > 18 ? `${slot.biweeklyHint!.patientName.slice(0, 18)}…` : slot.biweeklyHint!.patientName}</span>
               </div>
-              <span className="text-[9px] text-teal-600/70 leading-tight">{slot.time} - {endTime}</span>
+              <span className={`text-[9px] ${colors.text} opacity-70 leading-tight`}>{slot.time} - {endTime}</span>
             </>
           })()
         ) : (
@@ -69,8 +72,8 @@ export function AvailabilitySlotBlock({
             const endMin = hour * 60 + min + appointmentDuration
             const endTime = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`
             return <>
-              <span className="text-[10px] text-teal-700 font-bold leading-tight">+ Disponivel</span>
-              <span className="text-[9px] text-teal-600/70 leading-tight">{slot.time} - {endTime}</span>
+              <span className={`text-[10px] ${colors.text} font-bold leading-tight`}>+ Disponivel</span>
+              <span className={`text-[9px] ${colors.text} opacity-70 leading-tight`}>{slot.time} - {endTime}</span>
             </>
           })()
         )}
