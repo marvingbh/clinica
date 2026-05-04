@@ -130,6 +130,66 @@ describe("findPairedRecurrence", () => {
     const apt = makeAppointment()
     expect(findPairedRecurrence(apt, [])).toBeNull()
   })
+
+  it("returns null when partner recurrence ended before appointment date", () => {
+    // Appointment on 2026-05-08, partner recurrence ended on 2026-05-05.
+    // Even though prof/time/day/patient criteria match, the partner is no
+    // longer alternating with this slot.
+    const apt = makeAppointment({
+      patientId: "patient-1",
+      scheduledAt: new Date("2026-05-08T08:45:00"), // Friday
+    })
+    const recurrences = [
+      makeRecurrence({
+        id: "rec-finalized",
+        patientId: "patient-2",
+        dayOfWeek: 5, // Friday
+        startTime: "08:45",
+        startDate: new Date("2026-04-10"),
+        endDate: new Date("2026-05-05"),
+        patient: { id: "patient-2", name: "Finalized Partner" },
+      }),
+    ]
+    expect(findPairedRecurrence(apt, recurrences)).toBeNull()
+  })
+
+  it("returns match when partner recurrence endDate covers appointment date", () => {
+    const apt = makeAppointment({
+      patientId: "patient-1",
+      scheduledAt: new Date("2026-05-08T08:45:00"),
+    })
+    const recurrences = [
+      makeRecurrence({
+        id: "rec-active",
+        patientId: "patient-2",
+        dayOfWeek: 5,
+        startTime: "08:45",
+        startDate: new Date("2026-04-10"),
+        endDate: new Date("2026-12-31"),
+        patient: { id: "patient-2", name: "Active Partner" },
+      }),
+    ]
+    const result = findPairedRecurrence(apt, recurrences)
+    expect(result?.patient?.name).toBe("Active Partner")
+  })
+
+  it("returns null when partner recurrence has not started yet", () => {
+    const apt = makeAppointment({
+      patientId: "patient-1",
+      scheduledAt: new Date("2026-03-30T08:45:00"), // Monday
+    })
+    const recurrences = [
+      makeRecurrence({
+        id: "rec-future",
+        patientId: "patient-2",
+        dayOfWeek: 1,
+        startTime: "08:45",
+        startDate: new Date("2026-04-06"), // starts after the appointment
+        patient: { id: "patient-2", name: "Future Partner" },
+      }),
+    ]
+    expect(findPairedRecurrence(apt, recurrences)).toBeNull()
+  })
 })
 
 // --- computeBiweeklyHints ---
@@ -228,6 +288,52 @@ describe("computeBiweeklyHints", () => {
     // No hints for other days (Tuesday-Sunday)
     const otherDayHints = hints.filter(h => h.date !== "2026-03-02")
     expect(otherDayHints).toHaveLength(0)
+  })
+
+  it("skips hint when date is past recurrence endDate", () => {
+    // Daniel's recurrence ends on 2026-03-01. The off-week of 2026-03-02 (Mon)
+    // should not produce a hint, because the series has ended.
+    const finalizedRec = makeRecurrence({
+      ...danielRec,
+      endDate: new Date("2026-03-01"),
+    })
+    const hints = computeBiweeklyHints({
+      dateRangeStart: "2026-03-02",
+      dateRangeEnd: "2026-03-02",
+      recurrences: [finalizedRec],
+      occupiedSlots: new Set(),
+    })
+    expect(hints).toHaveLength(0)
+  })
+
+  it("still shows hint when date equals recurrence endDate", () => {
+    // Off-week falls exactly on endDate — still considered active that day.
+    const recEndingOnHintDay = makeRecurrence({
+      ...danielRec,
+      endDate: new Date("2026-03-02"),
+    })
+    const hints = computeBiweeklyHints({
+      dateRangeStart: "2026-03-02",
+      dateRangeEnd: "2026-03-02",
+      recurrences: [recEndingOnHintDay],
+      occupiedSlots: new Set(),
+    })
+    expect(hints).toHaveLength(1)
+  })
+
+  it("skips hint when date is before recurrence startDate", () => {
+    // Hint date is before the recurrence even begins.
+    const futureRec = makeRecurrence({
+      ...danielRec,
+      startDate: new Date("2026-04-06"),
+    })
+    const hints = computeBiweeklyHints({
+      dateRangeStart: "2026-03-30", // Monday before startDate
+      dateRangeEnd: "2026-03-30",
+      recurrences: [futureRec],
+      occupiedSlots: new Set(),
+    })
+    expect(hints).toHaveLength(0)
   })
 })
 

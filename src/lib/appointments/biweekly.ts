@@ -9,6 +9,7 @@ export interface BiweeklyRecurrence {
   dayOfWeek: number
   startTime: string // "HH:mm"
   startDate: Date
+  endDate?: Date | null
   patient: { id: string; name: string } | null
 }
 
@@ -53,6 +54,15 @@ export function formatDateStr(date: Date): string {
 }
 
 /**
+ * Format a Date to "YYYY-MM-DD" using UTC components.
+ * Use this for recurrence start/end dates, which are stored as @db.Date
+ * (midnight UTC) and must be compared against dateStr without TZ shift.
+ */
+function formatUtcDateStr(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`
+}
+
+/**
  * Build a composite key for slot identification: "YYYY-MM-DD|professionalId|HH:mm"
  * Single source of truth for the key format used across hints, pairing, and blocking.
  */
@@ -64,7 +74,10 @@ export function buildSlotKey(date: Date, professionalProfileId: string): string 
 
 /**
  * SINGLE SOURCE OF TRUTH for pairing criteria.
- * Matches: same professional + same time + same dayOfWeek + different patient.
+ * Matches: same professional + same time + same dayOfWeek + different patient,
+ * AND the candidate recurrence is active on the appointment's date (i.e. the
+ * date falls within [startDate, endDate]). A finalized partner recurrence
+ * must not be reported as still alternating with this slot.
  */
 export function findPairedRecurrence(
   appointment: { scheduledAt: Date; professionalProfileId: string; patientId: string | null },
@@ -72,12 +85,15 @@ export function findPairedRecurrence(
 ): BiweeklyRecurrence | null {
   const aptTimeStr = formatTimeStr(appointment.scheduledAt)
   const aptDayOfWeek = appointment.scheduledAt.getDay()
+  const aptDateStr = formatDateStr(appointment.scheduledAt)
 
   return recurrences.find(rec =>
     rec.professionalProfileId === appointment.professionalProfileId &&
     rec.startTime === aptTimeStr &&
     rec.dayOfWeek === aptDayOfWeek &&
-    rec.patientId !== appointment.patientId
+    rec.patientId !== appointment.patientId &&
+    formatUtcDateStr(rec.startDate) <= aptDateStr &&
+    (!rec.endDate || aptDateStr <= formatUtcDateStr(rec.endDate))
   ) || null
 }
 
@@ -106,6 +122,8 @@ export function computeBiweeklyHints(params: {
     for (const rec of recurrences) {
       if (rec.dayOfWeek !== dayOfWeek) continue
       if (!isOffWeek(rec.startDate, dateStr)) continue
+      if (rec.endDate && dateStr > formatUtcDateStr(rec.endDate)) continue
+      if (formatUtcDateStr(rec.startDate) > dateStr) continue
       if (!rec.patient?.name) continue
       const slotKey = `${dateStr}|${rec.professionalProfileId}|${rec.startTime}`
       if (occupiedSlots.has(slotKey)) continue
