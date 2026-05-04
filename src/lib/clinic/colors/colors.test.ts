@@ -14,17 +14,22 @@ describe("PALETTE_CLASSES literal map", () => {
   it("has an entry for every PaletteName", () => {
     for (const name of PALETTE_NAMES) {
       expect(PALETTE_CLASSES[name]).toBeDefined()
-      expect(PALETTE_CLASSES[name].bg).toMatch(/^bg-[a-z]+-50$/)
+      expect(PALETTE_CLASSES[name].bg).toMatch(/^bg-([a-z]+-50|white)$/)
       expect(PALETTE_CLASSES[name].border).toMatch(/^border-[a-z]+-200$/)
-      expect(PALETTE_CLASSES[name].borderLeft).toMatch(/^border-l-[a-z]+-500$/)
-      expect(PALETTE_CLASSES[name].text).toMatch(/^text-[a-z]+-(700|800)$/)
-      expect(PALETTE_CLASSES[name].accent).toMatch(/^bg-[a-z]+-500$/)
+      expect(PALETTE_CLASSES[name].borderLeft).toMatch(/^border-l-[a-z]+-(500|700)$/)
+      expect(PALETTE_CLASSES[name].text).toMatch(/^text-([a-z]+-(700|800)|black)$/)
+      expect(PALETTE_CLASSES[name].accent).toMatch(/^bg-([a-z]+-500|black)$/)
     }
   })
 
   it("uses -800 text on yellow and lime for AA contrast", () => {
     expect(PALETTE_CLASSES.yellow.text).toBe("text-yellow-800")
     expect(PALETTE_CLASSES.lime.text).toBe("text-lime-800")
+  })
+
+  it("white palette uses bg-white + text-black for the original CONSULTA look", () => {
+    expect(PALETTE_CLASSES.white.bg).toBe("bg-white")
+    expect(PALETTE_CLASSES.white.text).toBe("text-black")
   })
 })
 

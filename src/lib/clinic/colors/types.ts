@@ -26,6 +26,10 @@ export const PALETTE_NAMES = [
   "pink",
   "rose",
   "slate",
+  // Special: white background with black text (the original CONSULTA look,
+  // restored as a configurable option). Different shape from the other
+  // palettes — bg uses `bg-white`, text/accent use `text-black`/`bg-black`.
+  "white",
 ] as const
 
 export type PaletteName = (typeof PALETTE_NAMES)[number]

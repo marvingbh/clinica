@@ -30,6 +30,9 @@ export const PALETTE_CLASSES = {
   pink:    { bg: "bg-pink-50",    border: "border-pink-200",    borderLeft: "border-l-pink-500",    text: "text-pink-700",    accent: "bg-pink-500"    },
   rose:    { bg: "bg-rose-50",    border: "border-rose-200",    borderLeft: "border-l-rose-500",    text: "text-rose-700",    accent: "bg-rose-500"    },
   slate:   { bg: "bg-slate-50",   border: "border-slate-200",   borderLeft: "border-l-slate-500",   text: "text-slate-700",   accent: "bg-slate-500"   },
+  // White is a special palette — pure white background with black text.
+  // The `accent` is black so the swatch picker dot is visible against the grid.
+  white:   { bg: "bg-white",      border: "border-slate-200",   borderLeft: "border-l-slate-700",   text: "text-black",       accent: "bg-black"       },
 } as const satisfies Record<PaletteName, EntryColors>
 
 /** Localized label per palette, for the settings picker UI. */
@@ -51,4 +54,5 @@ export const PALETTE_LABELS_PT_BR: Record<PaletteName, string> = {
   pink: "Rosa",
   rose: "Rosé",
   slate: "Cinza",
+  white: "Branco",
 }

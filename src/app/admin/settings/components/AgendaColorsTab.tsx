@@ -144,9 +144,14 @@ function PaletteSwatchGrid({
   ariaLabel: string
 }) {
   return (
-    <div role="radiogroup" aria-label={ariaLabel} className="grid grid-cols-9 sm:grid-cols-17 gap-1.5">
+    <div role="radiogroup" aria-label={ariaLabel} className="grid grid-cols-9 gap-1.5">
       {PALETTE_NAMES.map((name) => {
         const isActive = name === value
+        // The "white" palette uses bg-white for the actual block but the
+        // swatch dot uses its `accent` (bg-black) so it's visible in the grid.
+        // Other palettes use their `accent` (bg-{color}-500). All swatches
+        // get a thin border so light palettes (yellow, lime, white) don't
+        // disappear against the card background.
         return (
           <button
             key={name}
@@ -156,7 +161,7 @@ function PaletteSwatchGrid({
             aria-label={PALETTE_LABELS_PT_BR[name]}
             title={PALETTE_LABELS_PT_BR[name]}
             onClick={() => onChange(name)}
-            className={`relative w-8 h-8 rounded-full ${PALETTE_CLASSES[name].accent} ring-offset-2 ring-offset-card transition-shadow hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            className={`relative w-8 h-8 rounded-full border border-border ${PALETTE_CLASSES[name].accent} ring-offset-2 ring-offset-card transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               isActive ? "ring-2 ring-ring shadow-md" : ""
             }`}
           >
