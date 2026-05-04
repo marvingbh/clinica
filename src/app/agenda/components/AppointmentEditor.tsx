@@ -607,7 +607,7 @@ function OccurrenceTabContent({
               className="w-full h-11 rounded-[4px] bg-ok-500 text-white font-medium text-[13px] inline-flex items-center justify-center gap-2 border border-ok-500 hover:bg-ok-700 hover:border-ok-700 transition-colors disabled:opacity-50"
             >
               <CheckIcon className="w-4 h-4" />
-              {isUpdatingStatus ? "..." : "Concluir"}
+              {isUpdatingStatus ? "..." : "Marcar como concluído"}
             </button>
           )}
 
