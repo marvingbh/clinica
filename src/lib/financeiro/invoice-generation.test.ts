@@ -123,4 +123,26 @@ describe("separateManualItems", () => {
     expect(autoItems.map(i => i.id)).toEqual(["1", "2", "4"])
     expect(manualItems.map(i => i.id)).toEqual(["3", "5"])
   })
+
+  it("treats orphaned SESSAO_REGULAR (null appointmentId) as auto, not manual", () => {
+    // Repro: appointment was deleted (FK ON DELETE SET NULL) leaving the
+    // session item behind with no link. Recalc must wipe it instead of
+    // preserving it as if a user had typed it in by hand.
+    const items = [
+      { id: "orphan", appointmentId: null, type: "SESSAO_REGULAR", description: "Sessão" },
+      { id: "manual", appointmentId: null, type: "SESSAO_EXTRA", description: "User-added extra" },
+    ]
+    const { autoItems, manualItems } = separateManualItems(items)
+    expect(autoItems.map(i => i.id)).toEqual(["orphan"])
+    expect(manualItems.map(i => i.id)).toEqual(["manual"])
+  })
+
+  it("treats orphaned SESSAO_GRUPO (null appointmentId) as auto", () => {
+    const items = [
+      { id: "orphan", appointmentId: null, type: "SESSAO_GRUPO", description: "Psicoterapia em grupo" },
+    ]
+    const { autoItems, manualItems } = separateManualItems(items)
+    expect(autoItems.map(i => i.id)).toEqual(["orphan"])
+    expect(manualItems).toHaveLength(0)
+  })
 })

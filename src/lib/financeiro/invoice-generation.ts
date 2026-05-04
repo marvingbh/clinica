@@ -49,9 +49,17 @@ export function shouldSkipInvoice(status: string): boolean {
   return status === "PAGO" || status === "ENVIADO" || status === "PARCIAL"
 }
 
+// SESSAO_REGULAR and SESSAO_GRUPO are only ever produced by the auto-generator.
+// The manual-add API (POST /api/financeiro/faturas/:id/items) restricts users
+// to SESSAO_EXTRA / REUNIAO_ESCOLA / CREDITO. So a SESSAO_REGULAR or
+// SESSAO_GRUPO row with no appointmentId is an orphan whose linked appointment
+// was deleted (FK is ON DELETE SET NULL) — must not survive a recalc.
+const AUTO_ONLY_ITEM_TYPES = new Set(["SESSAO_REGULAR", "SESSAO_GRUPO"])
+
 /**
  * Separates invoice items into auto-generated and manual.
- * Auto items: have an appointmentId OR are CREDITO with a matching consumed SessionCredit.
+ * Auto items: have an appointmentId, OR are an auto-only session type orphaned
+ * by an appointment deletion, OR are CREDITO matching a consumed SessionCredit.
  * Manual items: everything else (user-added items, including manual credits).
  */
 export function separateManualItems<T extends InvoiceItemForSeparation & { description: string }>(
@@ -69,6 +77,9 @@ export function separateManualItems<T extends InvoiceItemForSeparation & { descr
   for (const item of items) {
     if (item.appointmentId !== null) {
       // Appointment-linked items are always auto
+      autoItems.push(item)
+    } else if (AUTO_ONLY_ITEM_TYPES.has(item.type)) {
+      // Orphaned auto-only session row — sweep on recalc instead of preserving.
       autoItems.push(item)
     } else if (item.type === "CREDITO" && autoCreditDescriptions.has(item.description)) {
       // CREDITO items that match a consumed SessionCredit are auto

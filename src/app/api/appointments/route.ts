@@ -283,6 +283,7 @@ export const GET = withFeatureAuth(
         dayOfWeek: true,
         startTime: true,
         startDate: true,
+        endDate: true,
         patient: { select: { id: true, name: true } },
       },
     })

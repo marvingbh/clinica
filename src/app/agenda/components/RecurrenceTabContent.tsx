@@ -719,9 +719,30 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
         onClose={() => setIsFinalizeDialogOpen(false)}
         title="Encerrar recorrência"
       >
+        {appointment?.patient?.name && (
+          <div className="mb-3 p-3 rounded-[4px] border border-warn-200 bg-warn-50">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-warn-700">
+              Encerrando a série de
+            </div>
+            <div className="text-[14px] font-semibold text-ink-900 mt-0.5">
+              {appointment.patient.name}
+            </div>
+          </div>
+        )}
         <p className="text-[13px] text-ink-600 mb-4">
           Defina a data final para esta recorrência. Após essa data, não serão gerados novos agendamentos.
         </p>
+        {appointment?.alternateWeekInfo?.pairedPatientName && (
+          <div className="mb-4 flex items-start gap-2 p-2.5 rounded-[4px] border border-brand-100 bg-brand-50 text-[12px] text-brand-800">
+            <InfoIcon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            <span>
+              Esta é uma série quinzenal alternada com{" "}
+              <strong className="font-semibold">{appointment.alternateWeekInfo.pairedPatientName}</strong>.
+              A série de {appointment.alternateWeekInfo.pairedPatientName} é{" "}
+              <strong className="font-semibold">independente</strong> e não será encerrada.
+            </span>
+          </div>
+        )}
         <div className="mb-5">
           <label htmlFor="finalizeDate" className={LABEL}>
             Data final
