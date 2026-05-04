@@ -8,6 +8,7 @@ import {
   ArrowRightIcon,
   CopyIcon,
   TrashIcon,
+  PencilIcon,
 } from "@/shared/components/ui/icons"
 import { addDays, todayIso, tomorrowIso, nextWeekIso } from "@/lib/todos"
 import type { TodoListItem } from "@/app/tarefas/types"
@@ -16,12 +17,13 @@ interface Props {
   todo: TodoListItem
   anchorRect: DOMRect
   onClose: () => void
+  onEdit: (t: TodoListItem) => void
   onMove: (t: TodoListItem, dayIso: string) => void
   onDuplicate: (t: TodoListItem) => void
   onDelete: (t: TodoListItem) => void
 }
 
-export function TodoMenu({ todo, anchorRect, onClose, onMove, onDuplicate, onDelete }: Props) {
+export function TodoMenu({ todo, anchorRect, onClose, onEdit, onMove, onDuplicate, onDelete }: Props) {
   const [pos] = useState({
     left: Math.min(window.innerWidth - 220, anchorRect.right - 200),
     top: anchorRect.bottom + 6,
@@ -53,6 +55,16 @@ export function TodoMenu({ todo, anchorRect, onClose, onMove, onDuplicate, onDel
       className="fixed z-[100] min-w-[200px] rounded-[10px] border border-ink-200 bg-card shadow-xl py-1 text-[12.5px]"
       style={{ left: pos.left, top: pos.top }}
     >
+      <Item
+        icon={<PencilIcon className="w-3.5 h-3.5" />}
+        onClick={() => {
+          onEdit(todo)
+          onClose()
+        }}
+      >
+        Editar
+      </Item>
+      <div className="h-px bg-ink-100 my-1" />
       <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-500">
         Mover para
       </div>
@@ -107,7 +119,7 @@ export function TodoMenu({ todo, anchorRect, onClose, onMove, onDuplicate, onDel
         danger
         icon={<TrashIcon className="w-3.5 h-3.5" />}
         onClick={() => {
-          if (confirm(`Excluir "${todo.title}"?`)) onDelete(todo)
+          onDelete(todo)
           onClose()
         }}
       >

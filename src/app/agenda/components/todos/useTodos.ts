@@ -4,7 +4,10 @@ import { useCallback, useRef, useState } from "react"
 // eslint-disable-next-line no-restricted-imports
 import { useEffect } from "react"
 import { toast } from "sonner"
-import type { TodoListItem } from "@/app/tarefas/types"
+import type { TodoFormData, TodoListItem } from "@/app/tarefas/types"
+import type { TodoEditScope } from "@/shared/components/todos/TodoDrawer"
+import { saveTodoFromDraft } from "@/shared/components/todos/saveTodoFromDraft"
+import { deleteTodoWithScope } from "@/shared/components/todos/deleteTodoWithScope"
 
 export interface UseTodosArgs {
   fromIso: string
@@ -141,17 +144,33 @@ export function useTodos({ fromIso, toIso, assigneeFilter }: UseTodosArgs) {
     await reload()
   }
 
-  async function remove(t: TodoListItem) {
+  async function remove(t: TodoListItem, scope?: TodoEditScope) {
     snapshot(t)
+    // Optimistic: drop just this row. The "all_future" path may end up
+    // removing siblings on the server; we'll pick those up via reload below
+    // rather than try to predict which ones server-side rules will keep.
     setTodos((prev) => prev.filter((x) => x.id !== t.id))
-    const res = await fetch(`/api/todos/${t.id}`, { method: "DELETE" })
-    if (!res.ok) {
-      toast.error("Erro ao excluir")
+    const ok = await deleteTodoWithScope(t.id, {
+      scope,
+      recurrenceId: t.recurrenceId,
+    })
+    if (!ok) {
       rollback(t.id)
       return
     }
     commit(t.id)
+    if (scope === "all_future") await reload()
   }
 
-  return { todos, loading, reload, quickAdd, toggleDone, moveToDay, duplicate, remove }
+  async function saveFromDraft(draft: TodoFormData, scope?: TodoEditScope): Promise<boolean> {
+    const original = draft.id ? todos.find((t) => t.id === draft.id) : undefined
+    const ok = await saveTodoFromDraft(draft, {
+      scope,
+      recurrenceId: original?.recurrenceId ?? null,
+    })
+    if (ok) await reload()
+    return ok
+  }
+
+  return { todos, loading, reload, quickAdd, toggleDone, moveToDay, duplicate, remove, saveFromDraft }
 }

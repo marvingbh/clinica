@@ -5,12 +5,16 @@ import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { PlusIcon } from "@/shared/components/ui/icons"
 import { useRequireAuth, usePermission, useMountEffect } from "@/shared/hooks"
-import { isOverdue, todayIso } from "@/lib/todos"
+import { isOverdue } from "@/lib/todos"
 import { TodoStatCards } from "./components/TodoStatCards"
 import { TodoFiltersBar } from "./components/TodoFiltersBar"
 import { TodosTable } from "./components/TodosTable"
 import { TodoBulkBar } from "./components/TodoBulkBar"
-import { TodoDrawer } from "./components/TodoDrawer"
+import { TodoDrawer, type TodoEditScope } from "@/shared/components/todos/TodoDrawer"
+import { TodoDeleteDialog } from "@/shared/components/todos/TodoDeleteDialog"
+import { emptyTodoDraft, todoToFormDraft } from "@/shared/components/todos/todoFormDraft"
+import { saveTodoFromDraft } from "@/shared/components/todos/saveTodoFromDraft"
+import { deleteTodoWithScope } from "@/shared/components/todos/deleteTodoWithScope"
 import { Pagination } from "@/shared/components/ui/pagination"
 import { loadProfessionals } from "@/lib/professionals/list"
 
@@ -23,35 +27,6 @@ import type {
   SortKey,
   TodoFormData,
 } from "./types"
-
-function emptyDraft(professionalProfileId: string): TodoFormData {
-  return {
-    title: "",
-    notes: "",
-    day: todayIso(),
-    professionalProfileId,
-    done: false,
-    recurrenceType: "",
-    recurrenceEndType: "INDEFINITE",
-    occurrences: 8,
-    endDate: "",
-  }
-}
-
-function todoToDraft(t: TodoListItem): TodoFormData {
-  return {
-    id: t.id,
-    title: t.title,
-    notes: t.notes ?? "",
-    day: t.day.slice(0, 10),
-    professionalProfileId: t.professionalProfileId,
-    done: t.done,
-    recurrenceType: t.recurrence?.recurrenceType ?? "",
-    recurrenceEndType: t.recurrence?.recurrenceEndType ?? "INDEFINITE",
-    occurrences: t.recurrence?.occurrences ?? 8,
-    endDate: t.recurrence?.endDate?.slice(0, 10) ?? "",
-  }
-}
 
 export default function TarefasPage() {
   const { isReady } = useRequireAuth()
@@ -72,6 +47,7 @@ export default function TarefasPage() {
   })
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [editing, setEditing] = useState<{ draft: TodoFormData; isNew: boolean; hasRecurrence: boolean } | null>(null)
+  const [deleting, setDeleting] = useState<TodoListItem | null>(null)
   const [page, setPage] = useState(0)
 
   const isAdmin = session?.user?.role === "ADMIN"
@@ -142,46 +118,13 @@ export default function TarefasPage() {
   }, [todos])
 
   // ----- Mutations -----
-  async function saveTodo(draft: TodoFormData) {
-    const isNew = !draft.id
-    const url = isNew ? "/api/todos" : `/api/todos/${draft.id}`
-    const method = isNew ? "POST" : "PATCH"
-    const recurrence =
-      isNew && draft.recurrenceType
-        ? {
-            recurrenceType: draft.recurrenceType,
-            recurrenceEndType: draft.recurrenceEndType,
-            ...(draft.recurrenceEndType === "BY_OCCURRENCES" && { occurrences: draft.occurrences }),
-            ...(draft.recurrenceEndType === "BY_DATE" && { endDate: draft.endDate }),
-          }
-        : undefined
-    const body = isNew
-      ? {
-          title: draft.title,
-          notes: draft.notes || null,
-          day: draft.day,
-          professionalProfileId: draft.professionalProfileId,
-          done: draft.done,
-          ...(recurrence && { recurrence }),
-        }
-      : {
-          title: draft.title,
-          notes: draft.notes || null,
-          day: draft.day,
-          professionalProfileId: draft.professionalProfileId,
-          done: draft.done,
-        }
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+  async function saveTodo(draft: TodoFormData, scope?: TodoEditScope) {
+    const original = draft.id ? todos.find((t) => t.id === draft.id) : undefined
+    const ok = await saveTodoFromDraft(draft, {
+      scope,
+      recurrenceId: original?.recurrenceId ?? null,
     })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      toast.error(err.error ?? "Erro ao salvar tarefa")
-      return
-    }
-    toast.success(isNew ? "Tarefa criada" : "Tarefa atualizada")
+    if (!ok) return
     setEditing(null)
     await reload()
   }
@@ -208,19 +151,22 @@ export default function TarefasPage() {
     }
   }
 
-  async function deleteTodo(id: string) {
-    const res = await fetch(`/api/todos/${id}`, { method: "DELETE" })
-    if (!res.ok) {
-      toast.error("Erro ao excluir")
-      return
+  async function deleteTodo(t: TodoListItem, scope?: TodoEditScope) {
+    const ok = await deleteTodoWithScope(t.id, {
+      scope,
+      recurrenceId: t.recurrenceId,
+    })
+    if (!ok) return
+    if (scope === "all_future") {
+      await reload()
+    } else {
+      setTodos((prev) => prev.filter((x) => x.id !== t.id))
     }
-    setTodos((prev) => prev.filter((t) => t.id !== id))
     setSelected((s) => {
       const n = new Set(s)
-      n.delete(id)
+      n.delete(t.id)
       return n
     })
-    toast.success("Tarefa excluída")
   }
 
   async function duplicateTodo(t: TodoListItem) {
@@ -266,10 +212,10 @@ export default function TarefasPage() {
       return
     }
     const defaultProfId = session?.user?.professionalProfileId ?? professionals[0]?.id ?? ""
-    setEditing({ draft: emptyDraft(defaultProfId), isNew: true, hasRecurrence: false })
+    setEditing({ draft: emptyTodoDraft(defaultProfId), isNew: true, hasRecurrence: false })
   }
   function startEdit(t: TodoListItem) {
-    setEditing({ draft: todoToDraft(t), isNew: false, hasRecurrence: !!t.recurrenceId })
+    setEditing({ draft: todoToFormDraft(t), isNew: false, hasRecurrence: !!t.recurrenceId })
   }
 
   if (!isReady || !loaded) {
@@ -370,9 +316,7 @@ export default function TarefasPage() {
               onToggleDone={toggleDone}
               onEdit={startEdit}
               onDuplicate={duplicateTodo}
-              onDelete={(t) => {
-                if (confirm(`Excluir "${t.title}"?`)) deleteTodo(t.id)
-              }}
+              onDelete={(t) => setDeleting(t)}
               sort={sort}
               onSort={toggleSort}
               rounded={tableRounded}
@@ -399,12 +343,22 @@ export default function TarefasPage() {
             editing.isNew || !editing.draft.id
               ? undefined
               : () => {
-                  if (editing.draft.id) {
-                    deleteTodo(editing.draft.id)
-                    setEditing(null)
-                  }
+                  const t = todos.find((x) => x.id === editing.draft.id)
+                  if (t) setDeleting(t)
                 }
           }
+        />
+      )}
+      {deleting && (
+        <TodoDeleteDialog
+          todo={deleting}
+          onClose={() => setDeleting(null)}
+          onConfirm={async (scope) => {
+            const target = deleting
+            await deleteTodo(target, scope)
+            setDeleting(null)
+            setEditing((prev) => (prev?.draft.id === target.id ? null : prev))
+          }}
         />
       )}
     </div>

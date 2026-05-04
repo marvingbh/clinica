@@ -4,7 +4,9 @@ import { useState } from "react"
 import { createPortal } from "react-dom"
 import { useMountEffect } from "@/shared/hooks"
 import { XIcon, TrashIcon } from "@/shared/components/ui/icons"
-import type { ProfessionalLite, TodoFormData } from "../types"
+import type { ProfessionalLite, TodoFormData } from "@/app/tarefas/types"
+
+export type TodoEditScope = "this_only" | "all_future"
 
 interface Props {
   initial: TodoFormData
@@ -12,7 +14,7 @@ interface Props {
   professionals: ProfessionalLite[]
   hasRecurrence: boolean
   onClose: () => void
-  onSave: (data: TodoFormData) => Promise<void>
+  onSave: (data: TodoFormData, scope?: TodoEditScope) => Promise<void>
   onDelete?: () => void
 }
 
@@ -27,6 +29,11 @@ export function TodoDrawer({
 }: Props) {
   const [draft, setDraft] = useState<TodoFormData>(initial)
   const [saving, setSaving] = useState(false)
+  const [scope, setScope] = useState<TodoEditScope>("this_only")
+  const seriesFieldsChanged =
+    !isNew &&
+    hasRecurrence &&
+    (draft.title !== initial.title || (draft.notes ?? "") !== (initial.notes ?? ""))
 
   useMountEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -44,7 +51,10 @@ export function TodoDrawer({
     if (!draft.title.trim()) return
     setSaving(true)
     try {
-      await onSave(draft)
+      // Only forward a scope when the choice actually matters — i.e. the user
+      // edited title/notes on a recurring todo. Otherwise the API call stays
+      // a single-occurrence patch.
+      await onSave(draft, seriesFieldsChanged ? scope : undefined)
     } finally {
       setSaving(false)
     }
@@ -147,13 +157,32 @@ export function TodoDrawer({
               className="input resize-y min-h-[70px]"
             />
           </Field>
+          {seriesFieldsChanged && (
+            <div className="rounded-[8px] border border-brand-100 bg-brand-50 p-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-brand-700 mb-2">
+                Aplicar alteração a
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <ScopeOption
+                  active={scope === "this_only"}
+                  onClick={() => setScope("this_only")}
+                  title="Apenas esta tarefa"
+                  hint="Outras ocorrências da série permanecem como estão."
+                />
+                <ScopeOption
+                  active={scope === "all_future"}
+                  onClick={() => setScope("all_future")}
+                  title="Esta e todas as futuras"
+                  hint="Atualiza o título/notas em ocorrências futuras não concluídas."
+                />
+              </div>
+            </div>
+          )}
         </div>
         <footer className="flex items-center px-5 py-3.5 border-t border-ink-100 gap-2">
           {!isNew && onDelete ? (
             <button
-              onClick={() => {
-                if (confirm("Excluir esta tarefa?")) onDelete()
-              }}
+              onClick={() => onDelete()}
               className="px-3 py-2 rounded-[8px] text-[13px] font-medium text-err-700 hover:bg-err-50 inline-flex items-center gap-1.5"
             >
               <TrashIcon className="w-3.5 h-3.5" />
@@ -197,6 +226,44 @@ export function TodoDrawer({
       `}</style>
     </div>,
     document.body
+  )
+}
+
+function ScopeOption({
+  active,
+  onClick,
+  title,
+  hint,
+}: {
+  active: boolean
+  onClick: () => void
+  title: string
+  hint: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-start gap-2 text-left p-2.5 rounded-[6px] border transition-colors ${
+        active
+          ? "border-brand-500 bg-card shadow-[0_0_0_1px_var(--brand-500)]"
+          : "border-ink-200 bg-card hover:border-ink-400"
+      }`}
+    >
+      <span
+        className={`mt-[3px] w-3.5 h-3.5 rounded-full border grid place-items-center flex-shrink-0 ${
+          active ? "border-brand-500 bg-brand-500" : "border-ink-300 bg-card"
+        }`}
+      >
+        {active && <span className="w-1.5 h-1.5 rounded-full bg-card" />}
+      </span>
+      <span className="min-w-0">
+        <span className={`block text-[12.5px] font-semibold ${active ? "text-brand-800" : "text-ink-900"}`}>
+          {title}
+        </span>
+        <span className="block text-[11px] text-ink-500 mt-0.5">{hint}</span>
+      </span>
+    </button>
   )
 }
 

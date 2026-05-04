@@ -24,6 +24,7 @@ interface Props {
   compact?: boolean
   professionalColorMap: ProfessionalColorMap
   onToggle: (t: TodoListItem) => void
+  onEdit: (t: TodoListItem) => void
   onMove: (t: TodoListItem, dayIso: string) => void
   onDuplicate: (t: TodoListItem) => void
   onDelete: (t: TodoListItem) => void
@@ -37,6 +38,7 @@ export function TodoCard({
   compact,
   professionalColorMap,
   onToggle,
+  onEdit,
   onMove,
   onDuplicate,
   onDelete,
@@ -145,6 +147,7 @@ export function TodoCard({
           todo={todo}
           anchorRect={menuAt}
           onClose={() => setMenuAt(null)}
+          onEdit={onEdit}
           onMove={onMove}
           onDuplicate={onDuplicate}
           onDelete={onDelete}

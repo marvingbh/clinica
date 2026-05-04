@@ -14,7 +14,10 @@ import {
   type ProfessionalColorMap,
 } from "@/app/agenda/lib/professional-colors"
 import { ChevronUpIcon, ChevronDownIcon } from "@/shared/components/ui/icons"
-import type { TodoListItem } from "@/app/tarefas/types"
+import { TodoDrawer, type TodoEditScope } from "@/shared/components/todos/TodoDrawer"
+import { TodoDeleteDialog } from "@/shared/components/todos/TodoDeleteDialog"
+import { todoToFormDraft } from "@/shared/components/todos/todoFormDraft"
+import type { TodoFormData, TodoListItem } from "@/app/tarefas/types"
 
 const COLLAPSED_KEY = "agenda-todos-strip-collapsed"
 
@@ -50,11 +53,37 @@ export function TodosStrip({
   const myProfId = session?.user?.professionalProfileId ?? ""
   const enableDrag = layout === "row"
 
-  const { todos, quickAdd, toggleDone, moveToDay, duplicate, remove } = useTodos({
+  const { todos, quickAdd, toggleDone, moveToDay, duplicate, remove, saveFromDraft } = useTodos({
     fromIso,
     toIso,
     assigneeFilter: isAdmin ? selectedProfessionalId : myProfId,
   })
+
+  const [editing, setEditing] = useState<{ draft: TodoFormData; hasRecurrence: boolean } | null>(null)
+  const [deleting, setDeleting] = useState<TodoListItem | null>(null)
+  const startEdit = useCallback((t: TodoListItem) => {
+    setEditing({ draft: todoToFormDraft(t), hasRecurrence: !!t.recurrenceId })
+  }, [])
+  const startDelete = useCallback((t: TodoListItem) => {
+    setDeleting(t)
+  }, [])
+  const handleSaveDraft = useCallback<(data: TodoFormData, scope?: TodoEditScope) => Promise<void>>(
+    async (data, scope) => {
+      const ok = await saveFromDraft(data, scope)
+      if (ok) setEditing(null)
+    },
+    [saveFromDraft],
+  )
+  const handleConfirmDelete = useCallback(
+    async (scope?: TodoEditScope) => {
+      if (!deleting) return
+      await remove(deleting, scope)
+      setDeleting(null)
+      // If the user was deleting from inside the drawer, close it too.
+      setEditing((prev) => (prev?.draft.id === deleting.id ? null : prev))
+    },
+    [deleting, remove],
+  )
 
   const [professionals, setProfessionals] = useState<ProfessionalLite[]>([])
   useMountEffect(() => {
@@ -255,9 +284,10 @@ export function TodosStrip({
                     compact={layout === "row"}
                     professionalColorMap={colorMap}
                     onToggle={toggleDone}
+                    onEdit={startEdit}
                     onMove={moveToDay}
                     onDuplicate={duplicate}
-                    onDelete={remove}
+                    onDelete={startDelete}
                     onDragStart={enableDrag ? handleDragStart : undefined}
                     onDragEnd={enableDrag ? handleDragEnd : undefined}
                   />
@@ -270,6 +300,31 @@ export function TodosStrip({
           </div>
         )
       })}
+      {editing && (
+        <TodoDrawer
+          initial={editing.draft}
+          isNew={false}
+          hasRecurrence={editing.hasRecurrence}
+          professionals={professionals}
+          onClose={() => setEditing(null)}
+          onSave={handleSaveDraft}
+          onDelete={
+            editing.draft.id
+              ? () => {
+                  const t = todos.find((x) => x.id === editing.draft.id)
+                  if (t) startDelete(t)
+                }
+              : undefined
+          }
+        />
+      )}
+      {deleting && (
+        <TodoDeleteDialog
+          todo={deleting}
+          onClose={() => setDeleting(null)}
+          onConfirm={handleConfirmDelete}
+        />
+      )}
     </div>
   )
 }
