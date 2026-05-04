@@ -103,6 +103,7 @@ describe("resolveAgendaColors — partial / unknown values", () => {
       lembrete: "amber",
       groupSession: "fuchsia",
       availability: "emerald",
+      todo: "rose",
     } as const
     expect(resolveAgendaColors(full)).toEqual(full)
   })

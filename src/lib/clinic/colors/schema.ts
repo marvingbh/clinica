@@ -24,6 +24,7 @@ export const agendaColorsSchema = z
     lembrete: paletteNameSchema,
     groupSession: paletteNameSchema,
     availability: paletteNameSchema,
+    todo: paletteNameSchema,
   })
   .strict()
 
@@ -36,6 +37,9 @@ export const DEFAULT_AGENDA_COLORS: AgendaColors = Object.freeze({
   lembrete: "yellow",
   groupSession: "violet",
   availability: "green",
+  // `blue` matches the current `brand-500` left-stripe on todo cards closely
+  // enough that existing clinics see no jarring change at upgrade time.
+  todo: "blue",
 })
 
 /**

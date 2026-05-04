@@ -23,6 +23,7 @@ const SLOT_LABELS: Record<AgendaColorSlot, string> = {
   lembrete: "Lembrete",
   groupSession: "Sessão em grupo",
   availability: "Disponível",
+  todo: "Tarefa",
 }
 
 const SLOT_DESCRIPTIONS: Record<AgendaColorSlot, string> = {
@@ -31,6 +32,7 @@ const SLOT_DESCRIPTIONS: Record<AgendaColorSlot, string> = {
   lembrete: "Cor dos blocos de lembrete",
   groupSession: "Cor das sessões em grupo (KEEP, MERCÚRIO etc.)",
   availability: "Cor dos horários disponíveis para agendamento",
+  todo: "Cor da faixa lateral nas tarefas da agenda (Tarefas)",
 }
 
 export default function AgendaColorsTab({ settings, onUpdate }: TabProps) {

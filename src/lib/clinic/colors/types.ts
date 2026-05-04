@@ -41,6 +41,7 @@ export const AGENDA_COLOR_SLOTS = [
   "lembrete",
   "groupSession",
   "availability",
+  "todo",
 ] as const
 
 export type AgendaColorSlot = (typeof AGENDA_COLOR_SLOTS)[number]
