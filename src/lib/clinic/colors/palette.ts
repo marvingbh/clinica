@@ -33,6 +33,10 @@ export const PALETTE_CLASSES = {
   // White is a special palette — pure white background with black text.
   // The `accent` is black so the swatch picker dot is visible against the grid.
   white:   { bg: "bg-white",      border: "border-slate-200",   borderLeft: "border-l-slate-700",   text: "text-black",       accent: "bg-black"       },
+  // Two-tone: white background + blue stripe (the original todo brand look).
+  // The picker renders this swatch as half-white / half-blue (handled by
+  // the swatch component, since a flat Tailwind class can't express it).
+  whiteBlue: { bg: "bg-white",    border: "border-slate-200",   borderLeft: "border-l-blue-500",    text: "text-blue-700",    accent: "bg-blue-500"    },
 } as const satisfies Record<PaletteName, EntryColors>
 
 /** Localized label per palette, for the settings picker UI. */
@@ -55,4 +59,5 @@ export const PALETTE_LABELS_PT_BR: Record<PaletteName, string> = {
   rose: "Rosé",
   slate: "Cinza",
   white: "Branco",
+  whiteBlue: "Branco + Azul",
 }

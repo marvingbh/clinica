@@ -30,6 +30,9 @@ export const PALETTE_NAMES = [
   // restored as a configurable option). Different shape from the other
   // palettes — bg uses `bg-white`, text/accent use `text-black`/`bg-black`.
   "white",
+  // Two-tone: white background + blue accent stripe (the original todo
+  // brand look). Swatch renders as a half-white / half-blue circle.
+  "whiteBlue",
 ] as const
 
 export type PaletteName = (typeof PALETTE_NAMES)[number]

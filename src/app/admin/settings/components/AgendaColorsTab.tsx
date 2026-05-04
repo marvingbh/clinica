@@ -149,11 +149,12 @@ function PaletteSwatchGrid({
     <div role="radiogroup" aria-label={ariaLabel} className="grid grid-cols-9 gap-1.5">
       {PALETTE_NAMES.map((name) => {
         const isActive = name === value
-        // The "white" palette uses bg-white for the actual block but the
-        // swatch dot uses its `accent` (bg-black) so it's visible in the grid.
-        // Other palettes use their `accent` (bg-{color}-500). All swatches
-        // get a thin border so light palettes (yellow, lime, white) don't
+        // `whiteBlue` is a two-tone palette (white card + blue stripe). A
+        // single Tailwind class can't express that, so its swatch is rendered
+        // with a diagonal linear-gradient. Solid palettes use the `accent`
+        // class. All swatches get a thin border so light palettes don't
         // disappear against the card background.
+        const isTwoTone = name === "whiteBlue"
         return (
           <button
             key={name}
@@ -163,12 +164,19 @@ function PaletteSwatchGrid({
             aria-label={PALETTE_LABELS_PT_BR[name]}
             title={PALETTE_LABELS_PT_BR[name]}
             onClick={() => onChange(name)}
-            className={`relative w-8 h-8 rounded-full border border-border ${PALETTE_CLASSES[name].accent} ring-offset-2 ring-offset-card transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            style={
+              isTwoTone
+                ? { background: "linear-gradient(135deg, #ffffff 50%, var(--color-blue-500, #3b82f6) 50%)" }
+                : undefined
+            }
+            className={`relative w-8 h-8 rounded-full border border-border ${
+              isTwoTone ? "" : PALETTE_CLASSES[name].accent
+            } ring-offset-2 ring-offset-card transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               isActive ? "ring-2 ring-ring shadow-md" : ""
             }`}
           >
             {isActive && (
-              <span className="absolute inset-0 grid place-items-center text-white">
+              <span className={`absolute inset-0 grid place-items-center ${isTwoTone ? "text-blue-700" : "text-white"}`}>
                 <CheckIcon className="w-4 h-4" strokeWidth={3} />
               </span>
             )}

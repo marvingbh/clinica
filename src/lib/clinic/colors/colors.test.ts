@@ -31,6 +31,12 @@ describe("PALETTE_CLASSES literal map", () => {
     expect(PALETTE_CLASSES.white.bg).toBe("bg-white")
     expect(PALETTE_CLASSES.white.text).toBe("text-black")
   })
+
+  it("whiteBlue palette is two-tone — bg-white + blue stripe", () => {
+    expect(PALETTE_CLASSES.whiteBlue.bg).toBe("bg-white")
+    expect(PALETTE_CLASSES.whiteBlue.borderLeft).toBe("border-l-blue-500")
+    expect(PALETTE_CLASSES.whiteBlue.text).toBe("text-blue-700")
+  })
 })
 
 describe("resolveAgendaColors — defaults handling", () => {

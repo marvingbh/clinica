@@ -37,9 +37,9 @@ export const DEFAULT_AGENDA_COLORS: AgendaColors = Object.freeze({
   lembrete: "yellow",
   groupSession: "violet",
   availability: "green",
-  // `blue` matches the current `brand-500` left-stripe on todo cards closely
-  // enough that existing clinics see no jarring change at upgrade time.
-  todo: "blue",
+  // `whiteBlue` (white card + blue accent) matches the original todo card
+  // look exactly so existing clinics see no jarring change at upgrade time.
+  todo: "whiteBlue",
 })
 
 /**
