@@ -47,11 +47,12 @@ export function TodoCard({
   const overdue = isOverdue({ done: todo.done, day: todo.day.slice(0, 10) })
   const profName = todo.professionalProfile.user.name.split(" ")[0]
   const profColor = getProfessionalColor(todo.professionalProfileId, professionalColorMap)
-  // Full configurable palette — bg, border, left stripe — to match how
-  // appointment blocks render. Overdue still wins on the left stripe so an
-  // urgent task is recognisable regardless of the configured todo palette.
-  const todoColors = paletteFor("todo", useAgendaColors())
-  const stripeClass = overdue ? "border-l-err-500" : todoColors.borderLeft
+  // Todo cards intentionally stay minimal: white card body with an ink
+  // border. ONLY the left stripe follows the configured palette so the
+  // accent reads at a glance without making the strip visually heavy.
+  // Overdue (red) wins so urgent tasks stay recognisable regardless of palette.
+  const todoStripe = paletteFor("todo", useAgendaColors()).borderLeft
+  const stripeClass = overdue ? "border-l-err-500" : todoStripe
 
   return (
     <>
@@ -64,8 +65,8 @@ export function TodoCard({
           }
         }}
         onDragEnd={onDragEnd}
-        className={`group relative flex flex-col gap-[3px] rounded-[7px] border ${todoColors.bg} ${todoColors.border} px-2 py-1.5 text-[12px] leading-[1.3] cursor-grab active:cursor-grabbing
-          ${todo.done ? "opacity-70" : ""}
+        className={`group relative flex flex-col gap-[3px] rounded-[7px] border bg-card border-ink-200 px-2 py-1.5 text-[12px] leading-[1.3] cursor-grab active:cursor-grabbing
+          ${todo.done ? "opacity-70 bg-ink-50/60" : ""}
           border-l-[3px] ${stripeClass}`}
       >
         <div className="flex items-start gap-1.5">
