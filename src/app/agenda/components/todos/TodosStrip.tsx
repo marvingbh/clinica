@@ -191,7 +191,15 @@ export function TodosStrip({
 
   if (collapsed) {
     return (
-      <div className="flex items-center justify-between border-b border-ink-200 bg-ink-50/30 px-3 py-1.5 sticky left-0 z-[5]">
+      <div className="flex items-center gap-2 border-b border-ink-200 bg-ink-50/30 px-3 py-1.5 sticky left-0 z-[5]">
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className="w-5 h-5 grid place-items-center text-ink-500 hover:text-ink-800 hover:bg-ink-100 rounded"
+          title="Mostrar tarefas"
+        >
+          <ChevronDownIcon className="w-3.5 h-3.5" />
+        </button>
         <span className="text-[10px] uppercase tracking-[0.12em] text-ink-500 font-semibold">
           Tarefas
           {(totalRemaining > 0 || totalCompleted > 0) && (
@@ -203,14 +211,6 @@ export function TodosStrip({
             </span>
           )}
         </span>
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          className="w-5 h-5 grid place-items-center text-ink-500 hover:text-ink-800 hover:bg-ink-100 rounded"
-          title="Mostrar tarefas"
-        >
-          <ChevronDownIcon className="w-3.5 h-3.5" />
-        </button>
       </div>
     )
   }
@@ -241,10 +241,7 @@ export function TodosStrip({
         </div>
       )}
       {layout === "single" && (
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] uppercase tracking-[0.12em] text-ink-500 font-semibold">
-            Tarefas
-          </span>
+        <div className="flex items-center gap-2 mb-1">
           <button
             type="button"
             onClick={toggleCollapsed}
@@ -253,6 +250,9 @@ export function TodosStrip({
           >
             <ChevronUpIcon className="w-3.5 h-3.5" />
           </button>
+          <span className="text-[10px] uppercase tracking-[0.12em] text-ink-500 font-semibold">
+            Tarefas
+          </span>
         </div>
       )}
       {days.map((day) => {
