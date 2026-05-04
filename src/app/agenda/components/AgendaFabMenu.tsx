@@ -4,15 +4,18 @@ import { createPortal } from "react-dom"
 import {
   FAB,
   StethoscopeIcon,
-  ClipboardListIcon,
   BellIcon,
-  StickyNoteIcon,
   UsersRoundIcon,
   XIcon,
 } from "@/shared/components/ui"
-import type { CalendarEntryType } from "../lib/types"
 
-export type FabMenuSelection = CalendarEntryType | "CONSULTA" | "GROUP_SESSION"
+/**
+ * What the FAB can create. TAREFA and NOTA used to be options here but were
+ * removed when the dedicated /tarefas page shipped — those entries now live
+ * outside the agenda. Existing TAREFA/NOTA records still render via the
+ * legacy `ENTRY_TYPE_COLORS` constants.
+ */
+export type FabMenuSelection = "CONSULTA" | "GROUP_SESSION" | "LEMBRETE" | "REUNIAO"
 
 interface AgendaFabMenuProps {
   isOpen: boolean
@@ -35,22 +38,10 @@ const MENU_ITEMS: Array<{ type: FabMenuSelection; label: string; icon: React.Rea
     bgClass: "bg-purple-100",
   },
   {
-    type: "TAREFA",
-    label: "Tarefa",
-    icon: <ClipboardListIcon className="w-4 h-4 text-amber-600" />,
-    bgClass: "bg-amber-100",
-  },
-  {
     type: "LEMBRETE",
     label: "Lembrete",
     icon: <BellIcon className="w-4 h-4 text-sky-600" />,
     bgClass: "bg-sky-100",
-  },
-  {
-    type: "NOTA",
-    label: "Nota",
-    icon: <StickyNoteIcon className="w-4 h-4 text-slate-600" />,
-    bgClass: "bg-slate-100",
   },
   {
     type: "REUNIAO",
