@@ -115,10 +115,17 @@ export async function POST(
       },
     })
 
-    // Fire-and-forget: notify clinic admins
-    notifyClinicAdmins(clinic.id, clinic.name, data.childName, data.guardianName).catch(
-      (err) => console.error("Failed to send intake notification:", err)
-    )
+    // Notify clinic admins synchronously: on Vercel serverless, work fired
+    // after the response is returned can be killed before the Resend HTTP
+    // call completes. Awaiting keeps the function alive long enough; the
+    // notification's own retry record handles transient Resend failures.
+    try {
+      await notifyClinicAdmins(clinic.id, clinic.name, data.childName, data.guardianName)
+    } catch (err) {
+      console.error("Failed to send intake notification:", err)
+      // Swallow — we don't want a notification failure to fail the user's
+      // submission since the IntakeSubmission row was already saved.
+    }
 
     return NextResponse.json(
       { message: "Ficha de cadastro enviada com sucesso" },
