@@ -208,6 +208,12 @@ model Clinic {
   defaultSessionDuration Int         @default(50) // in minutes
   minAdvanceBooking      Int         @default(2) // minimum hours in advance for booking
   reminderHours          Int[]       @default([24, 2]) // hours before appointment to send reminders
+  // Per-clinic feature flag for outbound appointment confirmation and
+  // reminder notifications. The feature is not yet generally available;
+  // default false so creates of those types are recorded as FAILED with
+  // a "feature disabled" reason and never attempt delivery. Flip to true
+  // when a clinic is onboarded to the feature.
+  appointmentNotificationsEnabled Boolean @default(false)
   invoiceDueDay          Int         @default(15) // Day of the month for invoice due date (1-28)
   invoiceMessageTemplate String? // Default invoice message template with {{variables}}
   paymentInfo            String? // Free-text payment info (PIX, bank details) shown on invoice PDFs

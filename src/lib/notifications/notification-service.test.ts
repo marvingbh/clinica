@@ -141,7 +141,7 @@ describe("createNotification", () => {
     expect(createArg.data.failureReason).toBeNull()
   })
 
-  it("records a disabled Email type (APPOINTMENT_REMINDER) as FAILED so it never queues", async () => {
+  it("records APPOINTMENT_REMINDER EMAIL as FAILED for a clinic with the feature off (default)", async () => {
     const payload: NotificationPayload = {
       clinicId: "clinic-create-4",
       type: "APPOINTMENT_REMINDER" as never,
@@ -149,6 +149,7 @@ describe("createNotification", () => {
       recipient: "patient@example.com",
       content: "Lembrete",
     }
+    mockClinicFindUnique.mockResolvedValueOnce({ appointmentNotificationsEnabled: false })
     mockCreate.mockResolvedValueOnce(makeNotificationRecord({ id: "notif-create-4", ...payload }))
 
     await createNotification(payload)
@@ -159,6 +160,57 @@ describe("createNotification", () => {
     expect(createArg.data.nextRetryAt).toBeNull()
     expect(createArg.data.failedAt).toBeInstanceOf(Date)
     expect(createArg.data.failureReason).toBe("Notification type currently disabled")
+  })
+
+  it("records APPOINTMENT_REMINDER EMAIL as PENDING when the clinic has the feature on", async () => {
+    const payload: NotificationPayload = {
+      clinicId: "clinic-create-5",
+      type: "APPOINTMENT_REMINDER" as never,
+      channel: "EMAIL" as never,
+      recipient: "patient@example.com",
+      content: "Lembrete",
+    }
+    mockClinicFindUnique.mockResolvedValueOnce({ appointmentNotificationsEnabled: true })
+    mockCreate.mockResolvedValueOnce(makeNotificationRecord({ id: "notif-create-5", ...payload }))
+
+    await createNotification(payload)
+
+    const createArg = mockCreate.mock.calls[0][0]
+    expect(createArg.data.status).toBe("PENDING")
+    expect(createArg.data.failureReason).toBeNull()
+  })
+
+  it("records APPOINTMENT_CONFIRMATION EMAIL as FAILED when the clinic record is missing", async () => {
+    const payload: NotificationPayload = {
+      clinicId: "clinic-missing",
+      type: "APPOINTMENT_CONFIRMATION" as never,
+      channel: "EMAIL" as never,
+      recipient: "patient@example.com",
+      content: "Confirma",
+    }
+    mockClinicFindUnique.mockResolvedValueOnce(null)
+    mockCreate.mockResolvedValueOnce(makeNotificationRecord({ id: "notif-create-6", ...payload }))
+
+    await createNotification(payload)
+
+    const createArg = mockCreate.mock.calls[0][0]
+    expect(createArg.data.status).toBe("FAILED")
+    expect(createArg.data.failureReason).toBe("Notification type currently disabled")
+  })
+
+  it("does not query the clinic for INTAKE_FORM_SUBMITTED (always-enabled)", async () => {
+    const payload: NotificationPayload = {
+      clinicId: "clinic-intake",
+      type: "INTAKE_FORM_SUBMITTED" as never,
+      channel: "EMAIL" as never,
+      recipient: "admin@example.com",
+      content: "Intake",
+    }
+    mockCreate.mockResolvedValueOnce(makeNotificationRecord({ id: "notif-intake", ...payload }))
+
+    await createNotification(payload)
+
+    expect(mockClinicFindUnique).not.toHaveBeenCalled()
   })
 
   it("passes all payload fields including optional ones", async () => {

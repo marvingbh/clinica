@@ -21,20 +21,42 @@ const providers: Record<NotificationChannel, NotificationProvider> = {
 }
 
 /**
- * Email notification types that are currently allowed to send.
+ * Email notification types that are unconditionally allowed for every
+ * clinic. INTAKE_FORM_SUBMITTED is an internal staff notification with no
+ * end-user impact, so no per-clinic gate.
  *
  * NFS-e is intentionally absent — that flow is a direct Resend call from
  * `/api/financeiro/faturas/[id]/nfse/enviar-email`, not via this service.
- *
- * Any EMAIL notification of a type not in this set is recorded with
- * status FAILED ("Notification type currently disabled") so we keep an
- * audit row but never attempt delivery. Add a type here to enable it.
  */
-const ENABLED_EMAIL_TYPES = new Set<NotificationType>([
+const ALWAYS_ENABLED_EMAIL_TYPES = new Set<NotificationType>([
   NotificationType.INTAKE_FORM_SUBMITTED,
 ])
 
+/**
+ * Email notification types gated by the per-clinic
+ * `appointmentNotificationsEnabled` flag. Defaults off everywhere — when
+ * a clinic is onboarded to outbound confirmations/reminders, flip the
+ * flag and these types start sending for that clinic.
+ */
+const APPOINTMENT_GATED_EMAIL_TYPES = new Set<NotificationType>([
+  NotificationType.APPOINTMENT_CONFIRMATION,
+  NotificationType.APPOINTMENT_REMINDER,
+])
+
 const DISABLED_FAILURE_REASON = "Notification type currently disabled"
+
+async function isEmailTypeAllowedForClinic(
+  clinicId: string,
+  type: NotificationType,
+): Promise<boolean> {
+  if (ALWAYS_ENABLED_EMAIL_TYPES.has(type)) return true
+  if (!APPOINTMENT_GATED_EMAIL_TYPES.has(type)) return false
+  const clinic = await prisma.clinic.findUnique({
+    where: { id: clinicId },
+    select: { appointmentNotificationsEnabled: true },
+  })
+  return !!clinic?.appointmentNotificationsEnabled
+}
 
 /**
  * Builds the provider-specific options for a clinic's notification.
@@ -79,8 +101,9 @@ export async function createNotification(
 ): Promise<Notification> {
   const now = new Date()
   const isWhatsApp = payload.channel === NotificationChannel.WHATSAPP
+  const isEmail = payload.channel === NotificationChannel.EMAIL
   const isDisabledEmail =
-    payload.channel === NotificationChannel.EMAIL && !ENABLED_EMAIL_TYPES.has(payload.type)
+    isEmail && !(await isEmailTypeAllowedForClinic(payload.clinicId, payload.type))
 
   let status: NotificationStatus = NotificationStatus.PENDING
   let attempts = 0
@@ -148,11 +171,11 @@ export async function sendNotification(
   }
 
   // Defense-in-depth: if a disabled type somehow reaches sendNotification
-  // (e.g. an old PENDING row from before the gate landed), mark it FAILED
-  // instead of attempting delivery.
+  // (e.g. an old PENDING row from before the gate landed, or a clinic
+  // whose flag was just turned off), mark FAILED instead of delivering.
   if (
     notification.channel === NotificationChannel.EMAIL &&
-    !ENABLED_EMAIL_TYPES.has(notification.type)
+    !(await isEmailTypeAllowedForClinic(notification.clinicId, notification.type))
   ) {
     await prisma.notification.update({
       where: { id: notificationId },
