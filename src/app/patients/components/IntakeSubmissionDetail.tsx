@@ -219,10 +219,6 @@ export function IntakeSubmissionDetail({ id, canWrite, onBack }: IntakeSubmissio
         <h3 className="text-sm font-medium text-foreground mb-3">Autorizacoes</h3>
         <dl className="space-y-2">
           <Field
-            label="Fotos/videos nas redes sociais"
-            value={submission.consentPhotoVideo ? "Sim" : "Nao"}
-          />
-          <Field
             label="Gravacao das sessoes"
             value={submission.consentSessionRecording ? "Sim" : "Nao"}
           />
