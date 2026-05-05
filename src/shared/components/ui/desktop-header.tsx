@@ -20,6 +20,8 @@ import {
 } from "./icons"
 import { usePermission } from "@/shared/hooks/usePermission"
 import type { Feature } from "@/lib/rbac/types"
+import { NavBadge } from "./nav-badge"
+import { usePendingIntake } from "@/shared/components/PendingIntakeProvider"
 
 interface NavItem {
   href: string
@@ -192,6 +194,7 @@ export function DesktopHeader() {
   const { data: session, status } = useSession()
 
   const permissions = session?.user?.permissions
+  const { count: pendingIntakeCount } = usePendingIntake()
 
   const isActive = (item: NavItem) => {
     if (item.matchPaths) {
@@ -230,6 +233,7 @@ export function DesktopHeader() {
           <nav className="flex items-center gap-1" aria-label="Main navigation">
             {visibleItems.map((item) => {
               const active = isActive(item)
+              const showBadge = item.href === "/patients" && pendingIntakeCount > 0
               return (
                 <Link
                   key={item.href}
@@ -248,6 +252,9 @@ export function DesktopHeader() {
                     {item.icon}
                   </span>
                   {item.label}
+                  {showBadge && (
+                    <NavBadge label={String(pendingIntakeCount)} tone="warn" className="ml-1" />
+                  )}
                   {active && (
                     <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
                   )}

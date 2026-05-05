@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { HomeIcon, CalendarIcon, StethoscopeIcon, UserIcon, UsersIcon, DollarSignIcon, ListChecksIcon } from "./icons"
 import type { Feature } from "@/lib/rbac/types"
+import { usePendingIntake } from "@/shared/components/PendingIntakeProvider"
 
 interface NavItem {
   href: string
@@ -76,6 +77,7 @@ export function BottomNavigation() {
   const { data: session, status } = useSession()
 
   const permissions = session?.user?.permissions
+  const { count: pendingIntakeCount } = usePendingIntake()
 
   const isActive = (item: NavItem) => {
     if (item.matchPaths) {
@@ -107,6 +109,7 @@ export function BottomNavigation() {
         <div className="flex items-center justify-around h-16">
           {visibleItems.map((item) => {
             const active = isActive(item)
+            const showDot = item.href === "/patients" && pendingIntakeCount > 0
             return (
               <button
                 key={item.href}
@@ -122,15 +125,25 @@ export function BottomNavigation() {
                   }
                 `}
                 aria-current={active ? "page" : undefined}
-                aria-label={item.label}
+                aria-label={
+                  showDot
+                    ? `${item.label} — ${pendingIntakeCount} pendente(s)`
+                    : item.label
+                }
               >
                 <span
                   className={`
-                    transition-transform duration-normal ease-in-out
+                    relative transition-transform duration-normal ease-in-out
                     ${active ? "scale-110" : "scale-100"}
                   `}
                 >
                   {active ? item.activeIcon : item.icon}
+                  {showDot && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-warn-500 ring-2 ring-background"
+                    />
+                  )}
                 </span>
                 <span
                   className={`

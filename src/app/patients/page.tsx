@@ -124,6 +124,15 @@ export default function PatientsPage() {
   const [patientTab, setPatientTab] = useState<"dados" | "historico" | "financeiro">("dados")
   const [billingMode, setBillingMode] = useState<string>("PER_SESSION")
   const [pageTab, setPageTab] = useState<"pacientes" | "fichas">("pacientes")
+  // Read ?tab= once on mount so a deep-link from the pending-intake banner
+  // (/patients?tab=fichas) opens the intake tab directly. Reading via
+  // window.location avoids `useSearchParams`, which would force a Suspense
+  // boundary around the whole page in Next 16.
+  useMountEffect(() => {
+    if (typeof window === "undefined") return
+    const tab = new URLSearchParams(window.location.search).get("tab")
+    if (tab === "fichas") setPageTab("fichas")
+  })
 
 
   const {

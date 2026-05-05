@@ -31,6 +31,8 @@ import {
 import { usePermission } from "@/shared/hooks/usePermission"
 import type { Feature } from "@/lib/rbac/types"
 import { useSidebar } from "./sidebar-context"
+import { NavBadge, type NavBadgeTone } from "./nav-badge"
+import { usePendingIntake } from "@/shared/components/PendingIntakeProvider"
 
 interface NavItem {
   href: string
@@ -38,7 +40,7 @@ interface NavItem {
   icon: React.ReactNode
   matchPaths?: string[]
   feature?: Feature
-  badge?: { label: string; tone: "brand" | "warn" | "ok" | "neutral" }
+  badge?: { label: string; tone: NavBadgeTone }
 }
 
 interface NavGroup {
@@ -164,23 +166,6 @@ const navGroups: NavGroup[] = [
   },
 ]
 
-const toneClass: Record<NonNullable<NavItem["badge"]>["tone"], string> = {
-  brand: "bg-brand-50 text-brand-700 border border-brand-100",
-  warn: "bg-warn-50 text-warn-700 border border-warn-100",
-  ok: "bg-ok-50 text-ok-700 border border-ok-100",
-  neutral: "bg-ink-100 text-ink-700 border border-ink-200",
-}
-
-function NavBadge({ label, tone }: NonNullable<NavItem["badge"]>) {
-  return (
-    <span
-      className={`ml-auto inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium tracking-wide ${toneClass[tone]}`}
-    >
-      {label}
-    </span>
-  )
-}
-
 function UserMenu({
   onClose,
   collapsed,
@@ -293,6 +278,7 @@ export function SidebarNav() {
   })
 
   const permissions = session?.user?.permissions
+  const { count: pendingIntakeCount } = usePendingIntake()
 
   const publicPaths = ["/login", "/confirm", "/cancel", "/intake"]
   if (publicPaths.some((p) => pathname.startsWith(p)) || status === "unauthenticated") {
@@ -372,6 +358,10 @@ export function SidebarNav() {
             )}
             {group.items.map((item) => {
               const active = isActive(item)
+              const dynamicBadge: NavItem["badge"] | undefined =
+                item.href === "/patients" && pendingIntakeCount > 0
+                  ? { label: String(pendingIntakeCount), tone: "warn" }
+                  : item.badge
               return (
                 <Link
                   key={item.href}
@@ -392,7 +382,7 @@ export function SidebarNav() {
                     {item.icon}
                   </span>
                   {!collapsed && <span className="truncate">{item.label}</span>}
-                  {!collapsed && item.badge && <NavBadge {...item.badge} />}
+                  {!collapsed && dynamicBadge && <NavBadge {...dynamicBadge} />}
                 </Link>
               )
             })}

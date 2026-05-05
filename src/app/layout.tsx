@@ -8,6 +8,8 @@ import { PageTransition } from "@/shared/components/ui/page-transition";
 import { AppShell } from "@/shared/components/ui/app-shell";
 import { SidebarProvider } from "@/shared/components/ui/sidebar-context";
 import { SubscriptionBanner } from "@/shared/components/SubscriptionBanner";
+import { PendingIntakeProvider } from "@/shared/components/PendingIntakeProvider";
+import { PendingIntakeBanner } from "@/shared/components/PendingIntakeBanner";
 import CookieConsentBanner from "@/shared/components/CookieConsentBanner";
 import "./globals.css";
 
@@ -69,16 +71,19 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <SessionProvider>
-          <SidebarProvider>
-            <SidebarNav />
-            <AppShell>
-              <SubscriptionBanner />
-              <PageTransition>
-                {children}
-              </PageTransition>
-            </AppShell>
-          </SidebarProvider>
-          <BottomNavigation />
+          <PendingIntakeProvider>
+            <SidebarProvider>
+              <SidebarNav />
+              <AppShell>
+                <SubscriptionBanner />
+                <PendingIntakeBanner />
+                <PageTransition>
+                  {children}
+                </PageTransition>
+              </AppShell>
+            </SidebarProvider>
+            <BottomNavigation />
+          </PendingIntakeProvider>
           <Toaster richColors position="top-right" />
           <CookieConsentBanner />
         </SessionProvider>
