@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import {
   NotificationChannel,
   NotificationStatus,
+  NotificationType,
   type Notification,
 } from "@prisma/client"
 import type {
@@ -18,6 +19,22 @@ const providers: Record<NotificationChannel, NotificationProvider> = {
   [NotificationChannel.WHATSAPP]: whatsAppMockProvider,
   [NotificationChannel.EMAIL]: emailResendProvider,
 }
+
+/**
+ * Email notification types that are currently allowed to send.
+ *
+ * NFS-e is intentionally absent — that flow is a direct Resend call from
+ * `/api/financeiro/faturas/[id]/nfse/enviar-email`, not via this service.
+ *
+ * Any EMAIL notification of a type not in this set is recorded with
+ * status FAILED ("Notification type currently disabled") so we keep an
+ * audit row but never attempt delivery. Add a type here to enable it.
+ */
+const ENABLED_EMAIL_TYPES = new Set<NotificationType>([
+  NotificationType.INTAKE_FORM_SUBMITTED,
+])
+
+const DISABLED_FAILURE_REASON = "Notification type currently disabled"
 
 /**
  * Builds the provider-specific options for a clinic's notification.
@@ -46,11 +63,45 @@ async function resolveProviderOptions(
 }
 
 /**
- * Creates a notification record in PENDING status
+ * Creates a notification record.
+ *
+ * For WhatsApp, the only provider today is `whatsapp-mock` — it doesn't
+ * actually deliver anything. We persist the row as SENT immediately
+ * (mock-best-effort) so it doesn't sit in PENDING and clutter the retry
+ * queue forever. When a real WhatsApp provider lands, flip back to
+ * PENDING + sendNotification flow.
+ *
+ * Other channels (EMAIL) are persisted as PENDING and progress via
+ * sendNotification.
  */
 export async function createNotification(
   payload: NotificationPayload
 ): Promise<Notification> {
+  const now = new Date()
+  const isWhatsApp = payload.channel === NotificationChannel.WHATSAPP
+  const isDisabledEmail =
+    payload.channel === NotificationChannel.EMAIL && !ENABLED_EMAIL_TYPES.has(payload.type)
+
+  let status: NotificationStatus = NotificationStatus.PENDING
+  let attempts = 0
+  let nextRetryAt: Date | null = now
+  let sentAt: Date | null = null
+  let failedAt: Date | null = null
+  let failureReason: string | null = null
+
+  if (isWhatsApp) {
+    status = NotificationStatus.SENT
+    attempts = 1
+    nextRetryAt = null
+    sentAt = now
+  } else if (isDisabledEmail) {
+    status = NotificationStatus.FAILED
+    attempts = 0
+    nextRetryAt = null
+    failedAt = now
+    failureReason = DISABLED_FAILURE_REASON
+  }
+
   return prisma.notification.create({
     data: {
       clinicId: payload.clinicId,
@@ -58,13 +109,16 @@ export async function createNotification(
       appointmentId: payload.appointmentId,
       type: payload.type,
       channel: payload.channel,
-      status: NotificationStatus.PENDING,
+      status,
       recipient: payload.recipient,
       subject: payload.subject,
       content: payload.content,
-      attempts: 0,
+      attempts,
       maxAttempts: DEFAULT_RETRY_CONFIG.maxAttempts,
-      nextRetryAt: new Date(),
+      nextRetryAt,
+      sentAt,
+      failedAt,
+      failureReason,
     },
   })
 }
@@ -91,6 +145,25 @@ export async function sendNotification(
 
   if (notification.status === NotificationStatus.FAILED) {
     return { success: false, error: "Notification permanently failed" }
+  }
+
+  // Defense-in-depth: if a disabled type somehow reaches sendNotification
+  // (e.g. an old PENDING row from before the gate landed), mark it FAILED
+  // instead of attempting delivery.
+  if (
+    notification.channel === NotificationChannel.EMAIL &&
+    !ENABLED_EMAIL_TYPES.has(notification.type)
+  ) {
+    await prisma.notification.update({
+      where: { id: notificationId },
+      data: {
+        status: NotificationStatus.FAILED,
+        failedAt: new Date(),
+        failureReason: DISABLED_FAILURE_REASON,
+        nextRetryAt: null,
+      },
+    })
+    return { success: false, error: DISABLED_FAILURE_REASON }
   }
 
   const provider = providers[notification.channel]

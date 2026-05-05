@@ -84,7 +84,7 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("createNotification", () => {
-  it("creates a notification with PENDING status and attempts=0", async () => {
+  it("creates a WhatsApp notification as SENT immediately (mock-only delivery, never queued)", async () => {
     const payload: NotificationPayload = {
       clinicId: "clinic-create-1",
       patientId: "patient-create-1",
@@ -99,8 +99,8 @@ describe("createNotification", () => {
     const expected = makeNotificationRecord({
       id: "notif-create-1",
       ...payload,
-      status: "PENDING",
-      attempts: 0,
+      status: "SENT",
+      attempts: 1,
       maxAttempts: 3,
     })
     mockCreate.mockResolvedValueOnce(expected)
@@ -111,19 +111,54 @@ describe("createNotification", () => {
     const createArg = mockCreate.mock.calls[0][0]
     expect(createArg.data).toMatchObject({
       clinicId: "clinic-create-1",
-      patientId: "patient-create-1",
-      appointmentId: "appt-create-1",
-      type: "APPOINTMENT_REMINDER",
       channel: "WHATSAPP",
-      status: "PENDING",
-      recipient: "+5511999990001",
-      subject: "Lembrete",
-      content: "Sua consulta e amanha",
-      attempts: 0,
+      status: "SENT",
+      attempts: 1,
       maxAttempts: 3,
     })
-    expect(createArg.data.nextRetryAt).toBeInstanceOf(Date)
+    expect(createArg.data.nextRetryAt).toBeNull()
+    expect(createArg.data.sentAt).toBeInstanceOf(Date)
     expect(result).toBe(expected)
+  })
+
+  it("creates an enabled Email type (INTAKE_FORM_SUBMITTED) as PENDING with retry scheduled", async () => {
+    const payload: NotificationPayload = {
+      clinicId: "clinic-create-3",
+      type: "INTAKE_FORM_SUBMITTED" as never,
+      channel: "EMAIL" as never,
+      recipient: "admin@example.com",
+      content: "New intake form",
+    }
+    mockCreate.mockResolvedValueOnce(makeNotificationRecord({ id: "notif-create-3", ...payload }))
+
+    await createNotification(payload)
+
+    const createArg = mockCreate.mock.calls[0][0]
+    expect(createArg.data.status).toBe("PENDING")
+    expect(createArg.data.attempts).toBe(0)
+    expect(createArg.data.nextRetryAt).toBeInstanceOf(Date)
+    expect(createArg.data.sentAt).toBeNull()
+    expect(createArg.data.failureReason).toBeNull()
+  })
+
+  it("records a disabled Email type (APPOINTMENT_REMINDER) as FAILED so it never queues", async () => {
+    const payload: NotificationPayload = {
+      clinicId: "clinic-create-4",
+      type: "APPOINTMENT_REMINDER" as never,
+      channel: "EMAIL" as never,
+      recipient: "patient@example.com",
+      content: "Lembrete",
+    }
+    mockCreate.mockResolvedValueOnce(makeNotificationRecord({ id: "notif-create-4", ...payload }))
+
+    await createNotification(payload)
+
+    const createArg = mockCreate.mock.calls[0][0]
+    expect(createArg.data.status).toBe("FAILED")
+    expect(createArg.data.attempts).toBe(0)
+    expect(createArg.data.nextRetryAt).toBeNull()
+    expect(createArg.data.failedAt).toBeInstanceOf(Date)
+    expect(createArg.data.failureReason).toBe("Notification type currently disabled")
   })
 
   it("passes all payload fields including optional ones", async () => {
@@ -250,6 +285,7 @@ describe("sendNotification", () => {
   it("updates status to SENT on successful Email send", async () => {
     const notif = makeNotificationRecord({
       id: "notif-send-email-ok",
+      type: "INTAKE_FORM_SUBMITTED", // enabled email type
       channel: "EMAIL",
       recipient: "paciente@example.com",
       subject: "Lembrete",
@@ -374,6 +410,7 @@ describe("sendNotification", () => {
   it("marks FAILED when maxAttempts is 1 and first send fails", async () => {
     const notif = makeNotificationRecord({
       id: "notif-single-attempt",
+      type: "INTAKE_FORM_SUBMITTED", // enabled email type
       channel: "EMAIL",
       attempts: 0,
       maxAttempts: 1,
@@ -428,6 +465,7 @@ describe("sendNotification", () => {
   it("passes subject to provider when present", async () => {
     const notif = makeNotificationRecord({
       id: "notif-with-subject",
+      type: "INTAKE_FORM_SUBMITTED", // enabled email type
       channel: "EMAIL",
       subject: "Consulta Amanha",
       content: "Voce tem uma consulta amanha as 10h",
@@ -473,6 +511,7 @@ describe("sendNotification", () => {
   it("passes the clinic's verified sender as fromEmail/fromName for EMAIL notifications", async () => {
     const notif = makeNotificationRecord({
       id: "notif-email-clinic-sender",
+      type: "INTAKE_FORM_SUBMITTED",
       clinicId: "clinic-7",
       channel: "EMAIL",
       recipient: "admin@example.com",
@@ -509,6 +548,7 @@ describe("sendNotification", () => {
   it("falls back to env-default sender when clinic has no emailFromAddress", async () => {
     const notif = makeNotificationRecord({
       id: "notif-email-no-clinic-sender",
+      type: "INTAKE_FORM_SUBMITTED",
       clinicId: "clinic-8",
       channel: "EMAIL",
       recipient: "admin@example.com",
@@ -546,6 +586,29 @@ describe("sendNotification", () => {
     await sendNotification("notif-wa-no-clinic-lookup")
 
     expect(mockClinicFindUnique).not.toHaveBeenCalled()
+  })
+
+  it("marks a disabled-type EMAIL notification FAILED instead of calling the provider", async () => {
+    // Stale row from before the disabled-types gate landed: type is
+    // APPOINTMENT_REMINDER + EMAIL + still PENDING. sendNotification must
+    // not attempt to deliver it.
+    const stale = makeNotificationRecord({
+      id: "notif-stale-disabled",
+      type: "APPOINTMENT_REMINDER",
+      channel: "EMAIL",
+      status: "PENDING",
+    })
+    mockFindUnique.mockResolvedValueOnce(stale)
+    mockUpdate.mockResolvedValueOnce({})
+
+    const result = await sendNotification("notif-stale-disabled")
+
+    expect(result.success).toBe(false)
+    expect(result.error).toBe("Notification type currently disabled")
+    expect(mockEmailSend).not.toHaveBeenCalled()
+    const updateArg = mockUpdate.mock.calls[0][0]
+    expect(updateArg.data.status).toBe("FAILED")
+    expect(updateArg.data.failureReason).toBe("Notification type currently disabled")
   })
 })
 
