@@ -1,7 +1,7 @@
 "use client"
 
-import { useRef, useState } from "react"
-import { useMountEffect } from "./useMountEffect"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect, useRef, useState } from "react"
 import { usePermission } from "./usePermission"
 
 const REFRESH_INTERVAL_MS = 60_000
@@ -51,7 +51,11 @@ export function usePendingIntakeCount(): PendingIntakeState {
   const lastFetchAtRef = useRef(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  useMountEffect(() => {
+  // Depends on `canWrite` so the effect re-runs when the session finishes
+  // loading and the user is found to have WRITE — without this, we'd lock in
+  // the initial `canWrite=false` from the loading-session render and never
+  // start polling.
+  useEffect(() => {
     if (!canWrite) {
       setState({ count: 0, isLoading: false })
       return
@@ -96,7 +100,7 @@ export function usePendingIntakeCount(): PendingIntakeState {
       clearPolling()
       document.removeEventListener("visibilitychange", onVisibility)
     }
-  })
+  }, [canWrite])
 
   return state
 }
