@@ -18,6 +18,9 @@ interface ResendAttachment {
 }
 
 interface SendOptions {
+  /** Sender address (overrides RESEND_FROM_EMAIL). Use the clinic's
+   * verified sender so we don't fall back to the unverified default. */
+  fromEmail?: string
   /** Display name for the sender (overrides default) */
   fromName?: string
   /** Reply-to email address (e.g., clinic's email) */
@@ -59,10 +62,11 @@ export class EmailResendProvider implements NotificationProvider {
     }
 
     const fromName = options?.fromName || this.defaultFromName
+    const fromEmail = options?.fromEmail || this.fromEmail
 
     try {
       const payload: Record<string, unknown> = {
-        from: `${fromName} <${this.fromEmail}>`,
+        from: `${fromName} <${fromEmail}>`,
         to: [recipient],
         subject: subject || "Notificação",
         text: content,

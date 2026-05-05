@@ -20,6 +20,32 @@ const providers: Record<NotificationChannel, NotificationProvider> = {
 }
 
 /**
+ * Builds the provider-specific options for a clinic's notification.
+ * For EMAIL, returns the clinic's verified sender (emailFromAddress +
+ * emailSenderName) and reply-to so the provider doesn't fall through to
+ * an unverified env-var default. Returns undefined for channels that
+ * don't need clinic context (WhatsApp).
+ */
+async function resolveProviderOptions(
+  clinicId: string,
+  channel: NotificationChannel,
+): Promise<Record<string, unknown> | undefined> {
+  if (channel !== NotificationChannel.EMAIL) return undefined
+  const clinic = await prisma.clinic.findUnique({
+    where: { id: clinicId },
+    select: { emailFromAddress: true, emailSenderName: true, name: true, email: true },
+  })
+  if (!clinic) return undefined
+  const options: Record<string, unknown> = {}
+  if (clinic.emailFromAddress) options.fromEmail = clinic.emailFromAddress
+  if (clinic.emailSenderName || clinic.name) {
+    options.fromName = clinic.emailSenderName || clinic.name
+  }
+  if (clinic.email) options.replyTo = clinic.email
+  return Object.keys(options).length > 0 ? options : undefined
+}
+
+/**
  * Creates a notification record in PENDING status
  */
 export async function createNotification(
@@ -74,11 +100,23 @@ export async function sendNotification(
 
   const newAttempts = notification.attempts + 1
 
-  const result = await provider.send(
-    notification.recipient,
-    notification.content,
-    notification.subject || undefined
-  )
+  // Use the clinic's verified sender (configured in Configurações > E-mail
+  // and reused by the NFS-e flow) so emails don't fall through to the
+  // env-default which may be an unverified domain.
+  const sendOptions = await resolveProviderOptions(notification.clinicId, notification.channel)
+
+  const result = sendOptions
+    ? await provider.send(
+        notification.recipient,
+        notification.content,
+        notification.subject || undefined,
+        sendOptions,
+      )
+    : await provider.send(
+        notification.recipient,
+        notification.content,
+        notification.subject || undefined,
+      )
 
   if (result.success) {
     await prisma.notification.update({

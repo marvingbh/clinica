@@ -9,6 +9,9 @@ vi.mock("@/lib/prisma", () => ({
       update: vi.fn(),
       count: vi.fn(),
     },
+    clinic: {
+      findUnique: vi.fn(),
+    },
   },
 }))
 
@@ -40,6 +43,7 @@ const mockFindUnique = prisma.notification.findUnique as ReturnType<
 const mockFindMany = prisma.notification.findMany as ReturnType<typeof vi.fn>
 const mockUpdate = prisma.notification.update as ReturnType<typeof vi.fn>
 const mockCount = prisma.notification.count as ReturnType<typeof vi.fn>
+const mockClinicFindUnique = prisma.clinic.findUnique as ReturnType<typeof vi.fn>
 
 const mockWhatsAppSend = whatsAppMockProvider.send as ReturnType<typeof vi.fn>
 const mockEmailSend = emailResendProvider.send as ReturnType<typeof vi.fn>
@@ -464,6 +468,84 @@ describe("sendNotification", () => {
       "Lembrete de consulta",
       undefined
     )
+  })
+
+  it("passes the clinic's verified sender as fromEmail/fromName for EMAIL notifications", async () => {
+    const notif = makeNotificationRecord({
+      id: "notif-email-clinic-sender",
+      clinicId: "clinic-7",
+      channel: "EMAIL",
+      recipient: "admin@example.com",
+      subject: "Hello",
+      content: "Body",
+    })
+    mockFindUnique.mockResolvedValueOnce(notif)
+    mockClinicFindUnique.mockResolvedValueOnce({
+      emailFromAddress: "naoresponda@clinica.com.br",
+      emailSenderName: "Clínica Sabino",
+      name: "Clínica Sabino",
+      email: "contato@clinica.com.br",
+    })
+    mockEmailSend.mockResolvedValueOnce({ success: true, externalId: "ext-1" })
+    mockUpdate.mockResolvedValueOnce({})
+
+    await sendNotification("notif-email-clinic-sender")
+
+    expect(mockClinicFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "clinic-7" } }),
+    )
+    expect(mockEmailSend).toHaveBeenCalledWith(
+      "admin@example.com",
+      "Body",
+      "Hello",
+      expect.objectContaining({
+        fromEmail: "naoresponda@clinica.com.br",
+        fromName: "Clínica Sabino",
+        replyTo: "contato@clinica.com.br",
+      }),
+    )
+  })
+
+  it("falls back to env-default sender when clinic has no emailFromAddress", async () => {
+    const notif = makeNotificationRecord({
+      id: "notif-email-no-clinic-sender",
+      clinicId: "clinic-8",
+      channel: "EMAIL",
+      recipient: "admin@example.com",
+      subject: "Hello",
+      content: "Body",
+    })
+    mockFindUnique.mockResolvedValueOnce(notif)
+    mockClinicFindUnique.mockResolvedValueOnce({
+      emailFromAddress: null,
+      emailSenderName: null,
+      name: "Clínica Sem Email",
+      email: null,
+    })
+    mockEmailSend.mockResolvedValueOnce({ success: true, externalId: "ext-2" })
+    mockUpdate.mockResolvedValueOnce({})
+
+    await sendNotification("notif-email-no-clinic-sender")
+
+    // Only fromName is forwarded (derived from clinic.name); fromEmail is
+    // omitted so the provider falls back to RESEND_FROM_EMAIL.
+    const args = mockEmailSend.mock.calls[0]
+    expect(args[3]).toEqual(expect.not.objectContaining({ fromEmail: expect.anything() }))
+    expect(args[3]).toEqual(expect.objectContaining({ fromName: "Clínica Sem Email" }))
+  })
+
+  it("does not look up the clinic for non-EMAIL channels", async () => {
+    const notif = makeNotificationRecord({
+      id: "notif-wa-no-clinic-lookup",
+      channel: "WHATSAPP",
+    })
+    mockFindUnique.mockResolvedValueOnce(notif)
+    mockWhatsAppSend.mockResolvedValueOnce({ success: true, externalId: "ext-3" })
+    mockUpdate.mockResolvedValueOnce({})
+
+    await sendNotification("notif-wa-no-clinic-lookup")
+
+    expect(mockClinicFindUnique).not.toHaveBeenCalled()
   })
 })
 
