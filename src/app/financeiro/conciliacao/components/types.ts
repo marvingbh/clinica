@@ -42,6 +42,22 @@ export interface ReconciliationLinkInfo {
   status: string
 }
 
+export interface RefundLinkPeer {
+  id: string
+  date: string
+  amount: number
+  payerName: string | null
+  description: string | null
+}
+
+export interface RefundLinkInfo {
+  id: string
+  amount: number
+  linkedAt: string
+  /** The other-side transaction (debit when shown on a credit, credit when shown on a debit). */
+  peer: RefundLinkPeer
+}
+
 export interface Transaction {
   id: string
   externalId: string
@@ -49,10 +65,16 @@ export interface Transaction {
   amount: number
   description: string
   payerName: string | null
+  /** Amount linked to invoices via ReconciliationLink. */
+  reconciledAmount?: number
+  /** Amount linked to refund debits via TransactionRefundLink. */
+  refundedAmount?: number
+  /** reconciledAmount + refundedAmount. */
   allocatedAmount: number
   remainingAmount: number
   isFullyReconciled: boolean
   links: ReconciliationLinkInfo[]
+  refundLinks?: RefundLinkInfo[]
   candidates: Candidate[]
   groupCandidates?: GroupCandidate[]
 }

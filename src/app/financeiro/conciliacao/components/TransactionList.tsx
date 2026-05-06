@@ -357,6 +357,7 @@ export function TransactionList({ transactions, onReconciled, showReconciled, on
               onCreateInvoice={() => setCreateSheetTxId(tx.id)}
               onUpdateAmount={(invoiceId, amount) => updateAmount(tx.id, invoiceId, amount)}
               onDismiss={handleDismiss}
+              onRefundLinked={onReconciled}
             />
           ))}
         </div>

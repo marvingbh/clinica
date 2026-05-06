@@ -1,9 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { CheckIcon, CircleAlertIcon, PlusIcon, SearchIcon } from "lucide-react"
+import { ArrowLeftRightIcon, CheckIcon, CircleAlertIcon, PlusIcon, SearchIcon } from "lucide-react"
 import { formatCurrencyBRL, formatDateBR, getMonthName } from "@/lib/financeiro/format"
 import { InvoiceSearch } from "./InvoiceSearch"
+import { RefundCandidatePicker } from "./RefundCandidatePicker"
 import type { Transaction, CreatedInvoiceInfo } from "./types"
 import { Checkbox, ConfirmButton, AddedInvoiceRow, DismissButtons } from "./shared-ui"
 
@@ -17,6 +18,8 @@ interface UnmatchedTransactionCardProps {
   isConfirming: boolean
   onCreateInvoice: () => void
   onDismiss: (transactionId: string, reason: "DUPLICATE" | "NOT_PATIENT") => void
+  /** Refresh the parent list after a refund link is created. */
+  onRefundLinked?: () => void
 }
 
 export function UnmatchedTransactionCard({
@@ -29,8 +32,14 @@ export function UnmatchedTransactionCard({
   isConfirming,
   onCreateInvoice,
   onDismiss,
+  onRefundLinked,
 }: UnmatchedTransactionCardProps) {
   const [expanded, setExpanded] = useState(false)
+  const [showRefundPicker, setShowRefundPicker] = useState(false)
+  // Show "Identificar devolução" only when there's already a partial
+  // reconciliation (allocated > 0) AND a leftover (remaining > 0).
+  const canIdentifyRefund =
+    tx.allocatedAmount > 0.01 && tx.remainingAmount > 0.01 && !tx.isFullyReconciled
 
   return (
     <div className="rounded-lg border border-border overflow-hidden">
@@ -57,6 +66,16 @@ export function UnmatchedTransactionCard({
         <div className="flex items-center gap-1.5 shrink-0">
           {selectedIds.length > 0 && (
             <ConfirmButton onClick={onConfirm} isConfirming={isConfirming} />
+          )}
+          {canIdentifyRefund && (
+            <button
+              onClick={() => setShowRefundPicker(true)}
+              className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 hover:bg-muted/60 transition-all"
+              title="O restante foi devolvido por PIX/transferência"
+            >
+              <ArrowLeftRightIcon className="w-3 h-3" />
+              Devolução
+            </button>
           )}
           <DismissButtons onDismiss={(reason) => onDismiss(tx.id, reason)} />
           <button
@@ -95,6 +114,21 @@ export function UnmatchedTransactionCard({
         </div>
       ))}
 
+      {tx.refundLinks?.map((link) => (
+        <div key={link.id} className="px-4 py-2 bg-blue-50/40 border-b border-border">
+          <div className="flex items-center gap-2 text-sm">
+            <ArrowLeftRightIcon className="w-3.5 h-3.5 text-blue-600" />
+            <span className="font-medium">Devolução</span>
+            <span className="text-xs text-muted-foreground">
+              {formatDateBR(link.peer.date)} · {link.peer.payerName ?? link.peer.description ?? "—"}
+            </span>
+            <span className="text-xs font-medium tabular-nums">
+              {formatCurrencyBRL(link.amount)}
+            </span>
+          </div>
+        </div>
+      ))}
+
       {addedInvoices.length > 0 && (
         <div className="divide-y divide-border border-t border-border">
           {addedInvoices.map(inv => (
@@ -112,6 +146,23 @@ export function UnmatchedTransactionCard({
         <div className="px-4 py-3 border-t border-border">
           <InvoiceSearch selectedIds={selectedIds} onSelect={onToggleInvoice} />
         </div>
+      )}
+
+      {showRefundPicker && (
+        <RefundCandidatePicker
+          source={{
+            id: tx.id,
+            amount: tx.amount,
+            payerName: tx.payerName,
+            remainingAmount: tx.remainingAmount,
+            side: "credit",
+          }}
+          onClose={() => setShowRefundPicker(false)}
+          onLinked={() => {
+            setShowRefundPicker(false)
+            onRefundLinked?.()
+          }}
+        />
       )}
     </div>
   )

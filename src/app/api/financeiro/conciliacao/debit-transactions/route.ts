@@ -64,7 +64,7 @@ export const GET = withFeatureAuth(
             id: link.id,
             amount: Number(link.amount),
             linkedAt: link.linkedAt,
-            credit: {
+            peer: {
               id: link.creditTransaction.id,
               date: link.creditTransaction.date,
               amount: Number(link.creditTransaction.amount),
