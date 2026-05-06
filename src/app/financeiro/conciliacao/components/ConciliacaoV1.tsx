@@ -340,6 +340,7 @@ export function ConciliacaoV1({
           onReconcileGroup={handleReconcileGroup}
           onDismiss={handleDismiss}
           onCreateInvoice={() => selectedTx && setCreateSheetTxId(selectedTx.id)}
+          onRefundLinked={onReconciled}
         />
       </div>
 

@@ -11,10 +11,13 @@ import {
   XIcon,
   UnlinkIcon,
   Loader2Icon,
+  ArrowLeftRightIcon,
+  CheckIcon,
 } from "lucide-react"
 import { formatCurrencyBRL, formatDateBR, getMonthName } from "@/lib/financeiro/format"
 import { allocateGroupPayment } from "@/lib/bank-reconciliation"
 import { InvoiceSearch, type InvoiceSearchResult } from "./InvoiceSearch"
+import { RefundCandidatePicker } from "./RefundCandidatePicker"
 import type { Transaction, Candidate, CandidateInvoice } from "./types"
 
 function payerInitials(name: string | null | undefined): string {
@@ -37,6 +40,25 @@ type Reason = {
 
 function computeReason(tx: Transaction): Reason {
   const groupCount = tx.groupCandidates?.length ?? 0
+  // Partial allocation with leftover takes precedence: the transaction is
+  // already (partially) matched, the user just needs to resolve the sobra
+  // (overpayment refunded via PIX, extra invoice, or descarte).
+  if (tx.allocatedAmount > 0.01 && tx.remainingAmount > 0.01) {
+    return {
+      tone: "suggested",
+      icon: <ArrowLeftRightIcon className="w-3.5 h-3.5" />,
+      text: (
+        <>
+          <b className="font-semibold">
+            Sobra de {formatCurrencyBRL(tx.remainingAmount)}.
+          </b>{" "}
+          {formatCurrencyBRL(tx.allocatedAmount)} já alocado de{" "}
+          {formatCurrencyBRL(tx.amount)}. Identifique a devolução por PIX/transferência ou
+          adicione outra fatura para o restante.
+        </>
+      ),
+    }
+  }
   if (tx.candidates.length === 0 && groupCount === 0) {
     return {
       tone: "none",
@@ -81,6 +103,7 @@ interface WorkspacePaneProps {
   onReconcileGroup: (links: Array<{ invoiceId: string; amount: number }>) => void
   onDismiss: (txId: string, reason: "DUPLICATE" | "NOT_PATIENT") => void
   onCreateInvoice: () => void
+  onRefundLinked: () => void
 }
 
 export function WorkspacePane({
@@ -90,11 +113,13 @@ export function WorkspacePane({
   onReconcileGroup,
   onDismiss,
   onCreateInvoice,
+  onRefundLinked,
 }: WorkspacePaneProps) {
   // Manually-added candidates (from "Buscar outra fatura"). Reset whenever the
   // selected transaction changes, since parent passes key={tx.id}.
   const [addedCandidates, setAddedCandidates] = useState<InvoiceSearchResult[]>([])
   const [showSearch, setShowSearch] = useState(false)
+  const [showRefundPicker, setShowRefundPicker] = useState(false)
   if (!tx) {
     return (
       <div className="flex items-center justify-center min-h-[520px] text-[13px] text-ink-500">
@@ -109,6 +134,12 @@ export function WorkspacePane({
   const topIdx = tx.candidates.findIndex(
     (c) => c.confidence === "HIGH" || c.confidence === "KNOWN"
   )
+  const hasAllocation = tx.allocatedAmount > 0.01
+  const hasLeftover = tx.remainingAmount > 0.01
+  const canIdentifyRefund = hasAllocation && hasLeftover
+  const existingLinks = tx.links ?? []
+  const existingRefunds = tx.refundLinks ?? []
+  const hasExistingAllocations = existingLinks.length > 0 || existingRefunds.length > 0
 
   return (
     <div className="flex flex-col min-h-0 overflow-hidden">
@@ -150,6 +181,78 @@ export function WorkspacePane({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-5 py-4">
+        {hasExistingAllocations && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500">
+                Já conciliado
+                <span className="font-mono bg-ok-50 text-ok-700 px-1.5 py-0 rounded-full text-[10px] tracking-normal">
+                  {formatCurrencyBRL(tx.allocatedAmount)} de {formatCurrencyBRL(tx.amount)}
+                </span>
+              </div>
+              {canIdentifyRefund && (
+                <button
+                  type="button"
+                  onClick={() => setShowRefundPicker(true)}
+                  className="h-7 px-2.5 rounded-[4px] text-[11px] font-medium inline-flex items-center gap-1.5 border border-warn-200 bg-warn-50 text-warn-700 hover:bg-warn-100 transition-colors"
+                  title="O restante foi devolvido por PIX/transferência"
+                >
+                  <ArrowLeftRightIcon className="w-3 h-3" />
+                  Identificar devolução
+                </button>
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {existingLinks.map((link) => (
+                <div
+                  key={link.linkId}
+                  className="flex items-center justify-between gap-2 px-3 py-2 rounded-[4px] border border-ok-200"
+                  style={{ background: "#F7FDF9" }}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <CheckIcon className="w-3.5 h-3.5 text-ok-600 shrink-0" />
+                    <span className="text-[12px] font-medium text-ink-900 truncate">
+                      {link.patientName}
+                    </span>
+                    <span className="text-[10px] text-ink-500 font-mono">
+                      Fatura {getMonthName(link.referenceMonth)}/{link.referenceYear}
+                    </span>
+                  </div>
+                  <span className="text-[12px] font-mono font-semibold text-ink-900 tabular-nums">
+                    {formatCurrencyBRL(link.amount)}
+                  </span>
+                </div>
+              ))}
+              {existingRefunds.map((rl) => (
+                <div
+                  key={rl.id}
+                  className="flex items-center justify-between gap-2 px-3 py-2 rounded-[4px] border border-brand-200 bg-brand-50/40"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ArrowLeftRightIcon className="w-3.5 h-3.5 text-brand-600 shrink-0" />
+                    <span className="text-[12px] font-medium text-ink-900">Devolução</span>
+                    <span className="text-[10px] text-ink-500 truncate">
+                      {formatDateBR(rl.peer.date)} ·{" "}
+                      {rl.peer.payerName ?? rl.peer.description ?? "—"}
+                    </span>
+                  </div>
+                  <span className="text-[12px] font-mono font-semibold text-ink-900 tabular-nums">
+                    {formatCurrencyBRL(rl.amount)}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {hasLeftover && (
+              <div className="mt-2 text-[11px] text-warn-700">
+                Restante a identificar:{" "}
+                <span className="font-mono font-semibold tabular-nums">
+                  {formatCurrencyBRL(tx.remainingAmount)}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-2.5">
           <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500">
             Candidatos
@@ -189,7 +292,7 @@ export function WorkspacePane({
           </div>
         )}
 
-        {!hasAny && addedCandidates.length === 0 && (
+        {!hasAny && addedCandidates.length === 0 && !hasExistingAllocations && (
           <div className="p-8 text-center border border-dashed border-ink-300 rounded-[4px] text-ink-500">
             <UnlinkIcon className="w-7 h-7 text-ink-400 mx-auto" />
             <h4 className="text-[13px] font-semibold text-ink-700 mt-2.5 mb-1">
@@ -342,6 +445,23 @@ export function WorkspacePane({
           navegar
         </div>
       </div>
+
+      {showRefundPicker && (
+        <RefundCandidatePicker
+          source={{
+            id: tx.id,
+            amount: tx.amount,
+            payerName: tx.payerName,
+            remainingAmount: tx.remainingAmount,
+            side: "credit",
+          }}
+          onClose={() => setShowRefundPicker(false)}
+          onLinked={() => {
+            setShowRefundPicker(false)
+            onRefundLinked()
+          }}
+        />
+      )}
     </div>
   )
 }

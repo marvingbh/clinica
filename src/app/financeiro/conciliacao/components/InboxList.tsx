@@ -1,6 +1,6 @@
 "use client"
 
-import { SearchIcon, SparklesIcon, UsersIcon } from "lucide-react"
+import { ArrowLeftRightIcon, SearchIcon, SparklesIcon, UsersIcon } from "lucide-react"
 import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
 import type { Transaction } from "./types"
 
@@ -157,6 +157,15 @@ export function InboxList({
                   />
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                  {tx.allocatedAmount > 0.01 && tx.remainingAmount > 0.01 && (
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-warn-50 text-warn-700 border border-warn-100"
+                      title={`Já conciliado: ${formatCurrencyBRL(tx.allocatedAmount)} de ${formatCurrencyBRL(tx.amount)}`}
+                    >
+                      <ArrowLeftRightIcon className="w-3 h-3" />
+                      Sobra {formatCurrencyBRL(tx.remainingAmount)}
+                    </span>
+                  )}
                   {bucket === "strong" && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-ok-50 text-ok-700 border border-ok-100">
                       <SparklesIcon className="w-3 h-3" />
@@ -168,7 +177,7 @@ export function InboxList({
                       Sugerido
                     </span>
                   )}
-                  {bucket === "none" && (
+                  {bucket === "none" && tx.allocatedAmount < 0.01 && (
                     <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-ink-100 text-ink-700 border border-ink-200">
                       Sem relação
                     </span>
