@@ -26,6 +26,7 @@ export default function InterImportPage() {
     handleImportScheduled, handleImportAllScheduled,
     handleCreateExpense, handleCreateWithRecurrence,
     handleConfirmSuggestion, handleDismiss, handleReconcile,
+    reloadTransactions,
   } = useInterImport()
 
   if (!loaded) return <div className="text-sm text-muted-foreground">Carregando...</div>
@@ -88,6 +89,7 @@ export default function InterImportPage() {
         onCreateExpense={handleCreateExpense}
         onCreateWithRecurrence={handleCreateWithRecurrence}
         onDismiss={handleDismiss}
+        onRefundLinked={reloadTransactions}
         formatCurrency={formatCurrency}
         formatDate={formatDate}
         confidenceLabel={confidenceLabel}

@@ -216,5 +216,6 @@ export function useInterImport() {
     handleImportScheduled, handleImportAllScheduled,
     handleCreateExpense, handleCreateWithRecurrence,
     handleConfirmSuggestion, handleDismiss, handleReconcile,
+    reloadTransactions: loadTransactions,
   }
 }

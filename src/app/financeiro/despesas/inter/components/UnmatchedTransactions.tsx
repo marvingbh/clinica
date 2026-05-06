@@ -1,10 +1,31 @@
-import { Building2, Check, X, Repeat } from "lucide-react"
+import { useState } from "react"
+import { ArrowLeftRight, Building2, Check, X, Repeat } from "lucide-react"
+import { RefundCandidatePicker } from "@/app/financeiro/conciliacao/components/RefundCandidatePicker"
+
+interface DebitTransactionRefundPeer {
+  id: string
+  date: string
+  amount: number
+  payerName: string | null
+  description: string | null
+}
+
+interface DebitTransactionRefundLink {
+  id: string
+  amount: number
+  linkedAt: string
+  peer: DebitTransactionRefundPeer
+}
 
 interface DebitTransaction {
   id: string
   date: string
   amount: number
   description: string
+  payerName?: string | null
+  refundedAmount?: number
+  remainingAmount?: number
+  refundLinks?: DebitTransactionRefundLink[]
   suggestion: {
     categoryId: string | null
     categoryName: string | null
@@ -19,6 +40,8 @@ interface UnmatchedTransactionsProps {
   onCreateExpense: (tx: DebitTransaction) => void
   onCreateWithRecurrence: (tx: DebitTransaction) => void
   onDismiss: (txId: string) => void
+  /** Refresh callback fired after a refund link is created. */
+  onRefundLinked?: () => void
   formatCurrency: (value: number | string) => string
   formatDate: (dateStr: string) => string
   confidenceLabel: (c: string) => { text: string; className: string }
@@ -27,8 +50,12 @@ interface UnmatchedTransactionsProps {
 export function UnmatchedTransactions({
   transactions, creating,
   onCreateExpense, onCreateWithRecurrence, onDismiss,
+  onRefundLinked,
   formatCurrency, formatDate, confidenceLabel,
 }: UnmatchedTransactionsProps) {
+  const [refundSourceId, setRefundSourceId] = useState<string | null>(null)
+  const refundSourceTx = transactions.find((t) => t.id === refundSourceId) ?? null
+
   return (
     <>
       <p className="text-sm text-muted-foreground">
@@ -82,6 +109,13 @@ export function UnmatchedTransactions({
                   <Check className="h-3.5 w-3.5" /> Avulsa
                 </button>
                 <button
+                  onClick={() => setRefundSourceId(tx.id)}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-md border border-input text-muted-foreground hover:text-foreground hover:bg-muted"
+                  title="Este débito é uma devolução de um crédito anterior"
+                >
+                  <ArrowLeftRight className="h-3.5 w-3.5" /> Devolução
+                </button>
+                <button
                   onClick={() => onDismiss(tx.id)}
                   className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200"
                 >
@@ -91,6 +125,23 @@ export function UnmatchedTransactions({
             </div>
           ))}
         </div>
+      )}
+
+      {refundSourceTx && (
+        <RefundCandidatePicker
+          source={{
+            id: refundSourceTx.id,
+            amount: refundSourceTx.amount,
+            payerName: refundSourceTx.payerName ?? null,
+            remainingAmount: refundSourceTx.remainingAmount ?? refundSourceTx.amount,
+            side: "debit",
+          }}
+          onClose={() => setRefundSourceId(null)}
+          onLinked={() => {
+            setRefundSourceId(null)
+            onRefundLinked?.()
+          }}
+        />
       )}
     </>
   )
