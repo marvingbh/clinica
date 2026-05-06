@@ -266,6 +266,7 @@ model Clinic {
   expenseCategoryPatterns    ExpenseCategoryPattern[]
   todos                      Todo[]
   todoRecurrences            TodoRecurrence[]
+  transactionRefundLinks     TransactionRefundLink[]
 
   @@index([slug])
   @@index([isActive])
@@ -294,6 +295,7 @@ model User {
   reviewedIntakeSubmissions IntakeSubmission[]
   createdExpenses            Expense[]                    @relation("CreatedExpenses")
   reconciledExpenseLinks     ExpenseReconciliationLink[]  @relation("ReconciledExpenses")
+  transactionRefundLinks     TransactionRefundLink[]
 
   @@unique([clinicId, email])
   @@index([clinicId])
@@ -1160,6 +1162,8 @@ model BankTransaction {
   dismissedByUser     User?                @relation("DismissedTransactions", fields: [dismissedByUserId], references: [id], onDelete: SetNull)
   reconciliationLinks ReconciliationLink[]
   expenseReconciliationLinks ExpenseReconciliationLink[]
+  refundLinksAsCredit TransactionRefundLink[] @relation("RefundLinkCredit")
+  refundLinksAsDebit  TransactionRefundLink[] @relation("RefundLinkDebit")
 
   @@unique([clinicId, externalId])
   @@index([clinicId])
@@ -1185,6 +1189,31 @@ model ReconciliationLink {
   @@unique([transactionId, invoiceId])
   @@index([invoiceId])
   @@index([clinicId])
+}
+
+/// Pairs an overpayment CREDIT bank transaction with the outgoing
+/// refund DEBIT that returned the difference to the payer. Resolves
+/// both halves of the operation: the credit's leftover counts as
+/// "refunded" toward the debit, and the debit counts as "explained"
+/// by the credit. Same junction row balances both sides.
+model TransactionRefundLink {
+  id                  String   @id @default(cuid())
+  clinicId            String
+  creditTransactionId String
+  debitTransactionId  String
+  amount              Decimal  @db.Decimal(10, 2)
+  linkedAt            DateTime @default(now())
+  linkedByUserId      String?
+
+  clinic            Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  creditTransaction BankTransaction @relation("RefundLinkCredit", fields: [creditTransactionId], references: [id], onDelete: Cascade)
+  debitTransaction  BankTransaction @relation("RefundLinkDebit", fields: [debitTransactionId], references: [id], onDelete: Cascade)
+  linkedByUser      User?           @relation(fields: [linkedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([creditTransactionId, debitTransactionId])
+  @@index([clinicId])
+  @@index([creditTransactionId])
+  @@index([debitTransactionId])
 }
 
 // ============================================================================
