@@ -16,8 +16,6 @@ interface IntakeSubmissionDetailProps {
 
 type ViewMode = "review" | "approve-edit" | "post-save"
 
-const FIRST_SESSION_TITLE = "Reunião com responsáveis"
-
 function formatDate(dateStr: string | Date) {
   return new Date(dateStr).toLocaleDateString("pt-BR", {
     day: "2-digit",
@@ -81,9 +79,8 @@ export function IntakeSubmissionDetail({ id, canWrite, onBack }: IntakeSubmissio
     const params = new URLSearchParams({
       newAppointment: "1",
       patientId: approvedPatientId,
-      title: FIRST_SESSION_TITLE,
     })
-    router.push(`/agenda?${params.toString()}`)
+    router.push(`/agenda/weekly?${params.toString()}`)
   }
 
   async function handleReject() {

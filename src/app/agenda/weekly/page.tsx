@@ -18,6 +18,7 @@ import { AgendaDndWrapper } from "../components/AgendaDndWrapper"
 import {
   useCalendarEntryCreate, useAppointmentCreate, useAppointmentEdit,
   useAppointmentActions, useGroupSessionSheet, useFabMenu, useBiweeklyHandlers,
+  useNewAppointmentDeepLink,
 } from "../hooks"
 import { useWeeklyAvailability } from "./hooks/useWeeklyAvailability"
 import { useWeeklyData } from "./hooks/useWeeklyData"
@@ -124,6 +125,12 @@ function WeeklyAgendaPageContent() {
     professionals,
     onSuccess: refetchAppointments,
     appointmentDuration,
+  })
+
+  // Honor ?newAppointment=1&patientId=… deep-links from the intake-approval CTA.
+  useNewAppointmentDeepLink({
+    openCreateSheet: create.openCreateSheet,
+    handleSelectPatient: create.handleSelectPatient,
   })
 
   // ============================================================================

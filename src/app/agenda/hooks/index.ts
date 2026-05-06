@@ -22,3 +22,4 @@ export type { UseCalendarEntryCreateParams, UseCalendarEntryCreateReturn } from 
 export { useGroupSessionSheet } from "./useGroupSessionSheet"
 export { useFabMenu } from "./useFabMenu"
 export { useBiweeklyHandlers } from "./useBiweeklyHandlers"
+export { useNewAppointmentDeepLink } from "./useNewAppointmentDeepLink"

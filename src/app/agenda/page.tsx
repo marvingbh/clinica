@@ -17,6 +17,7 @@ import {
   useDateNavigation, useAgendaData, useTimeSlots,
   useAppointmentCreate, useAppointmentEdit, useAppointmentActions,
   useCalendarEntryCreate, useGroupSessionSheet, useFabMenu, useBiweeklyHandlers,
+  useNewAppointmentDeepLink,
 } from "./hooks"
 import { createProfessionalColorMap } from "./lib/professional-colors"
 import { usePermission, useRequireAuth } from "@/shared/hooks"
@@ -151,6 +152,9 @@ export default function AgendaPage() {
     onSuccess: refetchAppointments,
     appointmentDuration,
   })
+
+  // Honor ?newAppointment=1&patientId=… deep-links from the intake-approval CTA.
+  useNewAppointmentDeepLink({ openCreateSheet, handleSelectPatient })
 
   // Edit appointment
   const {
