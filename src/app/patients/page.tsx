@@ -7,8 +7,8 @@ import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
 import { toast } from "sonner"
+import { patientFormSchema as patientSchema } from "@/lib/patients/schema"
 import {
   FAB,
   SkeletonPage,
@@ -26,45 +26,6 @@ import {
 } from "./components"
 import { IntakeSubmissionsTab } from "./components/IntakeSubmissionsTab"
 import type { Patient, Professional, AdditionalPhone, UsualPayer, Pagination, PatientFormData } from "./components"
-
-// WhatsApp format validation
-const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
-
-const patientSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(200),
-  phone: z
-    .string()
-    .min(1, "Telefone é obrigatório")
-    .regex(phoneRegex, "Telefone inválido. Use formato: 11999999999"),
-  email: z.string().email("Email inválido").optional().or(z.literal("")),
-  birthDate: z.string().optional().or(z.literal("")),
-  cpf: z.string().max(14).optional().or(z.literal("")),
-  billingCpf: z.string().max(14).optional().or(z.literal("")),
-  billingResponsibleName: z.string().max(200).optional().or(z.literal("")),
-  nfseDescriptionTemplate: z.string().max(2000).optional().or(z.literal("")),
-  nfsePerAppointment: z.boolean(),
-  nfseObs: z.string().max(500).optional().or(z.literal("")),
-  addressStreet: z.string().max(200).optional().or(z.literal("")),
-  addressNumber: z.string().max(20).optional().or(z.literal("")),
-  addressNeighborhood: z.string().max(100).optional().or(z.literal("")),
-  addressCity: z.string().max(100).optional().or(z.literal("")),
-  addressState: z.string().max(2).optional().or(z.literal("")),
-  addressZip: z.string().max(9).optional().or(z.literal("")),
-  fatherName: z.string().max(200).optional().or(z.literal("")),
-  motherName: z.string().max(200).optional().or(z.literal("")),
-  schoolName: z.string().max(200).optional().or(z.literal("")),
-  firstAppointmentDate: z.string().optional().or(z.literal("")),
-  sessionFee: z.string().optional().or(z.literal("")),
-  invoiceDueDay: z.string().optional().or(z.literal("")),
-  invoiceGrouping: z.string().optional().or(z.literal("")),
-  splitInvoiceByProfessional: z.boolean(),
-  lastFeeAdjustmentDate: z.string().optional().or(z.literal("")),
-  therapeuticProject: z.string().max(5000).optional().or(z.literal("")),
-  notes: z.string().max(2000).optional().or(z.literal("")),
-  referenceProfessionalId: z.string().optional().or(z.literal("")),
-  consentWhatsApp: z.boolean(),
-  consentEmail: z.boolean(),
-})
 
 // Convert ISO date (YYYY-MM-DD or full ISO) to DD/MM/YYYY for display in inputs
 function isoToBrDate(dateString: string | null): string {

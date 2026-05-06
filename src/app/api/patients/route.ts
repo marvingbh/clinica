@@ -1,53 +1,9 @@
 import { NextResponse } from "next/server"
-import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac"
 import { isGroupingAllowed } from "@/lib/financeiro/invoice-grouping"
-
-// WhatsApp format validation: Brazilian format with country code
-// Accepts: +5511999999999, 5511999999999, 11999999999
-const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
-
-const additionalPhoneSchema = z.object({
-  phone: z.string().regex(phoneRegex, "Telefone inválido. Use formato WhatsApp: (11) 99999-9999"),
-  label: z.string().min(1, "Rótulo é obrigatório").max(30, "Rótulo deve ter no máximo 30 caracteres"),
-  notify: z.boolean().default(true),
-})
-
-const createPatientSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(200),
-  phone: z
-    .string()
-    .regex(phoneRegex, "Telefone inválido. Use formato WhatsApp: (11) 99999-9999"),
-  email: z.string().email("Email inválido").optional().nullable().or(z.literal("")),
-  birthDate: z.string().optional().nullable(),
-  cpf: z.string().max(14).optional().nullable().or(z.literal("")),
-  billingCpf: z.string().max(14).optional().nullable().or(z.literal("")),
-  billingResponsibleName: z.string().max(200).optional().nullable().or(z.literal("")),
-  nfseDescriptionTemplate: z.string().max(2000).optional().nullable().or(z.literal("")),
-  nfsePerAppointment: z.boolean().optional(),
-  nfseObs: z.string().max(500).optional().nullable().or(z.literal("")),
-  addressStreet: z.string().max(200).optional().nullable().or(z.literal("")),
-  addressNumber: z.string().max(20).optional().nullable().or(z.literal("")),
-  addressNeighborhood: z.string().max(100).optional().nullable().or(z.literal("")),
-  addressCity: z.string().max(100).optional().nullable().or(z.literal("")),
-  addressState: z.string().max(2).optional().nullable().or(z.literal("")),
-  addressZip: z.string().max(9).optional().nullable().or(z.literal("")),
-  fatherName: z.string().max(200).optional().nullable().or(z.literal("")),
-  motherName: z.string().max(200).optional().nullable().or(z.literal("")),
-  notes: z.string().max(2000).optional().nullable().or(z.literal("")),
-  schoolName: z.string().max(200).optional().nullable().or(z.literal("")),
-  firstAppointmentDate: z.string().optional().nullable(),
-  lastFeeAdjustmentDate: z.string().optional().nullable(),
-  sessionFee: z.number().min(0).optional().nullable(),
-  therapeuticProject: z.string().max(5000).optional().nullable().or(z.literal("")),
-  referenceProfessionalId: z.string().optional().nullable().or(z.literal("")),
-  invoiceGrouping: z.enum(["MONTHLY", "PER_SESSION"]).nullable().optional(),
-  consentWhatsApp: z.boolean().default(false),
-  consentEmail: z.boolean().default(false),
-  additionalPhones: z.array(additionalPhoneSchema).max(4, "Máximo de 4 telefones adicionais").optional(),
-})
+import { patientApiSchema } from "@/lib/patients/schema"
 
 /**
  * GET /api/patients
@@ -251,7 +207,7 @@ export const POST = withFeatureAuth(
   async (req, { user }) => {
     const body = await req.json()
 
-    const validation = createPatientSchema.safeParse(body)
+    const validation = patientApiSchema.safeParse(body)
     if (!validation.success) {
       return NextResponse.json(
         { error: "Dados inválidos", details: validation.error.flatten() },
