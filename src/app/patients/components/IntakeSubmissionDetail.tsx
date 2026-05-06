@@ -6,12 +6,17 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { formatPhoneDisplay, formatCpfCnpjDisplay } from "@/lib/intake"
 import type { IntakeSubmission } from "@prisma/client"
+import { IntakeApprovalPanel } from "./IntakeApprovalPanel"
 
 interface IntakeSubmissionDetailProps {
   id: string
   canWrite: boolean
   onBack: () => void
 }
+
+type ViewMode = "review" | "approve-edit" | "post-save"
+
+const FIRST_SESSION_TITLE = "Reunião com responsáveis"
 
 function formatDate(dateStr: string | Date) {
   return new Date(dateStr).toLocaleDateString("pt-BR", {
@@ -37,6 +42,8 @@ export function IntakeSubmissionDetail({ id, canWrite, onBack }: IntakeSubmissio
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState("")
+  const [viewMode, setViewMode] = useState<ViewMode>("review")
+  const [approvedPatientId, setApprovedPatientId] = useState<string | null>(null)
 
   useMountEffect(() => {
     const controller = new AbortController()
@@ -59,32 +66,24 @@ export function IntakeSubmissionDetail({ id, canWrite, onBack }: IntakeSubmissio
     return () => controller.abort()
   })
 
-  async function handleApprove() {
-    if (!submission) return
-    setIsProcessing(true)
+  function handleStartApproveEdit() {
     setError("")
+    setViewMode("approve-edit")
+  }
 
-    try {
-      const response = await fetch(`/api/intake-submissions/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "approve" }),
-      })
+  function handleApproved(patientId: string) {
+    setApprovedPatientId(patientId)
+    setViewMode("post-save")
+  }
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.error || "Erro ao aprovar ficha")
-        setIsProcessing(false)
-        return
-      }
-
-      toast.success("Paciente criado com sucesso!")
-      router.push(`/agenda?newAppointment=true&patientId=${data.patientId}`)
-    } catch {
-      setError("Erro de conexao. Tente novamente.")
-      setIsProcessing(false)
-    }
+  function handleScheduleFirstSession() {
+    if (!approvedPatientId) return
+    const params = new URLSearchParams({
+      newAppointment: "1",
+      patientId: approvedPatientId,
+      title: FIRST_SESSION_TITLE,
+    })
+    router.push(`/agenda?${params.toString()}`)
   }
 
   async function handleReject() {
@@ -137,6 +136,49 @@ export function IntakeSubmissionDetail({ id, canWrite, onBack }: IntakeSubmissio
   }
 
   if (!submission) return null
+
+  // Approve-edit mode: render the patient form pre-filled with the
+  // intake submission. The form owns the API call (via the new approve
+  // endpoint with operator overrides).
+  if (viewMode === "approve-edit") {
+    return (
+      <IntakeApprovalPanel
+        submission={submission}
+        onApproved={handleApproved}
+        onCancel={() => setViewMode("review")}
+      />
+    )
+  }
+
+  // Post-save mode: brief success block with "schedule first session"
+  // CTA. Skipping the schedule is one click ("Concluído" → onBack).
+  if (viewMode === "post-save") {
+    return (
+      <div className="space-y-6 text-center py-6">
+        <div className="space-y-2">
+          <div className="text-2xl">✓</div>
+          <h2 className="text-lg font-semibold text-foreground">Paciente criado</h2>
+          <p className="text-sm text-muted-foreground">
+            A ficha foi aprovada e o paciente está disponível em /pacientes.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+          <button
+            onClick={handleScheduleFirstSession}
+            className="h-11 px-6 rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
+          >
+            Agendar primeira sessão
+          </button>
+          <button
+            onClick={onBack}
+            className="h-11 px-6 rounded-md border border-input text-foreground font-medium hover:bg-muted transition-colors"
+          >
+            Concluído
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const isPending = submission.status === "PENDING"
 
@@ -235,11 +277,11 @@ export function IntakeSubmissionDetail({ id, canWrite, onBack }: IntakeSubmissio
       {isPending && canWrite && (
         <div className="flex gap-3 pt-2">
           <button
-            onClick={handleApprove}
+            onClick={handleStartApproveEdit}
             disabled={isProcessing}
             className="flex-1 h-11 rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {isProcessing ? "Processando..." : "Aprovar e Agendar"}
+            Aprovar
           </button>
           <button
             onClick={handleReject}
