@@ -104,7 +104,8 @@ describe("PATCH /api/intake-submissions/[id]", () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.patientId).toBe("patient-1")
-      expect(mockPatientCreate).toHaveBeenCalledWith({ data: mappedPatientData })
+      const createArg = mockPatientCreate.mock.calls[0][0]
+      expect(createArg.data).toMatchObject(mappedPatientData)
       expect(mockSubmissionUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "sub-1" },
@@ -144,7 +145,7 @@ describe("PATCH /api/intake-submissions/[id]", () => {
           action: "INTAKE_APPROVED",
           entityType: "IntakeSubmission",
           entityId: "sub-1",
-          newValues: { patientId: "patient-1" },
+          newValues: expect.objectContaining({ patientId: "patient-1", edited: false }),
         }),
       )
     })
@@ -186,6 +187,130 @@ describe("PATCH /api/intake-submissions/[id]", () => {
     it("rejects unknown actions with 400", async () => {
       const res = await callPATCH({ action: "delete" })
       expect(res.status).toBe(400)
+    })
+  })
+
+  describe("approve with operator-edited patient body", () => {
+    const operatorPatient = {
+      name: "Pedro Operator-Edited",
+      phone: "5531999990000",
+      email: "operator@example.com",
+      sessionFee: 250,
+      referenceProfessionalId: "prof-1",
+      therapeuticProject: "Sessões iniciais com responsáveis",
+      consentWhatsApp: true,
+      consentEmail: false,
+    }
+
+    beforeEach(() => {
+      // Reset the patient lookup so dup-CPF check passes by default.
+      mockPatientCreate.mockImplementation((args: { data: { id?: string } } | undefined) => {
+        return Promise.resolve({ id: "patient-1", ...(args?.data ?? {}) })
+      })
+    })
+
+    it("validates the patient body and returns 400 on bad data", async () => {
+      const res = await callPATCH({ action: "approve", patient: { name: "X" } })
+      expect(res.status).toBe(400)
+      expect(mockPatientCreate).not.toHaveBeenCalled()
+    })
+
+    it("creates the patient with operator overrides on success", async () => {
+      const res = await callPATCH({ action: "approve", patient: operatorPatient })
+      expect(res.status).toBe(200)
+      const callArg = mockPatientCreate.mock.calls[0][0]
+      expect(callArg.data).toMatchObject({
+        clinicId: "clinic-1",
+        name: "Pedro Operator-Edited",
+        phone: "5531999990000",
+        sessionFee: 250,
+        referenceProfessionalId: "prof-1",
+        therapeuticProject: "Sessões iniciais com responsáveis",
+      })
+    })
+
+    it("preserves the consent timestamps from the intake mapping (LGPD)", async () => {
+      await callPATCH({ action: "approve", patient: operatorPatient })
+      const callArg = mockPatientCreate.mock.calls[0][0]
+      expect(callArg.data.consentPhotoVideoAt).toEqual(
+        new Date("2026-05-01T10:00:00Z"),
+      )
+      expect(callArg.data.consentSessionRecordingAt).toBeNull()
+    })
+
+    it("stamps consentWhatsAppAt and consentEmailAt based on the operator's choice", async () => {
+      await callPATCH({
+        action: "approve",
+        patient: { ...operatorPatient, consentWhatsApp: true, consentEmail: false },
+      })
+      const callArg = mockPatientCreate.mock.calls[0][0]
+      expect(callArg.data.consentWhatsApp).toBe(true)
+      expect(callArg.data.consentWhatsAppAt).toBeInstanceOf(Date)
+      expect(callArg.data.consentEmail).toBe(false)
+      expect(callArg.data.consentEmailAt).toBeNull()
+    })
+
+    it("returns 409 when the operator's CPF already exists in the clinic", async () => {
+      // tx.patient.findUnique is the inline duplicate-CPF guard.
+      mockTx.patient.findUnique = vi.fn().mockResolvedValueOnce({ id: "other", cpf: "12345678901" })
+      const res = await callPATCH({
+        action: "approve",
+        patient: { ...operatorPatient, cpf: "12345678901" },
+      })
+      expect(res.status).toBe(409)
+      expect(mockPatientCreate).not.toHaveBeenCalled()
+      // Restore for next test
+      mockTx.patient.findUnique = vi.fn()
+    })
+
+    it("returns 400 when primary phone duplicates an additional phone", async () => {
+      const res = await callPATCH({
+        action: "approve",
+        patient: {
+          ...operatorPatient,
+          additionalPhones: [{ phone: "5531999990000", label: "Pai", notify: true }],
+        },
+      })
+      expect(res.status).toBe(400)
+      expect(mockPatientCreate).not.toHaveBeenCalled()
+    })
+
+    it("creates additionalPhones nested under the patient when provided", async () => {
+      await callPATCH({
+        action: "approve",
+        patient: {
+          ...operatorPatient,
+          additionalPhones: [
+            { phone: "5531888880000", label: "Mãe", notify: true },
+            { phone: "5531777770000", label: "Pai", notify: false },
+          ],
+        },
+      })
+      const callArg = mockPatientCreate.mock.calls[0][0]
+      expect(callArg.data.additionalPhones.create).toHaveLength(2)
+      expect(callArg.data.additionalPhones.create[0]).toMatchObject({
+        clinicId: "clinic-1",
+        phone: "5531888880000",
+        label: "Mãe",
+        notify: true,
+      })
+    })
+
+    it("logs the audit row with edited fields when operator changed values", async () => {
+      await callPATCH({ action: "approve", patient: operatorPatient })
+      const auditArgs = mockAuditLog.mock.calls[0][0]
+      expect(auditArgs.action).toBe("INTAKE_APPROVED")
+      expect(auditArgs.newValues.edited).toBe(true)
+      expect(auditArgs.newValues.editedFields).toEqual(
+        expect.arrayContaining(["sessionFee", "referenceProfessionalId", "therapeuticProject"]),
+      )
+    })
+
+    it("falls back to the map-only path when no patient body is provided", async () => {
+      await callPATCH({ action: "approve" })
+      const auditArgs = mockAuditLog.mock.calls[0][0]
+      expect(auditArgs.newValues.edited).toBe(false)
+      expect(auditArgs.newValues.editedFields).toBeUndefined()
     })
   })
 })
