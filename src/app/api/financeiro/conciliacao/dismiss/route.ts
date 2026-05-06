@@ -28,7 +28,11 @@ export const POST = withFeatureAuth(
 
     const transaction = await prisma.bankTransaction.findFirst({
       where: { id: transactionId, clinicId: user.clinicId },
-      include: { reconciliationLinks: { take: 1 } },
+      include: {
+        reconciliationLinks: { take: 1 },
+        refundLinksAsCredit: { take: 1 },
+        refundLinksAsDebit: { take: 1 },
+      },
     })
 
     if (!transaction) {
@@ -41,6 +45,16 @@ export const POST = withFeatureAuth(
     if (transaction.reconciliationLinks.length > 0) {
       return NextResponse.json(
         { error: "Não é possível descartar uma transação já conciliada" },
+        { status: 400 }
+      )
+    }
+
+    if (
+      transaction.refundLinksAsCredit.length > 0 ||
+      transaction.refundLinksAsDebit.length > 0
+    ) {
+      return NextResponse.json(
+        { error: "Transação possui devoluções vinculadas — desfaça a devolução antes" },
         { status: 400 }
       )
     }

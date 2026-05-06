@@ -57,6 +57,16 @@ export const GET = withFeatureAuth(
               },
             },
           },
+          refundLinksAsCredit: {
+            select: {
+              id: true,
+              amount: true,
+              linkedAt: true,
+              debitTransaction: {
+                select: { id: true, date: true, amount: true, payerName: true, description: true },
+              },
+            },
+          },
         },
       }),
       prisma.invoice.findMany({
@@ -89,11 +99,21 @@ export const GET = withFeatureAuth(
       }),
     ])
 
-    // Pre-compute allocated amounts per transaction (used for matching and response)
+    // Pre-compute reconciled + refunded amounts per transaction. Both
+    // count toward "allocated" — a refund link's amount represents
+    // money that left the bank toward the original payer (the credit's
+    // overpayment Δ), which resolves the credit's leftover.
+    const txReconciledMap = new Map<string, number>()
+    const txRefundedMap = new Map<string, number>()
+    for (const tx of transactions) {
+      const reconciled = tx.reconciliationLinks.reduce((sum, l) => sum + Number(l.amount), 0)
+      const refunded = tx.refundLinksAsCredit.reduce((sum, l) => sum + Number(l.amount), 0)
+      txReconciledMap.set(tx.id, reconciled)
+      txRefundedMap.set(tx.id, refunded)
+    }
     const txAllocatedMap = new Map<string, number>()
     for (const tx of transactions) {
-      const allocated = tx.reconciliationLinks.reduce((sum, l) => sum + Number(l.amount), 0)
-      txAllocatedMap.set(tx.id, allocated)
+      txAllocatedMap.set(tx.id, (txReconciledMap.get(tx.id) ?? 0) + (txRefundedMap.get(tx.id) ?? 0))
     }
 
     const txForMatching: TransactionForMatching[] = transactions
@@ -190,9 +210,23 @@ export const GET = withFeatureAuth(
         amount: txAmount,
         description: tx.description,
         payerName: tx.payerName,
+        reconciledAmount: txReconciledMap.get(tx.id) ?? 0,
+        refundedAmount: txRefundedMap.get(tx.id) ?? 0,
         allocatedAmount,
         remainingAmount,
         isFullyReconciled,
+        refundLinks: tx.refundLinksAsCredit.map((link) => ({
+          id: link.id,
+          amount: Number(link.amount),
+          linkedAt: link.linkedAt,
+          debit: {
+            id: link.debitTransaction.id,
+            date: link.debitTransaction.date,
+            amount: Number(link.debitTransaction.amount),
+            payerName: link.debitTransaction.payerName,
+            description: link.debitTransaction.description,
+          },
+        })),
         links: tx.reconciliationLinks.map((link) => ({
           linkId: link.id,
           invoiceId: link.invoice.id,

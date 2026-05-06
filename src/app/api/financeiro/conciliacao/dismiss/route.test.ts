@@ -53,6 +53,8 @@ describe("POST /api/financeiro/conciliacao/dismiss", () => {
     mockBankTxFindFirst.mockResolvedValueOnce({
       id: "tx-1",
       reconciliationLinks: [],
+      refundLinksAsCredit: [],
+      refundLinksAsDebit: [],
       dismissReason: null,
     })
 
@@ -74,6 +76,8 @@ describe("POST /api/financeiro/conciliacao/dismiss", () => {
     mockBankTxFindFirst.mockResolvedValueOnce({
       id: "tx-1",
       reconciliationLinks: [],
+      refundLinksAsCredit: [],
+      refundLinksAsDebit: [],
       dismissReason: null,
     })
 
@@ -97,6 +101,22 @@ describe("POST /api/financeiro/conciliacao/dismiss", () => {
     mockBankTxFindFirst.mockResolvedValueOnce({
       id: "tx-1",
       reconciliationLinks: [{ id: "link-1" }],
+      refundLinksAsCredit: [],
+      refundLinksAsDebit: [],
+      dismissReason: null,
+    })
+
+    const res = await callPOST({ transactionId: "tx-1", reason: "DUPLICATE" })
+    expect(res.status).toBe(400)
+    expect(mockBankTxUpdate).not.toHaveBeenCalled()
+  })
+
+  it("rejects dismissing a transaction that has refund links", async () => {
+    mockBankTxFindFirst.mockResolvedValueOnce({
+      id: "tx-1",
+      reconciliationLinks: [],
+      refundLinksAsCredit: [{ id: "rl-1" }],
+      refundLinksAsDebit: [],
       dismissReason: null,
     })
 
@@ -109,6 +129,8 @@ describe("POST /api/financeiro/conciliacao/dismiss", () => {
     mockBankTxFindFirst.mockResolvedValueOnce({
       id: "tx-1",
       reconciliationLinks: [],
+      refundLinksAsCredit: [],
+      refundLinksAsDebit: [],
       dismissReason: "DUPLICATE",
     })
 

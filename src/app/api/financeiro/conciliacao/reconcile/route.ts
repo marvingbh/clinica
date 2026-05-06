@@ -252,6 +252,52 @@ export const DELETE = withFeatureAuth(
     ]
     const linkIdsToDelete = linksToDelete.map((l) => l.id)
 
+    // Refund-link guard: undoing reconciliation reduces a credit's
+    // reconciledTotal, which could leave a refund link's amount no
+    // longer fitting under the credit's remaining capacity. Block
+    // upfront so the operator removes the refund link first.
+    const affectedTransactionIds = [
+      ...new Set(
+        await prisma.reconciliationLink
+          .findMany({
+            where: { id: { in: linkIdsToDelete } },
+            select: { transactionId: true },
+          })
+          .then((rs) => rs.map((r) => r.transactionId)),
+      ),
+    ]
+    if (affectedTransactionIds.length > 0) {
+      const affectedTransactions = await prisma.bankTransaction.findMany({
+        where: { id: { in: affectedTransactionIds }, clinicId: user.clinicId },
+        select: {
+          id: true,
+          amount: true,
+          reconciliationLinks: { select: { id: true, amount: true } },
+          refundLinksAsCredit: { select: { id: true, amount: true } },
+        },
+      })
+      for (const tx of affectedTransactions) {
+        if (tx.refundLinksAsCredit.length === 0) continue
+        const remainingReconciled = tx.reconciliationLinks
+          .filter((l) => !linkIdsToDelete.includes(l.id))
+          .reduce((s, l) => s + Number(l.amount), 0)
+        const refundedTotal = tx.refundLinksAsCredit.reduce(
+          (s, l) => s + Number(l.amount),
+          0,
+        )
+        // After delete: amount - remainingReconciled - refundedTotal should still be ≥ 0 (within tolerance)
+        if (Number(tx.amount) - remainingReconciled - refundedTotal < -0.01) {
+          return NextResponse.json(
+            {
+              error: "Esta transação possui devolução vinculada. Desfaça a devolução antes de remover a conciliação.",
+              refundLinkIds: tx.refundLinksAsCredit.map((l) => l.id),
+            },
+            { status: 409 },
+          )
+        }
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       // Delete the links
       await tx.reconciliationLink.deleteMany({
