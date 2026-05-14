@@ -1,6 +1,12 @@
 import { Prisma } from "@prisma/client"
 
-const BILLABLE_STATUSES = ["AGENDADO", "CONFIRMADO", "FINALIZADO", "CANCELADO_FALTA"]
+const BILLABLE_STATUSES = [
+  "AGENDADO",
+  "CONFIRMADO",
+  "FINALIZADO",
+  "CANCELADO_FALTA",
+  "CANCELADO_ACORDADO",
+]
 const INVOICEABLE_TYPES = ["CONSULTA", "REUNIAO"]
 
 /** Max months to look back for uninvoiced appointments (only prior month) */

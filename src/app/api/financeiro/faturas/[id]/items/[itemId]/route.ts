@@ -130,6 +130,24 @@ export const DELETE = withFeatureAuth(
     })
 
     await prisma.$transaction(async (tx) => {
+      // When the deleted item is a credit, release the underlying
+      // SessionCredit so it becomes available again. Items and credits are
+      // linked implicitly by the description ("Crédito: <reason>"); match by
+      // reason scoped to credits already consumed by this invoice.
+      if (item.type === "CREDITO") {
+        const consumedHere = await tx.sessionCredit.findMany({
+          where: { consumedByInvoiceId: params.id },
+          select: { id: true, reason: true },
+        })
+        const matched = consumedHere.find((c) => item.description.includes(c.reason))
+        if (matched) {
+          await tx.sessionCredit.update({
+            where: { id: matched.id },
+            data: { consumedByInvoiceId: null, consumedAt: null },
+          })
+        }
+      }
+
       await tx.invoiceItem.delete({ where: { id: params.itemId } })
 
       await recalculateInvoice(

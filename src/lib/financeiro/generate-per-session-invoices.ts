@@ -4,6 +4,7 @@ import { getMonthName, formatCurrencyBRL, formatDateBR, formatDateShort } from "
 import { shouldSkipInvoice } from "./invoice-generation"
 import { recalculateInvoice } from "./recalculate-invoice"
 import { getAttributionLayout } from "./professional-attribution"
+import { creditEligibleForInvoiceMonth } from "./credit-eligibility"
 
 export interface PerSessionInvoiceParams {
   clinicId: string
@@ -94,9 +95,16 @@ export async function generatePerSessionInvoices(
   // Filter out appointments already billed on non-PER_SESSION invoices
   const available = sorted.filter(a => !invoicedAptIds.has(a.id))
 
-  // Fetch unconsumed session credits for this patient (cross-professional)
+  // Fetch unconsumed session credits for this patient (cross-professional).
+  // Only credits whose origin appointment is before the invoiced month are
+  // eligible — a May invoice cannot consume a May credit.
   const unconsumedCredits = await tx.sessionCredit.findMany({
-    where: { clinicId, patientId, consumedByInvoiceId: null },
+    where: {
+      clinicId,
+      patientId,
+      consumedByInvoiceId: null,
+      ...creditEligibleForInvoiceMonth(year, month),
+    },
     orderBy: { createdAt: "asc" },
   })
   let creditIndex = 0

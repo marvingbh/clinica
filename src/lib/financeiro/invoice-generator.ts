@@ -44,7 +44,13 @@ export interface InvoiceTotals {
   totalAmount: number
 }
 
-const BILLABLE_STATUSES = ["AGENDADO", "CONFIRMADO", "FINALIZADO", "CANCELADO_FALTA"]
+const BILLABLE_STATUSES = [
+  "AGENDADO",
+  "CONFIRMADO",
+  "FINALIZADO",
+  "CANCELADO_FALTA",
+  "CANCELADO_ACORDADO",
+]
 
 export function classifyAppointments(appointments: AppointmentForInvoice[]): ClassifiedAppointments {
   const billable = appointments.filter(a => BILLABLE_STATUSES.includes(a.status))

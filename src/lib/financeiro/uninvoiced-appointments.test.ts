@@ -79,7 +79,13 @@ describe("fetchUninvoicedPriorAppointments", () => {
     })
 
     const where = client.appointment.findMany.mock.calls[0][0].where
-    expect(where.status.in).toEqual(["AGENDADO", "CONFIRMADO", "FINALIZADO", "CANCELADO_FALTA"])
+    expect(where.status.in).toEqual([
+      "AGENDADO",
+      "CONFIRMADO",
+      "FINALIZADO",
+      "CANCELADO_FALTA",
+      "CANCELADO_ACORDADO",
+    ])
   })
 
   it("filters to invoiceable appointment types only", async () => {

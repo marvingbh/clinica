@@ -4,6 +4,7 @@ import { getMonthName, formatCurrencyBRL, formatDateBR } from "./format"
 import { recalculateInvoice } from "./recalculate-invoice"
 import { shouldSkipInvoice, separateManualItems } from "./invoice-generation"
 import { getAttributionLayout } from "./professional-attribution"
+import { creditEligibleForInvoiceMonth } from "./credit-eligibility"
 
 export interface MonthlyInvoiceParams {
   clinicId: string
@@ -112,9 +113,16 @@ export async function generateMonthlyInvoice(
     availableApts.map(a => ({ ...a, price: a.price ? Number(a.price) : null }))
   )
 
-  // SessionCredits: query by clinicId + patientId (cross-professional)
+  // SessionCredits: query by clinicId + patientId (cross-professional).
+  // Only credits whose origin appointment is before the invoiced month are
+  // eligible — a May invoice cannot consume a May credit.
   const availableCredits = await tx.sessionCredit.findMany({
-    where: { clinicId, patientId, consumedByInvoiceId: null },
+    where: {
+      clinicId,
+      patientId,
+      consumedByInvoiceId: null,
+      ...creditEligibleForInvoiceMonth(year, month),
+    },
     orderBy: { createdAt: "asc" },
   })
 
@@ -191,9 +199,16 @@ async function updateExistingInvoice(
     })
   }
 
-  // 3. Re-query available credits AFTER releasing (fixes stale credit bug)
+  // 3. Re-query available credits AFTER releasing (fixes stale credit bug).
+  //    Same eligibility rule as the create path: only credits from before
+  //    the invoiced month.
   const availableCredits = await tx.sessionCredit.findMany({
-    where: { clinicId, patientId, consumedByInvoiceId: null },
+    where: {
+      clinicId,
+      patientId,
+      consumedByInvoiceId: null,
+      ...creditEligibleForInvoiceMonth(context.year, context.month),
+    },
     orderBy: { createdAt: "asc" },
   })
 

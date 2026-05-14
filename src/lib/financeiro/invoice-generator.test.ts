@@ -60,9 +60,15 @@ describe("classifyAppointments", () => {
     expect(result.regular).toHaveLength(1)
   })
 
-  it("excludes CANCELADO_ACORDADO and CANCELADO_PROFISSIONAL", () => {
+  it("includes CANCELADO_ACORDADO as billable (patient pays; credit generated for a future month)", () => {
     const result = classifyAppointments([
       makeAppointment({ id: "a2", status: "CANCELADO_ACORDADO" }),
+    ])
+    expect(result.regular).toHaveLength(1)
+  })
+
+  it("excludes CANCELADO_PROFISSIONAL (clinic's loss)", () => {
+    const result = classifyAppointments([
       makeAppointment({ id: "a3", status: "CANCELADO_PROFISSIONAL" }),
     ])
     expect(result.regular).toHaveLength(0)

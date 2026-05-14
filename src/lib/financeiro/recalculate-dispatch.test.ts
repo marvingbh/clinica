@@ -338,7 +338,12 @@ describe("recalculatePerSession", () => {
     await recalculatePerSession(tx as any, params, null, "Dra. Ana")
 
     expect(tx.sessionCredit.findFirst).toHaveBeenCalledWith({
-      where: { clinicId: "clinic-scope", patientId: "pat-scope", consumedByInvoiceId: null },
+      where: {
+        clinicId: "clinic-scope",
+        patientId: "pat-scope",
+        consumedByInvoiceId: null,
+        originAppointment: { scheduledAt: { lt: new Date("2026-04-01T03:00:00.000Z") } },
+      },
       orderBy: { createdAt: "asc" },
     })
   })

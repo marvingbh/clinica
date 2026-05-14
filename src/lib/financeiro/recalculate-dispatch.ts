@@ -3,10 +3,17 @@ import { recalculateInvoice } from "./recalculate-invoice"
 import { generatePerSessionInvoices } from "./generate-per-session-invoices"
 import { generateMonthlyInvoice } from "./generate-monthly-invoice"
 import { fetchUninvoicedPriorAppointments } from "./uninvoiced-appointments"
+import { creditEligibleForInvoiceMonth } from "./credit-eligibility"
 
 type Tx = Prisma.TransactionClient
 
-const PER_SESSION_BILLABLE_STATUSES = ["AGENDADO", "CONFIRMADO", "FINALIZADO", "CANCELADO_FALTA"]
+const PER_SESSION_BILLABLE_STATUSES = [
+  "AGENDADO",
+  "CONFIRMADO",
+  "FINALIZADO",
+  "CANCELADO_FALTA",
+  "CANCELADO_ACORDADO",
+]
 
 export interface RecalculatePerSessionParams {
   invoice: {
@@ -75,11 +82,18 @@ export async function recalculatePerSession(
     data: { unitPrice: newPrice, total: newPrice },
   })
 
-  // Apply an available credit if this invoice doesn't already have one
+  // Apply an available credit if this invoice doesn't already have one.
+  // Only credits whose origin appointment is before the invoiced month are
+  // eligible — a May invoice cannot consume a May credit.
   const hasCredit = invoice.items.some(i => i.type === "CREDITO")
   if (!hasCredit) {
     const credit = await tx.sessionCredit.findFirst({
-      where: { clinicId, patientId: invoice.patientId, consumedByInvoiceId: null },
+      where: {
+        clinicId,
+        patientId: invoice.patientId,
+        consumedByInvoiceId: null,
+        ...creditEligibleForInvoiceMonth(invoice.referenceYear, invoice.referenceMonth),
+      },
       orderBy: { createdAt: "asc" },
     })
     if (credit) {

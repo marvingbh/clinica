@@ -7,6 +7,7 @@ import { getMonthName } from "@/lib/financeiro/format"
 import { separateManualItems } from "@/lib/financeiro/invoice-generation"
 import { resolveGrouping } from "@/lib/financeiro/invoice-grouping"
 import { fetchUninvoicedPriorAppointmentsBulk } from "@/lib/financeiro/uninvoiced-appointments"
+import { creditEligibleForInvoiceMonth } from "@/lib/financeiro/credit-eligibility"
 import {
   recalculatePerSession,
   handleGroupingTransition,
@@ -268,7 +269,12 @@ export const POST = withFeatureAuth(
       }
 
       const availableCredits = await tx.sessionCredit.findMany({
-        where: { clinicId: user.clinicId, patientId: invoice.patientId, consumedByInvoiceId: null },
+        where: {
+          clinicId: user.clinicId,
+          patientId: invoice.patientId,
+          consumedByInvoiceId: null,
+          ...creditEligibleForInvoiceMonth(invoice.referenceYear, invoice.referenceMonth),
+        },
         orderBy: { createdAt: "asc" },
       })
 
