@@ -9,6 +9,7 @@ import {
   CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  RepeatIcon,
 } from "@/shared/components/ui/icons"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import {
@@ -116,6 +117,13 @@ export function WeeklyHeader({
             >
               <ListIcon className="w-4 h-4" />
               Dia
+            </Link>
+            <Link
+              href="/agenda/recorrencias"
+              className="h-9 sm:h-10 px-3 sm:px-4 rounded-xl border border-input bg-background text-sm font-medium hover:bg-muted transition-all duration-normal active:scale-[0.98] flex items-center gap-2 shadow-sm"
+            >
+              <RepeatIcon className="w-4 h-4" />
+              Recorrências
             </Link>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import { useMemo, useRef } from "react"
 import Link from "next/link"
-import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, BanIcon, PrinterIcon } from "@/shared/components/ui/icons"
+import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, BanIcon, PrinterIcon, RepeatIcon } from "@/shared/components/ui/icons"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { formatDateHeader, toDateString, toDisplayDateFromDate } from "../lib/utils"
 import type { Professional } from "../lib/types"
@@ -116,6 +116,13 @@ export function AgendaHeader({
             >
               <CalendarIcon className="w-4 h-4" />
               Semana
+            </Link>
+            <Link
+              href="/agenda/recorrencias"
+              className="h-10 px-4 rounded-xl border border-input bg-background text-sm font-medium hover:bg-muted transition-all duration-normal active:scale-[0.98] flex items-center gap-2 shadow-sm"
+            >
+              <RepeatIcon className="w-4 h-4" />
+              Recorrências
             </Link>
           </div>
         </div>
