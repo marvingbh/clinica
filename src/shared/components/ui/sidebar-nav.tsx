@@ -27,6 +27,7 @@ import {
   ArrowLeftRightIcon,
   ListChecksIcon,
   AlertCircleIcon,
+  RepeatIcon,
 } from "./icons"
 import { usePermission } from "@/shared/hooks/usePermission"
 import type { Feature } from "@/lib/rbac/types"
@@ -62,6 +63,13 @@ const navGroups: NavGroup[] = [
         label: "Agenda",
         icon: <CalendarIcon className="w-4 h-4" strokeWidth={1.75} />,
         matchPaths: ["/agenda"],
+        feature: "agenda_own",
+      },
+      {
+        href: "/agenda/recorrencias",
+        label: "Recorrências",
+        icon: <RepeatIcon className="w-4 h-4" strokeWidth={1.75} />,
+        matchPaths: ["/agenda/recorrencias"],
         feature: "agenda_own",
       },
       {
