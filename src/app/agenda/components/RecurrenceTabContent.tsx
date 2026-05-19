@@ -132,7 +132,17 @@ export function RecurrenceTabContent({ appointment, onSave, onClose, professiona
       else if (recurrenceEndType === "BY_OCCURRENCES") body.occurrences = occurrences
       if (dayOfWeek !== originalDayOfWeek) body.dayOfWeek = dayOfWeek
       body.additionalProfessionalIds = additionalProfIds
-      if (applyToFuture) body.applyTo = "future"
+      if (applyToFuture) {
+        body.applyTo = "future"
+        // Pin "future" to the appointment currently being edited so the
+        // bulk shift only touches this one and the ones after it. Without
+        // this the backend would sweep in every appointment from today
+        // onward and report phantom conflicts on already-elapsed slots
+        // the user never intended to change.
+        body.applyFromDate = new Date(appointment.scheduledAt)
+          .toISOString()
+          .slice(0, 10)
+      }
 
       const response = await fetch(`/api/appointments/recurrences/${appointment.recurrence.id}`, {
         method: "PATCH",

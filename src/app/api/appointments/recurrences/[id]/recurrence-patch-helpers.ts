@@ -54,6 +54,17 @@ export async function prepareDayShift(params: {
   const effectiveEndTime = newEndTime || currentEndTime
   const isAlsoTimeChange = newStartTime !== undefined || newEndTime !== undefined
 
+  // `calculateDayShiftedDates` picks the nearest occurrence of newDayOfWeek
+  // within ±3 days, which can land a future appointment on today or earlier
+  // (e.g. a Thursday → Tuesday shift moves the date 2 days back). Today's
+  // slot may already be booked, producing phantom conflicts against
+  // already-elapsed events — so we slide such dates forward one week at a
+  // time until they land on tomorrow or later.
+  const tomorrowStart = new Date()
+  tomorrowStart.setHours(0, 0, 0, 0)
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1)
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000
+
   const shiftedDates = appointments.map(apt => {
     const actualDayOfWeek = apt.scheduledAt.getDay()
     let { scheduledAt: newScheduledAt, endAt: newEndAt } = calculateDayShiftedDates(
@@ -67,6 +78,11 @@ export async function prepareDayShift(params: {
       newScheduledAt.setHours(sh, sm, 0, 0)
       newEndAt = new Date(newEndAt)
       newEndAt.setHours(eh, em, 0, 0)
+    }
+
+    while (newScheduledAt < tomorrowStart) {
+      newScheduledAt = new Date(newScheduledAt.getTime() + msPerWeek)
+      newEndAt = new Date(newEndAt.getTime() + msPerWeek)
     }
 
     return { apt, newScheduledAt, newEndAt }

@@ -97,6 +97,8 @@ export interface MoveRecurrenceFutureData {
   startTime: string
   endTime: string
   dayOfWeek?: number
+  /** Cutoff date (YYYY-MM-DD). Bulk-shift covers appointments on/after this. */
+  applyFromDate?: string
 }
 
 export interface MoveRecurrenceFutureResponse {
@@ -118,6 +120,9 @@ export async function moveRecurrenceFuture(
   }
   if (data.dayOfWeek !== undefined) {
     body.dayOfWeek = data.dayOfWeek
+  }
+  if (data.applyFromDate !== undefined) {
+    body.applyFromDate = data.applyFromDate
   }
 
   const response = await fetch(`/api/appointments/recurrences/${recurrenceId}`, {

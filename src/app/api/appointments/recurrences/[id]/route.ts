@@ -25,6 +25,11 @@ const updateRecurrenceSchema = z.object({
   occurrences: z.number().int().min(1).max(52).optional().nullable(),
   dayOfWeek: z.number().int().min(0).max(6).optional(),
   applyTo: z.enum(["future"]).optional(),
+  // ISO date — the cutoff for `applyTo: "future"`. When the dialog is opened
+  // from a specific appointment, send THAT appointment's scheduledAt so
+  // "future" means "this appointment and onward" instead of "every future
+  // appointment from today". Falls back to today when omitted.
+  applyFromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}/, "Invalid date format").optional(),
   additionalProfessionalIds: z.array(z.string()).optional(),
   swapBiweeklyWeek: z.boolean().optional(),
   swapScope: z.enum(["future", "all"]).optional(),
@@ -109,12 +114,20 @@ export const PATCH = withFeatureAuth(
       return NextResponse.json({ error: "Requisicao invalida" }, { status: 400 })
     }
 
+    // Cutoff for which appointments the bulk update covers. When the dialog
+    // sends `applyFromDate` we honor it ("this appointment and onward");
+    // otherwise we fall back to today so the legacy "all future from now"
+    // behavior is preserved.
+    const applyCutoff = body.applyFromDate
+      ? new Date(body.applyFromDate.slice(0, 10) + "T00:00:00")
+      : new Date()
+
     // --- Fetch recurrence ---
     const recurrence = await prisma.appointmentRecurrence.findFirst({
       where: { id: recurrenceId, clinicId: user.clinicId },
       include: {
         appointments: {
-          where: { scheduledAt: { gte: new Date() }, status: { in: [AppointmentStatus.AGENDADO, AppointmentStatus.CONFIRMADO] } },
+          where: { scheduledAt: { gte: applyCutoff }, status: { in: [AppointmentStatus.AGENDADO, AppointmentStatus.CONFIRMADO] } },
         },
         additionalProfessionals: { select: { professionalProfileId: true } },
       },

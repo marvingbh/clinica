@@ -259,6 +259,11 @@ export function useAppointmentDrag({
       startTime: startTimeStr,
       endTime: endTimeStr,
       dayOfWeek: newDayDate ? new Date(newDayDate + "T12:00:00").getDay() : undefined,
+      // "future" = this appointment and onward. Without this anchor the
+      // backend defaults to "today onward" and the shift sweeps in
+      // already-elapsed-relative appointments that produce phantom
+      // conflicts.
+      applyFromDate: new Date(appointment.scheduledAt).toISOString().slice(0, 10),
     })
 
     if (result.error) {
