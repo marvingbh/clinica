@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
+import {
+  findAppointmentsLinkedToInvoices,
+  buildInvoiceLinkError,
+  InvoiceLinkBlockedError,
+} from "@/lib/appointments/invoice-link-guard"
 import { calculateGroupSessionDates, filterExistingSessionDates } from "@/lib/groups"
 import { buildConfirmUrl, buildCancelUrl } from "@/lib/appointments/appointment-links"
 import { createNotification } from "@/lib/notifications"
@@ -159,11 +164,19 @@ export const POST = withFeatureAuth(
     // Handle reschedule mode: delete all sessions from startDate onward, then generate new ones
     let rescheduleDeletedCount = 0
     if (mode === "reschedule") {
+      const toDelete = await prisma.appointment.findMany({
+        where: { groupId, scheduledAt: { gte: start } },
+        select: { id: true },
+      })
+      const blocks = await findAppointmentsLinkedToInvoices(
+        prisma,
+        toDelete.map((a) => a.id),
+      )
+      if (blocks.length > 0) {
+        return NextResponse.json(buildInvoiceLinkError(blocks), { status: 409 })
+      }
       const deleteResult = await prisma.appointment.deleteMany({
-        where: {
-          groupId,
-          scheduledAt: { gte: start },
-        },
+        where: { groupId, scheduledAt: { gte: start } },
       })
       rescheduleDeletedCount = deleteResult.count
     }
@@ -235,8 +248,12 @@ export const POST = withFeatureAuth(
         }
       }
 
-      // For each existing session, find and add missing members + cancel left members
-      const regenerateResult = await prisma.$transaction(async (tx) => {
+      // For each existing session, find and add missing members + cancel left members.
+      // The transaction throws InvoiceLinkBlockedError when any to-be-deleted
+      // appointment is on an active invoice — we catch + return 409 below.
+      let regenerateResult
+      try {
+        regenerateResult = await prisma.$transaction(async (tx) => {
         let cancelled = 0
 
         // Collect all appointments to create and patients to remove across sessions
@@ -300,6 +317,21 @@ export const POST = withFeatureAuth(
           }
         }
 
+        // Block when any of the about-to-be-removed appointments is on an
+        // invoice — would otherwise orphan invoice items via SetNull cascade.
+        if (allPatientsToRemoveBySession.length > 0) {
+          const idsToDelete: string[] = []
+          for (const { sessionTime, patientIds } of allPatientsToRemoveBySession) {
+            const apts = await tx.appointment.findMany({
+              where: { groupId, scheduledAt: sessionTime, patientId: { in: patientIds } },
+              select: { id: true },
+            })
+            idsToDelete.push(...apts.map((a) => a.id))
+          }
+          const blocks = await findAppointmentsLinkedToInvoices(tx, idsToDelete)
+          if (blocks.length > 0) throw new InvoiceLinkBlockedError(blocks)
+        }
+
         // Delete removed members' appointments (any status) to match current membership exactly
         for (const { sessionTime, patientIds } of allPatientsToRemoveBySession) {
           const deleteResult = await tx.appointment.deleteMany({
@@ -359,6 +391,12 @@ export const POST = withFeatureAuth(
 
         return { created, cancelled }
       }, { timeout: 30000 })
+      } catch (e) {
+        if (e instanceof InvoiceLinkBlockedError) {
+          return NextResponse.json(buildInvoiceLinkError(e.blocks), { status: 409 })
+        }
+        throw e
+      }
 
       regeneratedCount = regenerateResult.created.length
       cancelledCount = regenerateResult.cancelled

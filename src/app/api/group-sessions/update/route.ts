@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
+import { findAppointmentsLinkedToInvoices, buildInvoiceLinkError } from "@/lib/appointments/invoice-link-guard"
 import { z } from "zod"
 
 const updateSchema = z.object({
@@ -92,6 +93,15 @@ export const DELETE = withFeatureAuth(
     if (sessionGroupId) where.sessionGroupId = sessionGroupId
     else if (groupId) where.groupId = groupId
 
+    // Pre-check: refuse to delete any session whose appointment is invoiced.
+    const toDelete = await prisma.appointment.findMany({ where, select: { id: true } })
+    const blocks = await findAppointmentsLinkedToInvoices(
+      prisma,
+      toDelete.map((a) => a.id),
+    )
+    if (blocks.length > 0) {
+      return NextResponse.json(buildInvoiceLinkError(blocks), { status: 409 })
+    }
     const result = await prisma.appointment.deleteMany({ where })
 
     return NextResponse.json({ success: true, deletedCount: result.count })

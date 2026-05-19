@@ -44,7 +44,7 @@ export interface InvoiceTotals {
   totalAmount: number
 }
 
-const BILLABLE_STATUSES = [
+export const BILLABLE_STATUSES = [
   "AGENDADO",
   "CONFIRMADO",
   "FINALIZADO",

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
+import { findAppointmentsLinkedToInvoices, buildInvoiceLinkError } from "@/lib/appointments/invoice-link-guard"
 import { z } from "zod"
 
 const updateMemberSchema = z.object({
@@ -67,15 +68,25 @@ export const PATCH = withFeatureAuth(
     if (leaveDate) {
       const leaveDateObj = new Date(leaveDate + "T00:00:00")
 
-      // Delete all future group appointments for this patient
-      const deleteResult = await prisma.appointment.deleteMany({
-        where: {
-          groupId,
-          patientId: existingMembership.patientId,
-          scheduledAt: { gte: leaveDateObj },
-          status: { notIn: ["FINALIZADO"] },
-        },
+      const deleteWhere = {
+        groupId,
+        patientId: existingMembership.patientId,
+        scheduledAt: { gte: leaveDateObj },
+        status: { notIn: ["FINALIZADO" as const] },
+      }
+      // Pre-check: refuse if any of the to-be-deleted appointments is invoiced.
+      const toDelete = await prisma.appointment.findMany({
+        where: deleteWhere,
+        select: { id: true },
       })
+      const blocks = await findAppointmentsLinkedToInvoices(
+        prisma,
+        toDelete.map((a) => a.id),
+      )
+      if (blocks.length > 0) {
+        return NextResponse.json(buildInvoiceLinkError(blocks), { status: 409 })
+      }
+      const deleteResult = await prisma.appointment.deleteMany({ where: deleteWhere })
       cancelledAppointmentsCount = deleteResult.count
     }
 

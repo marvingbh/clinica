@@ -5,6 +5,7 @@ import { z } from "zod"
 import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
 import { checkConflict, formatConflictError } from "@/lib/appointments"
+import { findAppointmentsLinkedToInvoices, buildInvoiceLinkError } from "@/lib/appointments/invoice-link-guard"
 import { createAuditLog, audit, AuditAction } from "@/lib/rbac/audit"
 
 const updateAppointmentSchema = z.object({
@@ -390,6 +391,14 @@ export const DELETE = withFeatureAuth(
     // Only primary professional or users with agenda_others can delete (participants cannot)
     if (!canSeeOthers && existing.professionalProfileId !== user.professionalProfileId) {
       return forbiddenResponse("You can only delete your own appointments")
+    }
+
+    // Refuse to delete appointments that are linked to a non-cancelled invoice
+    // item — otherwise the InvoiceItem.appointmentId cascade-nulls and the
+    // item is left as a date-less orphan.
+    const blocks = await findAppointmentsLinkedToInvoices(prisma, [params.id])
+    if (blocks.length > 0) {
+      return NextResponse.json(buildInvoiceLinkError(blocks), { status: 409 })
     }
 
     await prisma.appointment.delete({

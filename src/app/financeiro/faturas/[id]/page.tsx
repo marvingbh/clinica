@@ -24,6 +24,7 @@ export default function InvoiceDetailPage() {
   const [notes, setNotes] = useState("")
   const [savingNotes, setSavingNotes] = useState(false)
   const [recalculating, setRecalculating] = useState(false)
+  const [relinking, setRelinking] = useState(false)
   const [editingDueDate, setEditingDueDate] = useState(false)
   const [dueDateValue, setDueDateValue] = useState("")
   const [activeTab, setActiveTab] = useState<"details" | "history">("details")
@@ -88,6 +89,32 @@ export default function InvoiceDetailPage() {
       toast.error("Erro ao recalcular fatura")
     } finally {
       setRecalculating(false)
+    }
+  }
+
+  async function handleRelink() {
+    if (!invoice) return
+    setRelinking(true)
+    try {
+      const res = await fetch(`/api/financeiro/faturas/${invoice.id}/relink-orphans`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || "Erro ao re-vincular itens")
+        return
+      }
+      if (data.relinked === 0) {
+        toast.info(data.message || "Nenhum item para re-vincular")
+      } else {
+        const remaining = data.orphansRemaining
+          ? ` (${data.orphansRemaining} ainda sem agendamento)`
+          : ""
+        toast.success(`${data.relinked} item(ns) re-vinculado(s)${remaining}`)
+      }
+      fetchInvoice()
+    } catch {
+      toast.error("Erro ao re-vincular itens")
+    } finally {
+      setRelinking(false)
     }
   }
 
@@ -209,6 +236,24 @@ export default function InvoiceDetailPage() {
             {recalculating ? "Recalculando..." : "Recalcular"}
           </button>
         )}
+        {(() => {
+          const orphanCount = invoice.items.filter(
+            (i) => i.type !== "CREDITO" && !i.appointment,
+          ).length
+          if (orphanCount === 0) return null
+          return (
+            <button
+              onClick={handleRelink}
+              disabled={relinking}
+              title="Vincula itens órfãos aos agendamentos atuais do mês"
+              className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 disabled:opacity-50 transition-colors"
+            >
+              {relinking
+                ? "Re-vinculando..."
+                : `Re-vincular ${orphanCount} item${orphanCount === 1 ? "" : "s"} sem data`}
+            </button>
+          )
+        })()}
         <button onClick={handleDelete} className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium hover:bg-destructive/90 transition-colors">
           Excluir Fatura
         </button>

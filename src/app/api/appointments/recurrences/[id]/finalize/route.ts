@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
 import { createAuditLog } from "@/lib/rbac/audit"
+import { findAppointmentsLinkedToInvoices, buildInvoiceLinkError } from "@/lib/appointments/invoice-link-guard"
 import { RecurrenceEndType } from "@prisma/client"
 import { z } from "zod"
 
@@ -119,6 +120,18 @@ export const POST = withFeatureAuth(
     const userAgent = req.headers.get("user-agent") ?? undefined
 
     const deletedAppointmentsCount = recurrence.appointments.length
+
+    // Refuse to finalize if any of the future appointments to be deleted is
+    // already on a (non-cancelled) invoice — the cascade would orphan items.
+    if (recurrence.appointments.length > 0) {
+      const blocks = await findAppointmentsLinkedToInvoices(
+        prisma,
+        recurrence.appointments.map((a) => a.id),
+      )
+      if (blocks.length > 0) {
+        return NextResponse.json(buildInvoiceLinkError(blocks), { status: 409 })
+      }
+    }
 
     await prisma.$transaction(async (tx) => {
       // Update the recurrence to BY_DATE with the end date

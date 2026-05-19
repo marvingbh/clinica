@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
 import { createAuditLog } from "@/lib/rbac/audit"
+import { findAppointmentsLinkedToInvoices, buildInvoiceLinkError } from "@/lib/appointments/invoice-link-guard"
 import { RecurrenceType, RecurrenceEndType, AppointmentStatus, AppointmentModality, AppointmentType } from "@prisma/client"
 import { z } from "zod"
 import {
@@ -235,6 +236,15 @@ export const PATCH = withFeatureAuth(
       })
       if (conflicts) {
         return NextResponse.json({ error: "Conflitos de horario encontrados ao mudar a frequencia", code: "RECURRENCE_TYPE_CHANGE_CONFLICTS", conflicts }, { status: 409 })
+      }
+
+      // Block recurrence-type change when any of the doomed appointments is
+      // already on a (non-cancelled) invoice — the cascade would orphan items.
+      if (appointmentsToDelete.length > 0) {
+        const blocks = await findAppointmentsLinkedToInvoices(prisma, appointmentsToDelete)
+        if (blocks.length > 0) {
+          return NextResponse.json(buildInvoiceLinkError(blocks), { status: 409 })
+        }
       }
     }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
+import { findAppointmentsLinkedToInvoices, buildInvoiceLinkError } from "@/lib/appointments/invoice-link-guard"
 import { z } from "zod"
 
 const schema = z.object({
@@ -32,6 +33,25 @@ export const POST = withFeatureAuth(
       return NextResponse.json({ error: "Grupo não encontrado" }, { status: 404 })
     }
 
+    const deleteWhere = {
+      groupId,
+      clinicId: user.clinicId,
+      scheduledAt: { gt: endDateTime },
+      status: { notIn: ["FINALIZADO" as const] },
+    }
+    // Pre-check: refuse if any future appointment to delete is invoiced.
+    const toDelete = await prisma.appointment.findMany({
+      where: deleteWhere,
+      select: { id: true },
+    })
+    const blocks = await findAppointmentsLinkedToInvoices(
+      prisma,
+      toDelete.map((a) => a.id),
+    )
+    if (blocks.length > 0) {
+      return NextResponse.json(buildInvoiceLinkError(blocks), { status: 409 })
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       // Deactivate the group
       await tx.therapyGroup.update({
@@ -40,14 +60,7 @@ export const POST = withFeatureAuth(
       })
 
       // Delete future appointments for this group after the end date
-      const deleted = await tx.appointment.deleteMany({
-        where: {
-          groupId,
-          clinicId: user.clinicId,
-          scheduledAt: { gt: endDateTime },
-          status: { notIn: ["FINALIZADO"] },
-        },
-      })
+      const deleted = await tx.appointment.deleteMany({ where: deleteWhere })
 
       return deleted.count
     })
