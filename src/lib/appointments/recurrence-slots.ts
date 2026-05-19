@@ -131,8 +131,8 @@ function asDate(value: string | Date): Date {
 
 /**
  * Returns the ISO-8601 week number (1..53) of the given date.
- * Standard algorithm: pick the Thursday of the date's week, then count
- * weeks since the Thursday of the first week of that year.
+ * Kept for the rare external caller; biweekly parity does NOT use this any
+ * more — see `getNthWeekdayOfYear` and `getBiweeklyParity`.
  */
 export function getIsoWeek(date: Date | string): number {
   const d = asDate(date)
@@ -142,9 +142,35 @@ export function getIsoWeek(date: Date | string): number {
   return Math.ceil(((utc.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7)
 }
 
-/** Even ISO week → "par", odd → "impar". */
+/**
+ * Returns the 1-indexed Nth occurrence of the input date's weekday within
+ * its calendar year. For example, May 26 2026 is the 21st Tuesday of 2026.
+ * This is the parity anchor the clinic operators reason about: "she's on
+ * the par/ímpar [Nth weekday]" rather than ISO week.
+ */
+export function getNthWeekdayOfYear(date: Date | string): number {
+  const d = asDate(date)
+  const year = d.getFullYear()
+  const weekday = d.getDay()
+  // First occurrence of this weekday in the year.
+  const firstOfYear = new Date(year, 0, 1)
+  const daysToFirst = (weekday - firstOfYear.getDay() + 7) % 7
+  const first = new Date(year, 0, 1 + daysToFirst)
+  const daysSinceFirst = Math.round((d.getTime() - first.getTime()) / 86_400_000)
+  return Math.floor(daysSinceFirst / 7) + 1
+}
+
+/**
+ * Biweekly parity by Nth-weekday-of-year:
+ *  - Even N → "par"
+ *  - Odd N → "impar"
+ *
+ * Two biweekly patients who alternate weeks land on opposite parities by
+ * this rule, and a +7d swap flips a patient between the two parities —
+ * which matches how the operator labels them.
+ */
 export function getBiweeklyParity(startDate: Date | string): BiweeklyParity {
-  return getIsoWeek(startDate) % 2 === 0 ? "par" : "impar"
+  return getNthWeekdayOfYear(startDate) % 2 === 0 ? "par" : "impar"
 }
 
 /** Week-of-month for the date (1..5), using simple ceil(day / 7). */

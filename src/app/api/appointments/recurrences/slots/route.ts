@@ -43,6 +43,11 @@ export const GET = withFeatureAuth(
           recurrenceType: { in: ["WEEKLY", "BIWEEKLY", "MONTHLY"] },
           type: { in: ["CONSULTA", "REUNIAO", "TAREFA"] },
           OR: [{ endDate: null }, { endDate: { gte: today } }],
+          // Only surface recurrences that still have at least one future
+          // appointment — a BY_DATE recurrence whose endDate is tomorrow but
+          // whose last real session was weeks ago shouldn't keep occupying
+          // the slot. The remaining time becomes "Disponível".
+          appointments: { some: { scheduledAt: { gte: today } } },
           ...(profFilter
             ? {
                 AND: [
@@ -80,6 +85,18 @@ export const GET = withFeatureAuth(
               professionalProfileId: true,
               professionalProfile: { select: { user: { select: { name: true } } } },
             },
+          },
+          // Earliest still-future appointment for this recurrence — used as
+          // the parity / week-of-month anchor so the slot view reflects what
+          // the patient is ACTUALLY scheduled for, not where the recurrence
+          // row's startDate was originally set. Stays in sync with any swap
+          // or per-appointment edit without needing the recurrence row to
+          // be touched.
+          appointments: {
+            where: { scheduledAt: { gte: today } },
+            orderBy: { scheduledAt: "asc" },
+            take: 1,
+            select: { scheduledAt: true },
           },
         },
         orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
@@ -126,6 +143,20 @@ export const GET = withFeatureAuth(
       }),
     ])
 
+    // Rewrite startDate on AppointmentRecurrence rows to the next-upcoming
+    // appointment's date. That keeps the parity / week-of-month derivation
+    // aligned with the actual schedule after any swap or single-day edit.
+    // Falls back to the original startDate when no future appointment exists
+    // (shouldn't happen since the WHERE clause already requires one).
+    const recurrenceRows = rows.map((r) => {
+      const { appointments, ...rest } = r
+      const nextScheduled = appointments[0]?.scheduledAt
+      return {
+        ...rest,
+        startDate: nextScheduled ?? r.startDate,
+      }
+    })
+
     // Project TherapyGroup rows into the same shape as AppointmentRecurrence
     // rows so the frontend renders them through the same grouping/layout path.
     // Use a synthetic `type: "GROUP"` to differentiate (classifyRecurrenceKind
@@ -149,6 +180,6 @@ export const GET = withFeatureAuth(
       groupMemberCount: g.memberships.length,
     }))
 
-    return NextResponse.json({ recurrences: [...rows, ...groupRows] })
+    return NextResponse.json({ recurrences: [...recurrenceRows, ...groupRows] })
   },
 )

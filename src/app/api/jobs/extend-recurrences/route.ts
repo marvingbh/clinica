@@ -75,20 +75,32 @@ export async function GET(req: Request) {
           continue
         }
 
-        // Check if we need to extend
+        // Check if we need to extend.
+        //
+        // Anchor source-of-truth = the actual latest appointment row, NOT
+        // recurrence.lastGeneratedDate. A "Trocar semana quinzenal" swap
+        // (or any per-appointment edit) shifts appointment dates but does
+        // NOT touch the recurrence row — so trusting lastGeneratedDate
+        // would extend on the OLD cycle and put new sessions on the wrong
+        // week. Querying the real last appointment keeps the rhythm in
+        // sync with whatever the user has actually scheduled.
         const now = new Date()
-        const lastGenerated = recurrence.lastGeneratedDate
-          ? new Date(recurrence.lastGeneratedDate)
-          : null
+        const lastAppointment = await prisma.appointment.findFirst({
+          where: { recurrenceId: recurrence.id },
+          orderBy: { scheduledAt: "desc" },
+          select: { scheduledAt: true },
+        })
+        const lastApptDate = lastAppointment?.scheduledAt ?? null
         const startDate = new Date(recurrence.startDate)
 
-        if (!needsExtension(lastGenerated, startDate, now)) {
+        if (!needsExtension(lastApptDate, startDate, now)) {
           results.recurrencesSkipped++
           continue
         }
 
-        // Calculate new appointment dates (next 3 months from lastGeneratedDate)
-        const effectiveDate = lastGenerated ?? startDate
+        // Calculate new appointment dates (next 3 months from the actual
+        // last appointment, falling back to startDate when none exist yet).
+        const effectiveDate = lastApptDate ?? startDate
         const newDates = calculateNextWindowDates(
           effectiveDate,
           recurrence.startTime,

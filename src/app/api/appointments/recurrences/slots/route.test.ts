@@ -132,9 +132,63 @@ describe("GET /api/appointments/recurrences/slots", () => {
   })
 
   it("returns { recurrences } payload", async () => {
-    mockFindMany.mockResolvedValue([{ id: "r1", dayOfWeek: 1, startTime: "08:00" }])
+    mockFindMany.mockResolvedValue([
+      { id: "r1", dayOfWeek: 1, startTime: "08:00", startDate: new Date("2026-03-03"), appointments: [] },
+    ])
     const res = await callGET()
     const body = await res.json()
-    expect(body).toEqual({ recurrences: [{ id: "r1", dayOfWeek: 1, startTime: "08:00" }] })
+    expect(body.recurrences).toHaveLength(1)
+    expect(body.recurrences[0].id).toBe("r1")
+  })
+
+  it("only surfaces recurrences with at least one future appointment", async () => {
+    await callGET()
+    const where = mockFindMany.mock.calls[0][0].where
+    expect(where.appointments).toEqual({ some: { scheduledAt: { gte: expect.any(Date) } } })
+  })
+
+  it("requests the earliest future appointment per recurrence as the anchor", async () => {
+    await callGET()
+    const select = mockFindMany.mock.calls[0][0].select
+    expect(select.appointments).toEqual({
+      where: { scheduledAt: { gte: expect.any(Date) } },
+      orderBy: { scheduledAt: "asc" },
+      take: 1,
+      select: { scheduledAt: true },
+    })
+  })
+
+  it("rewrites startDate in the response to the next upcoming appointment's date", async () => {
+    // Recurrence's stored startDate is March 3 (e.g. ISO week 10 = par), but
+    // appointments have since been swapped — the actual next session is on
+    // May 26 (ISO week 22 = par). After the rewrite the frontend computes
+    // parity from May 26 instead of March 3.
+    mockFindMany.mockResolvedValue([
+      {
+        id: "r-ana",
+        startDate: new Date("2026-03-03T00:00:00Z"),
+        dayOfWeek: 2,
+        startTime: "14:45",
+        appointments: [{ scheduledAt: new Date("2026-05-26T17:45:00Z") }],
+      },
+    ])
+    const res = await callGET()
+    const body = await res.json()
+    expect(body.recurrences[0].startDate).toEqual("2026-05-26T17:45:00.000Z")
+    // The raw `appointments` field is stripped so the frontend never sees it.
+    expect(body.recurrences[0].appointments).toBeUndefined()
+  })
+
+  it("falls back to the original startDate when no future appointment exists in the join", async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: "r-empty",
+        startDate: new Date("2026-03-03T00:00:00Z"),
+        appointments: [],
+      },
+    ])
+    const res = await callGET()
+    const body = await res.json()
+    expect(body.recurrences[0].startDate).toEqual("2026-03-03T00:00:00.000Z")
   })
 })

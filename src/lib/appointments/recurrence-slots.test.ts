@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import {
   getIsoWeek,
+  getNthWeekdayOfYear,
   getBiweeklyParity,
   getWeekOfMonth,
   formatFrequencyTag,
@@ -48,20 +49,56 @@ describe("getIsoWeek", () => {
   })
 })
 
+describe("getNthWeekdayOfYear", () => {
+  it("returns 1 for the first occurrence of a weekday in the year", () => {
+    // 2026-01-01 is a Thursday → 1st Thursday of 2026.
+    expect(getNthWeekdayOfYear("2026-01-01")).toBe(1)
+  })
+
+  it("returns 21 for 26/05/2026 (Ana Clara's next session — 21st Tuesday of 2026)", () => {
+    expect(getNthWeekdayOfYear("2026-05-26")).toBe(21)
+  })
+
+  it("increments by 1 for each consecutive same-weekday step", () => {
+    expect(getNthWeekdayOfYear("2026-05-19")).toBe(20) // Tuesday
+    expect(getNthWeekdayOfYear("2026-05-26")).toBe(21)
+    expect(getNthWeekdayOfYear("2026-06-02")).toBe(22)
+  })
+
+  it("counts each weekday independently", () => {
+    // Same calendar week, different N because each weekday has its own
+    // anchor (1st Tue=Jan 6, 1st Wed=Jan 7, 1st Thu=Jan 1 which puts
+    // Thursday a week "ahead" in the count).
+    expect(getNthWeekdayOfYear("2026-05-26")).toBe(21) // 21st Tuesday
+    expect(getNthWeekdayOfYear("2026-05-27")).toBe(21) // 21st Wednesday
+    expect(getNthWeekdayOfYear("2026-05-28")).toBe(22) // 22nd Thursday
+  })
+})
+
 describe("getBiweeklyParity", () => {
-  it("returns par for an even ISO week", () => {
-    // 2026-05-04 is in ISO week 19 (odd) — Mon May 4 belongs to week 19.
-    // Pick a date in an even week:
-    expect(getBiweeklyParity("2026-05-11")).toBe("par") // ISO week 20
+  // Parity is the parity of the Nth-occurrence of the date's weekday in the
+  // year. 26/05/2026 is the 21st Tuesday of the year → odd → ímpar.
+  it("returns ímpar for the 21st Tuesday of 2026 (26/05)", () => {
+    expect(getBiweeklyParity("2026-05-26")).toBe("impar")
   })
 
-  it("returns impar for an odd ISO week", () => {
-    expect(getBiweeklyParity("2026-05-04")).toBe("impar") // ISO week 19
+  it("returns par for the 20th Tuesday of 2026 (19/05)", () => {
+    expect(getBiweeklyParity("2026-05-19")).toBe("par")
   })
 
-  it("handles year-boundary 2025-12-29 (ISO week 1 of 2026)", () => {
-    // Dec 29 2025 is Monday of ISO week 1 of 2026 → odd → impar
-    expect(getBiweeklyParity("2025-12-29")).toBe("impar")
+  it("flips parity when a biweekly slot shifts +7 days (swap)", () => {
+    // Two appointments 7 days apart land on consecutive Nth-Tuesdays, so
+    // their parities are opposite — which is exactly the property a swap
+    // relies on.
+    expect(getBiweeklyParity("2026-06-02")).toBe("par") // 22nd Tuesday
+    expect(getBiweeklyParity("2026-06-09")).toBe("impar") // 23rd Tuesday
+  })
+
+  it("uses the date's own weekday, so different weekdays in the same week can have different parities", () => {
+    // 26/05 (Tue) is the 21st Tuesday → ímpar.
+    // 28/05 (Thu) is the 22nd Thursday — same calendar week, opposite parity.
+    expect(getBiweeklyParity("2026-05-26")).toBe("impar")
+    expect(getBiweeklyParity("2026-05-28")).toBe("par")
   })
 })
 
@@ -224,12 +261,12 @@ describe("pairBiweekly", () => {
     const par = makeRow({
       id: "p",
       recurrenceType: "BIWEEKLY",
-      startDate: "2026-05-11", // ISO week 20 → par
+      startDate: "2026-06-02", // 22nd Tuesday of 2026 → par
     })
     const impar = makeRow({
       id: "i",
       recurrenceType: "BIWEEKLY",
-      startDate: "2026-05-04", // ISO week 19 → impar
+      startDate: "2026-05-26", // 21st Tuesday of 2026 → ímpar
     })
     const pair = pairBiweekly([par, impar])
     expect(pair.par?.id).toBe("p")
@@ -241,7 +278,7 @@ describe("pairBiweekly", () => {
     const par = makeRow({
       id: "p",
       recurrenceType: "BIWEEKLY",
-      startDate: "2026-05-11",
+      startDate: "2026-06-02", // par
     })
     const pair = pairBiweekly([par])
     expect(pair.par?.id).toBe("p")
@@ -253,12 +290,12 @@ describe("pairBiweekly", () => {
     const earlier = makeRow({
       id: "earlier",
       recurrenceType: "BIWEEKLY",
-      startDate: "2026-05-11", // par
+      startDate: "2026-06-02", // par (22nd Tue)
     })
     const later = makeRow({
       id: "later",
       recurrenceType: "BIWEEKLY",
-      startDate: "2026-05-25", // also par
+      startDate: "2026-06-16", // also par (24th Tue)
     })
     const pair = pairBiweekly([later, earlier])
     expect(pair.par?.id).toBe("earlier")
@@ -270,10 +307,10 @@ describe("pairBiweekly", () => {
     const bi = makeRow({
       id: "b",
       recurrenceType: "BIWEEKLY",
-      startDate: "2026-05-11",
+      startDate: "2026-05-26", // 21st Tue → ímpar
     })
     const pair = pairBiweekly([weekly, bi])
-    expect(pair.par?.id).toBe("b")
-    expect(pair.impar).toBeNull()
+    expect(pair.impar?.id).toBe("b")
+    expect(pair.par).toBeNull()
   })
 })

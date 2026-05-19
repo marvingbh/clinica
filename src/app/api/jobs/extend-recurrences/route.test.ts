@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 const { mockPrisma, calculateNextWindowDates } = vi.hoisted(() => {
   const mp: Record<string, unknown> = {
     appointmentRecurrence: { findMany: vi.fn(), update: vi.fn() },
-    appointment: { findMany: vi.fn(), createMany: vi.fn() },
+    appointment: { findMany: vi.fn(), findFirst: vi.fn(), createMany: vi.fn() },
     todoRecurrence: { findMany: vi.fn(), update: vi.fn() },
     todo: { createMany: vi.fn() },
     auditLog: { create: vi.fn() },
@@ -14,7 +14,7 @@ const { mockPrisma, calculateNextWindowDates } = vi.hoisted(() => {
   return {
     mockPrisma: mp as {
       appointmentRecurrence: { findMany: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> }
-      appointment: { findMany: ReturnType<typeof vi.fn>; createMany: ReturnType<typeof vi.fn> }
+      appointment: { findMany: ReturnType<typeof vi.fn>; findFirst: ReturnType<typeof vi.fn>; createMany: ReturnType<typeof vi.fn> }
       todoRecurrence: { findMany: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> }
       todo: { createMany: ReturnType<typeof vi.fn> }
       auditLog: { create: ReturnType<typeof vi.fn> }
@@ -89,6 +89,7 @@ beforeEach(() => {
   mockPrisma.appointmentRecurrence.findMany.mockResolvedValue([])
   mockPrisma.appointmentRecurrence.update.mockResolvedValue({})
   mockPrisma.appointment.findMany.mockResolvedValue([])
+  mockPrisma.appointment.findFirst.mockResolvedValue(null)
   mockPrisma.appointment.createMany.mockResolvedValue({ count: 0 })
   mockPrisma.todoRecurrence.findMany.mockResolvedValue([])
   mockPrisma.todoRecurrence.update.mockResolvedValue({})
@@ -144,10 +145,15 @@ describe("GET /api/jobs/extend-recurrences", () => {
   })
 
   // 4
-  it("skips when lastGeneratedDate is more than 2 months in the future", async () => {
+  it("skips when the actual last appointment is more than 2 months in the future", async () => {
     mockPrisma.appointmentRecurrence.findMany.mockResolvedValue([
-      makeRecurrence({ lastGeneratedDate: "2026-07-01" }),
+      // lastGeneratedDate is intentionally stale-near-now to prove the cron
+      // is NOT using it as the anchor — only the actual last appointment.
+      makeRecurrence({ lastGeneratedDate: "2026-03-01" }),
     ])
+    mockPrisma.appointment.findFirst.mockResolvedValue({
+      scheduledAt: new Date("2026-07-01T09:00:00"),
+    })
 
     const res = await GET(makeRequest(CRON_SECRET))
     const body = await res.json()
@@ -157,13 +163,14 @@ describe("GET /api/jobs/extend-recurrences", () => {
   })
 
   // 5
-  it("uses startDate as fallback when lastGeneratedDate is null", async () => {
+  it("uses startDate as fallback when no appointments exist yet", async () => {
     const recurrence = makeRecurrence({
       lastGeneratedDate: null,
       startDate: "2026-03-01",
     })
     mockPrisma.appointmentRecurrence.findMany.mockResolvedValue([recurrence])
     calculateNextWindowDates.mockReturnValue([makeDateInfo("2026-04-20")])
+    mockPrisma.appointment.findFirst.mockResolvedValue(null) // no appointments yet
     mockPrisma.appointment.findMany.mockResolvedValue([])
 
     await GET(makeRequest(CRON_SECRET))
@@ -179,6 +186,31 @@ describe("GET /api/jobs/extend-recurrences", () => {
     // The fallback date should come from startDate
     const passedDate = calculateNextWindowDates.mock.calls[0][0] as Date
     expect(passedDate.toISOString()).toContain("2026-03-01")
+  })
+
+  // 5b — proves the swap-bug fix: the cron uses the actual last appointment
+  // date (which a "swap biweekly week" mutates) and NOT lastGeneratedDate
+  // (which the swap leaves stale).
+  it("anchors the next batch on the actual latest appointment, not lastGeneratedDate", async () => {
+    const recurrence = makeRecurrence({
+      lastGeneratedDate: "2026-04-01", // stale anchor — would have produced wrong-cycle dates
+      startTime: "14:45",
+      recurrenceType: "BIWEEKLY",
+      dayOfWeek: 2,
+    })
+    mockPrisma.appointmentRecurrence.findMany.mockResolvedValue([recurrence])
+    // After a +7d swap, the actual last appointment shifted from 2026-04-01
+    // to 2026-04-08. Pretend the appointments table reflects that.
+    mockPrisma.appointment.findFirst.mockResolvedValue({
+      scheduledAt: new Date("2026-04-08T14:45:00"),
+    })
+    calculateNextWindowDates.mockReturnValue([makeDateInfo("2026-04-22", 14)])
+    mockPrisma.appointment.findMany.mockResolvedValue([])
+
+    await GET(makeRequest(CRON_SECRET))
+
+    const passedDate = calculateNextWindowDates.mock.calls[0][0] as Date
+    expect(passedDate.toISOString()).toContain("2026-04-08")
   })
 
   // 6
