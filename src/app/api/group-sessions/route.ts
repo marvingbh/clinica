@@ -51,13 +51,13 @@ export const GET = withFeatureAuth(
     // Build date filter
     let dateFilter: { gte: Date; lt?: Date; lte?: Date } | undefined
     if (date) {
-      const dayStart = new Date(date + "T00:00:00")
-      const dayEnd = new Date(date + "T23:59:59.999")
+      const dayStart = new Date(date + "T00:00:00.000Z")
+      const dayEnd = new Date(date + "T23:59:59.999Z")
       dateFilter = { gte: dayStart, lte: dayEnd }
     } else if (startDate && endDate) {
       dateFilter = {
-        gte: new Date(startDate + "T00:00:00"),
-        lte: new Date(endDate + "T23:59:59.999"),
+        gte: new Date(startDate + "T00:00:00.000Z"),
+        lte: new Date(endDate + "T23:59:59.999Z"),
       }
     } else if (!groupId) {
       return NextResponse.json(

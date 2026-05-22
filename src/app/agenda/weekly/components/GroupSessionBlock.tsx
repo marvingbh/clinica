@@ -73,7 +73,8 @@ export function GroupSessionBlock({
         border-l-[3px] ${colors.borderLeft} overflow-hidden cursor-pointer
         ${colors.bg}
         hover:shadow-md hover:z-10 transition-all
-        ${allCancelled ? "opacity-40" : allTerminal ? "opacity-60" : ""}
+        ${allCancelled ? "opacity-70" : allTerminal ? "opacity-60" : ""}
+        z-20
       `}
     >
       <div className="h-full flex flex-col overflow-hidden gap-0.5">

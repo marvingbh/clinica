@@ -13,15 +13,12 @@ function isBlockingAppointment(apt: Appointment): boolean {
   return apt.blocksTime && !CANCELLED_STATUSES.includes(apt.status)
 }
 
-/** Build group session time ranges for fast overlap checking (only active sessions) */
+/** Build group session time ranges for fast overlap checking (includes cancelled sessions) */
 function buildGroupSessionRanges(groupSessions: GroupSession[]): Array<{ startMin: number; endMin: number }> {
   return groupSessions
     .filter((session) => {
-      // Skip groups where ALL participants are cancelled — they don't block slots
-      if (session.participants.length === 0) return false
-      return session.participants.some(
-        (p) => !CANCELLED_STATUSES.includes(p.status)
-      )
+      // Include all sessions with participants, even if all are cancelled
+      return session.participants.length > 0
     })
     .map((session) => {
       const start = new Date(session.scheduledAt)

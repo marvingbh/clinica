@@ -141,22 +141,35 @@ export function DailyOverviewGrid({
     return appointments.filter(apt => !apt.groupId && !apt.sessionGroupId)
   }, [appointments])
 
-  // Times where a cancelled appointment coexists with an available slot — render side-by-side
+  // Times where a cancelled appointment OR group session coexists with an available slot — render side-by-side
   const splitTimes = useMemo(() => {
     const result = new Set<string>()
     if (!timeSlots) return result
     for (const slot of timeSlots) {
       if (!slot.isAvailable) continue
-      const hasCancelledAtTime = individualAppointments.some(apt => {
+
+      // Check for cancelled appointments at this time
+      const hasCancelledAppointment = individualAppointments.some(apt => {
         if (!CANCELLED_STATUSES.includes(apt.status)) return false
         const t = new Date(apt.scheduledAt)
         const timeStr = `${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}`
         return timeStr === slot.time
       })
-      if (hasCancelledAtTime) result.add(slot.time)
+
+      // Check for cancelled group sessions at this time
+      const hasCancelledGroupSession = groupSessions.some(gs => {
+        const t = new Date(gs.scheduledAt)
+        const timeStr = `${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}`
+        const allCancelled = gs.participants.every(p => CANCELLED_STATUSES.includes(p.status))
+        return timeStr === slot.time && allCancelled
+      })
+
+      if (hasCancelledAppointment || hasCancelledGroupSession) {
+        result.add(slot.time)
+      }
     }
     return result
-  }, [timeSlots, individualAppointments])
+  }, [timeSlots, individualAppointments, groupSessions])
 
   // Sorted list of every "boundary" minute on the calendar: each appointment's
   // start AND end, each group session's start AND end, and each slot start.
@@ -495,6 +508,18 @@ export function DailyOverviewGrid({
               p => CANCELLED_STATUSES.includes(p.status)
             )
 
+            // Check if this group session should split with availability slot
+            const isSplit = allCancelled && splitTimes.has(startTimeStr)
+
+            // Split group session occupies the left half, same as cancelled appointments
+            const splitStyle = isSplit
+              ? { left: SPLIT_LEFT_HALF_LEFT, width: SPLIT_HALF_WIDTH }
+              : {
+                  left: `calc(${leftPercent}% + ${SLOT_LEFT_MARGIN}px + 2px)`,
+                  width: `calc(${columnWidth}% - ${SLOT_LEFT_MARGIN}px - 4px)`,
+                  maxWidth: layout.totalColumns === 1 ? "400px" : undefined,
+                }
+
             const columnWidth = 100 / layout.totalColumns
             const leftPercent = layout.columnIndex * columnWidth
 
@@ -510,9 +535,7 @@ export function DailyOverviewGrid({
                   position: "absolute",
                   top: `${top}px`,
                   height: `${height}px`,
-                  left: `calc(${leftPercent}% + ${SLOT_LEFT_MARGIN}px + 2px)`,
-                  width: `calc(${columnWidth}% - ${SLOT_LEFT_MARGIN}px - 4px)`,
-                  maxWidth: layout.totalColumns === 1 ? "400px" : undefined,
+                  ...splitStyle,
                 }}
                 className={`
                   group rounded-xl text-left overflow-hidden cursor-pointer
@@ -523,7 +546,7 @@ export function DailyOverviewGrid({
                     ? `${colors.bg} ${colors.border}`
                     : `${groupCols.bg} ${groupCols.borderLeft}`
                   }
-                  ${allCancelled ? "opacity-40" : allTerminal ? "opacity-50" : ""}
+                  ${allCancelled ? "opacity-70" : allTerminal ? "opacity-60" : ""}
                 `}
               >
                 <div className={`flex flex-col overflow-hidden h-full ${isCompact ? "px-2 py-1 gap-0" : "px-3 py-2 gap-0.5"}`}>

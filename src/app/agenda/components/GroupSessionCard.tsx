@@ -65,7 +65,7 @@ export function GroupSessionCard({
       hoverable
       className={`group cursor-pointer overflow-hidden transition-all duration-normal active:scale-[0.98] ${
         profColors ? `${profColors.bg} border-l-[3px] ${profColors.border}` : groupColors.bg
-      } ${allCancelled ? "opacity-50 grayscale" : ""}`}
+      } ${allCancelled ? "opacity-70" : ""}`}
       onClick={onClick}
     >
       {/* Accent bar */}

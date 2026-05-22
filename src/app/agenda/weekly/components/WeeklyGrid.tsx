@@ -306,17 +306,27 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
               const isPastDay = day < today && !isCurrentDay
               const weekend = isWeekend(day)
 
-              // Find times where cancelled appointments coexist with available slots
+              // Find times where cancelled appointments OR group sessions coexist with available slots
               const dayAvailSlots = availabilitySlots?.get(dateStr) || []
               const cancelledStatuses = ["CANCELADO_PROFISSIONAL", "CANCELADO_ACORDADO", "CANCELADO_FALTA"]
               const splitTimes = new Set<string>()
               for (const slot of dayAvailSlots) {
-                const hasCancelledAtTime = dayAppointments.some(apt => {
+                // Check for cancelled appointments at this time
+                const hasCancelledAppointment = dayAppointments.some(apt => {
                   const t = new Date(apt.scheduledAt)
                   const timeStr = `${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}`
                   return timeStr === slot.time && cancelledStatuses.includes(apt.status)
                 })
-                if (hasCancelledAtTime) {
+
+                // Check for cancelled group sessions at this time
+                const hasCancelledGroupSession = dayGroupSessions.some(gs => {
+                  const t = new Date(gs.scheduledAt)
+                  const timeStr = `${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}`
+                  const allCancelled = gs.participants.every(p => cancelledStatuses.includes(p.status))
+                  return timeStr === slot.time && allCancelled
+                })
+
+                if (hasCancelledAppointment || hasCancelledGroupSession) {
                   splitTimes.add(slot.time)
                 }
               }
@@ -402,17 +412,24 @@ export function WeeklyGrid({ weekStart, appointments, groupSessions = [], availa
                   })}
 
                   {/* Group Sessions */}
-                  {dayGroupSessions.map((session) => (
-                    <GroupSessionBlock
-                      key={`${session.sessionGroupId || session.groupId}-${session.scheduledAt}`}
-                      session={session}
-                      onClick={onGroupSessionClick}
-                      showProfessional={showProfessional}
-                      columnIndex={session.columnIndex}
-                      totalColumns={session.totalColumns}
-                      startHour={startHour}
-                    />
-                  ))}
+                  {dayGroupSessions.map((session) => {
+                    const allCancelled = session.participants.every(p => cancelledStatuses.includes(p.status))
+                    const t = new Date(session.scheduledAt)
+                    const timeStr = `${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}`
+                    const isSplit = allCancelled && splitTimes.has(timeStr)
+
+                    return (
+                      <GroupSessionBlock
+                        key={`${session.sessionGroupId || session.groupId}-${session.scheduledAt}`}
+                        session={session}
+                        onClick={onGroupSessionClick}
+                        showProfessional={showProfessional}
+                        columnIndex={session.columnIndex}
+                        totalColumns={isSplit ? session.totalColumns + 1 : session.totalColumns}
+                        startHour={startHour}
+                      />
+                    )
+                  })}
 
                   {/* Availability Slots */}
                   {availabilitySlots?.get(dateStr)?.map((slot) => (
