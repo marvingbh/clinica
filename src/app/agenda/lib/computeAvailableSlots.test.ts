@@ -358,7 +358,7 @@ describe("computeSlotsForDay", () => {
     expect(result.slots[1].isAvailable).toBe(false)
   })
 
-  it("does not block slots for group sessions where all participants are cancelled", () => {
+  it("blocks slots for group sessions where all participants are cancelled", () => {
     const result = computeSlotsForDay({
       date: monday,
       availabilityRules: [makeRule({ startTime: "08:00", endTime: "10:00" })],
@@ -380,11 +380,11 @@ describe("computeSlotsForDay", () => {
       selectedProfessionalId: "prof-1",
     })
 
-    // All participants cancelled — group should NOT block slots
+    // All participants cancelled — group should still block slots for split rendering
     expect(result.slots[0].time).toBe("08:00")
-    expect(result.slots[0].isAvailable).toBe(true)
+    expect(result.slots[0].isAvailable).toBe(false)  // Now blocked by cancelled group session
     expect(result.slots[1].time).toBe("08:50")
-    expect(result.slots[1].isAvailable).toBe(true)
+    expect(result.slots[1].isAvailable).toBe(false)  // Now blocked by cancelled group session
   })
 
   it("does not block slots for group sessions with no participants", () => {
