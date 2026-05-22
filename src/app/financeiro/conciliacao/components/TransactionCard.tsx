@@ -196,15 +196,9 @@ export function TransactionCard({
                     <StatusBadge status={c.status} />
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 text-xs">
-                    {c.dueDate ? (
-                      <span className="text-muted-foreground">
-                        {formatDateBR(c.dueDate)}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">
-                        {getMonthName(c.referenceMonth)}/{c.referenceYear}
-                      </span>
-                    )}
+                    <span className="text-muted-foreground">
+                      {c.dueDate ? formatDateBR(c.dueDate) : `${getMonthName(c.referenceMonth)}/${c.referenceYear} (sem vencimento)`}
+                    </span>
                     <span className="font-medium tabular-nums">
                       {formatCurrencyBRL(c.totalAmount)}
                     </span>

@@ -510,7 +510,7 @@ function AddedCandidateRow({
             </span>
           )}
           <span className="text-[10px] px-1.5 py-0.5 rounded-[3px] bg-ink-100 text-ink-600">
-            Fatura {getMonthName(inv.referenceMonth)}/{inv.referenceYear}
+            {inv.dueDate ? formatDateBR(inv.dueDate) : `${getMonthName(inv.referenceMonth)}/${inv.referenceYear} (sem vencimento)`}
           </span>
           {splitAmt !== undefined && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-[3px] bg-warn-50 text-warn-700 border border-warn-100">
@@ -603,7 +603,7 @@ function CandidateRow({ rank, candidate: c, tx, isTop, isConfirming, onReconcile
             </span>
           )}
           <span className="text-[10px] px-1.5 py-0.5 rounded-[3px] bg-ink-100 text-ink-600">
-            Fatura {getMonthName(c.referenceMonth)}/{c.referenceYear}
+            {c.dueDate ? formatDateBR(c.dueDate) : `${getMonthName(c.referenceMonth)}/${c.referenceYear} (sem vencimento)`}
           </span>
           {isPartial && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-[3px] bg-warn-50 text-warn-700 border border-warn-100">
@@ -657,7 +657,7 @@ function InvoiceChip({ inv }: { inv: CandidateInvoice }) {
         </span>
         <span>{inv.patientName}</span>
         <span className="text-[10px] font-mono text-ink-500">
-          · fatura {getMonthName(inv.referenceMonth)}/{inv.referenceYear}
+          · {inv.dueDate ? formatDateBR(inv.dueDate) : `fatura ${getMonthName(inv.referenceMonth)}/${inv.referenceYear} (sem vencimento)`}
         </span>
       </div>
       <div className="font-mono text-[12px] text-ink-900 font-medium">

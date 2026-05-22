@@ -88,15 +88,9 @@ export function InvoiceRow({ inv, payerName }: {
         <StatusBadge status={inv.status} />
       </div>
       <div className="flex items-center gap-2 mt-0.5 text-xs">
-        {inv.dueDate ? (
-          <span className="text-muted-foreground">
-            {formatDateBR(inv.dueDate)}
-          </span>
-        ) : (
-          <span className="text-muted-foreground">
-            {getMonthName(inv.referenceMonth)}/{inv.referenceYear}
-          </span>
-        )}
+        <span className="text-muted-foreground">
+          {inv.dueDate ? formatDateBR(inv.dueDate) : `${getMonthName(inv.referenceMonth)}/${inv.referenceYear} (sem vencimento)`}
+        </span>
         <span className="font-medium tabular-nums">
           {formatCurrencyBRL(inv.totalAmount)}
         </span>
