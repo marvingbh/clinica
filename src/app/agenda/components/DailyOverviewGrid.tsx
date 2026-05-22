@@ -511,6 +511,9 @@ export function DailyOverviewGrid({
             // Check if this group session should split with availability slot
             const isSplit = allCancelled && splitTimes.has(startTimeStr)
 
+            const columnWidth = 100 / layout.totalColumns
+            const leftPercent = layout.columnIndex * columnWidth
+
             // Split group session occupies the left half, same as cancelled appointments
             const splitStyle = isSplit
               ? { left: SPLIT_LEFT_HALF_LEFT, width: SPLIT_HALF_WIDTH }
@@ -519,9 +522,6 @@ export function DailyOverviewGrid({
                   width: `calc(${columnWidth}% - ${SLOT_LEFT_MARGIN}px - 4px)`,
                   maxWidth: layout.totalColumns === 1 ? "400px" : undefined,
                 }
-
-            const columnWidth = 100 / layout.totalColumns
-            const leftPercent = layout.columnIndex * columnWidth
 
             return (
               <button
