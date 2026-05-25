@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useCallback, useMemo, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
 import { SwipeContainer } from "@/shared/components/ui"
@@ -11,6 +11,8 @@ import {
   AppointmentEditor, GroupSessionSheet, CalendarEntrySheet,
   CreateAppointmentSheet, AgendaFabMenu,
 } from "../components"
+import { AgendaErrorState } from "../components/AgendaErrorState"
+import { AgendaPartialFailureAlert } from "../components/AgendaPartialFailureAlert"
 import { BulkCancelDialog } from "../components/BulkCancelDialog"
 import { CreateGroupSessionSheet } from "../components/CreateGroupSessionSheet"
 import { AgendaDndWrapper } from "../components/AgendaDndWrapper"
@@ -55,6 +57,7 @@ function WeeklyAgendaPageContent() {
     activeProfessionalProfileId, appointments, setAppointments, groupSessions,
     professionals, appointmentDuration, availabilityRules, availabilityExceptions,
     biweeklyHints, birthdayPatients, isLoading, isDataLoading, refetchAppointments,
+    errors, retryAll, retryAppointments, retryGroupSessions, retryAvailability, clearErrors,
   } = data
 
   const { canWrite: canWriteOthersAgenda } = usePermission("agenda_others")
@@ -171,6 +174,17 @@ function WeeklyAgendaPageContent() {
   const [isBulkCancelOpen, setIsBulkCancelOpen] = useState(false)
   const openBulkCancel = useCallback(() => setIsBulkCancelOpen(true), [])
   const closeBulkCancel = useCallback(() => setIsBulkCancelOpen(false), [])
+
+  // Partial failure alert dismissal
+  const [isPartialFailureDismissed, setIsPartialFailureDismissed] = useState(false)
+  const dismissPartialFailure = useCallback(() => setIsPartialFailureDismissed(true), [])
+
+  // Reset dismissal when error state changes (new failures should be visible)
+  useEffect(() => {
+    if (!errors.hasPartialFailure) {
+      setIsPartialFailureDismissed(false)
+    }
+  }, [errors.hasPartialFailure])
   const { handleAlternateWeekClick } = useBiweeklyHandlers(create.openCreateSheet, edit.openEditSheet)
 
   const handleAvailabilitySlotClick = useCallback((date: string, time: string) => {
@@ -208,6 +222,32 @@ function WeeklyAgendaPageContent() {
             <div className="h-10 bg-muted rounded w-1/3" />
             <div className="h-[600px] bg-muted rounded" />
           </div>
+        </div>
+      </main>
+    )
+  }
+
+  // Complete failure - show error state instead of empty grid
+  if (errors.globalError && !isDataLoading) {
+    return (
+      <main className="min-h-screen bg-background pb-20 agenda-print-root">
+        <div className="max-w-[1320px] mx-auto px-4 md:px-6 py-8">
+          <WeeklyHeader
+            weekStart={weekStart}
+            professionals={professionals}
+            selectedProfessionalId={selectedProfessionalId}
+            isAdmin={isAdmin}
+            onPreviousWeek={goToPreviousWeek}
+            onNextWeek={goToNextWeek}
+            onToday={goToToday}
+            onSelectProfessional={setSelectedProfessionalId}
+            professionalColorMap={new Map()}
+          />
+          <AgendaErrorState
+            error={errors.globalError}
+            onRetry={retryAll}
+            isRetrying={isDataLoading}
+          />
         </div>
       </main>
     )
@@ -264,6 +304,29 @@ function WeeklyAgendaPageContent() {
             </div>
           </div>
         )}
+
+        {/* Partial failure alert - show with available data */}
+        {errors.hasPartialFailure && !isPartialFailureDismissed && (
+          <AgendaPartialFailureAlert
+            message="Alguns dados da agenda não puderam ser carregados"
+            failedEndpoints={errors.globalError?.affectedEndpoints || [
+              ...(errors.appointments?.affectedEndpoints || []),
+              ...(errors.groupSessions?.affectedEndpoints || []),
+              ...(errors.availability?.affectedEndpoints || []),
+              ...(errors.exceptions?.affectedEndpoints || [])
+            ]}
+            errors={[
+              errors.appointments,
+              errors.groupSessions,
+              errors.availability,
+              errors.exceptions
+            ].filter(Boolean) as any[]}
+            onRetry={retryAll}
+            onDismiss={dismissPartialFailure}
+            isRetrying={isDataLoading}
+          />
+        )}
+
         <AgendaDndWrapper drag={drag} autoScrollThreshold={{ x: 0.15, y: 0.15 }}>
           <WeeklyGrid
             weekStart={weekStart}

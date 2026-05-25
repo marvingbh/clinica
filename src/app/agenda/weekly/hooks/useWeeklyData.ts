@@ -10,11 +10,23 @@ import { fetchGroupSessions } from "../../services/groupSessionService"
 import { DEFAULT_APPOINTMENT_DURATION } from "../../lib/constants"
 import { usePermission } from "@/shared/hooks/usePermission"
 import { useAgendaContext } from "../../context/AgendaContext"
+import { classifyAgendaError, createPartialFailureError, shouldAutoRetry, getRetryDelay, type AgendaError } from "@/lib/errors/agenda-errors"
+import { useNetworkStatus } from "@/lib/errors/fetch-with-classification"
 
 interface BirthdayPatient {
   id: string
   name: string
   date?: string
+}
+
+interface ErrorState {
+  appointments: AgendaError | null
+  groupSessions: AgendaError | null
+  availability: AgendaError | null
+  exceptions: AgendaError | null
+  hasAnyError: boolean
+  hasPartialFailure: boolean
+  globalError: AgendaError | null // For complete failures
 }
 
 export interface UseWeeklyDataReturn {
@@ -37,8 +49,15 @@ export interface UseWeeklyDataReturn {
   // State
   isLoading: boolean
   isDataLoading: boolean
+  // Error state
+  errors: ErrorState
   // Actions
   refetchAppointments: () => void
+  retryAll: () => void
+  retryAppointments: () => void
+  retryGroupSessions: () => void
+  retryAvailability: () => void
+  clearErrors: () => void
 }
 
 export function useWeeklyData(weekStart: Date): UseWeeklyDataReturn {
@@ -64,12 +83,75 @@ export function useWeeklyData(weekStart: Date): UseWeeklyDataReturn {
   const [birthdayPatients, setBirthdayPatients] = useState<BirthdayPatient[]>([])
   const [refetchTrigger, setRefetchTrigger] = useState(0)
 
+  // Error state management
+  const [errors, setErrors] = useState<ErrorState>({
+    appointments: null,
+    groupSessions: null,
+    availability: null,
+    exceptions: null,
+    hasAnyError: false,
+    hasPartialFailure: false,
+    globalError: null
+  })
+
+  // Network status for auto-retry on reconnection
+  const { isOnline, wasOffline, clearWasOffline } = useNetworkStatus()
+
   const refetchAppointments = useCallback(() => {
     setRefetchTrigger(prev => prev + 1)
   }, [])
 
+  // Retry functions
+  const retryAll = useCallback(() => {
+    clearErrors()
+    setRefetchTrigger(prev => prev + 1)
+  }, [])
+
+  const retryAppointments = useCallback(() => {
+    setErrors(prev => ({ ...prev, appointments: null }))
+    setRefetchTrigger(prev => prev + 1)
+  }, [])
+
+  const retryGroupSessions = useCallback(() => {
+    setErrors(prev => ({ ...prev, groupSessions: null }))
+    setRefetchTrigger(prev => prev + 1)
+  }, [])
+
+  const retryAvailability = useCallback(() => {
+    setErrors(prev => ({
+      ...prev,
+      availability: null,
+      exceptions: null
+    }))
+    setRefetchTrigger(prev => prev + 1)
+  }, [])
+
+  const clearErrors = useCallback(() => {
+    setErrors({
+      appointments: null,
+      groupSessions: null,
+      availability: null,
+      exceptions: null,
+      hasAnyError: false,
+      hasPartialFailure: false,
+      globalError: null
+    })
+  }, [])
+
+  // Auto-retry when network comes back online
+  useEffect(() => {
+    if (wasOffline && isOnline && errors.hasAnyError) {
+      clearWasOffline()
+      // Auto-retry after network reconnection
+      setTimeout(() => {
+        retryAll()
+        toast.success("Conexão restabelecida - recarregando dados...")
+      }, 1000)
+    }
+  }, [wasOffline, isOnline, errors.hasAnyError, clearWasOffline, retryAll])
+
   // Auth check: redirects when session status changes
-   
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login")
@@ -99,74 +181,234 @@ export function useWeeklyData(weekStart: Date): UseWeeklyDataReturn {
 
     async function fetchData() {
       setIsDataLoading(true)
+      clearErrors()
+
+      const startDateStr = toDateString(weekStart)
+      const endDateStr = toDateString(getWeekEnd(weekStart))
+      const profId = isAdmin && selectedProfessionalId ? selectedProfessionalId : ""
+      const effectiveProfId = profId || (!isAdmin ? activeProfessionalProfileId : "")
+
+      const params = new URLSearchParams({ startDate: startDateStr, endDate: endDateStr })
+      if (profId) params.set("professionalProfileId", profId)
+
+      const endpointErrors: AgendaError[] = []
+      const failedEndpoints: string[] = []
+      let hasAnySuccess = false
+
       try {
-        const startDateStr = toDateString(weekStart)
-        const endDateStr = toDateString(getWeekEnd(weekStart))
-        const profId = isAdmin && selectedProfessionalId ? selectedProfessionalId : ""
-
-        const params = new URLSearchParams({ startDate: startDateStr, endDate: endDateStr })
-        if (profId) params.set("professionalProfileId", profId)
-
-        const fetches: Promise<unknown>[] = [
-          fetch(`/api/appointments?${params.toString()}`, { signal: abortController.signal }),
-          fetchGroupSessions({
-            startDate: weekStart,
-            endDate: getWeekEnd(weekStart),
-            professionalProfileId: profId || undefined,
+        // Fetch appointments
+        let appointmentsData: any = { appointments: [], biweeklyHints: [], birthdayPatients: [] }
+        try {
+          const appointmentsResponse = await fetch(`/api/appointments?${params.toString()}`, {
             signal: abortController.signal,
-          }),
-        ]
+            headers: { 'Content-Type': 'application/json' }
+          })
 
-        const effectiveProfId = profId || (!isAdmin ? activeProfessionalProfileId : "")
-        if (effectiveProfId) {
-          fetches.push(
-            fetch(`/api/availability?professionalProfileId=${effectiveProfId}`, { signal: abortController.signal }),
-            fetch(`/api/availability/exceptions?professionalProfileId=${effectiveProfId}`, { signal: abortController.signal }),
-          )
-        }
+          if (abortController.signal.aborted) return
 
-        const results = await Promise.all(fetches)
-        if (abortController.signal.aborted) return
-
-        const appointmentsResponse = results[0] as Response
-        const groupSessionsData = results[1] as { groupSessions: GroupSession[] }
-
-        if (!appointmentsResponse.ok) {
           if (appointmentsResponse.status === 403) {
             toast.error("Acesso negado")
             router.push("/login")
             return
           }
-          throw new Error("Failed to fetch appointments")
+
+          if (!appointmentsResponse.ok) {
+            const appointmentsError = classifyAgendaError({
+              error: new Error(`HTTP ${appointmentsResponse.status}`),
+              response: appointmentsResponse,
+              isOnline,
+              endpoint: "agendamentos"
+            })
+            setErrors(prev => ({ ...prev, appointments: appointmentsError }))
+            endpointErrors.push(appointmentsError)
+            failedEndpoints.push("agendamentos")
+          } else {
+            appointmentsData = await appointmentsResponse.json()
+            setAppointments(appointmentsData.appointments || [])
+            setBiweeklyHints(appointmentsData.biweeklyHints || [])
+            setBirthdayPatients(appointmentsData.birthdayPatients || [])
+            hasAnySuccess = true
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name === "AbortError") return
+
+          const appointmentsError = classifyAgendaError({
+            error: error as Error,
+            isOnline,
+            endpoint: "agendamentos"
+          })
+          setErrors(prev => ({ ...prev, appointments: appointmentsError }))
+          endpointErrors.push(appointmentsError)
+          failedEndpoints.push("agendamentos")
         }
 
-        const appointmentsData = await appointmentsResponse.json()
-        if (abortController.signal.aborted) return
+        // Fetch group sessions
+        try {
+          const groupSessionsData = await fetchGroupSessions({
+            startDate: weekStart,
+            endDate: getWeekEnd(weekStart),
+            professionalProfileId: profId || undefined,
+            signal: abortController.signal,
+          })
 
-        setAppointments(appointmentsData.appointments)
-        setGroupSessions(groupSessionsData.groupSessions)
-        setBiweeklyHints(appointmentsData.biweeklyHints || [])
-        setBirthdayPatients(appointmentsData.birthdayPatients || [])
+          if (abortController.signal.aborted) return
 
-        if (effectiveProfId && results.length > 2) {
-          const rulesResponse = results[2] as Response
-          const exceptionsResponse = results[3] as Response
-          if (rulesResponse.ok) {
-            const rulesData = await rulesResponse.json()
-            setAvailabilityRules(rulesData.rules || [])
-          } else { setAvailabilityRules([]) }
-          if (exceptionsResponse.ok) {
-            const exceptionsData = await exceptionsResponse.json()
-            setAvailabilityExceptions(exceptionsData.exceptions || [])
-          } else { setAvailabilityExceptions([]) }
+          setGroupSessions(groupSessionsData.groupSessions || [])
+          hasAnySuccess = true
+        } catch (error) {
+          if (error instanceof Error && error.name === "AbortError") return
+
+          const groupSessionsError = classifyAgendaError({
+            error: error as Error,
+            isOnline,
+            endpoint: "sessões em grupo"
+          })
+          setErrors(prev => ({ ...prev, groupSessions: groupSessionsError }))
+          endpointErrors.push(groupSessionsError)
+          failedEndpoints.push("sessões em grupo")
+          setGroupSessions([])
+        }
+
+        // Fetch availability data (only if we have a professional)
+        if (effectiveProfId) {
+          // Availability rules
+          try {
+            const rulesResponse = await fetch(`/api/availability?professionalProfileId=${effectiveProfId}`, {
+              signal: abortController.signal,
+              headers: { 'Content-Type': 'application/json' }
+            })
+
+            if (abortController.signal.aborted) return
+
+            if (!rulesResponse.ok) {
+              const availabilityError = classifyAgendaError({
+                error: new Error(`HTTP ${rulesResponse.status}`),
+                response: rulesResponse,
+                isOnline,
+                endpoint: "disponibilidade"
+              })
+              setErrors(prev => ({ ...prev, availability: availabilityError }))
+              endpointErrors.push(availabilityError)
+              failedEndpoints.push("disponibilidade")
+              setAvailabilityRules([])
+            } else {
+              const rulesData = await rulesResponse.json()
+              setAvailabilityRules(rulesData.rules || [])
+              hasAnySuccess = true
+            }
+          } catch (error) {
+            if (error instanceof Error && error.name === "AbortError") return
+
+            const availabilityError = classifyAgendaError({
+              error: error as Error,
+              isOnline,
+              endpoint: "disponibilidade"
+            })
+            setErrors(prev => ({ ...prev, availability: availabilityError }))
+            endpointErrors.push(availabilityError)
+            failedEndpoints.push("disponibilidade")
+            setAvailabilityRules([])
+          }
+
+          // Availability exceptions
+          try {
+            const exceptionsResponse = await fetch(`/api/availability/exceptions?professionalProfileId=${effectiveProfId}`, {
+              signal: abortController.signal,
+              headers: { 'Content-Type': 'application/json' }
+            })
+
+            if (abortController.signal.aborted) return
+
+            if (!exceptionsResponse.ok) {
+              const exceptionsError = classifyAgendaError({
+                error: new Error(`HTTP ${exceptionsResponse.status}`),
+                response: exceptionsResponse,
+                isOnline,
+                endpoint: "exceções de horário"
+              })
+              setErrors(prev => ({ ...prev, exceptions: exceptionsError }))
+              endpointErrors.push(exceptionsError)
+              failedEndpoints.push("exceções de horário")
+              setAvailabilityExceptions([])
+            } else {
+              const exceptionsData = await exceptionsResponse.json()
+              setAvailabilityExceptions(exceptionsData.exceptions || [])
+              hasAnySuccess = true
+            }
+          } catch (error) {
+            if (error instanceof Error && error.name === "AbortError") return
+
+            const exceptionsError = classifyAgendaError({
+              error: error as Error,
+              isOnline,
+              endpoint: "exceções de horário"
+            })
+            setErrors(prev => ({ ...prev, exceptions: exceptionsError }))
+            endpointErrors.push(exceptionsError)
+            failedEndpoints.push("exceções de horário")
+            setAvailabilityExceptions([])
+          }
         } else {
           setAvailabilityRules([])
           setAvailabilityExceptions([])
-          setBiweeklyHints([])
         }
+
+        // Update error state summary
+        const hasPartialFailure = endpointErrors.length > 0 && hasAnySuccess
+        const hasCompleteFailure = endpointErrors.length > 0 && !hasAnySuccess
+
+        if (hasCompleteFailure) {
+          // Complete failure - create global error
+          const globalError = endpointErrors.length === 1
+            ? endpointErrors[0]
+            : createPartialFailureError(failedEndpoints, endpointErrors)
+
+          setErrors(prev => ({
+            ...prev,
+            hasAnyError: true,
+            hasPartialFailure: false,
+            globalError
+          }))
+
+          // Only show toast for complete failures, not partial ones
+          toast.error(globalError.message)
+        } else if (hasPartialFailure) {
+          setErrors(prev => ({
+            ...prev,
+            hasAnyError: true,
+            hasPartialFailure: true,
+            globalError: null
+          }))
+
+          // Don't show toast for partial failures - UI will handle with banner
+        } else {
+          // Complete success
+          setErrors(prev => ({
+            ...prev,
+            hasAnyError: false,
+            hasPartialFailure: false,
+            globalError: null
+          }))
+        }
+
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return
-        toast.error("Erro ao carregar agenda")
+
+        // Unexpected error in fetchData logic itself
+        const globalError = classifyAgendaError({
+          error: error as Error,
+          isOnline,
+          endpoint: "agenda"
+        })
+
+        setErrors(prev => ({
+          ...prev,
+          hasAnyError: true,
+          hasPartialFailure: false,
+          globalError
+        }))
+
+        toast.error(globalError.message)
       } finally {
         setIsDataLoading(false)
       }
@@ -202,6 +444,12 @@ export function useWeeklyData(weekStart: Date): UseWeeklyDataReturn {
     birthdayPatients,
     isLoading,
     isDataLoading,
+    errors,
     refetchAppointments,
+    retryAll,
+    retryAppointments,
+    retryGroupSessions,
+    retryAvailability,
+    clearErrors,
   }
 }
