@@ -12,6 +12,7 @@ import {
   computeRecurrenceTypeChanges,
   checkRecurrenceTypeConflicts,
 } from "./recurrence-patch-helpers"
+import { computeSafeRecurrenceTypeChanges, findSafelyDeletableAppointments } from "@/lib/appointments/safe-recurrence-changes"
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
 
@@ -228,19 +229,29 @@ export const PATCH = withFeatureAuth(
       swapShiftedAppointments = result.shifted
     }
 
-    // --- Prepare recurrence type change ---
+    // --- Prepare recurrence type change (SAFE VERSION) ---
     const isRecurrenceTypeChange = updateData.recurrenceType !== undefined && updateData.recurrenceType !== recurrence.recurrenceType
     let appointmentsToDelete: string[] = []
     let appointmentsToCreate: Array<{ scheduledAt: Date; endAt: Date }> = []
+    let appointmentsToUpdate: Array<{ id: string; newScheduledAt: Date; newEndAt: Date }> = []
 
     if (isRecurrenceTypeChange && recurrence.appointments.length > 0) {
-      const changes = computeRecurrenceTypeChanges({
+      // First, find which appointments are linked to invoices and cannot be deleted
+      const appointmentIds = recurrence.appointments.map(apt => apt.id)
+      const { linkedToInvoices } = await findSafelyDeletableAppointments(prisma, appointmentIds)
+
+      // Use the safer approach that preserves linked appointments
+      const safeChanges = computeSafeRecurrenceTypeChanges({
         appointments: recurrence.appointments,
         newRecurrenceType: updateData.recurrenceType as RecurrenceType,
+        linkedAppointmentIds: linkedToInvoices,
       })
-      appointmentsToDelete = changes.toDelete
-      appointmentsToCreate = changes.toCreate
 
+      appointmentsToDelete = safeChanges.appointmentsToDelete
+      appointmentsToCreate = safeChanges.appointmentsToCreate
+      appointmentsToUpdate = safeChanges.appointmentsToUpdate
+
+      // Check conflicts for new appointments
       const conflicts = await checkRecurrenceTypeConflicts({
         appointmentsToCreate,
         recurrenceId,
@@ -251,12 +262,15 @@ export const PATCH = withFeatureAuth(
         return NextResponse.json({ error: "Conflitos de horario encontrados ao mudar a frequencia", code: "RECURRENCE_TYPE_CHANGE_CONFLICTS", conflicts }, { status: 409 })
       }
 
-      // Block recurrence-type change when any of the doomed appointments is
-      // already on a (non-cancelled) invoice — the cascade would orphan items.
+      // Additional safety check: ensure no linked appointments are being deleted
       if (appointmentsToDelete.length > 0) {
-        const blocks = await findAppointmentsLinkedToInvoices(prisma, appointmentsToDelete)
-        if (blocks.length > 0) {
-          return NextResponse.json(buildInvoiceLinkError(blocks), { status: 409 })
+        const { linkedToInvoices: stillLinked } = await findSafelyDeletableAppointments(prisma, appointmentsToDelete)
+        if (stillLinked.length > 0) {
+          console.error(`Attempting to delete linked appointments: ${stillLinked.join(', ')}`)
+          return NextResponse.json({
+            error: `Cannot delete appointments that are linked to invoices: ${stillLinked.join(', ')}`,
+            code: "APPOINTMENTS_LINKED_TO_INVOICES"
+          }, { status: 409 })
         }
       }
     }
@@ -266,12 +280,27 @@ export const PATCH = withFeatureAuth(
     let updatedAppointmentsCount = 0
     let deletedAppointmentsCount = 0
     let createdAppointmentsCount = 0
+    let rescheduledAppointmentsCount = 0
 
     await prisma.$transaction(async (tx) => {
       // Update recurrence record
       await tx.appointmentRecurrence.update({ where: { id: recurrenceId }, data: updateData })
 
-      // Delete appointments for recurrence type change
+      // Update (reschedule) existing appointments that need to be moved
+      if (isRecurrenceTypeChange && appointmentsToUpdate.length > 0) {
+        for (const aptUpdate of appointmentsToUpdate) {
+          await tx.appointment.update({
+            where: { id: aptUpdate.id },
+            data: {
+              scheduledAt: aptUpdate.newScheduledAt,
+              endAt: aptUpdate.newEndAt,
+            }
+          })
+          rescheduledAppointmentsCount++
+        }
+      }
+
+      // Delete appointments for recurrence type change (only safe ones)
       if (isRecurrenceTypeChange && appointmentsToDelete.length > 0) {
         await tx.appointment.deleteMany({ where: { id: { in: appointmentsToDelete } } })
         deletedAppointmentsCount = appointmentsToDelete.length
@@ -379,20 +408,37 @@ export const PATCH = withFeatureAuth(
     const userAgent = req.headers.get("user-agent") ?? undefined
     await createAuditLog({
       user, action: "RECURRENCE_UPDATED", entityType: "AppointmentRecurrence", entityId: recurrenceId,
-      oldValues, newValues: { ...updateData, applyTo: body.applyTo, swapBiweeklyWeek: body.swapBiweeklyWeek, swapScope: body.swapScope, updatedAppointmentsCount, deletedAppointmentsCount, createdAppointmentsCount },
+      oldValues, newValues: {
+        ...updateData,
+        applyTo: body.applyTo,
+        swapBiweeklyWeek: body.swapBiweeklyWeek,
+        swapScope: body.swapScope,
+        updatedAppointmentsCount,
+        deletedAppointmentsCount,
+        createdAppointmentsCount,
+        rescheduledAppointmentsCount
+      },
       ipAddress, userAgent,
     })
 
     let message = "Recorrencia atualizada com sucesso"
     if (isSwapBiweeklyWeek) {
       message = `Semana quinzenal trocada com sucesso. ${updatedAppointmentsCount} agendamento(s) atualizado(s).`
-    } else if (deletedAppointmentsCount > 0 || createdAppointmentsCount > 0) {
+    } else if (deletedAppointmentsCount > 0 || createdAppointmentsCount > 0 || rescheduledAppointmentsCount > 0) {
       const parts: string[] = []
+      if (rescheduledAppointmentsCount > 0) parts.push(`${rescheduledAppointmentsCount} reagendado(s)`)
       if (deletedAppointmentsCount > 0) parts.push(`${deletedAppointmentsCount} removido(s)`)
       if (createdAppointmentsCount > 0) parts.push(`${createdAppointmentsCount} criado(s)`)
-      message = `Recorrencia atualizada. ${parts.join(" e ")} para ajustar a nova frequencia.`
+      message = `Recorrencia atualizada. ${parts.join(", ")} para ajustar a nova frequencia.`
     }
 
-    return NextResponse.json({ success: true, message, updatedAppointmentsCount, deletedAppointmentsCount, createdAppointmentsCount })
+    return NextResponse.json({
+      success: true,
+      message,
+      updatedAppointmentsCount,
+      deletedAppointmentsCount,
+      createdAppointmentsCount,
+      rescheduledAppointmentsCount
+    })
   }
 )
