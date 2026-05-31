@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { hashPassword } from "@/lib/password"
 import { z } from "zod"
+import { checkLockout, recordAttempt, clientIpFromHeaders } from "@/lib/auth-rate-limit"
 
 const signupSchema = z.object({
   clinicName: z.string().min(2, "Nome da clinica deve ter pelo menos 2 caracteres"),
@@ -35,11 +36,25 @@ export async function POST(req: NextRequest) {
 
     const { clinicName, ownerName, email, password, phone, specialty } = parsed.data
 
+    // Per-IP abuse / enumeration control. Self-service signup creates a clinic and
+    // a Stripe customer, so unthrottled it is both an enumeration oracle and a
+    // cost/DoS vector. Each meaningful attempt (success or "email exists") is
+    // recorded with its real outcome; the lockout is a flat per-IP cap on attempts.
+    const ip = clientIpFromHeaders(req.headers)
+    const lockout = await checkLockout(ip, "SIGNUP")
+    if (lockout.locked) {
+      return NextResponse.json(
+        { error: "Muitas tentativas. Tente novamente mais tarde." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(lockout.retryAfterMs / 1000)) } }
+      )
+    }
+
     const existingUser = await prisma.user.findFirst({
       where: { email },
     })
 
     if (existingUser) {
+      await recordAttempt({ identifier: ip, kind: "SIGNUP", success: false, ipAddress: ip })
       return NextResponse.json(
         { error: "Ja existe uma conta com este email" },
         { status: 409 }
@@ -98,6 +113,9 @@ export async function POST(req: NextRequest) {
 
       return { clinic, user }
     })
+
+    // Count the successful signup toward the per-IP abuse/cost cap.
+    await recordAttempt({ identifier: ip, kind: "SIGNUP", success: true, ipAddress: ip })
 
     return NextResponse.json(
       {

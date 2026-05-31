@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac/audit"
+import { expenseCategoryInClinic } from "@/lib/clinic/ownership"
 
 const updateSchema = z.object({
   description: z.string().min(1).optional(),
@@ -31,6 +32,11 @@ export const PATCH = withFeatureAuth(
     })
     if (!recurrence) {
       return NextResponse.json({ error: "Recorrência não encontrada" }, { status: 404 })
+    }
+
+    // A body-supplied category must belong to this clinic.
+    if (parsed.data.categoryId && !(await expenseCategoryInClinic(parsed.data.categoryId, user.clinicId))) {
+      return NextResponse.json({ error: "Categoria inválida" }, { status: 400 })
     }
 
     // If deactivating, also cancel future OPEN/DRAFT expenses

@@ -33,10 +33,12 @@ export const POST = withFeatureAuth(
     const { patientId, appointmentIds, manualAmount, manualDescription, markAsPaid } = parsed.data
     let { professionalProfileId, referenceMonth, referenceYear } = parsed.data
 
-    // Fetch patient + clinic
+    // Fetch patient + clinic. The patient MUST be scoped to the caller's clinic —
+    // otherwise a clinic-A user could mint an invoice referencing a clinic-B patient
+    // and read that patient's name / parents' names back via the rendered message.
     const [patient, clinic] = await Promise.all([
-      prisma.patient.findUnique({
-        where: { id: patientId },
+      prisma.patient.findFirst({
+        where: { id: patientId, clinicId: user.clinicId },
         select: {
           id: true, name: true, motherName: true, fatherName: true,
           sessionFee: true, showAppointmentDaysOnInvoice: true,
@@ -62,10 +64,16 @@ export const POST = withFeatureAuth(
       return NextResponse.json({ error: "Profissional não informado" }, { status: 400 })
     }
 
-    const professional = await prisma.professionalProfile.findUnique({
-      where: { id: professionalProfileId },
+    // Scope the professional to the caller's clinic too: professionalProfileId may
+    // come straight from the request body, so an unvalidated id would associate the
+    // invoice with another clinic's professional (and leak their name).
+    const professional = await prisma.professionalProfile.findFirst({
+      where: { id: professionalProfileId, user: { clinicId: user.clinicId } },
       select: { user: { select: { name: true } } },
     })
+    if (!professional) {
+      return NextResponse.json({ error: "Profissional não encontrado" }, { status: 404 })
+    }
     const profName = professional?.user?.name || ""
     const sessionFee = patient.sessionFee ? Number(patient.sessionFee) : 0
 

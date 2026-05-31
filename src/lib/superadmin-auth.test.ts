@@ -22,6 +22,8 @@ import {
 describe("superadmin-auth", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // The signer now requires AUTH_SECRET (no insecure fallback).
+    process.env.AUTH_SECRET = "test-secret-superadmin"
   })
 
   const testAdmin: SuperAdminSession = {
@@ -29,6 +31,18 @@ describe("superadmin-auth", () => {
     email: "admin@platform.com",
     name: "Platform Admin",
   }
+
+  describe("secret requirement", () => {
+    it("throws when AUTH_SECRET is not set (no insecure 'dev-secret' fallback)", async () => {
+      const original = process.env.AUTH_SECRET
+      delete process.env.AUTH_SECRET
+      try {
+        await expect(createSuperAdminToken(testAdmin)).rejects.toThrow(/AUTH_SECRET/)
+      } finally {
+        process.env.AUTH_SECRET = original
+      }
+    })
+  })
 
   describe("createSuperAdminToken", () => {
     it("returns a non-empty JWT string", async () => {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
+import { meetsMinAccess } from "@/lib/rbac"
 import { findAppointmentsLinkedToInvoices, buildInvoiceLinkError } from "@/lib/appointments/invoice-link-guard"
 import { z } from "zod"
 
@@ -49,6 +50,12 @@ export const PATCH = withFeatureAuth(
     if (sessionGroupId) where.sessionGroupId = sessionGroupId
     else if (groupId) where.groupId = groupId
 
+    // Without "agenda_others" WRITE, a professional may only touch their own
+    // sessions — otherwise they could edit peers' group sessions in the clinic.
+    if (!meetsMinAccess(user.permissions.agenda_others, "WRITE")) {
+      where.professionalProfileId = user.professionalProfileId
+    }
+
     const data: Record<string, unknown> = {}
     if (title !== undefined) data.title = title
     if (newScheduledAt) data.scheduledAt = new Date(newScheduledAt)
@@ -92,6 +99,10 @@ export const DELETE = withFeatureAuth(
     }
     if (sessionGroupId) where.sessionGroupId = sessionGroupId
     else if (groupId) where.groupId = groupId
+
+    if (!meetsMinAccess(user.permissions.agenda_others, "WRITE")) {
+      where.professionalProfileId = user.professionalProfileId
+    }
 
     // Pre-check: refuse to delete any session whose appointment is invoiced.
     const toDelete = await prisma.appointment.findMany({ where, select: { id: true } })

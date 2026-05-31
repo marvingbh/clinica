@@ -184,6 +184,24 @@ model SuperAdmin {
   updatedAt    DateTime @updatedAt
 }
 
+/// Records authentication-related attempts (login, superadmin login, signup) for
+/// brute-force / abuse protection. Persisted so rate limiting works across the
+/// many ephemeral serverless instances on Vercel (in-memory limiting does not).
+model LoginAttempt {
+  id         String   @id @default(cuid())
+  /// Lowercased email for LOGIN/SUPERADMIN, or the IP for SIGNUP.
+  identifier String
+  /// What kind of attempt this is: LOGIN | SUPERADMIN | SIGNUP.
+  kind       String
+  /// Source IP (best-effort, from x-forwarded-for); kept for forensics.
+  ipAddress  String?
+  success    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([identifier, kind, createdAt])
+  @@index([createdAt])
+}
+
 // ============================================================================
 // MODELS
 // ============================================================================

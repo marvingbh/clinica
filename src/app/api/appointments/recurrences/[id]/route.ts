@@ -13,6 +13,7 @@ import {
   checkRecurrenceTypeConflicts,
 } from "./recurrence-patch-helpers"
 import { computeSafeRecurrenceTypeChanges, findSafelyDeletableAppointments } from "@/lib/appointments/safe-recurrence-changes"
+import { allProfessionalProfilesInClinic } from "@/lib/clinic/ownership"
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
 
@@ -139,6 +140,14 @@ export const PATCH = withFeatureAuth(
       return forbiddenResponse("Voce so pode modificar suas proprias recorrencias")
     }
     if (!recurrence.isActive) return NextResponse.json({ error: "Recorrencia esta inativa" }, { status: 400 })
+
+    // Body-supplied additional professionals must all belong to this clinic, else a
+    // user could link another clinic's professionals onto these appointments.
+    if (body.additionalProfessionalIds && body.additionalProfessionalIds.length > 0) {
+      if (!(await allProfessionalProfilesInClinic(body.additionalProfessionalIds, user.clinicId))) {
+        return NextResponse.json({ error: "Profissional adicional invalido" }, { status: 400 })
+      }
+    }
 
     // --- Validate end type consistency ---
     if (body.recurrenceEndType === "BY_DATE" && !body.endDate && !recurrence.endDate) {
@@ -345,7 +354,12 @@ export const PATCH = withFeatureAuth(
         const values = dayShiftedAppointments.map(apt =>
           `('${apt.id}'::text, '${apt.newScheduledAt.toISOString()}'::timestamptz, '${apt.newEndAt.toISOString()}'::timestamptz)`
         ).join(", ")
-        const modalityClause = body.modality ? `, "modality" = '${body.modality}'` : ""
+        // Defense-in-depth: only ever interpolate the two known enum literals into
+        // raw SQL, regardless of upstream validation (prevents any future SQLi).
+        const modalityClause =
+          body.modality === "ONLINE" || body.modality === "PRESENCIAL"
+            ? `, "modality" = '${body.modality}'`
+            : ""
         await tx.$executeRawUnsafe(`UPDATE "Appointment" SET "scheduledAt" = v.new_start, "endAt" = v.new_end ${modalityClause} FROM (VALUES ${values}) AS v(id, new_start, new_end) WHERE "Appointment".id = v.id`)
         updatedAppointmentsCount = dayShiftedAppointments.length
       }
@@ -375,7 +389,12 @@ export const PATCH = withFeatureAuth(
             const ne = new Date(apt.scheduledAt); ne.setHours(eh, em, 0, 0)
             return `('${apt.id}'::text, '${ns.toISOString()}'::timestamptz, '${ne.toISOString()}'::timestamptz)`
           }).join(", ")
-          const modalityClause = body.modality ? `, "modality" = '${body.modality}'` : ""
+          // Defense-in-depth: only ever interpolate the two known enum literals into
+        // raw SQL, regardless of upstream validation (prevents any future SQLi).
+        const modalityClause =
+          body.modality === "ONLINE" || body.modality === "PRESENCIAL"
+            ? `, "modality" = '${body.modality}'`
+            : ""
           await tx.$executeRawUnsafe(`UPDATE "Appointment" SET "scheduledAt" = v.new_start, "endAt" = v.new_end ${modalityClause} FROM (VALUES ${values}) AS v(id, new_start, new_end) WHERE "Appointment".id = v.id`)
           updatedAppointmentsCount = remainingAppointments.length
         } else if (body.modality) {

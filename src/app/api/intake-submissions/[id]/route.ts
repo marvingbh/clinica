@@ -5,6 +5,7 @@ import { withFeatureAuth } from "@/lib/api/with-auth"
 import { intakeUpdateSchema, mapSubmissionToPatient } from "@/lib/intake"
 import { audit, AuditAction } from "@/lib/rbac"
 import { patientApiSchema } from "@/lib/patients/schema"
+import { professionalProfileInClinic } from "@/lib/clinic/ownership"
 
 /**
  * GET /api/intake-submissions/[id] — Fetch a single submission
@@ -132,6 +133,12 @@ export const PATCH = withFeatureAuth(
         )
       }
       operatorOverrides = parsed.data
+    }
+
+    // An operator-supplied reference professional must belong to this clinic.
+    if (operatorOverrides?.referenceProfessionalId &&
+        !(await professionalProfileInClinic(operatorOverrides.referenceProfessionalId, user.clinicId))) {
+      return NextResponse.json({ error: "Profissional de referência inválido" }, { status: 400 })
     }
 
     try {

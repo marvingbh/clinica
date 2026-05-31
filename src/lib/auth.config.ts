@@ -10,6 +10,9 @@ export const authConfig: NextAuthConfig = {
   providers: [],
   session: {
     strategy: "jwt",
+    // Shorter-lived sessions for a healthcare app (default is 30 days).
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // refresh the token at most once per day
   },
   pages: {
     signIn: "/login",

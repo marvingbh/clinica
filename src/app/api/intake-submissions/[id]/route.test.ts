@@ -9,6 +9,7 @@ const mockSubmissionFindFirst = vi.fn()
 const mockSubmissionUpdate = vi.fn()
 const mockSubmissionUpdateMany = vi.fn()
 const mockPatientCreate = vi.fn()
+const mockProfessionalProfileFindFirst = vi.fn()
 
 const mockTx = {
   intakeSubmission: {
@@ -24,6 +25,9 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     intakeSubmission: {
       updateMany: (...args: unknown[]) => mockSubmissionUpdateMany(...args),
+    },
+    professionalProfile: {
+      findFirst: (...args: unknown[]) => mockProfessionalProfileFindFirst(...args),
     },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx),
   },
@@ -96,6 +100,9 @@ describe("PATCH /api/intake-submissions/[id]", () => {
     mockSubmissionUpdate.mockResolvedValue({})
     mockSubmissionUpdateMany.mockResolvedValue({ count: 1 })
     mockAuditLog.mockResolvedValue(undefined)
+    // Operator-supplied referenceProfessionalId is validated against the clinic;
+    // default to an in-clinic professional so approval proceeds.
+    mockProfessionalProfileFindFirst.mockResolvedValue({ id: "prof-1" })
   })
 
   describe("approve action", () => {
@@ -227,6 +234,14 @@ describe("PATCH /api/intake-submissions/[id]", () => {
         referenceProfessionalId: "prof-1",
         therapeuticProject: "Sessões iniciais com responsáveis",
       })
+    })
+
+    it("rejects an operator referenceProfessionalId from another clinic with 400", async () => {
+      // Professional not found within the clinic → cross-tenant association blocked.
+      mockProfessionalProfileFindFirst.mockResolvedValueOnce(null)
+      const res = await callPATCH({ action: "approve", patient: operatorPatient })
+      expect(res.status).toBe(400)
+      expect(mockPatientCreate).not.toHaveBeenCalled()
     })
 
     it("preserves the consent timestamps from the intake mapping (LGPD)", async () => {

@@ -10,12 +10,20 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get("callbackUrl") || "/"
   const error = searchParams.get("error")
+  const errorCode = searchParams.get("code")
+
+  const RATE_LIMITED_MESSAGE =
+    "Muitas tentativas de login. Aguarde alguns minutos e tente novamente."
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState(
-    error === "CredentialsSignin" ? "Email ou senha incorretos" : ""
+    errorCode === "rate_limited"
+      ? RATE_LIMITED_MESSAGE
+      : error === "CredentialsSignin"
+        ? "Email ou senha incorretos"
+        : ""
   )
 
   async function handleSubmit(e: React.FormEvent) {
@@ -31,7 +39,11 @@ function LoginForm() {
     })
 
     if (result?.error) {
-      setErrorMessage("Email ou senha incorretos")
+      setErrorMessage(
+        result.code === "rate_limited"
+          ? RATE_LIMITED_MESSAGE
+          : "Email ou senha incorretos"
+      )
       setIsLoading(false)
     } else if (result?.ok) {
       router.push(callbackUrl)

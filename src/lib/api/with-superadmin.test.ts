@@ -95,4 +95,54 @@ describe("withSuperAdmin", () => {
     const body = await res.json()
     expect(body.clinics).toEqual([1, 2, 3])
   })
+
+  describe("CSRF / same-origin protection", () => {
+    function mutating(method: string, headers: Record<string, string>) {
+      return new NextRequest("http://localhost/api/superadmin/clinics/123", {
+        method,
+        headers,
+      })
+    }
+
+    it("blocks a cross-site mutation (mismatched Origin)", async () => {
+      mockGetSession.mockResolvedValue(testAdmin)
+      const handler = vi.fn().mockResolvedValue(NextResponse.json({ ok: true }))
+      const wrapped = withSuperAdmin(handler)
+
+      const res = await wrapped(mutating("PATCH", { origin: "http://evil.example", host: "localhost" }))
+
+      expect(res.status).toBe(403)
+      expect(handler).not.toHaveBeenCalled()
+    })
+
+    it("allows a same-origin mutation", async () => {
+      mockGetSession.mockResolvedValue(testAdmin)
+      const handler = vi.fn().mockResolvedValue(NextResponse.json({ ok: true }))
+      const wrapped = withSuperAdmin(handler)
+
+      await wrapped(mutating("PATCH", { origin: "http://localhost", host: "localhost" }))
+
+      expect(handler).toHaveBeenCalled()
+    })
+
+    it("allows a mutation with no Origin header (non-browser caller)", async () => {
+      mockGetSession.mockResolvedValue(testAdmin)
+      const handler = vi.fn().mockResolvedValue(NextResponse.json({ ok: true }))
+      const wrapped = withSuperAdmin(handler)
+
+      await wrapped(mutating("DELETE", { host: "localhost" }))
+
+      expect(handler).toHaveBeenCalled()
+    })
+
+    it("does not apply the origin check to safe GET requests", async () => {
+      mockGetSession.mockResolvedValue(testAdmin)
+      const handler = vi.fn().mockResolvedValue(NextResponse.json({ ok: true }))
+      const wrapped = withSuperAdmin(handler)
+
+      await wrapped(mutating("GET", { origin: "http://evil.example", host: "localhost" }))
+
+      expect(handler).toHaveBeenCalled()
+    })
+  })
 })

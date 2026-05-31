@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { verifyCronAuth, cronUnauthorized } from "@/lib/api/verify-cron"
 
 /**
  * GET /api/jobs/mark-overdue-expenses
@@ -9,11 +10,7 @@ import { prisma } from "@/lib/prisma"
  * Schedule: 0 6 * * * (daily at 06:00 UTC = 03:00 BRT)
  */
 export async function GET(req: Request) {
-  const authHeader = req.headers.get("authorization")
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  if (!verifyCronAuth(req)) return cronUnauthorized()
 
   const startTime = Date.now()
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import { signLink, verifyLink, buildConfirmUrl, buildCancelUrl } from "./appointment-links"
+import { signLink, verifyLink, verifySignature, buildConfirmUrl, buildCancelUrl } from "./appointment-links"
 
 const TEST_SECRET = "test-secret-key-for-hmac"
 const APPOINTMENT_ID = "clxyz123abc"
@@ -124,6 +124,42 @@ describe("verifyLink", () => {
     expect(() =>
       verifyLink(APPOINTMENT_ID, "confirm", 9999999999, "abc")
     ).toThrow("AUTH_SECRET")
+  })
+})
+
+describe("verifySignature (constant-time, expiry-agnostic)", () => {
+  it("returns true for a correctly signed link", () => {
+    const scheduledAt = new Date("2026-03-10T14:00:00Z")
+    const { expires, sig } = signLink(APPOINTMENT_ID, "confirm", scheduledAt)
+    expect(verifySignature(APPOINTMENT_ID, "confirm", expires, sig)).toBe(true)
+  })
+
+  it("returns true even when the link is expired (signature still valid)", () => {
+    const pastDate = new Date("2020-01-01T00:00:00Z")
+    const { expires, sig } = signLink(APPOINTMENT_ID, "confirm", pastDate)
+    // verifyLink would reject on expiry, but the signature itself is valid
+    expect(verifyLink(APPOINTMENT_ID, "confirm", expires, sig).valid).toBe(false)
+    expect(verifySignature(APPOINTMENT_ID, "confirm", expires, sig)).toBe(true)
+  })
+
+  it("returns false for a tampered appointment id", () => {
+    const scheduledAt = new Date("2026-03-10T14:00:00Z")
+    const { expires, sig } = signLink(APPOINTMENT_ID, "confirm", scheduledAt)
+    expect(verifySignature("other-id", "confirm", expires, sig)).toBe(false)
+  })
+
+  it("returns false for a mismatched action", () => {
+    const scheduledAt = new Date("2026-03-10T14:00:00Z")
+    const { expires, sig } = signLink(APPOINTMENT_ID, "confirm", scheduledAt)
+    expect(verifySignature(APPOINTMENT_ID, "cancel", expires, sig)).toBe(false)
+  })
+
+  it("returns false for a wrong-length signature without throwing", () => {
+    const scheduledAt = new Date("2026-03-10T14:00:00Z")
+    const { expires } = signLink(APPOINTMENT_ID, "confirm", scheduledAt)
+    expect(verifySignature(APPOINTMENT_ID, "confirm", expires, "short")).toBe(false)
+    // Oversized input is rejected by the length guard before any Buffer allocation
+    expect(verifySignature(APPOINTMENT_ID, "confirm", expires, "a".repeat(100000))).toBe(false)
   })
 })
 
