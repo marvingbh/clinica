@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac/audit"
 import { DEFAULT_CATEGORIES } from "@/lib/expenses"
+import { expenseCategoryInClinic } from "@/lib/clinic/ownership"
 
 const createSchema = z.object({
   description: z.string().min(1),
@@ -58,6 +59,11 @@ export const POST = withFeatureAuth(
     const parsed = createSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json({ error: "Dados inválidos", details: parsed.error.flatten() }, { status: 400 })
+    }
+
+    // A body-supplied category must belong to this clinic.
+    if (parsed.data.categoryId && !(await expenseCategoryInClinic(parsed.data.categoryId, user.clinicId))) {
+      return NextResponse.json({ error: "Categoria inválida" }, { status: 400 })
     }
 
     const expense = await prisma.expense.create({

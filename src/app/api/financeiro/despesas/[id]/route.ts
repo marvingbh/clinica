@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac/audit"
 import { isValidTransition } from "@/lib/expenses"
+import { expenseCategoryInClinic } from "@/lib/clinic/ownership"
 
 const updateSchema = z.object({
   description: z.string().min(1).optional(),
@@ -56,6 +57,11 @@ export const PATCH = withFeatureAuth(
       return NextResponse.json({ error: "Despesa não encontrada" }, { status: 404 })
     }
 
+    // A body-supplied category must belong to this clinic.
+    if (parsed.data.categoryId && !(await expenseCategoryInClinic(parsed.data.categoryId, user.clinicId))) {
+      return NextResponse.json({ error: "Categoria inválida" }, { status: 400 })
+    }
+
     // Validate status transition if changing status
     if (parsed.data.status && parsed.data.status !== expense.status) {
       if (!isValidTransition(expense.status, parsed.data.status)) {
@@ -80,7 +86,9 @@ export const PATCH = withFeatureAuth(
     }
 
     const updated = await prisma.expense.update({
-      where: { id: params.id },
+      // clinicId in the where as defense-in-depth — the findFirst above already
+      // proved clinic ownership, but this keeps the mutation itself tenant-scoped.
+      where: { id: params.id, clinicId: user.clinicId },
       data,
       include: { category: { select: { id: true, name: true, color: true } } },
     })

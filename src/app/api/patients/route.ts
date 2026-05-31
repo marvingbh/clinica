@@ -4,6 +4,7 @@ import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac"
 import { isGroupingAllowed } from "@/lib/financeiro/invoice-grouping"
 import { patientApiSchema } from "@/lib/patients/schema"
+import { professionalProfileInClinic } from "@/lib/clinic/ownership"
 
 /**
  * GET /api/patients
@@ -229,6 +230,14 @@ export const POST = withFeatureAuth(
           { status: 400 }
         )
       }
+    }
+
+    // The reference professional must belong to this clinic (it comes from the body).
+    if (referenceProfessionalId && !(await professionalProfileInClinic(referenceProfessionalId, user.clinicId))) {
+      return NextResponse.json(
+        { error: "Profissional de referência inválido" },
+        { status: 400 }
+      )
     }
 
     // Normalize phone number (remove non-digits, ensure country code)

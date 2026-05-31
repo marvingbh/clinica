@@ -1,4 +1,4 @@
-import { createHmac } from "crypto"
+import { createHmac, timingSafeEqual } from "crypto"
 
 export type LinkAction = "confirm" | "cancel"
 
@@ -27,6 +27,24 @@ export function signLink(
   return { expires, sig }
 }
 
+/**
+ * Verify only the HMAC signature, ignoring expiry, in constant time.
+ * Used to decide whether a caller actually holds a validly-signed link (even an
+ * expired one) before revealing any appointment details.
+ */
+export function verifySignature(
+  appointmentId: string,
+  action: LinkAction,
+  expires: number,
+  sig: string
+): boolean {
+  const expectedSig = computeHmac(appointmentId, action, expires)
+  // Cheap length check on the raw string first — rejects malformed/oversized input
+  // before allocating a Buffer (timingSafeEqual also requires equal lengths).
+  if (typeof sig !== "string" || sig.length !== expectedSig.length) return false
+  return timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))
+}
+
 export function verifyLink(
   appointmentId: string,
   action: LinkAction,
@@ -39,9 +57,7 @@ export function verifyLink(
     return { valid: false, error: "Este link expirou. Entre em contato com a clinica para um novo link." }
   }
 
-  // Verify signature
-  const expectedSig = computeHmac(appointmentId, action, expires)
-  if (sig !== expectedSig) {
+  if (!verifySignature(appointmentId, action, expires, sig)) {
     return { valid: false, error: "Link invalido" }
   }
 

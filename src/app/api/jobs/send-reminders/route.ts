@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { verifyCronAuth, cronUnauthorized } from "@/lib/api/verify-cron"
 import {
   AppointmentStatus,
   NotificationChannel,
@@ -31,11 +32,8 @@ import {
  * - Creates audit logs for execution tracking
  */
 export async function GET(req: Request) {
-  // Verify Vercel Cron secret to prevent unauthorized access
-  const authHeader = req.headers.get("authorization")
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  // Verify Vercel Cron secret to prevent unauthorized access (fails closed).
+  if (!verifyCronAuth(req)) return cronUnauthorized()
 
   const startTime = Date.now()
   const results = {

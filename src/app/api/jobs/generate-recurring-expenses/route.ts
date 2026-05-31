@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { generateExpensesFromRecurrence } from "@/lib/expenses"
+import { verifyCronAuth, cronUnauthorized } from "@/lib/api/verify-cron"
 
 /**
  * GET /api/jobs/generate-recurring-expenses
@@ -10,11 +11,7 @@ import { generateExpensesFromRecurrence } from "@/lib/expenses"
  * Schedule: 0 3 * * *
  */
 export async function GET(req: Request) {
-  const authHeader = req.headers.get("authorization")
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  if (!verifyCronAuth(req)) return cronUnauthorized()
 
   const startTime = Date.now()
   const results = {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyLink } from "@/lib/appointments/appointment-links"
+import { verifyLink, verifySignature } from "@/lib/appointments/appointment-links"
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "@/lib/rate-limit"
 
 /**
@@ -54,33 +54,37 @@ export async function POST(req: NextRequest) {
   const verification = verifyLink(id, "confirm", expires, sig)
 
   if (!verification.valid) {
-    // Even if link is invalid/expired, check if appointment is already confirmed (preserve UX)
-    const appointment = await prisma.appointment.findUnique({
-      where: { id },
-      include: {
-        professionalProfile: {
-          include: {
-            user: { select: { name: true } },
+    // Preserve the "already confirmed" UX for a link that is merely expired — but
+    // ONLY when the signature is genuinely valid. A bare appointment-id guess (no
+    // valid signature) must not learn the appointment's status or professional.
+    if (verifySignature(id, "confirm", expires, sig)) {
+      const appointment = await prisma.appointment.findUnique({
+        where: { id },
+        include: {
+          professionalProfile: {
+            include: {
+              user: { select: { name: true } },
+            },
           },
         },
-      },
-    })
+      })
 
-    if (appointment?.status === "CONFIRMADO") {
-      return NextResponse.json(
-        {
-          error: "Este agendamento ja foi confirmado",
-          alreadyConfirmed: true,
-          appointment: {
-            id: appointment.id,
-            professionalName: appointment.professionalProfile.user.name,
-            scheduledAt: appointment.scheduledAt.toISOString(),
-            endAt: appointment.endAt.toISOString(),
-            modality: appointment.modality,
+      if (appointment?.status === "CONFIRMADO") {
+        return NextResponse.json(
+          {
+            error: "Este agendamento ja foi confirmado",
+            alreadyConfirmed: true,
+            appointment: {
+              id: appointment.id,
+              professionalName: appointment.professionalProfile.user.name,
+              scheduledAt: appointment.scheduledAt.toISOString(),
+              endAt: appointment.endAt.toISOString(),
+              modality: appointment.modality,
+            },
           },
-        },
-        { status: 400 }
-      )
+          { status: 400 }
+        )
+      }
     }
 
     return NextResponse.json(

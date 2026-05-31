@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac"
 import { isGroupingAllowed } from "@/lib/financeiro/invoice-grouping"
+import { professionalProfileInClinic } from "@/lib/clinic/ownership"
 
 // WhatsApp format validation: Brazilian format with country code
 const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
@@ -257,7 +258,16 @@ export const PATCH = withFeatureAuth(
       updateData.lastFeeAdjustmentDate = data.lastFeeAdjustmentDate ? new Date(data.lastFeeAdjustmentDate + "T00:00:00") : null
     }
 
-    if (data.referenceProfessionalId !== undefined) updateData.referenceProfessionalId = data.referenceProfessionalId || null
+    if (data.referenceProfessionalId !== undefined) {
+      // A body-supplied reference professional must belong to this clinic.
+      if (data.referenceProfessionalId && !(await professionalProfileInClinic(data.referenceProfessionalId, user.clinicId))) {
+        return NextResponse.json(
+          { error: "Profissional de referência inválido" },
+          { status: 400 }
+        )
+      }
+      updateData.referenceProfessionalId = data.referenceProfessionalId || null
+    }
     if (data.isActive !== undefined) updateData.isActive = data.isActive
     if (data.showAppointmentDaysOnInvoice !== undefined) updateData.showAppointmentDaysOnInvoice = data.showAppointmentDaysOnInvoice
     if (data.invoiceDueDay !== undefined) updateData.invoiceDueDay = data.invoiceDueDay

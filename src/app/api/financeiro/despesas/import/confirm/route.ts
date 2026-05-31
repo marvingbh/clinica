@@ -24,6 +24,17 @@ export const POST = withFeatureAuth(
       return NextResponse.json({ error: "Dados inválidos" }, { status: 400 })
     }
 
+    // Every body-supplied category must belong to this clinic (one batched check).
+    const categoryIds = [...new Set(parsed.data.transactions.map(t => t.categoryId).filter((id): id is string => !!id))]
+    if (categoryIds.length > 0) {
+      const validCount = await prisma.expenseCategory.count({
+        where: { id: { in: categoryIds }, clinicId: user.clinicId },
+      })
+      if (validCount !== categoryIds.length) {
+        return NextResponse.json({ error: "Categoria inválida" }, { status: 400 })
+      }
+    }
+
     let created = 0
     let patternsUpserted = 0
 

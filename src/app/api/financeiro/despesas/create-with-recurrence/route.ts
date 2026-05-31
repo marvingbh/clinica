@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac/audit"
 import { upsertCategoryPattern } from "@/lib/expense-matcher"
+import { expenseCategoryInClinic } from "@/lib/clinic/ownership"
 
 const schema = z.object({
   // Transaction details
@@ -34,6 +35,11 @@ export const POST = withFeatureAuth(
     }
 
     const { transactionId, description, supplierName, categoryId, amount, dueDate, paymentMethod, frequency, dayOfMonth } = parsed.data
+
+    // A body-supplied category must belong to this clinic.
+    if (categoryId && !(await expenseCategoryInClinic(categoryId, user.clinicId))) {
+      return NextResponse.json({ error: "Categoria inválida" }, { status: 400 })
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Create the recurrence template

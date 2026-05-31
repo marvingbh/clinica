@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { verifyCronAuth, cronUnauthorized } from "@/lib/api/verify-cron"
 import { RecurrenceEndType, AppointmentStatus } from "@prisma/client"
 import { calculateNextWindowDates } from "@/lib/appointments"
 import {
@@ -27,11 +28,8 @@ import {
  * Schedule: 0 2 * * 1 (every Monday at 2:00 AM)
  */
 export async function GET(req: Request) {
-  // Verify Vercel Cron secret to prevent unauthorized access
-  const authHeader = req.headers.get("authorization")
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  // Verify Vercel Cron secret to prevent unauthorized access (fails closed).
+  if (!verifyCronAuth(req)) return cronUnauthorized()
 
   const startTime = Date.now()
   const results = {
