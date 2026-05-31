@@ -1,4 +1,4 @@
-import NextAuth from "next-auth"
+import NextAuth, { CredentialsSignin } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcrypt"
 import { prisma } from "./prisma"
@@ -8,6 +8,15 @@ import { resolvePermissions } from "./rbac"
 import type { Feature } from "./rbac/types"
 import { FeatureAccess } from "@prisma/client"
 import { checkLockout, recordAttempt, clearAttempts, clientIpFromHeaders } from "./auth-rate-limit"
+
+/**
+ * Thrown when an account is temporarily locked out after too many failed logins.
+ * The `code` propagates to the client via `signIn`'s result so the login page can
+ * show a distinct "too many attempts" message instead of "invalid credentials".
+ */
+class RateLimitError extends CredentialsSignin {
+  code = "rate_limited"
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -32,7 +41,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // the window of the original failures and can't be extended indefinitely.
         const lockout = await checkLockout(email, "LOGIN")
         if (lockout.locked) {
-          return null
+          // Distinct signal so the UI can say "too many attempts" rather than
+          // the generic "invalid credentials". Does not reveal whether the
+          // account exists (lockout is keyed by the submitted email).
+          throw new RateLimitError()
         }
 
         const user = await prisma.user.findFirst({
