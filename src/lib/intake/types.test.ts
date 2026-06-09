@@ -210,8 +210,12 @@ describe("isValidCpfCnpj", () => {
 })
 
 describe("normalizePhone", () => {
-  it("strips non-digit characters", () => {
-    expect(normalizePhone("+55 (11) 99988-7766")).toBe("5511999887766")
+  it("strips formatting characters, keeping the leading +", () => {
+    expect(normalizePhone("+55 (11) 99988-7766")).toBe("+5511999887766")
+  })
+
+  it("strips Brazilian mask characters", () => {
+    expect(normalizePhone("(11) 99988-7766")).toBe("11999887766")
   })
 
   it("returns digits-only phone unchanged", () => {

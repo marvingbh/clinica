@@ -1,11 +1,4 @@
-/**
- * Formats a phone number string (digits only) for display.
- */
-export function formatPhoneDisplay(phone: string): string {
-  if (phone.length === 11) return `(${phone.slice(0, 2)}) ${phone.slice(2, 7)}-${phone.slice(7)}`
-  if (phone.length === 10) return `(${phone.slice(0, 2)}) ${phone.slice(2, 6)}-${phone.slice(6)}`
-  return phone
-}
+export { formatPhoneDisplay } from "@/lib/phone"
 
 /**
  * Formats a CPF (11 digits) or CNPJ (14 digits) for display.

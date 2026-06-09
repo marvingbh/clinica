@@ -4,6 +4,7 @@ import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac"
 import { isGroupingAllowed } from "@/lib/financeiro/invoice-grouping"
 import { patientApiSchema } from "@/lib/patients/schema"
+import { normalizePhone } from "@/lib/phone"
 
 /**
  * GET /api/patients
@@ -231,8 +232,8 @@ export const POST = withFeatureAuth(
       }
     }
 
-    // Normalize phone number (remove non-digits, ensure country code)
-    const normalizedPhone = phone.replace(/\D/g, "")
+    // Normalize phone number (strip mask, keep leading "+" for international)
+    const normalizedPhone = normalizePhone(phone)
 
     // Check for duplicate CPF if provided
     const normalizedCpf = cpf ? cpf.replace(/\D/g, "") : null
@@ -256,7 +257,7 @@ export const POST = withFeatureAuth(
 
     // Normalize and validate additional phones
     const normalizedAdditionalPhones = (additionalPhones || []).map((p) => ({
-      phone: p.phone.replace(/\D/g, ""),
+      phone: normalizePhone(p.phone),
       label: p.label,
       notify: p.notify ?? true,
     }))

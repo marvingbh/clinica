@@ -109,12 +109,16 @@ describe("POST /api/patients", () => {
     })
   })
 
-  it("normalizes the phone to digits-only on save", async () => {
-    // The zod regex accepts an optional + prefix; the create handler
-    // strips non-digits before persisting.
-    await callPOST({ ...validBody, phone: "+5531999990000" })
+  it("strips phone formatting on save, keeping the leading +", async () => {
+    await callPOST({ ...validBody, phone: "+55 31 99999-0000" })
     const call = mockPatientCreate.mock.calls[0][0]
-    expect(call.data.phone).toBe("5531999990000")
+    expect(call.data.phone).toBe("+5531999990000")
+  })
+
+  it("accepts and persists an international phone", async () => {
+    await callPOST({ ...validBody, phone: "+351912345678" })
+    const call = mockPatientCreate.mock.calls[0][0]
+    expect(call.data.phone).toBe("+351912345678")
   })
 
   it("rejects when the same phone appears in primary + additional phones", async () => {

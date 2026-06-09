@@ -4,23 +4,18 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac"
 import { isGroupingAllowed } from "@/lib/financeiro/invoice-grouping"
-
-// WhatsApp format validation: Brazilian format with country code
-const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
+import { isValidPhone, normalizePhone, PHONE_ERROR_MESSAGE } from "@/lib/phone"
 
 const additionalPhoneSchema = z.object({
   id: z.string().optional(),
-  phone: z.string().regex(phoneRegex, "Telefone inválido. Use formato WhatsApp: (11) 99999-9999"),
+  phone: z.string().refine(isValidPhone, PHONE_ERROR_MESSAGE),
   label: z.string().min(1, "Rótulo é obrigatório").max(30, "Rótulo deve ter no máximo 30 caracteres"),
   notify: z.boolean().default(true),
 })
 
 const updatePatientSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(200).optional(),
-  phone: z
-    .string()
-    .regex(phoneRegex, "Telefone inválido. Use formato WhatsApp: (11) 99999-9999")
-    .optional(),
+  phone: z.string().refine(isValidPhone, PHONE_ERROR_MESSAGE).optional(),
   email: z.string().email("Email inválido").optional().nullable().or(z.literal("")),
   birthDate: z.string().optional().nullable(),
   cpf: z.string().max(14).optional().nullable().or(z.literal("")),
@@ -281,7 +276,7 @@ export const PATCH = withFeatureAuth(
 
     // Handle phone update with duplicate check
     if (data.phone !== undefined) {
-      const normalizedPhone = data.phone.replace(/\D/g, "")
+      const normalizedPhone = normalizePhone(data.phone)
       if (normalizedPhone !== existing.phone) {
         const existingPhone = await prisma.patient.findFirst({
           where: {
@@ -361,7 +356,7 @@ export const PATCH = withFeatureAuth(
     if (data.additionalPhones !== undefined) {
       const normalizedAdditionalPhones = data.additionalPhones.map((p) => ({
         id: p.id,
-        phone: p.phone.replace(/\D/g, ""),
+        phone: normalizePhone(p.phone),
         label: p.label,
         notify: p.notify ?? true,
       }))

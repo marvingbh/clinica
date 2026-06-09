@@ -175,9 +175,17 @@ describe("buildPatientPayload", () => {
     consentEmail: false,
   }
 
-  it("normalizes phone to digits-only", () => {
+  it("strips phone formatting, keeping the leading +", () => {
     const p = buildPatientPayload({ data: formData, additionalPhones: [] })
-    expect(p.phone).toBe("5531999990000")
+    expect(p.phone).toBe("+5531999990000")
+  })
+
+  it("normalizes a masked Brazilian phone to digits-only", () => {
+    const p = buildPatientPayload({
+      data: { ...formData, phone: "(31) 99999-0000" },
+      additionalPhones: [],
+    })
+    expect(p.phone).toBe("31999990000")
   })
 
   it("converts BR birthDate to ISO", () => {
@@ -211,12 +219,12 @@ describe("buildPatientPayload", () => {
     ])
   })
 
-  it("strips non-digits from additionalPhone numbers", () => {
+  it("strips formatting from additionalPhone numbers, keeping the leading +", () => {
     const p = buildPatientPayload({
       data: formData,
       additionalPhones: [{ phone: "+55 (31) 88888-0000", label: "Mãe" }],
     })
-    expect((p.additionalPhones as { phone: string }[])[0].phone).toBe("5531888880000")
+    expect((p.additionalPhones as { phone: string }[])[0].phone).toBe("+5531888880000")
   })
 
   it("forwards consent flags as-is", () => {

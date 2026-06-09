@@ -156,7 +156,7 @@ export function PatientForm({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-2">Telefone (WhatsApp) *</label>
-                <input id="phone" type="tel" {...register("phone")} placeholder="11999999999" className={inputClass} />
+                <input id="phone" type="tel" {...register("phone")} placeholder="11999999999 ou +351912345678" className={inputClass} />
                 {errors.phone && <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>}
               </div>
               <div>
@@ -420,7 +420,7 @@ function AdditionalPhonesSection({
                 <input type="text" placeholder="Rótulo (ex: Mãe, Trabalho)" value={phone.label} onChange={(e) => onUpdate(index, "label", e.target.value)} maxLength={30} className={inputSmClass} />
               </div>
               <div className="flex-1 min-w-0">
-                <input type="tel" placeholder="11999999999" value={phone.phone} onChange={(e) => onUpdate(index, "phone", e.target.value)} className={inputSmClass} />
+                <input type="tel" placeholder="11999999999 ou +351..." value={phone.phone} onChange={(e) => onUpdate(index, "phone", e.target.value)} className={inputSmClass} />
               </div>
               <button type="button" onClick={() => onUpdate(index, "notify", !phone.notify)} className={`h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-md transition-colors ${phone.notify !== false ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-muted"}`} title={phone.notify !== false ? "Recebe notificações" : "Não recebe notificações"}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

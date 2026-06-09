@@ -1,16 +1,11 @@
 import { z } from "zod"
+import { phoneRegex, isValidPhone, PHONE_ERROR_MESSAGE } from "@/lib/phone"
 
-/**
- * WhatsApp format: optional `+55` country code prefix, two-digit area
- * code, then 8 or 9 subscriber digits. No separators allowed (the form
- * normalizes the input before validation; the API normalizes it before
- * persistence).
- */
-export const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
+export { phoneRegex }
 
 /** Additional phone shape — shared by both the form and the API. */
 export const additionalPhoneSchema = z.object({
-  phone: z.string().regex(phoneRegex, "Telefone inválido. Use formato WhatsApp: (11) 99999-9999"),
+  phone: z.string().refine(isValidPhone, PHONE_ERROR_MESSAGE),
   label: z.string().min(1, "Rótulo é obrigatório").max(30, "Rótulo deve ter no máximo 30 caracteres"),
   notify: z.boolean().default(true),
 })
@@ -31,7 +26,7 @@ export const patientFormSchema = z.object({
   phone: z
     .string()
     .min(1, "Telefone é obrigatório")
-    .regex(phoneRegex, "Telefone inválido. Use formato: 11999999999"),
+    .refine(isValidPhone, PHONE_ERROR_MESSAGE),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   birthDate: z.string().optional().or(z.literal("")),
   cpf: z.string().max(14).optional().or(z.literal("")),
@@ -74,9 +69,7 @@ export type PatientFormData = z.infer<typeof patientFormSchema>
  */
 export const patientApiSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(200),
-  phone: z
-    .string()
-    .regex(phoneRegex, "Telefone inválido. Use formato WhatsApp: (11) 99999-9999"),
+  phone: z.string().refine(isValidPhone, PHONE_ERROR_MESSAGE),
   email: z.string().email("Email inválido").optional().nullable().or(z.literal("")),
   birthDate: z.string().optional().nullable(),
   cpf: z.string().max(14).optional().nullable().or(z.literal("")),

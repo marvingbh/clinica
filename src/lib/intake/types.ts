@@ -1,6 +1,7 @@
 import { z } from "zod"
+import { phoneRegex, normalizePhone } from "@/lib/phone"
 
-const phoneRegex = /^(\+?55)?(\d{2})(\d{8,9})$/
+export { normalizePhone }
 
 /**
  * Validates CPF check digits (modulus 11 algorithm)
@@ -91,13 +92,6 @@ export const intakeSubmissionSchema = z.object({
 export const intakeUpdateSchema = intakeSubmissionSchema.partial()
 
 export type IntakeSubmissionInput = z.infer<typeof intakeSubmissionSchema>
-
-/**
- * Normalizes phone number to digits only
- */
-export function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, "")
-}
 
 /**
  * Normalizes CPF/CNPJ to digits only

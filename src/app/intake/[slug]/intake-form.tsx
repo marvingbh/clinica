@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useForm, Controller } from "react-hook-form"
 import { DatePickerInput } from "@/shared/components/ui/date-picker-input"
 import { isValidCpfCnpj } from "@/lib/intake"
+import { formatPhoneInput, normalizePhone } from "@/lib/phone"
 
 interface IntakeFormData {
   childName: string
@@ -37,13 +38,6 @@ interface IntakeFormProps {
 
 const inputClass =
   "w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-
-function formatPhone(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 11)
-  if (digits.length <= 2) return digits
-  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
-}
 
 function formatCpfCnpj(value: string): string {
   const digits = value.replace(/\D/g, "")
@@ -112,11 +106,11 @@ export function IntakeForm({ onSubmit, isSubmitting, errorMessage }: IntakeFormP
     onSubmit({
       ...data,
       childBirthDate: brDateToIso(data.childBirthDate),
-      phone: data.phone.replace(/\D/g, ""),
+      phone: normalizePhone(data.phone),
       guardianCpfCnpj: data.guardianCpfCnpj.replace(/\D/g, ""),
       addressZip: data.addressZip.replace(/\D/g, ""),
-      motherPhone: data.motherPhone ? data.motherPhone.replace(/\D/g, "") : "",
-      fatherPhone: data.fatherPhone ? data.fatherPhone.replace(/\D/g, "") : "",
+      motherPhone: data.motherPhone ? normalizePhone(data.motherPhone) : "",
+      fatherPhone: data.fatherPhone ? normalizePhone(data.fatherPhone) : "",
     })
   }
 
@@ -228,9 +222,9 @@ export function IntakeForm({ onSubmit, isSubmitting, errorMessage }: IntakeFormP
                 type="text"
                 inputMode="tel"
                 className={inputClass}
-                placeholder="(00) 00000-0000"
+                placeholder="(00) 00000-0000 ou +351..."
                 value={field.value || ""}
-                onChange={(e) => field.onChange(formatPhone(e.target.value))}
+                onChange={(e) => field.onChange(formatPhoneInput(e.target.value))}
               />
             )}
           />
@@ -261,9 +255,9 @@ export function IntakeForm({ onSubmit, isSubmitting, errorMessage }: IntakeFormP
                 type="text"
                 inputMode="tel"
                 className={inputClass}
-                placeholder="(00) 00000-0000"
+                placeholder="(00) 00000-0000 ou +351..."
                 value={field.value || ""}
-                onChange={(e) => field.onChange(formatPhone(e.target.value))}
+                onChange={(e) => field.onChange(formatPhoneInput(e.target.value))}
               />
             )}
           />
@@ -343,9 +337,9 @@ export function IntakeForm({ onSubmit, isSubmitting, errorMessage }: IntakeFormP
                 type="text"
                 inputMode="tel"
                 className={inputClass}
-                placeholder="(00) 00000-0000"
+                placeholder="(00) 00000-0000 ou +351..."
                 value={field.value || ""}
-                onChange={(e) => field.onChange(formatPhone(e.target.value))}
+                onChange={(e) => field.onChange(formatPhoneInput(e.target.value))}
               />
             )}
           />

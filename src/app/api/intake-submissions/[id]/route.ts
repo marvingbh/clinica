@@ -5,6 +5,7 @@ import { withFeatureAuth } from "@/lib/api/with-auth"
 import { intakeUpdateSchema, mapSubmissionToPatient } from "@/lib/intake"
 import { audit, AuditAction } from "@/lib/rbac"
 import { patientApiSchema } from "@/lib/patients/schema"
+import { normalizePhone } from "@/lib/phone"
 
 /**
  * GET /api/intake-submissions/[id] — Fetch a single submission
@@ -166,9 +167,9 @@ export const PATCH = withFeatureAuth(
           }
 
           // Phone uniqueness across primary + additional, mirroring POST /api/patients.
-          const normalizedPrimaryPhone = o.phone.replace(/\D/g, "")
+          const normalizedPrimaryPhone = normalizePhone(o.phone)
           const normalizedAdditional = (o.additionalPhones ?? []).map((p) => ({
-            phone: p.phone.replace(/\D/g, ""),
+            phone: normalizePhone(p.phone),
             label: p.label,
             notify: p.notify ?? true,
           }))

@@ -1,4 +1,5 @@
 import type { PatientFormData } from "./schema"
+import { normalizePhone } from "@/lib/phone"
 
 /**
  * Patient shape we read from when populating an edit form. Subset of the
@@ -207,7 +208,7 @@ export function buildPatientPayload({
 }: BuildPayloadInput): Record<string, unknown> {
   return {
     name: data.name,
-    phone: data.phone.replace(/\D/g, ""),
+    phone: normalizePhone(data.phone),
     email: data.email || null,
     birthDate: brDateToIso(data.birthDate || "") || null,
     cpf: data.cpf || null,
@@ -240,7 +241,7 @@ export function buildPatientPayload({
       .filter((p) => p.phone.trim() && p.label.trim())
       .map((p) => ({
         id: p.id,
-        phone: p.phone.replace(/\D/g, ""),
+        phone: normalizePhone(p.phone),
         label: p.label.trim(),
       })),
   }
