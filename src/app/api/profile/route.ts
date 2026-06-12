@@ -75,7 +75,13 @@ export const PATCH = withAuth(
       bufferBetweenSlots,
       allowOnlineBooking,
       maxAdvanceBookingDays,
+      aiOptOut,
     } = body
+
+    // aiOptOut lives on the User (privacy control), not the professional profile.
+    if (typeof aiOptOut === "boolean") {
+      await prisma.user.update({ where: { id: user.id }, data: { aiOptOut } })
+    }
 
     const updateData: Record<string, unknown> = {}
 

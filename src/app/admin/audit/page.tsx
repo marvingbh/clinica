@@ -78,6 +78,9 @@ const ACTION_LABELS: Record<string, string> = {
   PATIENT_RECORD_REOPENED: "Prontuário reaberto",
   PATIENT_RECORD_DISPOSED: "Prontuário descartado",
   PENDING_NOTES_JOB_EXECUTED: "Job de pendências executado",
+  AI_DRAFT_GENERATED: "Rascunho gerado com IA",
+  CLINIC_AI_ENABLED: "Assistente de IA habilitado",
+  CLINIC_AI_DISABLED: "Assistente de IA desabilitado",
 }
 
 const ENTITY_LABELS: Record<string, string> = {

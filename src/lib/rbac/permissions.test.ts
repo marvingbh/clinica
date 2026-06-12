@@ -100,6 +100,26 @@ describe("prontuario feature (CFP secrecy inversion)", () => {
   })
 })
 
+describe("ai_assist feature", () => {
+  it("ADMIN default is WRITE", () => {
+    expect(ROLE_DEFAULTS.ADMIN.ai_assist).toBe("WRITE")
+  })
+
+  it("PROFESSIONAL default is WRITE", () => {
+    expect(ROLE_DEFAULTS.PROFESSIONAL.ai_assist).toBe("WRITE")
+  })
+
+  it("resolves to WRITE for PROFESSIONAL with no overrides", () => {
+    const resolved = resolvePermissions("PROFESSIONAL", {})
+    expect(resolved.ai_assist).toBe("WRITE")
+  })
+
+  it("admin override to NONE disables AI for a specific user", () => {
+    const resolved = resolvePermissions("PROFESSIONAL", { ai_assist: "NONE" })
+    expect(resolved.ai_assist).toBe("NONE")
+  })
+})
+
 describe("meetsMinAccess", () => {
   it("WRITE meets WRITE", () => {
     expect(meetsMinAccess("WRITE", "WRITE")).toBe(true)

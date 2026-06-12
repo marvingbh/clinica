@@ -13,7 +13,7 @@ export const GET = withSuperAdmin(async () => {
 
 export const POST = withSuperAdmin(async (req: NextRequest) => {
   const body = await req.json()
-  const { name, slug, stripePriceId, maxProfessionals, priceInCents } = body
+  const { name, slug, stripePriceId, maxProfessionals, priceInCents, aiMonthlyCredits } = body
 
   if (!name || !slug || !stripePriceId || maxProfessionals === undefined || !priceInCents) {
     return NextResponse.json(
@@ -22,8 +22,14 @@ export const POST = withSuperAdmin(async (req: NextRequest) => {
     )
   }
 
+  // aiMonthlyCredits: 0 = no AI; -1 = unlimited; N >= 0 = N/month per clinic.
+  const aiCredits =
+    typeof aiMonthlyCredits === "number" && Number.isInteger(aiMonthlyCredits) && aiMonthlyCredits >= -1
+      ? aiMonthlyCredits
+      : 0
+
   const plan = await prisma.plan.create({
-    data: { name, slug, stripePriceId, maxProfessionals, priceInCents },
+    data: { name, slug, stripePriceId, maxProfessionals, priceInCents, aiMonthlyCredits: aiCredits },
   })
 
   return NextResponse.json({ plan }, { status: 201 })

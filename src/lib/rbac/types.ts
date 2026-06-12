@@ -17,6 +17,7 @@ export const FEATURES = [
   "expenses",
   "todos",
   "prontuario",
+  "ai_assist",
 ] as const
 
 export type Feature = (typeof FEATURES)[number]
@@ -38,6 +39,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   expenses: "Despesas",
   todos: "Tarefas",
   prontuario: "Prontuario",
+  ai_assist: "Assistente de IA",
 }
 
 export type ResolvedPermissions = Record<Feature, FeatureAccess>

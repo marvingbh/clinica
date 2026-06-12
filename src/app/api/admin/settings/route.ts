@@ -8,6 +8,7 @@ import {
 } from "@/lib/clinic/colors/schema"
 import { assertProfessionalInClinic, OwnershipError } from "@/lib/clinic/ownership"
 import { clampRetentionYears } from "@/lib/prontuario"
+import { createAuditLog, AuditAction } from "@/lib/rbac/audit"
 
 const updateSettingsSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(200).optional(),
@@ -46,6 +47,8 @@ const updateSettingsSchema = z.object({
   agendaColors: agendaColorsPatchSchema.optional(),
   prontuarioRetentionYears: z.number().int().min(5).max(20).optional(),
   prontuarioResponsibleProfessionalId: z.string().min(1).nullable().optional(),
+  aiEnabled: z.boolean().optional(),
+  aiHistoryContext: z.boolean().optional(),
 })
 
 /**
@@ -80,6 +83,10 @@ export const GET = withFeatureAuth(
         agendaColors: true,
         prontuarioRetentionYears: true,
         prontuarioResponsibleProfessionalId: true,
+        aiEnabled: true,
+        aiHistoryContext: true,
+        aiTermsAcceptedAt: true,
+        aiTermsAcceptedByUserId: true,
         logoData: true,
       },
     })
@@ -130,7 +137,7 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors, prontuarioRetentionYears, prontuarioResponsibleProfessionalId } =
+    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors, prontuarioRetentionYears, prontuarioResponsibleProfessionalId, aiEnabled, aiHistoryContext } =
       parsed.data
 
     // Check slug uniqueness
@@ -191,6 +198,27 @@ export const PATCH = withFeatureAuth(
       updateData.prontuarioResponsibleProfessionalId = prontuarioResponsibleProfessionalId
     }
 
+    // AI assistant settings. Toggling aiEnabled records the disclosure acceptance
+    // (false→true) and emits an audit log on each transition.
+    let aiTransition: "enabled" | "disabled" | null = null
+    if (aiEnabled !== undefined || aiHistoryContext !== undefined) {
+      const currentAi = await prisma.clinic.findUnique({
+        where: { id: user.clinicId },
+        select: { aiEnabled: true },
+      })
+      if (aiEnabled !== undefined) {
+        updateData.aiEnabled = aiEnabled
+        if (aiEnabled && !currentAi?.aiEnabled) {
+          updateData.aiTermsAcceptedAt = new Date()
+          updateData.aiTermsAcceptedByUserId = user.id
+          aiTransition = "enabled"
+        } else if (!aiEnabled && currentAi?.aiEnabled) {
+          aiTransition = "disabled"
+        }
+      }
+      if (aiHistoryContext !== undefined) updateData.aiHistoryContext = aiHistoryContext
+    }
+
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
         { error: "Nenhum campo para atualizar" },
@@ -225,6 +253,10 @@ export const PATCH = withFeatureAuth(
       agendaColors: true,
       prontuarioRetentionYears: true,
       prontuarioResponsibleProfessionalId: true,
+      aiEnabled: true,
+      aiHistoryContext: true,
+      aiTermsAcceptedAt: true,
+      aiTermsAcceptedByUserId: true,
     } as const
 
     const updatedClinic = billingMode === "MONTHLY_FIXED"
@@ -246,6 +278,19 @@ export const PATCH = withFeatureAuth(
           data: updateData,
           select: clinicSelect,
         })
+
+    if (aiTransition) {
+      await createAuditLog({
+        user,
+        action:
+          aiTransition === "enabled"
+            ? AuditAction.CLINIC_AI_ENABLED
+            : AuditAction.CLINIC_AI_DISABLED,
+        entityType: "Clinic",
+        entityId: user.clinicId,
+        newValues: { aiEnabled: aiTransition === "enabled" },
+      })
+    }
 
     return NextResponse.json({
       settings: {

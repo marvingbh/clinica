@@ -184,12 +184,53 @@ model Plan {
   maxProfessionals Int
   priceInCents     Int
   isActive         Boolean  @default(true)
+  /// AI evolução credits per month per clinic: 0 = no AI; -1 = unlimited; N = N successful generations/month
+  aiMonthlyCredits Int      @default(0)
   createdAt        DateTime @default(now())
 
   // Relations
   clinics Clinic[]
 
   @@index([isActive])
+}
+
+// ============================================================================
+// AI (assistente de evoluções) — metering only; NEVER stores clinical content
+// ============================================================================
+
+enum AiUsageStatus {
+  SUCCESS
+  FAILED
+}
+
+enum AiFeedback {
+  POSITIVE
+  NEGATIVE
+}
+
+/// Metering of AI draft generations. NEVER stores clinical content — only
+/// metadata (ids, model, token counts, status, feedback).
+model AiUsage {
+  id        String        @id @default(cuid())
+  clinicId  String
+  userId    String?
+  /// Weak reference to ClinicalNote (no FK — decouples migration ordering from prontuário)
+  noteId    String?
+  patientId String?
+  model     String // e.g. "claude-opus-4-8" / "mock"
+  tokensIn  Int           @default(0)
+  tokensOut Int           @default(0)
+  status    AiUsageStatus
+  truncated Boolean       @default(false)
+  feedback  AiFeedback?
+  createdAt DateTime      @default(now())
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId, createdAt])
+  @@index([clinicId, userId, createdAt])
+  @@index([noteId])
 }
 
 /// Platform-level super admin (not tied to any clinic)
@@ -260,6 +301,12 @@ model Clinic {
   prontuarioResponsibleProfessionalId String? // reads notes of deactivated professionals
   prontuarioResponsibleProfessional   ProfessionalProfile? @relation("ProntuarioResponsible", fields: [prontuarioResponsibleProfessionalId], references: [id], onDelete: SetNull)
 
+  // AI assistant (evolução drafting) — clinic-level opt-in with LGPD disclosure
+  aiEnabled               Boolean   @default(false)
+  aiHistoryContext        Boolean   @default(false) // include last signed notes (pseudonymized) in prompt
+  aiTermsAcceptedAt       DateTime?
+  aiTermsAcceptedByUserId String?
+
   // Relations
   users                  User[]
   patients               Patient[]
@@ -271,6 +318,7 @@ model Clinic {
   therapyGroups          TherapyGroup[]
   groupMemberships       GroupMembership[]
   availabilityExceptions AvailabilityException[]
+  aiUsages               AiUsage[]
   patientPhones          PatientPhone[]
   userPermissions        UserPermission[]
   invoices               Invoice[]
@@ -309,6 +357,8 @@ model User {
   role          Role
   isActive      Boolean   @default(true)
   emailVerified DateTime?
+  /// Personal AI privacy opt-out: hides the "Gerar com IA" panel and blocks generation for this user
+  aiOptOut      Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -316,6 +366,7 @@ model User {
   clinic              Clinic               @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   professionalProfile ProfessionalProfile?
   auditLogs           AuditLog[]
+  aiUsages            AiUsage[]
   permissions         UserPermission[]
   reconciliationLinks    ReconciliationLink[]
   dismissedTransactions  BankTransaction[]    @relation("DismissedTransactions")

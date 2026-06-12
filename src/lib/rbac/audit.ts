@@ -91,6 +91,11 @@ export const AuditAction = {
   PATIENT_RECORD_REOPENED: "PATIENT_RECORD_REOPENED",
   PATIENT_RECORD_DISPOSED: "PATIENT_RECORD_DISPOSED",
   PENDING_NOTES_JOB_EXECUTED: "PENDING_NOTES_JOB_EXECUTED",
+
+  // AI assistant (NEVER include clinical content in oldValues/newValues)
+  AI_DRAFT_GENERATED: "AI_DRAFT_GENERATED",
+  CLINIC_AI_ENABLED: "CLINIC_AI_ENABLED",
+  CLINIC_AI_DISABLED: "CLINIC_AI_DISABLED",
 } as const
 
 export type AuditActionType = (typeof AuditAction)[keyof typeof AuditAction]
