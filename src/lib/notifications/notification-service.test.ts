@@ -213,6 +213,26 @@ describe("createNotification", () => {
     expect(mockClinicFindUnique).not.toHaveBeenCalled()
   })
 
+  it("creates CALENDAR_SYNC_ERROR EMAIL as PENDING without a per-clinic gate (always-enabled)", async () => {
+    const payload: NotificationPayload = {
+      clinicId: "clinic-calsync",
+      type: "CALENDAR_SYNC_ERROR" as never,
+      channel: "EMAIL" as never,
+      recipient: "prof@example.com",
+      subject: "Sincronização com Google Agenda interrompida",
+      content: "Reconecte para retomar a sincronização.",
+    }
+    mockCreate.mockResolvedValueOnce(makeNotificationRecord({ id: "notif-calsync", ...payload }))
+
+    await createNotification(payload)
+
+    const createArg = mockCreate.mock.calls[0][0]
+    expect(createArg.data.status).toBe("PENDING")
+    expect(createArg.data.failureReason).toBeNull()
+    // Always-enabled: the clinic feature flag must not be consulted.
+    expect(mockClinicFindUnique).not.toHaveBeenCalled()
+  })
+
   it("passes all payload fields including optional ones", async () => {
     const payload: NotificationPayload = {
       clinicId: "clinic-create-2",

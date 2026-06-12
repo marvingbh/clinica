@@ -6,6 +6,7 @@ import { createAuditLog } from "@/lib/rbac/audit"
 import { findAppointmentsLinkedToInvoices, buildInvoiceLinkError } from "@/lib/appointments/invoice-link-guard"
 import { RecurrenceEndType } from "@prisma/client"
 import { z } from "zod"
+import { enqueueCalendarSync, flushCalendarSyncAfterResponse } from "@/lib/calendar-sync"
 
 const finalizeRecurrenceSchema = z.object({
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
@@ -147,6 +148,13 @@ export const POST = withFeatureAuth(
       // Permanently delete future appointments after the end date
       // (notifications get appointmentId set to null)
       if (recurrence.appointments.length > 0) {
+        // Enqueue the remote DELETE BEFORE the physical delete so event links
+        // survive long enough for the processor to remove the Google events.
+        await enqueueCalendarSync(tx, {
+          clinicId: recurrence.clinicId,
+          appointmentIds: recurrence.appointments.map((apt) => apt.id),
+          operation: "DELETE",
+        })
         await tx.appointment.deleteMany({
           where: {
             id: {
@@ -156,6 +164,8 @@ export const POST = withFeatureAuth(
         })
       }
     })
+
+    if (deletedAppointmentsCount > 0) flushCalendarSyncAfterResponse()
 
     // Create audit log
     await createAuditLog({

@@ -2,6 +2,10 @@
 
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { ClockIcon } from "@/shared/components/ui/icons"
+import {
+  CalendarSyncStatusBadge,
+  type CalendarIntegrationStatus,
+} from "@/shared/components/CalendarSyncStatusBadge"
 
 interface ProfessionalProfile {
   id: string
@@ -22,6 +26,7 @@ interface Professional {
   isActive: boolean
   createdAt: string
   professionalProfile: ProfessionalProfile | null
+  calendarSyncStatus?: CalendarIntegrationStatus
 }
 
 interface ProfessionalCardProps {
@@ -117,11 +122,12 @@ export function ProfessionalCard({
             )}
 
             {professional.professionalProfile && (
-              <div className="flex items-center gap-1.5 mt-2">
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                 <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-primary/10 text-primary font-medium">
                   <ClockIcon className="w-3 h-3" />
                   {professional.professionalProfile.appointmentDuration} min
                 </span>
+                {isAdmin && <CalendarSyncStatusBadge status={professional.calendarSyncStatus} />}
               </div>
             )}
           </div>

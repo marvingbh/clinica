@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
 import { createAuditLog } from "@/lib/rbac/audit"
+import { enqueueCalendarSync, flushCalendarSyncAfterResponse } from "@/lib/calendar-sync"
 import { AppointmentStatus } from "@prisma/client"
 import {
   computeStatusUpdateData,
@@ -197,6 +198,17 @@ export const PATCH = withFeatureAuth(
         })
       )
     )
+
+    // Re-sync the affected appointments (UPSERT). Cancellations are removed by
+    // the planner; confirm-only transitions are cheap no-ops via the body hash.
+    if (toUpdate.length > 0) {
+      await enqueueCalendarSync(prisma, {
+        clinicId: user.clinicId,
+        appointmentIds: toUpdate.map((a) => a.id),
+        operation: "UPSERT",
+      }).catch(() => {})
+      flushCalendarSyncAfterResponse()
+    }
 
     return NextResponse.json({ success: true, updatedCount: toUpdate.length })
   }

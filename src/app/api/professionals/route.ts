@@ -56,10 +56,22 @@ export const GET = withFeatureAuth(
             repassePercentage: true,
           },
         },
+        // Calendar sync status (GOOGLE) for the informative admin badge.
+        calendarIntegrations: {
+          where: { clinicId: user.clinicId, provider: "GOOGLE" },
+          select: { status: true },
+          take: 1,
+        },
       },
     })
 
-    return NextResponse.json({ professionals })
+    // Flatten the calendar integration status to a scalar per professional.
+    const withStatus = professionals.map(({ calendarIntegrations, ...p }) => ({
+      ...p,
+      calendarSyncStatus: calendarIntegrations[0]?.status ?? null,
+    }))
+
+    return NextResponse.json({ professionals: withStatus })
   }
 )
 

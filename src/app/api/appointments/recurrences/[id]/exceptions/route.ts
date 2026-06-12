@@ -6,6 +6,14 @@ import { createAuditLog } from "@/lib/rbac/audit"
 import { addException, removeException } from "@/lib/appointments/recurrence"
 import { AppointmentStatus } from "@prisma/client"
 import { notifyWaitlistSlotsOpened } from "@/lib/waitlist"
+import { enqueueCalendarSync, flushCalendarSyncAfterResponse } from "@/lib/calendar-sync"
+
+/** Best-effort UPSERT enqueue for the appointments touched by an exception. */
+async function syncExceptionAppointments(clinicId: string, appointmentIds: string[]) {
+  if (appointmentIds.length === 0) return
+  await enqueueCalendarSync(prisma, { clinicId, appointmentIds, operation: "UPSERT" }).catch(() => {})
+  flushCalendarSyncAfterResponse()
+}
 
 /**
  * POST /api/appointments/recurrences/:id/exceptions
@@ -170,6 +178,9 @@ export const POST = withFeatureAuth(
         trigger: "RECURRENCE_SKIP",
       })
 
+      // Skipped occurrences become CANCELADO_PROFISSIONAL → planner removes them.
+      await syncExceptionAppointments(user.clinicId, recurrence.appointments.map((a) => a.id))
+
       return NextResponse.json({
         success: true,
         message: `Data ${date} pulada com sucesso`,
@@ -228,6 +239,9 @@ export const POST = withFeatureAuth(
         ipAddress,
         userAgent,
       })
+
+      // Restored occurrences go back to AGENDADO → planner re-creates the event.
+      await syncExceptionAppointments(user.clinicId, recurrence.appointments.map((a) => a.id))
 
       return NextResponse.json({
         success: true,

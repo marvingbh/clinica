@@ -170,6 +170,9 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     ai_assist: "WRITE",
     online_booking: "WRITE",
     waitlist: "WRITE",
+    // Self-service per professional. ADMIN can connect their own calendar if
+    // they have a professional profile; per-user override still possible.
+    calendar_sync: "WRITE",
   },
   PROFESSIONAL: {
     agenda_own: "WRITE",
@@ -194,6 +197,8 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     // Sees/manages entries citing them or "qualquer profissional" — the
     // visibility cut happens in the handler (mirrors agenda_own).
     waitlist: "WRITE",
+    // Each professional connects their own external calendar.
+    calendar_sync: "WRITE",
   },
 }
 

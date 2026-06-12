@@ -38,6 +38,9 @@ const ALWAYS_ENABLED_EMAIL_TYPES = new Set<NotificationType>([
   // Transactional, user-initiated portal login code — not an outbound
   // confirmation/reminder, so it is not gated by appointmentNotificationsEnabled.
   NotificationType.PATIENT_PORTAL_OTP,
+  // Internal alert to a professional that their personal calendar sync broke
+  // (token revoked / persistent error). No end-user impact, no per-clinic gate.
+  NotificationType.CALENDAR_SYNC_ERROR,
 ])
 
 /**

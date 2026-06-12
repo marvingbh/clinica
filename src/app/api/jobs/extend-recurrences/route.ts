@@ -13,6 +13,7 @@ import {
   nextBatchForRecurrence as nextBatchForTodoRecurrence,
   parseDay,
 } from "@/lib/todos"
+import { enqueueCalendarSync } from "@/lib/calendar-sync"
 
 /**
  * GET /api/jobs/extend-recurrences
@@ -173,8 +174,8 @@ export async function GET(req: Request) {
         await prisma.$transaction(async (tx) => {
           await tx.appointment.createMany({ data: appointmentData })
 
-          // Fetch created appointment IDs for token creation
-          await tx.appointment.findMany({
+          // Fetch created appointment IDs for token creation + calendar sync
+          const created = await tx.appointment.findMany({
             where: {
               recurrenceId: recurrence.id,
               scheduledAt: {
@@ -184,6 +185,13 @@ export async function GET(req: Request) {
             },
             select: { id: true, scheduledAt: true },
             orderBy: { scheduledAt: "asc" },
+          })
+
+          // Mirror cron-generated occurrences to connected external calendars.
+          await enqueueCalendarSync(tx, {
+            clinicId: recurrence.clinicId,
+            appointmentIds: created.map((c) => c.id),
+            operation: "UPSERT",
           })
 
           results.appointmentsCreated += nonConflictingDates.length

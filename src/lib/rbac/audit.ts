@@ -114,6 +114,15 @@ export const AuditAction = {
   AI_DRAFT_GENERATED: "AI_DRAFT_GENERATED",
   CLINIC_AI_ENABLED: "CLINIC_AI_ENABLED",
   CLINIC_AI_DISABLED: "CLINIC_AI_DISABLED",
+
+  // Calendar sync (Google / iCal) — never include patient PII in values
+  CALENDAR_INTEGRATION_CONNECTED: "calendar_integration.connected",
+  CALENDAR_INTEGRATION_DISCONNECTED: "calendar_integration.disconnected",
+  CALENDAR_INTEGRATION_UPDATED: "calendar_integration.updated",
+  CALENDAR_INTEGRATION_RETRY: "calendar_integration.retry",
+  CALENDAR_INTEGRATION_CLEANUP_REQUESTED: "calendar_integration.cleanup_requested",
+  CALENDAR_ICS_TOKEN_GENERATED: "calendar_integration.ics_token_generated",
+  CALENDAR_ICS_TOKEN_REVOKED: "calendar_integration.ics_token_revoked",
 } as const
 
 export type AuditActionType = (typeof AuditAction)[keyof typeof AuditAction]

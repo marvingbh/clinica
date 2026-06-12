@@ -13,6 +13,7 @@ import {
   annotateAlternateWeekInfo,
 } from "@/lib/appointments/biweekly"
 import { createNotification, getPatientPhoneNumbers } from "@/lib/notifications"
+import { enqueueCalendarSync, flushCalendarSyncAfterResponse } from "@/lib/calendar-sync"
 import { NotificationChannel, NotificationType, RecurrenceType, RecurrenceEndType, AppointmentType } from "@prisma/client"
 import { audit, AuditAction, type AuthUser } from "@/lib/rbac"
 import { z } from "zod"
@@ -816,6 +817,14 @@ async function handleCreateCalendarEntry(
 
   // No notifications for non-patient entries
 
+  // Mirror the new entries to connected external calendars (best-effort).
+  await enqueueCalendarSync(prisma, {
+    clinicId: user.clinicId,
+    appointmentIds: result.appointments.map((a) => a.id),
+    operation: "UPSERT",
+  }).catch(() => {})
+  flushCalendarSyncAfterResponse()
+
   if (recurrence) {
     return NextResponse.json({
       appointments: result.appointments,
@@ -937,6 +946,13 @@ async function handleCreateGroupSession(
   // Audit + notifications (side effects)
   await auditGroupSessionCreation(user, result.appointments, targetProfessionalProfileId, professional.user.name, result.sessionGroupId, req)
   sendGroupSessionNotifications(result.appointments, patients, user.clinicId, professional.user.name, modality)
+
+  await enqueueCalendarSync(prisma, {
+    clinicId: user.clinicId,
+    appointmentIds: result.appointments.map((a) => a.id),
+    operation: "UPSERT",
+  }).catch(() => {})
+  flushCalendarSyncAfterResponse()
 
   return NextResponse.json({ appointments: result.appointments, sessionGroupId: result.sessionGroupId }, { status: 201 })
 }
@@ -1378,6 +1394,14 @@ async function handleCreateAppointment(
       request: req,
     })
   }
+
+  // Mirror created appointments to connected external calendars (best-effort).
+  await enqueueCalendarSync(prisma, {
+    clinicId: user.clinicId,
+    appointmentIds: result.appointments.map((a) => a.id),
+    operation: "UPSERT",
+  }).catch(() => {})
+  flushCalendarSyncAfterResponse()
 
   // Queue notifications for first appointment only (for recurring)
   // Subsequent appointments will get reminders via scheduled jobs

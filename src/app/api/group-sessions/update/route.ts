@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { findAppointmentsLinkedToInvoices, buildInvoiceLinkError } from "@/lib/appointments/invoice-link-guard"
+import { enqueueCalendarSync, flushCalendarSyncAfterResponse } from "@/lib/calendar-sync"
 import { z } from "zod"
 
 const updateSchema = z.object({
@@ -58,7 +59,18 @@ export const PATCH = withFeatureAuth(
       return NextResponse.json({ error: "Nenhum campo para atualizar" }, { status: 400 })
     }
 
+    const affected = await prisma.appointment.findMany({ where, select: { id: true } })
     const result = await prisma.appointment.updateMany({ where, data })
+
+    // Mirror the edited group-session appointments to external calendars.
+    if (affected.length > 0) {
+      await enqueueCalendarSync(prisma, {
+        clinicId: user.clinicId,
+        appointmentIds: affected.map((a) => a.id),
+        operation: "UPSERT",
+      }).catch(() => {})
+      flushCalendarSyncAfterResponse()
+    }
 
     return NextResponse.json({ success: true, updatedCount: result.count })
   }
@@ -102,7 +114,21 @@ export const DELETE = withFeatureAuth(
     if (blocks.length > 0) {
       return NextResponse.json(buildInvoiceLinkError(blocks), { status: 409 })
     }
-    const result = await prisma.appointment.deleteMany({ where })
+
+    // Enqueue the remote DELETE before the physical delete (same transaction)
+    // so the event links survive for the processor's remote cleanup.
+    const apptIds = toDelete.map((a) => a.id)
+    const result = await prisma.$transaction(async (tx) => {
+      if (apptIds.length > 0) {
+        await enqueueCalendarSync(tx, {
+          clinicId: user.clinicId,
+          appointmentIds: apptIds,
+          operation: "DELETE",
+        })
+      }
+      return tx.appointment.deleteMany({ where })
+    })
+    if (apptIds.length > 0) flushCalendarSyncAfterResponse()
 
     return NextResponse.json({ success: true, deletedCount: result.count })
   }

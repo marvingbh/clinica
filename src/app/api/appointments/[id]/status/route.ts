@@ -14,6 +14,7 @@ import {
 import { resolveGrouping } from "@/lib/financeiro/invoice-grouping"
 import { handlePerSessionCancellation } from "@/lib/financeiro/per-session-cancellation"
 import { notifyWaitlistSlotsOpened } from "@/lib/waitlist"
+import { enqueueCalendarSync, flushCalendarSyncAfterResponse } from "@/lib/calendar-sync"
 
 /**
  * PATCH /api/appointments/:id/status
@@ -446,6 +447,15 @@ export const PATCH = withFeatureAuth(
         trigger: "STATUS_CANCEL",
       })
     }
+
+    // Re-sync the event (UPSERT). Confirm-only transitions are cheap no-ops via
+    // the body hash; cancellations are removed by the planner.
+    await enqueueCalendarSync(prisma, {
+      clinicId: user.clinicId,
+      appointmentIds: [params.id],
+      operation: "UPSERT",
+    }).catch(() => {})
+    flushCalendarSyncAfterResponse()
 
     return NextResponse.json({
       success: true,

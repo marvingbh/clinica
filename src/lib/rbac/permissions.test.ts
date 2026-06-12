@@ -160,6 +160,26 @@ describe("waitlist feature", () => {
   })
 })
 
+describe("calendar_sync feature", () => {
+  it("ADMIN default is WRITE", () => {
+    expect(ROLE_DEFAULTS.ADMIN.calendar_sync).toBe("WRITE")
+  })
+
+  it("PROFESSIONAL default is WRITE", () => {
+    expect(ROLE_DEFAULTS.PROFESSIONAL.calendar_sync).toBe("WRITE")
+  })
+
+  it("resolves to WRITE for both roles with no overrides", () => {
+    expect(resolvePermissions("ADMIN", {}).calendar_sync).toBe("WRITE")
+    expect(resolvePermissions("PROFESSIONAL", {}).calendar_sync).toBe("WRITE")
+  })
+
+  it("honors an override to NONE", () => {
+    const resolved = resolvePermissions("PROFESSIONAL", { calendar_sync: "NONE" })
+    expect(resolved.calendar_sync).toBe("NONE")
+  })
+})
+
 describe("meetsMinAccess", () => {
   it("WRITE meets WRITE", () => {
     expect(meetsMinAccess("WRITE", "WRITE")).toBe(true)

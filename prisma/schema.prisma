@@ -50,6 +50,7 @@ enum NotificationType {
   PATIENT_PORTAL_OTP
   WAITLIST_OFFER
   WAITLIST_OFFER_EXPIRED
+  CALENDAR_SYNC_ERROR
 }
 
 enum WaitlistEntryStatus {
@@ -143,6 +144,33 @@ enum FeatureAccess {
   NONE
   READ
   WRITE
+}
+
+enum CalendarProvider {
+  GOOGLE
+  ICS
+}
+
+enum CalendarIntegrationStatus {
+  ATIVA
+  ERRO
+  REVOGADA
+}
+
+enum CalendarPrivacyMode {
+  TOTAL // "Atendimento — {clinicName}" (default LGPD)
+  PRIMEIRO_NOME // "Atendimento — {primeiro nome do paciente}"
+}
+
+enum CalendarSyncOperation {
+  UPSERT
+  DELETE
+}
+
+enum CalendarSyncJobStatus {
+  PENDING
+  DONE
+  FAILED
 }
 
 enum ClinicalNoteType {
@@ -408,6 +436,10 @@ model Clinic {
   portalRequests             PortalRequest[]
   waitlistEntries            WaitlistEntry[]
   waitlistOffers             WaitlistOffer[]
+  calendarIntegrations       CalendarIntegration[]
+  calendarEventLinks         CalendarEventLink[]
+  calendarSyncJobs           CalendarSyncJob[]
+  busyBlocks                 BusyBlock[]
 
   @@index([slug])
   @@index([isActive])
@@ -445,6 +477,7 @@ model User {
   recordDisposals            RecordDisposal[]
   reviewedBookingRequests    BookingRequest[]
   resolvedPortalRequests     PortalRequest[]
+  calendarIntegrations       CalendarIntegration[]
 
   @@unique([clinicId, email])
   @@index([clinicId])
@@ -494,6 +527,7 @@ model ProfessionalProfile {
   bookingRequests           BookingRequest[]
   waitlistEntries           WaitlistEntry[]
   waitlistOffers            WaitlistOffer[]
+  busyBlocks                BusyBlock[]
 
   @@index([userId])
   @@index([publicBookingSlug])
@@ -1869,4 +1903,113 @@ model WaitlistOffer {
   @@index([clinicId, status, expiresAt])
   @@index([clinicId, slotStart])
   @@index([entryId])
+}
+
+/// Conexão de calendário externo de um usuário (uma por provider por User).
+/// GOOGLE: OAuth com refresh token criptografado. ICS: feed somente leitura.
+model CalendarIntegration {
+  id              String                    @id @default(cuid())
+  clinicId        String
+  userId          String
+  provider        CalendarProvider
+  status          CalendarIntegrationStatus @default(ATIVA)
+  privacyMode     CalendarPrivacyMode       @default(TOTAL)
+  syncNonBlocking Boolean                   @default(false) // LEMBRETE/NOTA
+
+  // GOOGLE (null para provider ICS)
+  encryptedRefreshToken String?   @db.Text // AES-256-GCM (src/lib/crypto)
+  googleAccountEmail    String?
+  targetCalendarId      String?   @default("primary")
+  grantedScopes         String[]  @default([])
+  lastSyncAt            DateTime?
+  lastErrorMessage      String?
+
+  // Fase 2 (inbound busy blocks)
+  inboundEnabled      Boolean   @default(false)
+  selectedCalendarIds String[]  @default([])
+  busyBlocksFetchedAt DateTime?
+
+  // ICS (null para provider GOOGLE)
+  icsToken String? @unique // hex de 32 bytes; lookup global pelo feed público
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic     Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventLinks CalendarEventLink[]
+  busyBlocks BusyBlock[]
+
+  @@unique([userId, provider])
+  @@index([clinicId])
+  @@index([clinicId, status])
+}
+
+/// Mapeamento appointment ↔ evento Google (garantia de idempotência).
+/// appointmentId é String SEM FK de propósito: o link precisa sobreviver à
+/// exclusão física do Appointment para permitir apagar o evento remoto.
+model CalendarEventLink {
+  id               String  @id @default(cuid())
+  clinicId         String
+  integrationId    String
+  appointmentId    String
+  googleCalendarId String
+  googleEventId    String
+  lastSyncHash     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic      Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  integration CalendarIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@unique([integrationId, appointmentId])
+  @@index([clinicId])
+  @@index([appointmentId])
+}
+
+/// Fila durável (outbox) de sincronização. Um job por appointment; o
+/// processor resolve em runtime quais integrações recebem o evento.
+/// appointmentId sem FK (pode referenciar appointment já excluído).
+model CalendarSyncJob {
+  id            String                @id @default(cuid())
+  clinicId      String
+  appointmentId String
+  operation     CalendarSyncOperation
+  status        CalendarSyncJobStatus @default(PENDING)
+  attempts      Int                   @default(0)
+  maxAttempts   Int                   @default(5)
+  nextRetryAt   DateTime?
+  lastError     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextRetryAt])
+  @@index([clinicId])
+  @@index([appointmentId])
+  // Partial unique index "CalendarSyncJob_pending_uniq" on (appointmentId, operation)
+  // WHERE status = 'PENDING' is created in the migration SQL; createMany skipDuplicates dedupes.
+}
+
+/// Fase 2: intervalo ocupado vindo do calendário pessoal (efêmero —
+/// substituído integralmente a cada poll). Nunca vira Appointment.
+model BusyBlock {
+  id                    String   @id @default(cuid())
+  clinicId              String
+  integrationId         String
+  professionalProfileId String
+  startAt               DateTime
+  endAt                 DateTime
+  sourceCalendarId      String
+  fetchedAt             DateTime @default(now())
+
+  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  integration         CalendarIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, professionalProfileId, startAt])
+  @@index([integrationId])
 }

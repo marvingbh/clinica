@@ -13,6 +13,7 @@ import {
   checkRecurrenceTypeConflicts,
 } from "./recurrence-patch-helpers"
 import { computeSafeRecurrenceTypeChanges, findSafelyDeletableAppointments } from "@/lib/appointments/safe-recurrence-changes"
+import { enqueueCalendarSync, flushCalendarSyncAfterResponse } from "@/lib/calendar-sync"
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
 
@@ -302,6 +303,13 @@ export const PATCH = withFeatureAuth(
 
       // Delete appointments for recurrence type change (only safe ones)
       if (isRecurrenceTypeChange && appointmentsToDelete.length > 0) {
+        // Enqueue the remote DELETE BEFORE the physical delete so event links
+        // survive long enough for the processor to clean up the Google events.
+        await enqueueCalendarSync(tx, {
+          clinicId: recurrence.clinicId,
+          appointmentIds: appointmentsToDelete,
+          operation: "DELETE",
+        })
         await tx.appointment.deleteMany({ where: { id: { in: appointmentsToDelete } } })
         deletedAppointmentsCount = appointmentsToDelete.length
       }
@@ -402,6 +410,22 @@ export const PATCH = withFeatureAuth(
         }
       }
     }, { timeout: 30000 })
+
+    // Mirror the surviving/created/rescheduled occurrences to external
+    // calendars (best-effort). Re-fetch the current future set so newly created
+    // occurrences (which lacked ids at create time) are included.
+    const affected = await prisma.appointment.findMany({
+      where: { recurrenceId, scheduledAt: { gte: applyCutoff } },
+      select: { id: true },
+    })
+    if (affected.length > 0) {
+      await enqueueCalendarSync(prisma, {
+        clinicId: recurrence.clinicId,
+        appointmentIds: affected.map((a) => a.id),
+        operation: "UPSERT",
+      }).catch(() => {})
+    }
+    flushCalendarSyncAfterResponse()
 
     // --- Audit log ---
     const ipAddress = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? undefined

@@ -4,6 +4,7 @@ import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
 import { checkConflictsBulk, formatConflictError } from "@/lib/appointments"
 import { createAuditLog } from "@/lib/rbac/audit"
+import { enqueueCalendarSync, flushCalendarSyncAfterResponse } from "@/lib/calendar-sync"
 
 /**
  * PATCH /api/group-sessions/reschedule
@@ -118,6 +119,16 @@ export const PATCH = withFeatureAuth(
         })
       )
     )
+
+    // Mirror the rescheduled group-session appointments to external calendars.
+    if (result.appointments.length > 0) {
+      await enqueueCalendarSync(prisma, {
+        clinicId: user.clinicId,
+        appointmentIds: result.appointments.map((a) => a.id),
+        operation: "UPSERT",
+      }).catch(() => {})
+      flushCalendarSyncAfterResponse()
+    }
 
     return NextResponse.json({ success: true, updatedCount: result.updatedCount })
   }

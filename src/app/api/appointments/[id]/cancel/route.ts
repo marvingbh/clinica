@@ -6,6 +6,7 @@ import { createAuditLog } from "@/lib/rbac/audit"
 import { NotificationChannel, NotificationType, AppointmentStatus } from "@prisma/client"
 import { createAndSendNotification, getPatientPhoneNumbers } from "@/lib/notifications"
 import { notifyWaitlistSlotsOpened } from "@/lib/waitlist"
+import { enqueueCalendarSync, flushCalendarSyncAfterResponse } from "@/lib/calendar-sync"
 
 /**
  * POST /api/appointments/:id/cancel
@@ -262,6 +263,14 @@ export const POST = withFeatureAuth(
         trigger: "STAFF_SERIES_CANCEL",
       })
 
+      // Cancelled series → remove the events (planner sees CANCELADO).
+      await enqueueCalendarSync(prisma, {
+        clinicId: user.clinicId,
+        appointmentIds: cancelledIds,
+        operation: "UPSERT",
+      }).catch(() => {})
+      flushCalendarSyncAfterResponse()
+
       return NextResponse.json({
         success: true,
         message: `${futureAppointments.length} agendamento(s) cancelado(s) com sucesso`,
@@ -386,6 +395,14 @@ export const POST = withFeatureAuth(
       ],
       trigger: "STAFF_CANCEL",
     })
+
+    // Cancelled appointment → remove the event (planner sees CANCELADO).
+    await enqueueCalendarSync(prisma, {
+      clinicId: user.clinicId,
+      appointmentIds: [params.id],
+      operation: "UPSERT",
+    }).catch(() => {})
+    flushCalendarSyncAfterResponse()
 
     return NextResponse.json({
       success: true,

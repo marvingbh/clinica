@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
-describe("encryption", () => {
+describe("crypto/encryption", () => {
   const TEST_KEY = "a".repeat(64) // 32 bytes hex
 
   beforeEach(() => {
@@ -41,5 +41,11 @@ describe("encryption", () => {
     const pem = "-----BEGIN CERTIFICATE-----\nMIIBxx...\n-----END CERTIFICATE-----"
     const encrypted = encrypt(pem)
     expect(decrypt(encrypted)).toBe(pem)
+  })
+
+  it("throws when ENCRYPTION_KEY is missing or wrong length", async () => {
+    const { encrypt } = await import("./encryption")
+    vi.stubEnv("ENCRYPTION_KEY", "tooshort")
+    expect(() => encrypt("x")).toThrow(/64-character hex/)
   })
 })

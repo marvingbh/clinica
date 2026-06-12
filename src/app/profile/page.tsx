@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
 import { useRequireAuth } from "@/shared/hooks"
+import { CalendarSyncSettings } from "./components/CalendarSyncSettings"
 
 // eslint-disable-next-line no-restricted-imports
 import { useEffect } from "react"
@@ -331,6 +332,8 @@ export default function ProfilePage() {
             </div>
           </form>
         </div>
+
+        <CalendarSyncSettings />
 
         <div className="mt-6 text-center text-sm text-muted-foreground">
           <p>

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { verifyLink } from "@/lib/appointments/appointment-links"
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "@/lib/rate-limit"
 import { notifyWaitlistSlotsOpened } from "@/lib/waitlist"
+import { enqueueCalendarSync, flushCalendarSyncAfterResponse } from "@/lib/calendar-sync"
 
 /**
  * POST /api/public/appointments/cancel
@@ -170,6 +171,14 @@ export async function POST(req: NextRequest) {
     ],
     trigger: "PUBLIC_CANCEL",
   })
+
+  // Patient cancellation → planner removes the event from connected calendars.
+  await enqueueCalendarSync(prisma, {
+    clinicId: existingAppointment.clinicId,
+    appointmentIds: [appointment.id],
+    operation: "UPSERT",
+  }).catch(() => {})
+  flushCalendarSyncAfterResponse()
 
   return NextResponse.json({
     success: true,

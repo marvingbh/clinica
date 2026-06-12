@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyLink } from "@/lib/appointments/appointment-links"
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "@/lib/rate-limit"
+import { enqueueCalendarSync, flushCalendarSyncAfterResponse } from "@/lib/calendar-sync"
 
 /**
  * POST /api/public/appointments/confirm
@@ -104,6 +105,14 @@ export async function POST(req: NextRequest) {
       },
     },
   })
+
+  // Confirmation does not change the event body → cheap hash no-op on sync.
+  await enqueueCalendarSync(prisma, {
+    clinicId: appointment.clinicId,
+    appointmentIds: [appointment.id],
+    operation: "UPSERT",
+  }).catch(() => {})
+  flushCalendarSyncAfterResponse()
 
   return NextResponse.json({
     success: true,

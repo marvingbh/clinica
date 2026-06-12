@@ -8,6 +8,7 @@ import { checkConflict, formatConflictError } from "@/lib/appointments"
 import { findAppointmentsLinkedToInvoices, buildInvoiceLinkError } from "@/lib/appointments/invoice-link-guard"
 import { createAuditLog, audit, AuditAction } from "@/lib/rbac/audit"
 import { notifyWaitlistSlotsOpened } from "@/lib/waitlist"
+import { enqueueCalendarSync, flushCalendarSyncAfterResponse } from "@/lib/calendar-sync"
 
 const updateAppointmentSchema = z.object({
   scheduledAt: z.string().datetime().optional(),
@@ -374,6 +375,14 @@ export const PATCH = withFeatureAuth(
       })
     }
 
+    // Mirror the edit (incl. drag-and-drop reschedule) to external calendars.
+    await enqueueCalendarSync(prisma, {
+      clinicId: user.clinicId,
+      appointmentIds: [params.id],
+      operation: "UPSERT",
+    }).catch(() => {})
+    flushCalendarSyncAfterResponse()
+
     return NextResponse.json({ appointment: result.appointment })
   }
 )
@@ -421,9 +430,17 @@ export const DELETE = withFeatureAuth(
       return NextResponse.json(buildInvoiceLinkError(blocks), { status: 409 })
     }
 
-    await prisma.appointment.delete({
-      where: { id: params.id },
+    // Enqueue the remote DELETE BEFORE the physical delete (same transaction)
+    // so the event link survives long enough for the processor to clean up.
+    await prisma.$transaction(async (tx) => {
+      await enqueueCalendarSync(tx, {
+        clinicId: user.clinicId,
+        appointmentIds: [params.id],
+        operation: "DELETE",
+      })
+      await tx.appointment.delete({ where: { id: params.id } })
     })
+    flushCalendarSyncAfterResponse()
 
     // Create audit log
     await audit.log({

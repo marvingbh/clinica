@@ -13,6 +13,7 @@ import {
   type BulkCancelAppointment,
 } from "@/lib/appointments/bulk-cancel"
 import { notifyWaitlistSlotsOpened } from "@/lib/waitlist"
+import { enqueueCalendarSync, flushCalendarSyncAfterResponse } from "@/lib/calendar-sync"
 
 /**
  * POST /api/appointments/bulk-cancel
@@ -230,6 +231,14 @@ async function handleExecute(
     })),
     trigger: "BULK_CANCEL",
   })
+
+  // Bulk cancel → remove the events (planner sees CANCELADO).
+  await enqueueCalendarSync(prisma, {
+    clinicId: user.clinicId,
+    appointmentIds: validIds,
+    operation: "UPSERT",
+  }).catch(() => {})
+  flushCalendarSyncAfterResponse()
 
   return NextResponse.json({
     success: true,
