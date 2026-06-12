@@ -114,4 +114,19 @@ export const RATE_LIMIT_CONFIGS = {
     maxRequests: 5,
     windowMs: 60 * 1000,
   },
+  /** Public booking — GET available slots, per IP (30/min) */
+  bookingSlots: {
+    maxRequests: 30,
+    windowMs: 60 * 1000,
+  },
+  /** Public booking — POST submission, per IP (5 per 10 min) */
+  bookingSubmit: {
+    maxRequests: 5,
+    windowMs: 10 * 60 * 1000,
+  },
+  /** Public booking — POST submission, per normalized phone (3 per 24h) */
+  bookingPhone: {
+    maxRequests: 3,
+    windowMs: 24 * 60 * 60 * 1000,
+  },
 } as const

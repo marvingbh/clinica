@@ -65,6 +65,13 @@ export default function SchedulingTab({ settings, onUpdate }: TabProps) {
 
   return (
     <div className="bg-card border border-border rounded-lg p-6 space-y-5">
+      <a
+        href="/admin/settings/agendamento-online"
+        className="flex items-center justify-between rounded-md border border-border px-4 py-3 text-sm hover:bg-muted transition-colors"
+      >
+        <span className="font-medium text-foreground">Agendamento online (página pública)</span>
+        <span className="text-muted-foreground">Configurar &rarr;</span>
+      </a>
       <div>
         <label className={labelClass}>Duração Padrão da Sessão (minutos) *</label>
         <input

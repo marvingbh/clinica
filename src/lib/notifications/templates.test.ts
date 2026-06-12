@@ -398,6 +398,39 @@ describe("DEFAULT_TEMPLATES", () => {
       expect(tmpl.name.length).toBeGreaterThan(0)
     })
   })
+
+  it("has a staff email template for ONLINE_BOOKING_RECEIVED", () => {
+    const received = DEFAULT_TEMPLATES.find((t) => t.type === "ONLINE_BOOKING_RECEIVED")
+    expect(received).toBeDefined()
+    expect(received!.channel).toBe("EMAIL")
+  })
+
+  it("has ONLINE_BOOKING_REJECTED templates for both channels", () => {
+    const whatsapp = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "ONLINE_BOOKING_REJECTED" && t.channel === "WHATSAPP"
+    )
+    const email = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "ONLINE_BOOKING_REJECTED" && t.channel === "EMAIL"
+    )
+    expect(whatsapp).toBeDefined()
+    expect(email).toBeDefined()
+  })
+
+  it("renders the ONLINE_BOOKING_REJECTED template with an empty {{reason}} without leaving the placeholder", () => {
+    const tmpl = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "ONLINE_BOOKING_REJECTED" && t.channel === "WHATSAPP"
+    )!
+    const rendered = renderTemplate(tmpl.content, {
+      patientName: "Maria",
+      date: "15/06/2026",
+      time: "14:00",
+      reason: "",
+      clinicName: "Clínica Exemplo",
+    })
+    expect(rendered).not.toContain("{{reason}}")
+    expect(rendered).not.toContain("{{")
+    expect(rendered).toContain("Maria")
+  })
 })
 
 describe("TEMPLATE_VARIABLES", () => {

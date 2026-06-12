@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react"
 import { HomeIcon, CalendarIcon, StethoscopeIcon, UserIcon, UsersIcon, DollarSignIcon, ListChecksIcon, FileTextIcon } from "./icons"
 import type { Feature } from "@/lib/rbac/types"
 import { usePendingIntake } from "@/shared/components/PendingIntakeProvider"
+import { usePendingBookingCount } from "@/shared/hooks"
 
 interface NavItem {
   href: string
@@ -89,6 +90,7 @@ export function BottomNavigation() {
 
   const permissions = session?.user?.permissions
   const { count: pendingIntakeCount } = usePendingIntake()
+  const { count: pendingBookingCount } = usePendingBookingCount()
 
   const isActive = (item: NavItem) => {
     if (item.matchPaths) {
@@ -121,7 +123,9 @@ export function BottomNavigation() {
         <div className="flex items-center justify-around h-16">
           {visibleItems.map((item) => {
             const active = isActive(item)
-            const showDot = item.href === "/patients" && pendingIntakeCount > 0
+            const showDot =
+              (item.href === "/patients" && pendingIntakeCount > 0) ||
+              (item.href === "/agenda/weekly" && pendingBookingCount > 0)
             return (
               <button
                 key={item.href}
@@ -137,11 +141,7 @@ export function BottomNavigation() {
                   }
                 `}
                 aria-current={active ? "page" : undefined}
-                aria-label={
-                  showDot
-                    ? `${item.label} — ${pendingIntakeCount} pendente(s)`
-                    : item.label
-                }
+                aria-label={showDot ? `${item.label} — pendente(s)` : item.label}
               >
                 <span
                   className={`

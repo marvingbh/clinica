@@ -168,6 +168,7 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     // clinical content by default. Grant READ to a clinical director via override.
     prontuario: "NONE",
     ai_assist: "WRITE",
+    online_booking: "WRITE",
   },
   PROFESSIONAL: {
     agenda_own: "WRITE",
@@ -186,6 +187,9 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     todos: "WRITE",
     prontuario: "WRITE",
     ai_assist: "WRITE",
+    // Acts only on the professional's own requests — scoped in the handler,
+    // mirroring agenda_own.
+    online_booking: "WRITE",
   },
 }
 

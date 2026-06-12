@@ -28,12 +28,14 @@ import {
   ListChecksIcon,
   AlertCircleIcon,
   RepeatIcon,
+  InboxIcon,
 } from "./icons"
 import { usePermission } from "@/shared/hooks/usePermission"
 import type { Feature } from "@/lib/rbac/types"
 import { useSidebar } from "./sidebar-context"
 import { NavBadge, type NavBadgeTone } from "./nav-badge"
 import { usePendingIntake } from "@/shared/components/PendingIntakeProvider"
+import { usePendingBookingCount } from "@/shared/hooks"
 
 interface NavItem {
   href: string
@@ -87,6 +89,13 @@ const navGroups: NavGroup[] = [
         icon: <AlertCircleIcon className="w-4 h-4" strokeWidth={1.75} />,
         matchPaths: ["/agenda/pendencias"],
         feature: "agenda_own",
+      },
+      {
+        href: "/agenda/solicitacoes",
+        label: "Solicitações",
+        icon: <InboxIcon className="w-4 h-4" strokeWidth={1.75} />,
+        matchPaths: ["/agenda/solicitacoes"],
+        feature: "online_booking",
       },
       {
         href: "/prontuario",
@@ -297,6 +306,7 @@ export function SidebarNav() {
 
   const permissions = session?.user?.permissions
   const { count: pendingIntakeCount } = usePendingIntake()
+  const { count: pendingBookingCount } = usePendingBookingCount()
 
   const publicPaths = ["/login", "/confirm", "/cancel", "/intake"]
   if (publicPaths.some((p) => pathname.startsWith(p)) || status === "unauthenticated") {
@@ -380,7 +390,9 @@ export function SidebarNav() {
               const dynamicBadge: NavItem["badge"] | undefined =
                 item.href === "/patients" && pendingIntakeCount > 0
                   ? { label: String(pendingIntakeCount), tone: "warn" }
-                  : item.badge
+                  : item.href === "/agenda/solicitacoes" && pendingBookingCount > 0
+                    ? { label: String(pendingBookingCount), tone: "brand" }
+                    : item.badge
               return (
                 <Link
                   key={item.href}

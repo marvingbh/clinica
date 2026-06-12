@@ -26,11 +26,13 @@ export const authConfig: NextAuthConfig = {
       const isConfirmPage = nextUrl.pathname === "/confirm"
       const isCancelPage = nextUrl.pathname === "/cancel"
       const isIntakePage = nextUrl.pathname.startsWith("/intake")
+      const isBookingPage = nextUrl.pathname.startsWith("/agendar")
       const isSuperAdminRoute = nextUrl.pathname.startsWith("/superadmin") ||
         nextUrl.pathname.startsWith("/api/superadmin")
       const isPublicRoute =
         isHomePage || isLoginPage || isSignupPage || isApiAuthRoute || isPublicApiRoute ||
-        isWebhookRoute || isConfirmPage || isCancelPage || isIntakePage || isSuperAdminRoute
+        isWebhookRoute || isConfirmPage || isCancelPage || isIntakePage || isBookingPage ||
+        isSuperAdminRoute
 
       if (isPublicRoute) {
         if (isLoggedIn && isLoginPage) {

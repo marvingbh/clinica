@@ -120,6 +120,26 @@ describe("ai_assist feature", () => {
   })
 })
 
+describe("online_booking feature", () => {
+  it("ADMIN default is WRITE", () => {
+    expect(ROLE_DEFAULTS.ADMIN.online_booking).toBe("WRITE")
+  })
+
+  it("PROFESSIONAL default is WRITE", () => {
+    expect(ROLE_DEFAULTS.PROFESSIONAL.online_booking).toBe("WRITE")
+  })
+
+  it("resolves to WRITE for ADMIN with no overrides", () => {
+    const resolved = resolvePermissions("ADMIN", {})
+    expect(resolved.online_booking).toBe("WRITE")
+  })
+
+  it("admin override to NONE removes booking access for a specific user", () => {
+    const resolved = resolvePermissions("PROFESSIONAL", { online_booking: "NONE" })
+    expect(resolved.online_booking).toBe("NONE")
+  })
+})
+
 describe("meetsMinAccess", () => {
   it("WRITE meets WRITE", () => {
     expect(meetsMinAccess("WRITE", "WRITE")).toBe(true)

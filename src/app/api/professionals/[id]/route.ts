@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { hashPassword } from "@/lib/password"
+import { isValidBookingSlug } from "@/lib/booking"
 
 /**
  * GET /api/professionals/:id
@@ -34,6 +35,8 @@ export const GET = withFeatureAuth(
             allowOnlineBooking: true,
             maxAdvanceBookingDays: true,
             repassePercentage: true,
+            publicBookingSlug: true,
+            photoUrl: true,
           },
         },
       },
@@ -85,7 +88,33 @@ export const PATCH = withFeatureAuth(
       allowOnlineBooking,
       maxAdvanceBookingDays,
       repassePercentage,
+      publicBookingSlug,
+      photoUrl,
     } = body
+
+    // Validate and enforce per-clinic uniqueness of the public booking slug.
+    if (publicBookingSlug !== undefined && publicBookingSlug !== null && publicBookingSlug !== "") {
+      if (!isValidBookingSlug(publicBookingSlug)) {
+        return NextResponse.json(
+          { error: "Link inválido. Use apenas letras minúsculas, números e hífens." },
+          { status: 400 }
+        )
+      }
+      const clash = await prisma.professionalProfile.findFirst({
+        where: {
+          publicBookingSlug,
+          user: { clinicId: user.clinicId },
+          NOT: { id: existing.professionalProfile?.id },
+        },
+        select: { id: true },
+      })
+      if (clash) {
+        return NextResponse.json(
+          { error: "Este link já está em uso por outro profissional." },
+          { status: 409 }
+        )
+      }
+    }
 
     // Check for duplicate email if changing
     if (email && email !== existing.email) {
@@ -127,6 +156,8 @@ export const PATCH = withFeatureAuth(
     if (allowOnlineBooking !== undefined) profileUpdateData.allowOnlineBooking = allowOnlineBooking
     if (maxAdvanceBookingDays !== undefined) profileUpdateData.maxAdvanceBookingDays = maxAdvanceBookingDays
     if (repassePercentage !== undefined) profileUpdateData.repassePercentage = repassePercentage
+    if (publicBookingSlug !== undefined) profileUpdateData.publicBookingSlug = publicBookingSlug || null
+    if (photoUrl !== undefined) profileUpdateData.photoUrl = photoUrl || null
 
     // Update in transaction
     const professional = await prisma.$transaction(async (tx) => {

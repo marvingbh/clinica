@@ -45,6 +45,20 @@ enum NotificationType {
   PASSWORD_RESET
   WELCOME
   INTAKE_FORM_SUBMITTED
+  ONLINE_BOOKING_RECEIVED
+  ONLINE_BOOKING_REJECTED
+}
+
+enum OnlineBookingMode {
+  AUTO_CONFIRM
+  APPROVAL_REQUIRED
+}
+
+enum BookingRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
 }
 
 enum IntakeSubmissionStatus {
@@ -342,6 +356,8 @@ model Clinic {
   noteAddenda                NoteAddendum[]
   noteTemplates              NoteTemplate[]
   recordDisposals            RecordDisposal[]
+  onlineBookingSettings      OnlineBookingSettings?
+  bookingRequests            BookingRequest[]
 
   @@index([slug])
   @@index([isActive])
@@ -377,6 +393,7 @@ model User {
   signedClinicalNotes        ClinicalNote[]               @relation("SignedClinicalNotes")
   noteAddenda                NoteAddendum[]
   recordDisposals            RecordDisposal[]
+  reviewedBookingRequests    BookingRequest[]
 
   @@unique([clinicId, email])
   @@index([clinicId])
@@ -397,6 +414,8 @@ model ProfessionalProfile {
   allowOnlineBooking    Boolean @default(true)
   maxAdvanceBookingDays Int     @default(30)
   repassePercentage     Decimal @default(0) @db.Decimal(5, 2) // % paid to professional after tax
+  publicBookingSlug     String? // unique PER CLINIC, validated in app code (no global unique)
+  photoUrl              String? // public booking page avatar (optional external URL)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -421,8 +440,10 @@ model ProfessionalProfile {
   todoRecurrences           TodoRecurrence[]
   clinicalNotes             ClinicalNote[]
   prontuarioResponsibleFor  Clinic[]                   @relation("ProntuarioResponsible")
+  bookingRequests           BookingRequest[]
 
   @@index([userId])
+  @@index([publicBookingSlug])
 }
 
 /// Recurring availability rules for professionals (e.g., every Monday 9-17)
@@ -545,6 +566,7 @@ model Patient {
   usualPayers            PatientUsualPayer[]
   intakeSubmissions      IntakeSubmission[]
   clinicalNotes          ClinicalNote[]
+  bookingRequests        BookingRequest[]
 
   @@unique([clinicId, cpf])
   @@index([clinicId])
@@ -651,6 +673,71 @@ model IntakeSubmission {
   @@index([clinicId, submittedAt])
 }
 
+/// Per-clinic settings for the public self-booking page (/agendar/[slug])
+model OnlineBookingSettings {
+  id                      String                @id @default(cuid())
+  clinicId                String                @unique
+  enabled                 Boolean               @default(false)
+  mode                    OnlineBookingMode     @default(APPROVAL_REQUIRED)
+  sessionDurationMinutes  Int                   @default(50) // fallback; prof.appointmentDuration wins
+  minAdvanceHours         Int                   @default(12)
+  horizonDays             Int                   @default(30) // capped by prof.maxAdvanceBookingDays
+  allowedModalities       AppointmentModality[] @default([ONLINE, PRESENCIAL])
+  maxOpenBookingsPerPhone Int                   @default(2)
+  blockedPhones           String[]              @default([]) // normalized digits
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+}
+
+/// A public self-booking submission. APPROVED rows always have appointmentId.
+/// Mirrors IntakeSubmission: no Patient row is created before staff approval.
+model BookingRequest {
+  id                    String               @id @default(cuid())
+  clinicId              String
+  professionalProfileId String
+  status                BookingRequestStatus @default(PENDING)
+
+  scheduledAt DateTime
+  endAt       DateTime
+  modality    AppointmentModality
+
+  // Contact (as typed by the visitor; phone normalized via src/lib/phone)
+  name  String
+  phone String
+  email String
+  cpf   String?
+
+  // LGPD consents captured at submission time
+  consentWhatsApp Boolean  @default(false)
+  consentEmail    Boolean  @default(false)
+  consentAt       DateTime @default(now())
+
+  // Resolution
+  patientId        String? // unique phone match at submission, or set on approval
+  appointmentId    String?   @unique
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  rejectionReason  String?
+
+  ipAddress String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  patient             Patient?            @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  appointment         Appointment?        @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  reviewedBy          User?               @relation(fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId, status])
+  @@index([clinicId, scheduledAt])
+  @@index([clinicId, phone])
+  @@index([professionalProfileId, status, scheduledAt])
+}
+
 /// Individual appointment or calendar entry
 model Appointment {
   id                    String               @id @default(cuid())
@@ -691,6 +778,7 @@ model Appointment {
   invoiceItems            InvoiceItem[]
   sessionCredits          SessionCredit[]
   clinicalNotes           ClinicalNote[]
+  bookingRequest          BookingRequest?
 
   @@index([clinicId])
   @@index([professionalProfileId])

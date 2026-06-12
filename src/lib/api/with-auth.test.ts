@@ -44,6 +44,9 @@ const adminPermissions: ResolvedPermissions = {
   finances: "WRITE",
   expenses: "WRITE",
   todos: "WRITE",
+  prontuario: "NONE",
+  ai_assist: "WRITE",
+  online_booking: "WRITE",
 }
 
 const professionalPermissions: ResolvedPermissions = {
@@ -61,6 +64,9 @@ const professionalPermissions: ResolvedPermissions = {
   finances: "WRITE",
   expenses: "NONE",
   todos: "WRITE",
+  prontuario: "WRITE",
+  ai_assist: "WRITE",
+  online_booking: "WRITE",
 }
 
 function makeAdminSession() {

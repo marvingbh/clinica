@@ -22,6 +22,7 @@ import { usePermission } from "@/shared/hooks/usePermission"
 import type { Feature } from "@/lib/rbac/types"
 import { NavBadge } from "./nav-badge"
 import { usePendingIntake } from "@/shared/components/PendingIntakeProvider"
+import { usePendingBookingCount } from "@/shared/hooks"
 
 interface NavItem {
   href: string
@@ -195,6 +196,7 @@ export function DesktopHeader() {
 
   const permissions = session?.user?.permissions
   const { count: pendingIntakeCount } = usePendingIntake()
+  const { count: pendingBookingCount } = usePendingBookingCount()
 
   const isActive = (item: NavItem) => {
     if (item.matchPaths) {
@@ -234,6 +236,7 @@ export function DesktopHeader() {
             {visibleItems.map((item) => {
               const active = isActive(item)
               const showBadge = item.href === "/patients" && pendingIntakeCount > 0
+              const showBookingBadge = item.href === "/agenda/weekly" && pendingBookingCount > 0
               return (
                 <Link
                   key={item.href}
@@ -254,6 +257,9 @@ export function DesktopHeader() {
                   {item.label}
                   {showBadge && (
                     <NavBadge label={String(pendingIntakeCount)} tone="warn" className="ml-1" />
+                  )}
+                  {showBookingBadge && (
+                    <NavBadge label={String(pendingBookingCount)} tone="brand" className="ml-1" />
                   )}
                   {active && (
                     <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />

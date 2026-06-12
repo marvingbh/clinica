@@ -30,6 +30,11 @@ const providers: Record<NotificationChannel, NotificationProvider> = {
  */
 const ALWAYS_ENABLED_EMAIL_TYPES = new Set<NotificationType>([
   NotificationType.INTAKE_FORM_SUBMITTED,
+  // Internal staff alert for a new public booking — no end-user impact.
+  NotificationType.ONLINE_BOOKING_RECEIVED,
+  // Courtesy reply to a rejected/declined public booking request. Not a
+  // confirmation/reminder, so it is not gated by appointmentNotificationsEnabled.
+  NotificationType.ONLINE_BOOKING_REJECTED,
 ])
 
 /**

@@ -98,4 +98,19 @@ describe("RATE_LIMIT_CONFIGS", () => {
     expect(RATE_LIMIT_CONFIGS.sensitive.maxRequests).toBe(5)
     expect(RATE_LIMIT_CONFIGS.sensitive.windowMs).toBe(60000)
   })
+
+  it("bookingSlots allows 30 per minute", () => {
+    expect(RATE_LIMIT_CONFIGS.bookingSlots.maxRequests).toBe(30)
+    expect(RATE_LIMIT_CONFIGS.bookingSlots.windowMs).toBe(60000)
+  })
+
+  it("bookingSubmit allows 5 per 10 minutes", () => {
+    expect(RATE_LIMIT_CONFIGS.bookingSubmit.maxRequests).toBe(5)
+    expect(RATE_LIMIT_CONFIGS.bookingSubmit.windowMs).toBe(10 * 60 * 1000)
+  })
+
+  it("bookingPhone allows 3 per 24 hours", () => {
+    expect(RATE_LIMIT_CONFIGS.bookingPhone.maxRequests).toBe(3)
+    expect(RATE_LIMIT_CONFIGS.bookingPhone.windowMs).toBe(24 * 60 * 60 * 1000)
+  })
 })

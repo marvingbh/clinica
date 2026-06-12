@@ -22,6 +22,10 @@
     {
       "path": "/api/jobs/pending-clinical-notes",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/jobs/expire-booking-requests",
+      "schedule": "0 5 * * *"
     }
   ]
 }

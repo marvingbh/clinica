@@ -19,6 +19,12 @@ export interface TemplateVariables {
   modality?: string
   guardianName?: string
   childName?: string
+  /** Optional rejection reason for ONLINE_BOOKING_REJECTED (may be empty). */
+  reason?: string
+  /** Link to the staff booking-requests inbox for ONLINE_BOOKING_RECEIVED. */
+  requestsLink?: string
+  /** Visitor phone for the staff ONLINE_BOOKING_RECEIVED notice. */
+  phone?: string
 }
 
 /**
@@ -183,6 +189,45 @@ Atenciosamente,
 
 Acesse o sistema para revisar e aprovar.
 
+{{clinicName}}`,
+  },
+  // ONLINE_BOOKING_RECEIVED - Email (staff)
+  {
+    type: NotificationType.ONLINE_BOOKING_RECEIVED,
+    channel: NotificationChannel.EMAIL,
+    name: "Novo Agendamento Online (Email)",
+    subject: "Novo agendamento online — {{patientName}}",
+    content: `Um novo agendamento online foi solicitado.
+
+Paciente/Contato: {{patientName}}
+Telefone: {{phone}}
+Profissional: {{professionalName}}
+Data: {{date}}
+Horário: {{time}}
+Modalidade: {{modality}}
+
+Acesse a caixa de solicitações para revisar:
+{{requestsLink}}
+
+{{clinicName}}`,
+  },
+  // ONLINE_BOOKING_REJECTED - WhatsApp (contact)
+  {
+    type: NotificationType.ONLINE_BOOKING_REJECTED,
+    channel: NotificationChannel.WHATSAPP,
+    name: "Agendamento Online Não Confirmado (WhatsApp)",
+    subject: null,
+    content: `Olá, {{patientName}}. Infelizmente não foi possível confirmar seu horário de {{date}} às {{time}}. {{reason}} Entre em contato com a {{clinicName}} para encontrarmos um novo horário.`,
+  },
+  // ONLINE_BOOKING_REJECTED - Email (contact)
+  {
+    type: NotificationType.ONLINE_BOOKING_REJECTED,
+    channel: NotificationChannel.EMAIL,
+    name: "Agendamento Online Não Confirmado (Email)",
+    subject: "Sobre seu agendamento — {{clinicName}}",
+    content: `Olá, {{patientName}}. Infelizmente não foi possível confirmar seu horário de {{date}} às {{time}}. {{reason}} Entre em contato com a {{clinicName}} para encontrarmos um novo horário.
+
+Atenciosamente,
 {{clinicName}}`,
   },
 ]
