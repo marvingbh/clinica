@@ -76,7 +76,7 @@ export const PATCH = withFeatureAuth(
     }
 
     const currentSections = (note.sections ?? {}) as NoteSections
-    const data: Prisma.ClinicalNoteUpdateInput = {}
+    const data: Prisma.ClinicalNoteUncheckedUpdateManyInput = {}
 
     if (parsed.data.sections !== undefined) {
       const defs = await resolveSectionDefs(
@@ -98,9 +98,7 @@ export const PATCH = withFeatureAuth(
       }
       if (parsed.data.format !== undefined) data.format = parsed.data.format
       if (parsed.data.templateId !== undefined) {
-        data.template = parsed.data.templateId
-          ? { connect: { id: parsed.data.templateId } }
-          : { disconnect: true }
+        data.templateId = parsed.data.templateId ?? null
       }
     }
 
