@@ -13,6 +13,14 @@ export interface PendingFilterOptions {
   minHoursSinceSession?: number
   /** Lookback window in days; sessions older than this are ignored (default 14). */
   lookbackDays?: number
+  /**
+   * When set, only include appointments whose resolved note owner
+   * (`attendingProfessionalId ?? professionalProfileId`) equals this id.
+   * Used by the per-professional pending view so a booking owner does not see
+   * sessions a colleague actually attended (and is responsible for noting).
+   * The clinic-wide cron leaves this unset.
+   */
+  ownerProfessionalId?: string
 }
 
 /**
@@ -23,6 +31,7 @@ export interface PendingFilterOptions {
  * - no existing note (by appointment id)
  * - session ended at least `minHoursSinceSession` ago
  * - session within the `lookbackDays` window
+ * - (optional) the resolved note owner matches `ownerProfessionalId`
  */
 export function filterPendingAppointments(
   appts: PendingAppointment[],
@@ -40,6 +49,12 @@ export function filterPendingAppointments(
     if (appt.status !== "FINALIZADO") return false
     if (appt.patientId == null) return false
     if (existingNoteApptIds.has(appt.id)) return false
+    if (
+      opts.ownerProfessionalId !== undefined &&
+      resolveNoteOwnerProfessional(appt) !== opts.ownerProfessionalId
+    ) {
+      return false
+    }
     const t = appt.scheduledAt.getTime()
     if (t > minCutoff) return false // too recent (< minHours ago)
     if (t < lookbackCutoff) return false // outside lookback window

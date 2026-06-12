@@ -51,7 +51,6 @@ export const GET = withFeatureAuth(
     const existingNotes = await prisma.clinicalNote.findMany({
       where: {
         clinicId: user.clinicId,
-        professionalProfileId: profId,
         appointmentId: { in: appts.map((a) => a.id) },
       },
       select: { appointmentId: true },
@@ -73,6 +72,7 @@ export const GET = withFeatureAuth(
 
     const pending = filterPendingAppointments(pendingInput, existingApptIds, now, {
       lookbackDays: LOOKBACK_DAYS,
+      ownerProfessionalId: profId,
     })
 
     if (countOnly) return NextResponse.json({ count: pending.length })

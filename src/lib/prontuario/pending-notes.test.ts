@@ -71,6 +71,32 @@ describe("filterPendingAppointments", () => {
     const old = appt({ scheduledAt: new Date("2026-05-20T15:00:00.000Z") }) // ~22 days
     expect(filterPendingAppointments([old], empty, NOW)).toHaveLength(0)
   })
+
+  it("with ownerProfessionalId, excludes sessions a colleague attended", () => {
+    // Caller (prof1) is the booking owner, but a colleague attended -> the note
+    // belongs to the colleague, not the caller.
+    const attendedByColleague = appt({
+      professionalProfileId: "prof1",
+      attendingProfessionalId: "colega",
+    })
+    expect(
+      filterPendingAppointments([attendedByColleague], empty, NOW, {
+        ownerProfessionalId: "prof1",
+      })
+    ).toHaveLength(0)
+  })
+
+  it("with ownerProfessionalId, includes sessions the caller attended", () => {
+    const attendedBySelf = appt({
+      professionalProfileId: "other",
+      attendingProfessionalId: "prof1",
+    })
+    expect(
+      filterPendingAppointments([attendedBySelf], empty, NOW, {
+        ownerProfessionalId: "prof1",
+      })
+    ).toHaveLength(1)
+  })
 })
 
 describe("buildPendingTodoInput", () => {
