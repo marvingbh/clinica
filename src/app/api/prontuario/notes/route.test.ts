@@ -9,12 +9,14 @@ vi.mock("@/lib/api", () => ({
 const mockNoteCreate = vi.fn()
 const mockNoteFindMany = vi.fn()
 const mockNoteFindFirst = vi.fn()
+const mockNoteCount = vi.fn()
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     clinicalNote: {
       create: (...a: unknown[]) => mockNoteCreate(...a),
       findMany: (...a: unknown[]) => mockNoteFindMany(...a),
       findFirst: (...a: unknown[]) => mockNoteFindFirst(...a),
+      count: (...a: unknown[]) => mockNoteCount(...a),
     },
   },
 }))
@@ -137,11 +139,19 @@ describe("POST /api/prontuario/notes", () => {
 describe("GET /api/prontuario/notes", () => {
   beforeEach(() => {
     mockNoteFindMany.mockResolvedValue([])
+    mockNoteCount.mockResolvedValue(0)
   })
 
-  it("requires patientId", async () => {
-    const res = await callGET("http://localhost/api/prontuario/notes")
-    expect(res.status).toBe(400)
+  it("browses cross-patient without patientId, forcing own professional for a WRITE author", async () => {
+    const res = await callGET("http://localhost/api/prontuario/notes?status=ASSINADA&search=ana")
+    expect(res.status).toBe(200)
+    const where = mockNoteFindMany.mock.calls[0][0].where
+    expect(where.patientId).toBeUndefined()
+    expect(where.professionalProfileId).toBe("prof1")
+    expect(where.status).toBe("ASSINADA")
+    expect(where.patient).toEqual({ name: { contains: "ana", mode: "insensitive" } })
+    const json = await res.json()
+    expect(json).toMatchObject({ page: 1, total: 0 })
   })
 
   it("forces own-professional filter for a WRITE author (no broad read)", async () => {

@@ -3,6 +3,8 @@ import type { ClinicalNoteType, ClinicalNoteFormat } from "@/lib/prontuario"
 export interface NoteListItem {
   id: string
   patientId: string
+  /** Present in the cross-patient browser; absent in the per-patient tab. */
+  patientName?: string | null
   professionalProfileId: string
   professionalName: string
   appointmentId: string | null

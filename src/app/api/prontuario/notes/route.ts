@@ -4,74 +4,83 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac"
 import { assertPatientInClinic, assertAppointmentInClinic } from "@/lib/clinic/ownership"
+import {
+  buildNoteListWhere,
+  parsePageParams,
+  parseNoteStatusFilter,
+  normalizeSearch,
+  paginationMeta,
+} from "@/lib/prontuario"
 import { createNoteSchema } from "../_schemas"
 import { ownershipErrorResponse } from "../_helpers"
 
 /**
- * GET /api/prontuario/notes?patientId=...&professionalProfileId=&from=&to=&page=
- * Lists notes for a patient. Without broad READ access the result is forced to
- * the caller's own professional profile (agenda_own convention).
+ * GET /api/prontuario/notes — list/browse clinical notes.
+ * - With ?patientId=... : the patient's record (used by the patient tab).
+ * - Without patientId    : a cross-patient browser (?search=&status=&page=&pageSize=)
+ *   used by the /prontuario page.
+ * Self-scoping (agenda_own convention): an authoring professional (WRITE) only
+ * ever lists their own notes; a read-only director (access === "READ") or an
+ * admin without a professional profile may browse all professionals, optionally
+ * narrowed by the professionalProfileId filter.
  */
 export const GET = withFeatureAuth(
   { feature: "prontuario", minAccess: "READ" },
   async (req, { user, access }) => {
     const { searchParams } = new URL(req.url)
     const patientId = searchParams.get("patientId")
-    if (!patientId) {
-      return NextResponse.json({ error: "patientId é obrigatório." }, { status: 400 })
+
+    if (patientId) {
+      try {
+        await assertPatientInClinic(user.clinicId, patientId)
+      } catch (error) {
+        const res = ownershipErrorResponse(error)
+        if (res) return res
+        throw error
+      }
     }
 
-    try {
-      await assertPatientInClinic(user.clinicId, patientId)
-    } catch (error) {
-      const res = ownershipErrorResponse(error)
-      if (res) return res
-      throw error
-    }
-
-    // Self-scoping (agenda_own convention): an authoring professional (WRITE)
-    // only ever lists their own notes. A read-only director (access === "READ")
-    // or an admin without a professional profile may browse all professionals,
-    // optionally narrowed by the professionalProfileId filter.
     const isDirector = access === "READ" || user.professionalProfileId === null
     const requestedProf = searchParams.get("professionalProfileId")
     const scopedProf = isDirector ? requestedProf : user.professionalProfileId
 
-    const where: Prisma.ClinicalNoteWhereInput = {
+    const { page, pageSize } = parsePageParams(
+      { page: searchParams.get("page"), pageSize: searchParams.get("pageSize") },
+      patientId ? 50 : undefined
+    )
+    const where = buildNoteListWhere({
       clinicId: user.clinicId,
       patientId,
-    }
-    if (scopedProf) where.professionalProfileId = scopedProf
-
-    const from = searchParams.get("from")
-    const to = searchParams.get("to")
-    if (from || to) {
-      where.sessionDate = {}
-      if (from) where.sessionDate.gte = new Date(`${from}T00:00:00.000Z`)
-      if (to) where.sessionDate.lte = new Date(`${to}T23:59:59.999Z`)
-    }
-
-    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
-    const limit = 50
-    const notes = await prisma.clinicalNote.findMany({
-      where,
-      orderBy: { sessionDate: "desc" },
-      skip: (page - 1) * limit,
-      take: limit,
-      include: {
-        professionalProfile: { select: { user: { select: { name: true } } } },
-        appointment: { select: { scheduledAt: true, status: true } },
-        _count: { select: { addenda: true } },
-      },
+      professionalProfileId: scopedProf,
+      status: parseNoteStatusFilter(searchParams.get("status")),
+      search: normalizeSearch(searchParams.get("search")),
+      from: searchParams.get("from"),
+      to: searchParams.get("to"),
     })
 
-    // Only the author may see section content of their own notes; for others
-    // (directors), still return metadata + content since READ implies they can
-    // read clinical content of this clinic. NONE viewers never reach here.
+    const [total, notes] = await Promise.all([
+      prisma.clinicalNote.count({ where }),
+      prisma.clinicalNote.findMany({
+        where,
+        orderBy: { sessionDate: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          patient: { select: { name: true } },
+          professionalProfile: { select: { user: { select: { name: true } } } },
+          appointment: { select: { scheduledAt: true, status: true } },
+          _count: { select: { addenda: true } },
+        },
+      }),
+    ])
+
+    // Directors with READ may read clinical content of this clinic; NONE viewers
+    // never reach here. Section content itself is fetched on the detail route.
     return NextResponse.json({
       notes: notes.map((n) => ({
         id: n.id,
         patientId: n.patientId,
+        patientName: n.patient?.name ?? null,
         professionalProfileId: n.professionalProfileId,
         professionalName: n.professionalProfile.user.name,
         appointmentId: n.appointmentId,
@@ -86,7 +95,7 @@ export const GET = withFeatureAuth(
         createdAt: n.createdAt,
         updatedAt: n.updatedAt,
       })),
-      page,
+      ...paginationMeta(total, page, pageSize),
     })
   }
 )

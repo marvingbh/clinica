@@ -1,14 +1,22 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
-import { filterPendingAppointments, type PendingAppointment } from "@/lib/prontuario"
+import {
+  filterPendingAppointments,
+  normalizeSearch,
+  parsePageParams,
+  paginateArray,
+  paginationMeta,
+  type PendingAppointment,
+} from "@/lib/prontuario"
 
 const LOOKBACK_DAYS = 30
 
 /**
  * GET /api/prontuario/pending — FINALIZADO CONSULTAs of the caller's own
  * professional profile without a note. `?countOnly=true` returns just a count
- * (used by the agenda badge).
+ * (used by the agenda badge). Supports ?search= (patient name) and ?page=/
+ * ?pageSize= for the /prontuario browser. countOnly ignores search/pagination.
  */
 export const GET = withFeatureAuth(
   { feature: "prontuario", minAccess: "WRITE" },
@@ -19,9 +27,14 @@ export const GET = withFeatureAuth(
     if (!user.professionalProfileId) {
       return countOnly
         ? NextResponse.json({ count: 0 })
-        : NextResponse.json({ pending: [] })
+        : NextResponse.json({ pending: [], total: 0, page: 1, pageSize: 0, totalPages: 0 })
     }
 
+    const search = countOnly ? null : normalizeSearch(searchParams.get("search"))
+    const { page, pageSize } = parsePageParams({
+      page: searchParams.get("page"),
+      pageSize: searchParams.get("pageSize"),
+    })
     const now = new Date()
     const lookbackStart = new Date(now.getTime() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000)
     const profId = user.professionalProfileId
@@ -34,6 +47,7 @@ export const GET = withFeatureAuth(
         patientId: { not: null },
         scheduledAt: { gte: lookbackStart },
         OR: [{ professionalProfileId: profId }, { attendingProfessionalId: profId }],
+        ...(search ? { patient: { name: { contains: search, mode: "insensitive" } } } : {}),
       },
       select: {
         id: true,
@@ -78,12 +92,13 @@ export const GET = withFeatureAuth(
     if (countOnly) return NextResponse.json({ count: pending.length })
 
     return NextResponse.json({
-      pending: pending.map((p) => ({
+      pending: paginateArray(pending, page, pageSize).map((p) => ({
         appointmentId: p.id,
         patientId: p.patientId,
         patientName: p.patientName,
         scheduledAt: p.scheduledAt,
       })),
+      ...paginationMeta(pending.length, page, pageSize),
     })
   }
 )
