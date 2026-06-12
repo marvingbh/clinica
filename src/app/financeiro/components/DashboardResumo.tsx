@@ -52,6 +52,18 @@ export function DashboardResumo({ data, month, onMonthClick }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Overdue invoices chip */}
+      {!!data.overdueCount && data.overdueCount > 0 && (
+        <a
+          href="/financeiro/faturas?vencidas=1"
+          className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 ring-1 ring-amber-200 transition-colors hover:bg-amber-100"
+        >
+          <span aria-hidden>⚠</span>
+          {data.overdueCount} fatura{data.overdueCount === 1 ? "" : "s"} vencida
+          {data.overdueCount === 1 ? "" : "s"} · {formatCurrencyBRL(data.overdueTotal ?? 0)} em aberto
+        </a>
+      )}
+
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <SummaryCard label="Total Faturado" value={formatCurrencyBRL(data.totalFaturado)} sub={`${data.invoiceCount} faturas`} />

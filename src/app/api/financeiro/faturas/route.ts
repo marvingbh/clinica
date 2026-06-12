@@ -60,7 +60,7 @@ export const GET = withFeatureAuth(
       invoiceType: invoiceType ?? "MONTHLY",
       hasNotaFiscalPdf: !!notaFiscalPdf,
       paidViaBank: reconciliationLinks.length > 0,
-      bankPayerName: reconciliationLinks[0]?.transaction.payerName || null,
+      bankPayerName: reconciliationLinks[0]?.transaction?.payerName || null,
     }))
 
     if (sortBy === "recurrence" && result.length > 0) {

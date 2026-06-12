@@ -55,6 +55,7 @@ export const patientFormSchema = z.object({
   referenceProfessionalId: z.string().optional().or(z.literal("")),
   consentWhatsApp: z.boolean(),
   consentEmail: z.boolean(),
+  dunningOptOut: z.boolean(),
 })
 
 export type PatientFormData = z.infer<typeof patientFormSchema>
@@ -96,6 +97,7 @@ export const patientApiSchema = z.object({
   invoiceGrouping: z.enum(["MONTHLY", "PER_SESSION"]).nullable().optional(),
   consentWhatsApp: z.boolean().default(false),
   consentEmail: z.boolean().default(false),
+  dunningOptOut: z.boolean().optional(),
   additionalPhones: z
     .array(additionalPhoneSchema)
     .max(4, "Máximo de 4 telefones adicionais")

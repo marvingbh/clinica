@@ -17,6 +17,9 @@ export interface DashboardData {
   parcialCount: number
   paidCount: number
   availableCredits: number
+  /** Past-due invoices still owing money (dashboard chip). Optional for back-compat. */
+  overdueCount?: number
+  overdueTotal?: number
   byMonth: Record<number, MonthSummary>
   byProfessional: ProfessionalSummary[]
   paymentsByDay: { day: number; amount: number; count: number; cumulative: number }[]

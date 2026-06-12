@@ -42,6 +42,7 @@ const updatePatientSchema = z.object({
   isActive: z.boolean().optional(),
   consentWhatsApp: z.boolean().optional(),
   consentEmail: z.boolean().optional(),
+  dunningOptOut: z.boolean().optional(),
   showAppointmentDaysOnInvoice: z.boolean().optional(),
   invoiceDueDay: z.number().int().min(1).max(28).nullable().optional(),
   invoiceGrouping: z.enum(["MONTHLY", "PER_SESSION"]).nullable().optional(),
@@ -352,6 +353,9 @@ export const PATCH = withFeatureAuth(
       updateData.consentEmail = data.consentEmail
       updateData.consentEmailAt = data.consentEmail ? now : null
     }
+    if (data.dunningOptOut !== undefined) {
+      updateData.dunningOptOut = data.dunningOptOut
+    }
 
     // Handle additional phones update (full replacement strategy)
     if (data.additionalPhones !== undefined) {
@@ -417,6 +421,7 @@ export const PATCH = withFeatureAuth(
         consentWhatsAppAt: true,
         consentEmail: true,
         consentEmailAt: true,
+        dunningOptOut: true,
         showAppointmentDaysOnInvoice: true,
         invoiceDueDay: true,
         invoiceGrouping: true,

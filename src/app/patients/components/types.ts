@@ -60,6 +60,7 @@ export interface Patient {
   consentWhatsAppAt: string | null
   consentEmail: boolean
   consentEmailAt: string | null
+  dunningOptOut?: boolean
   createdAt: string
   updatedAt?: string
   cpf?: string | null

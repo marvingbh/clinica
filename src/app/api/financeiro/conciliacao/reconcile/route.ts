@@ -111,6 +111,7 @@ export const POST = withFeatureAuth(
         // Validate no over-allocation on transactions
         const txAllocated = new Map<string, number>()
         for (const l of existingTxLinks) {
+          if (!l.transactionId) continue // STRIPE links have no bank leg
           txAllocated.set(l.transactionId, (txAllocated.get(l.transactionId) ?? 0) + Number(l.amount))
         }
         for (const link of links) {
@@ -263,7 +264,9 @@ export const DELETE = withFeatureAuth(
             where: { id: { in: linkIdsToDelete } },
             select: { transactionId: true },
           })
-          .then((rs) => rs.map((r) => r.transactionId)),
+          .then((rs) =>
+            rs.map((r) => r.transactionId).filter((id): id is string => id !== null)
+          ),
       ),
     ]
     if (affectedTransactionIds.length > 0) {

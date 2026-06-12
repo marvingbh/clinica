@@ -37,6 +37,7 @@ export interface PatientForFormPrefill {
   referenceProfessionalId?: string | null
   consentWhatsApp: boolean
   consentEmail: boolean
+  dunningOptOut?: boolean
 }
 
 /**
@@ -126,6 +127,7 @@ export function defaultPatientFormValues(): PatientFormData {
     referenceProfessionalId: "",
     consentWhatsApp: false,
     consentEmail: false,
+    dunningOptOut: false,
   }
 }
 
@@ -162,6 +164,7 @@ export function patientToFormData(patient: PatientForFormPrefill): PatientFormDa
     referenceProfessionalId: patient.referenceProfessionalId ?? "",
     consentWhatsApp: patient.consentWhatsApp,
     consentEmail: patient.consentEmail,
+    dunningOptOut: patient.dunningOptOut ?? false,
   }
 }
 
@@ -237,6 +240,7 @@ export function buildPatientPayload({
     referenceProfessionalId: data.referenceProfessionalId || null,
     consentWhatsApp: data.consentWhatsApp,
     consentEmail: data.consentEmail,
+    dunningOptOut: data.dunningOptOut,
     additionalPhones: additionalPhones
       .filter((p) => p.phone.trim() && p.label.trim())
       .map((p) => ({

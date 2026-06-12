@@ -41,6 +41,10 @@ const ALWAYS_ENABLED_EMAIL_TYPES = new Set<NotificationType>([
   // Internal alert to a professional that their personal calendar sync broke
   // (token revoked / persistent error). No end-user impact, no per-clinic gate.
   NotificationType.CALENDAR_SYNC_ERROR,
+  // Integrated billing: the gate here is the dunning config / explicit user
+  // action ("Cobrar"), not the agenda-notifications flag.
+  NotificationType.PAYMENT_LINK,
+  NotificationType.PAYMENT_REMINDER,
 ])
 
 /**
@@ -145,6 +149,7 @@ export async function createNotification(
       clinicId: payload.clinicId,
       patientId: payload.patientId,
       appointmentId: payload.appointmentId,
+      invoiceId: payload.invoiceId,
       type: payload.type,
       channel: payload.channel,
       status,

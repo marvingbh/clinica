@@ -3,6 +3,7 @@ import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { audit, AuditAction } from "@/lib/rbac/audit"
+import { cancelOpenChargesForInvoice } from "@/lib/cobranca/charge-service"
 
 export const GET = withFeatureAuth(
   { feature: "finances", minAccess: "READ" },
@@ -159,6 +160,20 @@ export const PATCH = withFeatureAuth(
       data: updateData,
     })
 
+    // A CANCELADO/PAGO invoice has no open balance to charge — expire any open
+    // payment links so the régua pauses and patients can't pay a dead invoice.
+    if (
+      parsed.data.status &&
+      parsed.data.status !== invoice.status &&
+      (parsed.data.status === "CANCELADO" || parsed.data.status === "PAGO")
+    ) {
+      await cancelOpenChargesForInvoice(
+        params.id,
+        user.clinicId,
+        parsed.data.status === "PAGO" ? "Fatura quitada" : "Fatura cancelada"
+      ).catch(() => {})
+    }
+
     if (parsed.data.status && parsed.data.status !== invoice.status) {
       audit.log({ user, action: AuditAction.INVOICE_STATUS_CHANGED, entityType: "Invoice", entityId: params.id, oldValues: { status: invoice.status }, newValues: { status: parsed.data.status }, request: req }).catch(() => {})
     }
@@ -203,6 +218,9 @@ export const DELETE = withFeatureAuth(
         { status: 400 }
       )
     }
+
+    // Expire any open Stripe sessions before the cascade delete removes charges.
+    await cancelOpenChargesForInvoice(params.id, user.clinicId, "Fatura excluída").catch(() => {})
 
     await prisma.$transaction(async (tx) => {
       await tx.sessionCredit.updateMany({

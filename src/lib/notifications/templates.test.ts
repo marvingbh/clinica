@@ -561,3 +561,46 @@ describe("TEMPLATE_VARIABLES", () => {
     })
   })
 })
+
+describe("payment notification templates (cobrança)", () => {
+  it("ships default templates for the 4 type×channel pairs", () => {
+    const pairs: Array<[string, string]> = [
+      ["PAYMENT_LINK", "WHATSAPP"],
+      ["PAYMENT_LINK", "EMAIL"],
+      ["PAYMENT_REMINDER", "WHATSAPP"],
+      ["PAYMENT_REMINDER", "EMAIL"],
+    ]
+    for (const [type, channel] of pairs) {
+      const tmpl = DEFAULT_TEMPLATES.find((t) => t.type === type && t.channel === channel)
+      expect(tmpl, `${type} ${channel}`).toBeDefined()
+      expect(tmpl!.content.length).toBeGreaterThan(0)
+    }
+  })
+
+  it("renders payment placeholders", () => {
+    const tmpl = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "PAYMENT_LINK" && t.channel === "WHATSAPP"
+    )!
+    const rendered = renderTemplate(tmpl.content, {
+      patientName: "Maria",
+      paymentLink: "https://app/api/public/pagar/abc?s=sig",
+      invoiceAmount: "R$ 300,00",
+      dueDate: "15/06/2026",
+      referenceMonth: "06/2026",
+      clinicName: "Clínica X",
+    })
+    expect(rendered).toContain("https://app/api/public/pagar/abc?s=sig")
+    expect(rendered).toContain("R$ 300,00")
+    expect(rendered).toContain("15/06/2026")
+    expect(rendered).toContain("06/2026")
+    expect(rendered).not.toContain("{{")
+  })
+
+  it("exposes payment variables in TEMPLATE_VARIABLES", () => {
+    const keys = TEMPLATE_VARIABLES.map((v) => v.key)
+    expect(keys).toContain("paymentLink")
+    expect(keys).toContain("invoiceAmount")
+    expect(keys).toContain("dueDate")
+    expect(keys).toContain("referenceMonth")
+  })
+})

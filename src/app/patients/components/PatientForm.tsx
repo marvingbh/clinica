@@ -38,6 +38,7 @@ export interface PatientFormData {
   referenceProfessionalId?: string | undefined
   consentWhatsApp: boolean
   consentEmail: boolean
+  dunningOptOut: boolean
 }
 
 interface PatientFormProps {
@@ -226,6 +227,13 @@ export function PatientForm({
                 <div>
                   <span className="text-sm text-foreground">Autorizo receber comunicações por email</span>
                   <p className="text-xs text-muted-foreground mt-0.5">Lembretes de consulta, confirmações e comunicações da clínica</p>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" {...register("dunningOptOut")} className="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring" />
+                <div>
+                  <span className="text-sm text-foreground">Não enviar cobranças automáticas</span>
+                  <p className="text-xs text-muted-foreground mt-0.5">Exclui o paciente da régua de cobrança (lembretes de pagamento). A cobrança manual continua disponível.</p>
                 </div>
               </label>
             </div>

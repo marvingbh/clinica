@@ -5,8 +5,11 @@ import React, { useState, useCallback, useRef } from "react"
 import { useEffect } from "react"
 import { createPortal } from "react-dom"
 import { XIcon, PencilIcon, TrashIcon } from "@/shared/components/ui/icons"
+import { CreditCard } from "lucide-react"
 import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
 import { toast } from "sonner"
+import ChargeHistory from "./components/ChargeHistory"
+import CobrarModal from "./components/CobrarModal"
 
 interface InvoiceItem {
   id: string
@@ -43,6 +46,8 @@ export function InvoiceDetailModal({ invoiceId, onClose, onUpdate }: InvoiceDeta
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [editingDueDate, setEditingDueDate] = useState(false)
   const [dueDateValue, setDueDateValue] = useState("")
+  const [showCobrar, setShowCobrar] = useState(false)
+  const [chargeReloadKey, setChargeReloadKey] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
    
@@ -268,12 +273,35 @@ export function InvoiceDetailModal({ invoiceId, onClose, onUpdate }: InvoiceDeta
                   </div>
                 </div>
               </div>
+
+              {/* Cobranças */}
+              <div className="px-5 py-4 border-t border-border">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-foreground">Cobranças</h3>
+                  <button
+                    onClick={() => setShowCobrar(true)}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                  >
+                    <CreditCard size={13} /> Cobrar
+                  </button>
+                </div>
+                <ChargeHistory key={chargeReloadKey} invoiceId={invoiceId} />
+              </div>
             </>
           ) : (
             <div className="text-center py-8 text-muted-foreground">Fatura não encontrada</div>
           )}
         </div>
       </div>
+
+      {showCobrar && data && (
+        <CobrarModal
+          invoiceId={invoiceId}
+          openBalance={Number(data.totalAmount)}
+          onClose={() => setShowCobrar(false)}
+          onCreated={() => setChargeReloadKey((k) => k + 1)}
+        />
+      )}
     </div>,
     document.body,
   )

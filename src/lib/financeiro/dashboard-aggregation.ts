@@ -263,3 +263,37 @@ export function buildPaymentsByDay(
     return { day, amount: data?.amount ?? 0, count: data?.count ?? 0, cumulative }
   })
 }
+
+export interface OverdueInvoiceInput {
+  status: string
+  dueDate: Date | string
+  totalAmount: unknown
+}
+
+export interface OverdueChip {
+  count: number
+  total: number
+}
+
+const OVERDUE_STATUSES = new Set(["PENDENTE", "ENVIADO", "PARCIAL"])
+
+/**
+ * Counts and sums invoices that are past due (dueDate < today) and still owe
+ * money (status PENDENTE/ENVIADO/PARCIAL). Powers the dashboard "vencidas" chip.
+ * `today` is injected for testability (compared by calendar date, not time).
+ */
+export function computeOverdueChip(invoices: OverdueInvoiceInput[], today: Date): OverdueChip {
+  const cutoff = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+  let count = 0
+  let total = 0
+  for (const inv of invoices) {
+    if (!OVERDUE_STATUSES.has(inv.status)) continue
+    const d = inv.dueDate instanceof Date ? inv.dueDate : new Date(inv.dueDate)
+    const due = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+    if (due < cutoff) {
+      count++
+      total += Number(inv.totalAmount)
+    }
+  }
+  return { count, total: Math.round(total * 100) / 100 }
+}

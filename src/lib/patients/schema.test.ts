@@ -62,6 +62,7 @@ describe("patientFormSchema (form-shape)", () => {
       splitInvoiceByProfessional: false,
       consentWhatsApp: false,
       consentEmail: false,
+      dunningOptOut: false,
     })
     expect(result.success).toBe(true)
   })
@@ -75,6 +76,7 @@ describe("patientFormSchema (form-shape)", () => {
       splitInvoiceByProfessional: false,
       consentWhatsApp: false,
       consentEmail: false,
+      dunningOptOut: false,
     })
     expect(result.success).toBe(true)
     if (result.success) expect(result.data.sessionFee).toBe("250.00")

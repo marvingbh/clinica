@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Building2, Calendar, DollarSign, Mail, FileText, Palette, ClipboardList, Sparkles, Smartphone, ListChecks, Landmark } from "lucide-react"
+import { Building2, Calendar, DollarSign, Mail, FileText, Palette, ClipboardList, Sparkles, Smartphone, ListChecks, Landmark, CreditCard } from "lucide-react"
 import { useRequireAuth } from "@/shared/hooks"
 import type { ClinicSettings } from "./types"
 import GeneralTab from "./components/GeneralTab"
@@ -17,6 +17,7 @@ import AiSettingsTab from "./components/AiSettingsTab"
 import PortalTab from "./components/PortalTab"
 import WaitlistTab from "./components/WaitlistTab"
 import FiscalConfigTab from "./components/FiscalConfigTab"
+import PaymentsTab from "./components/PaymentsTab"
 
 // eslint-disable-next-line no-restricted-imports
 import { useEffect } from "react"
@@ -26,6 +27,7 @@ const TABS = [
   { id: "agenda" as const, label: "Agenda", icon: Calendar },
   { id: "cores" as const, label: "Cores", icon: Palette },
   { id: "financeiro" as const, label: "Financeiro", icon: DollarSign },
+  { id: "pagamentos" as const, label: "Pagamentos", icon: CreditCard },
   { id: "email" as const, label: "E-mail", icon: Mail },
   { id: "nfse" as const, label: "NFS-e", icon: FileText },
   { id: "fiscal" as const, label: "Fiscal", icon: Landmark },
@@ -42,7 +44,11 @@ export default function AdminSettingsPage() {
   const { isReady, status } = useRequireAuth({ feature: "clinic_settings", minAccess: "READ" })
   const [isLoading, setIsLoading] = useState(true)
   const [settings, setSettings] = useState<ClinicSettings | null>(null)
-  const [activeTab, setActiveTab] = useState<TabId>("geral")
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    if (typeof window === "undefined") return "geral"
+    const tab = new URLSearchParams(window.location.search).get("tab")
+    return TABS.some((t) => t.id === tab) ? (tab as TabId) : "geral"
+  })
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -129,6 +135,7 @@ export default function AdminSettingsPage() {
             {activeTab === "agenda" && <SchedulingTab settings={settings} onUpdate={setSettings} />}
             {activeTab === "cores" && <AgendaColorsTab settings={settings} onUpdate={setSettings} />}
             {activeTab === "financeiro" && <BillingTab settings={settings} onUpdate={setSettings} />}
+            {activeTab === "pagamentos" && <PaymentsTab settings={settings} onUpdate={setSettings} />}
             {activeTab === "email" && <EmailTab settings={settings} onUpdate={setSettings} />}
             {activeTab === "nfse" && <NfseConfigForm />}
             {activeTab === "fiscal" && <FiscalConfigTab />}

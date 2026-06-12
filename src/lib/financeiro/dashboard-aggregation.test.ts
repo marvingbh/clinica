@@ -5,8 +5,10 @@ import {
   groupByMonth,
   groupByProfessional,
   buildPaymentsByDay,
+  computeOverdueChip,
   InvoiceForDashboard,
   PaidInvoiceForDay,
+  OverdueInvoiceInput,
 } from "./dashboard-aggregation"
 
 // --- Helpers ---
@@ -398,5 +400,51 @@ describe("buildPaymentsByDay", () => {
     const result = buildPaymentsByDay(paid, 1)
 
     expect(result[0].amount).toBe(250.75)
+  })
+})
+
+describe("computeOverdueChip", () => {
+  const today = new Date(Date.UTC(2026, 5, 12)) // 2026-06-12
+
+  function ov(overrides: Partial<OverdueInvoiceInput> = {}): OverdueInvoiceInput {
+    return { status: "PENDENTE", dueDate: new Date(Date.UTC(2026, 5, 1)), totalAmount: 300, ...overrides }
+  }
+
+  it("counts and sums invoices past due that still owe money", () => {
+    const result = computeOverdueChip([ov(), ov({ totalAmount: 150 })], today)
+    expect(result).toEqual({ count: 2, total: 450 })
+  })
+
+  it("excludes invoices not yet due", () => {
+    const result = computeOverdueChip([ov({ dueDate: new Date(Date.UTC(2026, 5, 20)) })], today)
+    expect(result).toEqual({ count: 0, total: 0 })
+  })
+
+  it("excludes invoices due today (not yet overdue)", () => {
+    const result = computeOverdueChip([ov({ dueDate: today })], today)
+    expect(result.count).toBe(0)
+  })
+
+  it("excludes PAGO and CANCELADO invoices", () => {
+    const result = computeOverdueChip(
+      [ov({ status: "PAGO" }), ov({ status: "CANCELADO" })],
+      today
+    )
+    expect(result).toEqual({ count: 0, total: 0 })
+  })
+
+  it("includes PARCIAL and ENVIADO statuses", () => {
+    const result = computeOverdueChip([ov({ status: "PARCIAL" }), ov({ status: "ENVIADO" })], today)
+    expect(result.count).toBe(2)
+  })
+
+  it("accepts ISO date strings", () => {
+    const result = computeOverdueChip([ov({ dueDate: "2026-06-01T12:00:00.000Z" })], today)
+    expect(result.count).toBe(1)
+  })
+
+  it("rounds the total to two decimals", () => {
+    const result = computeOverdueChip([ov({ totalAmount: 100.005 })], today)
+    expect(result.total).toBe(100.01)
   })
 })

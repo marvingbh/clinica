@@ -8,6 +8,7 @@ import {
   groupByMonth,
   groupByProfessional,
   buildPaymentsByDay,
+  computeOverdueChip,
 } from "@/lib/financeiro/dashboard-aggregation"
 
 export const GET = withFeatureAuth(
@@ -81,11 +82,27 @@ export const GET = withFeatureAuth(
     }
     const availableCredits = await prisma.sessionCredit.count({ where: creditWhere })
 
+    // Overdue chip: all clinic invoices still owing money past their due date.
+    const overdueInvoices = await prisma.invoice.findMany({
+      where: {
+        clinicId: user.clinicId,
+        status: { in: ["PENDENTE", "ENVIADO", "PARCIAL"] },
+        dueDate: { lt: new Date() },
+        ...(scope === "own" && user.professionalProfileId
+          ? { professionalProfileId: user.professionalProfileId }
+          : {}),
+      },
+      select: { status: true, dueDate: true, totalAmount: true },
+    })
+    const overdue = computeOverdueChip(overdueInvoices, new Date())
+
     return NextResponse.json({
       year,
       month,
       ...totals,
       availableCredits,
+      overdueCount: overdue.count,
+      overdueTotal: overdue.total,
       byMonth,
       byProfessional,
       paymentsByDay,

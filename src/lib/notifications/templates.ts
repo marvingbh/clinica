@@ -33,6 +33,14 @@ export interface TemplateVariables {
   offerUrl?: string
   /** Human-readable expiry (DD/MM HH:mm) for WAITLIST_OFFER. */
   expiresAt?: string
+  /** Stable payment link for PAYMENT_LINK / PAYMENT_REMINDER. */
+  paymentLink?: string
+  /** Invoice open amount formatted as R$ (e.g. "R$ 300,00"). */
+  invoiceAmount?: string
+  /** Invoice due date (DD/MM/YYYY) for payment messages. */
+  dueDate?: string
+  /** Invoice reference month (MM/YYYY) for payment messages. */
+  referenceMonth?: string
 }
 
 /**
@@ -47,6 +55,10 @@ export const TEMPLATE_VARIABLES = [
   { key: "cancelLink", label: "Link de Cancelamento", example: "https://..." },
   { key: "clinicName", label: "Nome da Clínica", example: "Clínica Exemplo" },
   { key: "modality", label: "Modalidade", example: "Presencial" },
+  { key: "paymentLink", label: "Link de Pagamento", example: "https://..." },
+  { key: "invoiceAmount", label: "Valor da Fatura", example: "R$ 300,00" },
+  { key: "dueDate", label: "Vencimento", example: "15/06/2026" },
+  { key: "referenceMonth", label: "Mês de Referência", example: "06/2026" },
 ] as const
 
 /**
@@ -308,6 +320,57 @@ Atenciosamente,
     content: `Olá {{patientName}}.
 
 O horário de {{date}} às {{time}} já foi preenchido. Você continua na nossa lista de espera e avisaremos na próxima oportunidade.
+
+Atenciosamente,
+{{clinicName}}`,
+  },
+  // PAYMENT_LINK - WhatsApp
+  {
+    type: NotificationType.PAYMENT_LINK,
+    channel: NotificationChannel.WHATSAPP,
+    name: "Link de Cobrança (WhatsApp)",
+    subject: null,
+    content: `Olá, {{patientName}}! Segue o link para pagamento da sua fatura de {{referenceMonth}} no valor de {{invoiceAmount}} (vencimento {{dueDate}}): {{paymentLink}} — {{clinicName}}`,
+  },
+  // PAYMENT_LINK - Email
+  {
+    type: NotificationType.PAYMENT_LINK,
+    channel: NotificationChannel.EMAIL,
+    name: "Link de Cobrança (Email)",
+    subject: "Link para pagamento da sua fatura — {{clinicName}}",
+    content: `Olá, {{patientName}}!
+
+Segue o link para pagamento da sua fatura de {{referenceMonth}}.
+
+Valor: {{invoiceAmount}}
+Vencimento: {{dueDate}}
+
+Pague por Pix ou cartão:
+{{paymentLink}}
+
+Atenciosamente,
+{{clinicName}}`,
+  },
+  // PAYMENT_REMINDER - WhatsApp
+  {
+    type: NotificationType.PAYMENT_REMINDER,
+    channel: NotificationChannel.WHATSAPP,
+    name: "Lembrete de Cobrança (WhatsApp)",
+    subject: null,
+    content: `Olá, {{patientName}}! Lembrete: sua fatura de {{invoiceAmount}} vence em {{dueDate}}. Pague por Pix ou cartão: {{paymentLink}} — {{clinicName}}`,
+  },
+  // PAYMENT_REMINDER - Email
+  {
+    type: NotificationType.PAYMENT_REMINDER,
+    channel: NotificationChannel.EMAIL,
+    name: "Lembrete de Cobrança (Email)",
+    subject: "Lembrete: sua fatura vence em breve — {{clinicName}}",
+    content: `Olá, {{patientName}}!
+
+Lembrete: sua fatura de {{invoiceAmount}} vence em {{dueDate}}.
+
+Pague por Pix ou cartão:
+{{paymentLink}}
 
 Atenciosamente,
 {{clinicName}}`,

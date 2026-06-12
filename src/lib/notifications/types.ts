@@ -4,6 +4,7 @@ export interface NotificationPayload {
   clinicId: string
   patientId?: string
   appointmentId?: string
+  invoiceId?: string
   type: NotificationType
   channel: NotificationChannel
   recipient: string

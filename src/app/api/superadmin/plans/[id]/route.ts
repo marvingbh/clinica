@@ -11,6 +11,7 @@ const ALLOWED_FIELDS = [
   "isActive",
   "aiMonthlyCredits",
   "allowPatientPortal",
+  "applicationFeePercent",
 ] as const
 
 export const PATCH = withSuperAdmin(async (req: NextRequest, _admin, params) => {
@@ -25,6 +26,12 @@ export const PATCH = withSuperAdmin(async (req: NextRequest, _admin, params) => 
     const v = data.aiMonthlyCredits
     if (typeof v !== "number" || !Number.isInteger(v) || v < -1) {
       return NextResponse.json({ error: "aiMonthlyCredits inválido" }, { status: 400 })
+    }
+  }
+  if (data.applicationFeePercent !== undefined) {
+    const v = data.applicationFeePercent
+    if (typeof v !== "number" || v < 0 || v > 100) {
+      return NextResponse.json({ error: "applicationFeePercent inválido (0-100)" }, { status: 400 })
     }
   }
 

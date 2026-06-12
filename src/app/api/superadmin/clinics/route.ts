@@ -33,6 +33,7 @@ export const GET = withSuperAdmin(async (req: NextRequest) => {
         phone: true,
         isActive: true,
         subscriptionStatus: true,
+        stripeConnectStatus: true,
         trialEndsAt: true,
         createdAt: true,
         plan: { select: { id: true, name: true, slug: true } },
