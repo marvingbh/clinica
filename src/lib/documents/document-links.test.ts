@@ -41,6 +41,16 @@ describe("signDocumentLink / verifyDocumentLink", () => {
     const { expires, sig } = signDocumentLink(DOCUMENT_ID)
     expect(verifyDocumentLink("other_doc", expires, sig).valid).toBe(false)
   })
+
+  it("rejects a same-length but altered signature (timing-safe path)", () => {
+    const { expires, sig } = signDocumentLink(DOCUMENT_ID)
+    // Flip the last hex char so the length matches but the value differs,
+    // forcing the timingSafeEqual branch rather than the length short-circuit.
+    const altered = sig.slice(0, -1) + (sig.endsWith("0") ? "1" : "0")
+    const res = verifyDocumentLink(DOCUMENT_ID, expires, altered)
+    expect(res.valid).toBe(false)
+    expect(res.error).toBe("Link inválido")
+  })
 })
 
 describe("buildDocumentDownloadUrl", () => {

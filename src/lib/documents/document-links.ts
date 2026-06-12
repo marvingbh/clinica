@@ -1,4 +1,4 @@
-import { createHmac } from "crypto"
+import { createHmac, timingSafeEqual } from "crypto"
 
 const EXPIRY_DAYS = 7
 
@@ -33,7 +33,18 @@ export function verifyDocumentLink(
     return { valid: false, error: "Este link expirou. Solicite um novo à clínica." }
   }
   const expectedSig = computeHmac(documentId, expires)
-  if (sig !== expectedSig) {
+  // Timing-safe compare (mirrors src/lib/cobranca/charge-links.ts); lengths
+  // must match for Buffer comparison.
+  if (typeof sig !== "string" || sig.length !== expectedSig.length) {
+    return { valid: false, error: "Link inválido" }
+  }
+  let matches = false
+  try {
+    matches = timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))
+  } catch {
+    matches = false
+  }
+  if (!matches) {
     return { valid: false, error: "Link inválido" }
   }
   return { valid: true }
