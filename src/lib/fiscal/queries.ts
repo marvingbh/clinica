@@ -10,6 +10,7 @@ import type {
   PaymentEvent,
   ProfessionalFiscalData,
   ReciboRow,
+  UnallocatedCredit,
 } from "./types"
 
 // Minimal Prisma client surface this helper needs — injected by the route so
@@ -85,6 +86,13 @@ interface EmissionRecord {
   reciboNumero: string | null
   erro: string | null
   batchId: string
+}
+
+interface UnallocatedCreditRecord {
+  id: string
+  date: Date
+  amount: DecimalLike
+  payerName: string | null
 }
 
 export interface PeriodFilter {
@@ -234,9 +242,48 @@ export async function loadReciboData(
   const statusByKey = new Map<string, EmissionRecord>()
   for (const e of emissions) statusByKey.set(e.paymentKey, e)
 
-  const issues = collectPendingIssues(rows, [], partialWithoutLinks, patients)
+  // "Sem origem": bank credits in the period not reconciled to any invoice and
+  // not dismissed (and not backing a refund). These are received funds that
+  // cannot become a recibo until reconciled. Only surfaced on the clinic-wide
+  // view (no professional self-scope), since an unallocated credit has no owning
+  // professional and must not leak across professionals.
+  const unallocatedCredits = filter.professionalProfileId
+    ? []
+    : await loadUnallocatedCredits(prisma, filter)
+
+  const issues = collectPendingIssues(rows, unallocatedCredits, partialWithoutLinks, patients)
 
   return { rows, statusByKey, issues, professionals }
+}
+
+/**
+ * Bank credits in the period not reconciled to any invoice and not dismissed
+ * (and not backing a refund). Returns [] when the client lacks the
+ * bankTransaction delegate (e.g. a narrow test mock).
+ */
+async function loadUnallocatedCredits(
+  prisma: FiscalPrismaClient,
+  filter: PeriodFilter
+): Promise<UnallocatedCredit[]> {
+  if (!prisma.bankTransaction) return []
+  const credits = (await prisma.bankTransaction.findMany({
+    where: {
+      clinicId: filter.clinicId,
+      type: "CREDIT",
+      dismissReason: null,
+      date: { gte: filter.from, lte: filter.to },
+      reconciliationLinks: { none: {} },
+      refundLinksAsCredit: { none: {} },
+    },
+    select: { id: true, date: true, amount: true, payerName: true },
+  })) as UnallocatedCreditRecord[]
+
+  return credits.map((c) => ({
+    transactionId: c.id,
+    date: c.date,
+    amount: toNum(c.amount),
+    payerName: c.payerName,
+  }))
 }
 
 /** Filters rows to those that can be exported (no blockers, not fully refunded). */
