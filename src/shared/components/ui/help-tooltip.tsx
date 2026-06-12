@@ -8,13 +8,16 @@ interface HelpTooltipProps {
   label: string
   children: ReactNode
   className?: string
+  /** Which edge the panel anchors to. Use "right" when the icon sits near the
+   *  right edge so the panel opens leftward and does not overflow. */
+  align?: "left" | "right"
 }
 
 /**
  * A small "?" help affordance. Reveals its content on mouse hover, on keyboard
  * focus (Tab), and on click (touch). No useEffect — purely event-driven state.
  */
-export function HelpTooltip({ label, children, className }: HelpTooltipProps) {
+export function HelpTooltip({ label, children, className, align = "left" }: HelpTooltipProps) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -34,7 +37,9 @@ export function HelpTooltip({ label, children, className }: HelpTooltipProps) {
       {open && (
         <span
           role="tooltip"
-          className="absolute left-0 top-full z-50 mt-1.5 w-64 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-popover p-3 text-left text-xs font-normal leading-relaxed text-popover-foreground shadow-md"
+          className={`absolute top-full z-50 mt-1.5 w-64 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-popover p-3 text-left text-xs font-normal leading-relaxed text-popover-foreground shadow-md ${
+            align === "right" ? "right-0" : "left-0"
+          }`}
         >
           {children}
         </span>
