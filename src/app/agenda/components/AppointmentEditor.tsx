@@ -41,6 +41,8 @@ import {
 } from "@/shared/components/ui/icons"
 import { Segmented, ChipField, type SegmentedOption } from "@/shared/components/ui/segmented"
 import { CancelConfirmDialog } from "./CancelConfirmDialog"
+import { SlotMatchesDialog } from "./SlotMatchesDialog"
+import { ListIcon } from "@/shared/components/ui/icons"
 import type { CancelVariant } from "./CancelConfirmDialog"
 
 // ============================================================================
@@ -255,6 +257,7 @@ export function AppointmentEditor({
 }: AppointmentEditorProps) {
   const [activeTab, setActiveTab] = useState<EditorTab>("occurrence")
   const [cancelVariant, setCancelVariant] = useState<CancelVariant | null>(null)
+  const [matchesOpen, setMatchesOpen] = useState(false)
   const { canRead: canReadAudit } = usePermission("audit_logs")
   const { canRead: canReadFinances } = usePermission("finances")
 
@@ -268,6 +271,13 @@ export function AppointmentEditor({
 
   const scheduled = new Date(appointment.scheduledAt)
   const end = new Date(appointment.endAt)
+  // A cancelled, time-blocking CONSULTA in the future left an open slot the
+  // waitlist may be able to fill — surface the candidate-matches dialog.
+  const showWaitlistMatches =
+    isConsulta &&
+    appointment.blocksTime &&
+    CANCELLED_STATUSES.includes(appointment.status) &&
+    scheduled.getTime() > Date.now()
   const timeRange = `${formatTime(scheduled)} — ${formatTime(end)}`
   const durationMin = Math.round((end.getTime() - scheduled.getTime()) / 60000)
   const dateDisplay = formatDateDisplay(scheduled)
@@ -417,7 +427,32 @@ export function AppointmentEditor({
             </span>
           )}
         </div>
+
+        {/* Lista de espera — open slot from a cancelled future consulta */}
+        {showWaitlistMatches && (
+          <button
+            type="button"
+            onClick={() => setMatchesOpen(true)}
+            className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-brand-200 bg-brand-50 text-brand-700 text-[12px] font-medium hover:bg-brand-100 transition-colors"
+          >
+            <ListIcon className="w-3.5 h-3.5" />
+            Ver correspondências na lista de espera
+          </button>
+        )}
       </div>
+
+      {showWaitlistMatches && matchesOpen && (
+        <SlotMatchesDialog
+          isOpen={matchesOpen}
+          onClose={() => setMatchesOpen(false)}
+          slot={{
+            professionalProfileId: appointment.professionalProfile.id,
+            start: appointment.scheduledAt,
+            end: appointment.endAt,
+            modality: appointment.modality,
+          }}
+        />
+      )}
 
       {/* ══════════════════ Context tabs — ctx-tabs grid ══════════════════ */}
       {tabs.length > 1 && (
