@@ -15,6 +15,8 @@ const tabs = [
   { href: "/financeiro/precos", label: "Preços" },
   { href: "/financeiro/repasse", label: "Repasse" },
   { href: "/financeiro/conciliacao", label: "Conciliação" },
+  { href: "/financeiro/receita-saude", label: "Receita Saúde" },
+  { href: "/financeiro/dmed", label: "DMED" },
 ]
 
 export default function FinanceiroLayout({ children }: { children: React.ReactNode }) {
@@ -42,7 +44,7 @@ export default function FinanceiroLayout({ children }: { children: React.ReactNo
             )
           })}
         </div>
-        {!pathname.startsWith("/financeiro/precos") && !pathname.match(/^\/financeiro\/faturas\/.+/) && !pathname.match(/^\/financeiro\/repasse\/.+/) && !pathname.startsWith("/financeiro/conciliacao") && <FinanceiroFilterBar />}
+        {!pathname.startsWith("/financeiro/precos") && !pathname.match(/^\/financeiro\/faturas\/.+/) && !pathname.match(/^\/financeiro\/repasse\/.+/) && !pathname.startsWith("/financeiro/conciliacao") && !pathname.startsWith("/financeiro/receita-saude") && !pathname.startsWith("/financeiro/dmed") && <FinanceiroFilterBar />}
         {children}
       </div>
     </FinanceiroProvider>

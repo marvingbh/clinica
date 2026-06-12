@@ -37,6 +37,9 @@ export const GET = withFeatureAuth(
             repassePercentage: true,
             publicBookingSlug: true,
             photoUrl: true,
+            fiscalRegime: true,
+            cpf: true,
+            fiscalRegimeSince: true,
           },
         },
       },
@@ -90,6 +93,9 @@ export const PATCH = withFeatureAuth(
       repassePercentage,
       publicBookingSlug,
       photoUrl,
+      fiscalRegime,
+      cpf,
+      fiscalRegimeSince,
     } = body
 
     // Validate and enforce per-clinic uniqueness of the public booking slug.
@@ -158,6 +164,12 @@ export const PATCH = withFeatureAuth(
     if (repassePercentage !== undefined) profileUpdateData.repassePercentage = repassePercentage
     if (publicBookingSlug !== undefined) profileUpdateData.publicBookingSlug = publicBookingSlug || null
     if (photoUrl !== undefined) profileUpdateData.photoUrl = photoUrl || null
+    if (fiscalRegime !== undefined) profileUpdateData.fiscalRegime = fiscalRegime || null
+    if (cpf !== undefined) profileUpdateData.cpf = cpf ? String(cpf).replace(/\D/g, "") : null
+    if (fiscalRegimeSince !== undefined)
+      profileUpdateData.fiscalRegimeSince = fiscalRegimeSince
+        ? new Date(`${fiscalRegimeSince}T00:00:00.000Z`)
+        : null
 
     // Update in transaction
     const professional = await prisma.$transaction(async (tx) => {
@@ -197,6 +209,9 @@ export const PATCH = withFeatureAuth(
               allowOnlineBooking: true,
               maxAdvanceBookingDays: true,
               repassePercentage: true,
+              fiscalRegime: true,
+              cpf: true,
+              fiscalRegimeSince: true,
             },
           },
         },

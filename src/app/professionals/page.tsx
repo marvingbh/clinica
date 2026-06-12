@@ -18,6 +18,8 @@ import {
 } from "@/shared/components/ui"
 import { ProfessionalCard, ProfessionalGridSkeleton } from "./components"
 import { usePermission, useRequireAuth, useHasMounted, useMountEffect } from "@/shared/hooks"
+import { validateCpf } from "@/lib/fiscal"
+import { formatDateBR } from "@/lib/financeiro/format"
 
 const professionalSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100),
@@ -43,6 +45,17 @@ const professionalSchema = z.object({
     .max(100, "Percentual máximo é 100%")
     .optional(),
   isAdminRole: z.boolean().optional(),
+  fiscalRegime: z.enum(["", "PF", "PJ"]).optional(),
+  cpf: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine((v) => !v || validateCpf(v), { message: "CPF inválido" }),
+  fiscalRegimeSince: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine((v) => !v || /^\d{2}\/\d{2}\/\d{4}$/.test(v), { message: "Data inválida (DD/MM/AAAA)" }),
 })
 
 type ProfessionalFormData = z.infer<typeof professionalSchema>
@@ -64,6 +77,9 @@ interface Professional {
     allowOnlineBooking: boolean
     maxAdvanceBookingDays: number
     repassePercentage: number | string
+    fiscalRegime?: "PF" | "PJ" | null
+    cpf?: string | null
+    fiscalRegimeSince?: string | null
   } | null
 }
 
@@ -155,6 +171,9 @@ export default function ProfessionalsPage() {
       bufferBetweenSlots: 0,
       repassePercentage: 0,
       isAdminRole: false,
+      fiscalRegime: "",
+      cpf: "",
+      fiscalRegimeSince: "",
     })
     setIsSheetOpen(true)
   }
@@ -172,6 +191,11 @@ export default function ProfessionalsPage() {
       bufferBetweenSlots: professional.professionalProfile?.bufferBetweenSlots ?? 0,
       repassePercentage: Number(professional.professionalProfile?.repassePercentage ?? 0),
       isAdminRole: professional.role === "ADMIN",
+      fiscalRegime: professional.professionalProfile?.fiscalRegime ?? "",
+      cpf: professional.professionalProfile?.cpf ?? "",
+      fiscalRegimeSince: professional.professionalProfile?.fiscalRegimeSince
+        ? formatDateBR(professional.professionalProfile.fiscalRegimeSince)
+        : "",
     })
     setIsSheetOpen(true)
   }
@@ -196,6 +220,11 @@ export default function ProfessionalsPage() {
         : "/api/professionals"
       const method = editingProfessional ? "PATCH" : "POST"
 
+      // Masked DD/MM/AAAA → ISO YYYY-MM-DD for the API.
+      const sinceIso = data.fiscalRegimeSince
+        ? data.fiscalRegimeSince.split("/").reverse().join("-")
+        : null
+
       const payload: Record<string, unknown> = {
         name: data.name,
         email: data.email,
@@ -204,6 +233,9 @@ export default function ProfessionalsPage() {
         appointmentDuration: data.appointmentDuration,
         bufferBetweenSlots: data.bufferBetweenSlots,
         repassePercentage: data.repassePercentage,
+        fiscalRegime: data.fiscalRegime || null,
+        cpf: data.cpf ? data.cpf.replace(/\D/g, "") : null,
+        fiscalRegimeSince: sinceIso,
       }
 
       // Only include password if creating or if password was provided
@@ -577,6 +609,35 @@ export default function ProfessionalsPage() {
                       {...register("registrationNumber")}
                       error={errors.registrationNumber?.message}
                     />
+
+                    <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+                      <p className="text-sm font-medium text-foreground">Fiscal (Receita Saúde / DMED)</p>
+                      <div>
+                        <label className="mb-1 block text-sm text-muted-foreground">Regime fiscal</label>
+                        <select
+                          {...register("fiscalRegime")}
+                          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                        >
+                          <option value="">— não configurado —</option>
+                          <option value="PF">Pessoa Física (Receita Saúde)</option>
+                          <option value="PJ">Pessoa Jurídica (DMED)</option>
+                        </select>
+                      </div>
+                      <Input
+                        label="CPF do profissional"
+                        placeholder="000.000.000-00"
+                        {...register("cpf")}
+                        error={errors.cpf?.message}
+                        helperText="Obrigatório para Pessoa Física (Receita Saúde)"
+                      />
+                      <Input
+                        label="Regime vigente desde"
+                        placeholder="DD/MM/AAAA"
+                        {...register("fiscalRegimeSince")}
+                        error={errors.fiscalRegimeSince?.message}
+                        helperText="Opcional — marca a troca de regime no meio do ano"
+                      />
+                    </div>
 
                     <div>
                       <Input

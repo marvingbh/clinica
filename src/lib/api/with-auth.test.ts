@@ -47,6 +47,9 @@ const adminPermissions: ResolvedPermissions = {
   prontuario: "NONE",
   ai_assist: "WRITE",
   online_booking: "WRITE",
+  waitlist: "WRITE",
+  calendar_sync: "WRITE",
+  fiscal: "WRITE",
 }
 
 const professionalPermissions: ResolvedPermissions = {
@@ -67,6 +70,9 @@ const professionalPermissions: ResolvedPermissions = {
   prontuario: "WRITE",
   ai_assist: "WRITE",
   online_booking: "WRITE",
+  waitlist: "WRITE",
+  calendar_sync: "WRITE",
+  fiscal: "WRITE",
 }
 
 function makeAdminSession() {

@@ -78,6 +78,17 @@ export const FIELD_LABELS: Record<string, string> = {
   inscricaoMunicipal: "Inscricao Municipal",
   codigoMunicipio: "Codigo Municipio",
   useSandbox: "Ambiente de Teste",
+
+  // Fiscal compliance (Receita Saúde / DMED)
+  fiscalRegime: "Regime fiscal",
+  fiscalRegimeSince: "Regime vigente desde",
+  cpf: "CPF",
+  dmedEnabled: "Gerar DMED",
+  nomeEmpresarial: "Nome empresarial",
+  responsavelCpf: "CPF do responsável",
+  responsavelNome: "Nome do responsável",
+  responsavelDdd: "DDD do responsável",
+  responsavelTelefone: "Telefone do responsável",
 }
 
 // ---------------------------------------------------------------------------

@@ -98,3 +98,36 @@ export async function professionalBelongsToClinic(
   })
   return professional !== null
 }
+
+/**
+ * Throws {@link OwnershipError} if any of the invoice ids does not belong to the
+ * clinic. Used by the fiscal export route to validate ids coming from the body.
+ * Deduplicates and ignores empty input.
+ */
+export async function assertInvoicesInClinic(
+  clinicId: string,
+  invoiceIds: string[]
+): Promise<void> {
+  const unique = [...new Set(invoiceIds)].filter(Boolean)
+  if (unique.length === 0) return
+  const found = await prisma.invoice.count({
+    where: { id: { in: unique }, clinicId },
+  })
+  if (found !== unique.length) throw new OwnershipError()
+}
+
+/**
+ * Throws {@link OwnershipError} if any of the reconciliation-link ids does not
+ * belong to the clinic. Deduplicates and ignores empty input.
+ */
+export async function assertReconciliationLinksInClinic(
+  clinicId: string,
+  linkIds: string[]
+): Promise<void> {
+  const unique = [...new Set(linkIds)].filter(Boolean)
+  if (unique.length === 0) return
+  const found = await prisma.reconciliationLink.count({
+    where: { id: { in: unique }, clinicId },
+  })
+  if (found !== unique.length) throw new OwnershipError()
+}

@@ -173,6 +173,9 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     // Self-service per professional. ADMIN can connect their own calendar if
     // they have a professional profile; per-user override still possible.
     calendar_sync: "WRITE",
+    // Receita Saúde / DMED. Clinic-level data (DMED, fiscal config) is further
+    // gated by an explicit ADMIN check inside the handlers.
+    fiscal: "WRITE",
   },
   PROFESSIONAL: {
     agenda_own: "WRITE",
@@ -199,6 +202,9 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     waitlist: "WRITE",
     // Each professional connects their own external calendar.
     calendar_sync: "WRITE",
+    // Sees/exports only their own Receita Saúde receipts — the handler forces
+    // professionalProfileId === user.professionalProfileId (mirrors finances).
+    fiscal: "WRITE",
   },
 }
 

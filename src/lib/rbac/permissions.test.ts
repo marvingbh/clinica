@@ -180,6 +180,26 @@ describe("calendar_sync feature", () => {
   })
 })
 
+describe("fiscal feature", () => {
+  it("ADMIN default is WRITE", () => {
+    expect(ROLE_DEFAULTS.ADMIN.fiscal).toBe("WRITE")
+  })
+
+  it("PROFESSIONAL default is WRITE", () => {
+    expect(ROLE_DEFAULTS.PROFESSIONAL.fiscal).toBe("WRITE")
+  })
+
+  it("resolves to WRITE for both roles with no overrides", () => {
+    expect(resolvePermissions("ADMIN", {}).fiscal).toBe("WRITE")
+    expect(resolvePermissions("PROFESSIONAL", {}).fiscal).toBe("WRITE")
+  })
+
+  it("honors an override to NONE", () => {
+    const resolved = resolvePermissions("PROFESSIONAL", { fiscal: "NONE" })
+    expect(resolved.fiscal).toBe("NONE")
+  })
+})
+
 describe("meetsMinAccess", () => {
   it("WRITE meets WRITE", () => {
     expect(meetsMinAccess("WRITE", "WRITE")).toBe(true)

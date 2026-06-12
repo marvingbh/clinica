@@ -230,6 +230,21 @@ enum NfseEmissionStatus {
   CANCELADA
 }
 
+/// Fiscal regime for a professional: PF emits Receita Saúde receipts,
+/// PJ is aggregated into the clinic's annual DMED.
+enum FiscalRegime {
+  PF
+  PJ
+}
+
+/// Status of a single Receita Saúde receipt emission (mirrors NfseEmissionStatus).
+enum ReciboSaudeStatus {
+  EXPORTADO
+  EMITIDO
+  ERRO
+  CANCELADO
+}
+
 enum BankProvider {
   INTER
 }
@@ -440,6 +455,9 @@ model Clinic {
   calendarEventLinks         CalendarEventLink[]
   calendarSyncJobs           CalendarSyncJob[]
   busyBlocks                 BusyBlock[]
+  fiscalConfig               FiscalConfig?
+  reciboSaudeBatches         ReciboSaudeBatch[]
+  reciboSaudeEmissions       ReciboSaudeEmission[]
 
   @@index([slug])
   @@index([isActive])
@@ -478,6 +496,7 @@ model User {
   reviewedBookingRequests    BookingRequest[]
   resolvedPortalRequests     PortalRequest[]
   calendarIntegrations       CalendarIntegration[]
+  reciboSaudeBatches         ReciboSaudeBatch[]
 
   @@unique([clinicId, email])
   @@index([clinicId])
@@ -500,6 +519,11 @@ model ProfessionalProfile {
   repassePercentage     Decimal @default(0) @db.Decimal(5, 2) // % paid to professional after tax
   publicBookingSlug     String? // unique PER CLINIC, validated in app code (no global unique)
   photoUrl              String? // public booking page avatar (optional external URL)
+
+  // Fiscal compliance (Receita Saúde / DMED). registrationNumber holds the CRP.
+  fiscalRegime      FiscalRegime? // PF => Receita Saúde, PJ => DMED, null => not configured
+  fiscalRegimeSince DateTime?     @db.Date // date the regime changed (supports one switch)
+  cpf               String? // 11 digits only — shared column with feature 009 (ADD COLUMN IF NOT EXISTS)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -528,6 +552,8 @@ model ProfessionalProfile {
   waitlistEntries           WaitlistEntry[]
   waitlistOffers            WaitlistOffer[]
   busyBlocks                BusyBlock[]
+  reciboSaudeBatches        ReciboSaudeBatch[]
+  reciboSaudeEmissions      ReciboSaudeEmission[]
 
   @@index([userId])
   @@index([publicBookingSlug])
@@ -657,6 +683,7 @@ model Patient {
   portalSessions         PatientPortalSession[]
   portalRequests         PortalRequest[]
   waitlistEntries        WaitlistEntry[]
+  reciboSaudeEmissions   ReciboSaudeEmission[]
 
   @@unique([clinicId, cpf])
   @@index([clinicId])
@@ -1258,6 +1285,7 @@ model Invoice {
   consumedCredits     SessionCredit[]
   reconciliationLinks ReconciliationLink[]
   nfseEmissions       NfseEmission[]
+  reciboSaudeEmissions ReciboSaudeEmission[]
 
   @@index([clinicId])
   @@index([professionalProfileId])
@@ -2012,4 +2040,92 @@ model BusyBlock {
 
   @@index([clinicId, professionalProfileId, startAt])
   @@index([integrationId])
+}
+
+// ============================================================================
+// FISCAL COMPLIANCE (Receita Saúde batch receipts + DMED export)
+// ============================================================================
+
+/// Clinic-level fiscal settings for the DMED annual export. Separate from
+/// NfseConfig because clinics without NFS-e may still file DMED.
+model FiscalConfig {
+  id                  String   @id @default(cuid())
+  clinicId            String   @unique
+  dmedEnabled         Boolean  @default(false)
+  cnpj                String? // 14 digits only
+  nomeEmpresarial     String?
+  responsavelCpf      String? // 11 digits only
+  responsavelNome     String?
+  responsavelDdd      String?
+  responsavelTelefone String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+}
+
+/// One Receita Saúde batch-emission file generated for a PF professional.
+model ReciboSaudeBatch {
+  id                    String    @id @default(cuid())
+  clinicId              String
+  professionalProfileId String
+  generatedByUserId     String?
+  fileName              String
+  fileContent           String    @db.Text // exact exported file (for re-download)
+  itemCount             Int
+  totalAmount           Decimal   @db.Decimal(10, 2)
+  resultFileContent     String?   @db.Text // raw RFB result file
+  resultUploadedAt      DateTime?
+  createdAt             DateTime  @default(now())
+
+  clinic              Clinic                @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile   @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  generatedByUser     User?                 @relation(fields: [generatedByUserId], references: [id], onDelete: SetNull)
+  emissions           ReciboSaudeEmission[]
+
+  @@index([clinicId, createdAt])
+  @@index([clinicId, professionalProfileId])
+}
+
+/// Receita Saúde receipt emission per paid installment (payment event).
+/// "Pending" payments have no row here. The row is created at export time
+/// (EXPORTADO) and mutated by the RFB result upload (EMITIDO/ERRO). Retries
+/// after ERRO/CANCELADO reuse the same row pointing at the new batch —
+/// the [clinicId, paymentKey] unique guarantees at most one recibo per payment.
+model ReciboSaudeEmission {
+  id                    String            @id @default(cuid())
+  clinicId              String
+  batchId               String
+  professionalProfileId String
+  patientId             String
+  invoiceId             String
+  reconciliationLinkId  String? // null = manual payment event (inv:)
+  paymentKey            String // "recl:<linkId>" | "inv:<invoiceId>"
+  paymentDate           DateTime          @db.Date
+  amount                Decimal           @db.Decimal(10, 2)
+  beneficiaryCpf        String // snapshots at export time
+  beneficiaryName       String
+  beneficiaryBirthDate  DateTime          @db.Date
+  payerCpf              String
+  payerName             String
+  status                ReciboSaudeStatus @default(EXPORTADO)
+  reciboNumero          String?
+  erro                  String?
+  emitidoAt             DateTime?
+  canceladoAt           DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  batch               ReciboSaudeBatch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  patient             Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  invoice             Invoice             @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, paymentKey])
+  @@index([clinicId, status])
+  @@index([batchId])
+  @@index([clinicId, professionalProfileId, paymentDate])
+  @@index([patientId])
+  @@index([invoiceId])
 }

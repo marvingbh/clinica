@@ -54,6 +54,9 @@ export const GET = withFeatureAuth(
             appointmentDuration: true,
             bufferBetweenSlots: true,
             repassePercentage: true,
+            fiscalRegime: true,
+            cpf: true,
+            fiscalRegimeSince: true,
           },
         },
         // Calendar sync status (GOOGLE) for the informative admin badge.
@@ -83,7 +86,7 @@ export const POST = withFeatureAuth(
   { feature: "professionals", minAccess: "WRITE" },
   async (req, { user }) => {
     const body = await req.json()
-    const { name, email, password, specialty, registrationNumber, appointmentDuration, bufferBetweenSlots, repassePercentage } = body
+    const { name, email, password, specialty, registrationNumber, appointmentDuration, bufferBetweenSlots, repassePercentage, fiscalRegime, cpf, fiscalRegimeSince } = body
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -133,6 +136,9 @@ export const POST = withFeatureAuth(
           appointmentDuration: appointmentDuration ?? 50,
           bufferBetweenSlots: bufferBetweenSlots ?? 0,
           repassePercentage: repassePercentage ?? 0,
+          fiscalRegime: fiscalRegime || null,
+          cpf: cpf ? String(cpf).replace(/\D/g, "") : null,
+          fiscalRegimeSince: fiscalRegimeSince ? new Date(`${fiscalRegimeSince}T00:00:00.000Z`) : null,
         },
       })
 

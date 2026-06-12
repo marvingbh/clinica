@@ -123,6 +123,15 @@ export const AuditAction = {
   CALENDAR_INTEGRATION_CLEANUP_REQUESTED: "calendar_integration.cleanup_requested",
   CALENDAR_ICS_TOKEN_GENERATED: "calendar_integration.ics_token_generated",
   CALENDAR_ICS_TOKEN_REVOKED: "calendar_integration.ics_token_revoked",
+
+  // Fiscal compliance (Receita Saúde / DMED)
+  FISCAL_CONFIG_UPDATED: "FISCAL_CONFIG_UPDATED",
+  RECIBO_SAUDE_BATCH_EXPORTED: "RECIBO_SAUDE_BATCH_EXPORTED",
+  RECIBO_SAUDE_BATCH_UNDONE: "RECIBO_SAUDE_BATCH_UNDONE",
+  RECIBO_SAUDE_RESULT_IMPORTED: "RECIBO_SAUDE_RESULT_IMPORTED",
+  RECIBO_SAUDE_CANCELLED: "RECIBO_SAUDE_CANCELLED",
+  DMED_FILE_DOWNLOADED: "DMED_FILE_DOWNLOADED",
+  FISCAL_TODOS_CREATED: "FISCAL_TODOS_CREATED",
 } as const
 
 export type AuditActionType = (typeof AuditAction)[keyof typeof AuditAction]

@@ -6,6 +6,7 @@ import { useEffect } from "react"
 import { useFinanceiroContext } from "./context/FinanceiroContext"
 import { DashboardData, InsightsData, MONTH_NAMES } from "./components/dashboard-shared"
 import { DashboardResumo } from "./components/DashboardResumo"
+import { PendingRecibosChip } from "./components/PendingRecibosChip"
 import { InsightsCobranca } from "./components/InsightsCobranca"
 import { InsightsAtendimento } from "./components/InsightsAtendimento"
 import { InsightsAnalise } from "./components/InsightsAnalise"
@@ -66,9 +67,12 @@ export default function FinanceiroDashboard() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold">
-        {month ? `${MONTH_NAMES[month - 1]} ${year}` : `Consolidado ${year}`}
-      </h2>
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-lg font-semibold">
+          {month ? `${MONTH_NAMES[month - 1]} ${year}` : `Consolidado ${year}`}
+        </h2>
+        <PendingRecibosChip />
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border overflow-x-auto">
