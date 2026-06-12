@@ -25,6 +25,10 @@ export interface TemplateVariables {
   requestsLink?: string
   /** Visitor phone for the staff ONLINE_BOOKING_RECEIVED notice. */
   phone?: string
+  /** OTP code for PATIENT_PORTAL_OTP. */
+  otpCode?: string
+  /** Patient-portal deep link embedded in reminders. */
+  portalLink?: string
 }
 
 /**
@@ -226,6 +230,31 @@ Acesse a caixa de solicitações para revisar:
     name: "Agendamento Online Não Confirmado (Email)",
     subject: "Sobre seu agendamento — {{clinicName}}",
     content: `Olá, {{patientName}}. Infelizmente não foi possível confirmar seu horário de {{date}} às {{time}}. {{reason}} Entre em contato com a {{clinicName}} para encontrarmos um novo horário.
+
+Atenciosamente,
+{{clinicName}}`,
+  },
+  // PATIENT_PORTAL_OTP - WhatsApp
+  {
+    type: NotificationType.PATIENT_PORTAL_OTP,
+    channel: NotificationChannel.WHATSAPP,
+    name: "Código de Acesso ao Portal (WhatsApp)",
+    subject: null,
+    content: `Seu código de acesso à área do paciente de {{clinicName}}: {{otpCode}}. Válido por 10 minutos.`,
+  },
+  // PATIENT_PORTAL_OTP - Email
+  {
+    type: NotificationType.PATIENT_PORTAL_OTP,
+    channel: NotificationChannel.EMAIL,
+    name: "Código de Acesso ao Portal (Email)",
+    subject: "Seu código de acesso — {{clinicName}}",
+    content: `Olá!
+
+Seu código de acesso à área do paciente de {{clinicName}} é:
+
+{{otpCode}}
+
+Ele é válido por 10 minutos. Se você não solicitou este código, ignore esta mensagem.
 
 Atenciosamente,
 {{clinicName}}`,

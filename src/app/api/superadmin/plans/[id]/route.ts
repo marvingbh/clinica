@@ -10,6 +10,7 @@ const ALLOWED_FIELDS = [
   "priceInCents",
   "isActive",
   "aiMonthlyCredits",
+  "allowPatientPortal",
 ] as const
 
 export const PATCH = withSuperAdmin(async (req: NextRequest, _admin, params) => {

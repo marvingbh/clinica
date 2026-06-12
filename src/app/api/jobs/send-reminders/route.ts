@@ -8,6 +8,7 @@ import {
 import { createNotification, processPendingNotifications, getPatientPhoneNumbers } from "@/lib/notifications"
 import { getTemplate, renderTemplate } from "@/lib/notifications/templates"
 import { buildConfirmUrl, buildCancelUrl } from "@/lib/appointments/appointment-links"
+import { buildPortalDeepLink } from "@/lib/patient-portal"
 import {
   calculateReminderWindow,
   hasPatientConsent,
@@ -55,8 +56,10 @@ export async function GET(req: Request) {
       select: {
         id: true,
         name: true,
+        slug: true,
         timezone: true,
         reminderHours: true,
+        patientPortalEnabled: true,
       },
     })
 
@@ -124,8 +127,10 @@ export async function GET(req: Request) {
 interface ClinicInfo {
   id: string
   name: string
+  slug: string
   timezone: string
   reminderHours: number[]
+  patientPortalEnabled: boolean
 }
 
 interface ClinicResults {
@@ -253,6 +258,9 @@ async function findAndCreateReminders(
 
     const confirmLink = buildConfirmUrl(baseUrl, appointment.id, new Date(appointment.scheduledAt))
     const cancelLink = buildCancelUrl(baseUrl, appointment.id, new Date(appointment.scheduledAt))
+    const portalLink = clinic.patientPortalEnabled
+      ? buildPortalDeepLink(baseUrl, clinic.slug, patient.id, new Date(appointment.scheduledAt))
+      : undefined
 
     const templateVariables = buildReminderTemplateVariables(
       appointment,
@@ -260,7 +268,8 @@ async function findAndCreateReminders(
       appointment.clinic,
       baseUrl,
       confirmLink,
-      cancelLink
+      cancelLink,
+      portalLink
     )
 
     // Send WhatsApp notification to all phone numbers if consent exists

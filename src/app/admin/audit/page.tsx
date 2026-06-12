@@ -81,6 +81,18 @@ const ACTION_LABELS: Record<string, string> = {
   AI_DRAFT_GENERATED: "Rascunho gerado com IA",
   CLINIC_AI_ENABLED: "Assistente de IA habilitado",
   CLINIC_AI_DISABLED: "Assistente de IA desabilitado",
+  PORTAL_LOGIN: "Login no portal do paciente",
+  PORTAL_LOGIN_LINK: "Acesso ao portal por link",
+  PORTAL_OTP_REQUESTED: "Código de acesso solicitado",
+  PORTAL_APPOINTMENT_CONFIRMED: "Sessão confirmada pelo paciente",
+  PORTAL_APPOINTMENT_CANCELLED: "Sessão cancelada pelo paciente",
+  PORTAL_RESCHEDULE_REQUESTED: "Reagendamento solicitado",
+  PORTAL_UPDATE_REQUESTED: "Atualização de dados solicitada",
+  PORTAL_CONSENT_CHANGED: "Consentimento alterado no portal",
+  PORTAL_LGPD_EXPORT_REQUESTED: "Solicitação de dados (LGPD)",
+  PORTAL_INVOICE_DOWNLOADED: "Fatura baixada no portal",
+  PORTAL_DANFSE_DOWNLOADED: "NFS-e baixada no portal",
+  PORTAL_REQUEST_APPLIED: "Solicitação do portal aplicada",
 }
 
 const ENTITY_LABELS: Record<string, string> = {

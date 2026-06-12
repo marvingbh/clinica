@@ -248,6 +248,23 @@ describe("buildReminderTemplateVariables", () => {
     expect(vars.date).toBeTruthy()
     expect(vars.time).toBeTruthy()
   })
+
+  it("includes portalLink when provided (portal enabled)", () => {
+    const vars = buildReminderTemplateVariables(
+      appointment, patient, clinic, baseUrl,
+      "https://app/confirm", "https://app/cancel",
+      "https://app.example.com/paciente/x/entrar?token=abc"
+    )
+    expect(vars.portalLink).toBe("https://app.example.com/paciente/x/entrar?token=abc")
+  })
+
+  it("omits portalLink when not provided (portal disabled)", () => {
+    const vars = buildReminderTemplateVariables(
+      appointment, patient, clinic, baseUrl,
+      "https://app/confirm", "https://app/cancel"
+    )
+    expect(vars).not.toHaveProperty("portalLink")
+  })
 })
 
 // ---------------------------------------------------------------------------

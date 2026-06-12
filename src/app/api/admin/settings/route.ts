@@ -49,6 +49,8 @@ const updateSettingsSchema = z.object({
   prontuarioResponsibleProfessionalId: z.string().min(1).nullable().optional(),
   aiEnabled: z.boolean().optional(),
   aiHistoryContext: z.boolean().optional(),
+  patientPortalEnabled: z.boolean().optional(),
+  portalCancelMinHours: z.number().int().min(1, "Mínimo 1 hora").max(168, "Máximo 168 horas").optional(),
 })
 
 /**
@@ -87,7 +89,10 @@ export const GET = withFeatureAuth(
         aiHistoryContext: true,
         aiTermsAcceptedAt: true,
         aiTermsAcceptedByUserId: true,
+        patientPortalEnabled: true,
+        portalCancelMinHours: true,
         logoData: true,
+        plan: { select: { allowPatientPortal: true } },
       },
     })
 
@@ -98,12 +103,13 @@ export const GET = withFeatureAuth(
       )
     }
 
-    const { logoData, agendaColors, ...rest } = clinic
+    const { logoData, agendaColors, plan, ...rest } = clinic
     return NextResponse.json({
       settings: {
         ...rest,
         hasLogo: !!logoData,
         agendaColors: resolveAgendaColors(agendaColors),
+        planAllowsPatientPortal: !!plan?.allowPatientPortal,
       },
     })
   }
@@ -137,7 +143,7 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors, prontuarioRetentionYears, prontuarioResponsibleProfessionalId, aiEnabled, aiHistoryContext } =
+    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors, prontuarioRetentionYears, prontuarioResponsibleProfessionalId, aiEnabled, aiHistoryContext, patientPortalEnabled, portalCancelMinHours } =
       parsed.data
 
     // Check slug uniqueness
@@ -219,6 +225,24 @@ export const PATCH = withFeatureAuth(
       if (aiHistoryContext !== undefined) updateData.aiHistoryContext = aiHistoryContext
     }
 
+    // Patient portal settings. Enabling requires a plan that allows the portal.
+    if (patientPortalEnabled !== undefined) {
+      if (patientPortalEnabled) {
+        const clinicPlan = await prisma.clinic.findUnique({
+          where: { id: user.clinicId },
+          select: { plan: { select: { allowPatientPortal: true } } },
+        })
+        if (!clinicPlan?.plan?.allowPatientPortal) {
+          return NextResponse.json(
+            { error: "Seu plano não permite o Portal do Paciente. Faça upgrade para habilitar." },
+            { status: 403 },
+          )
+        }
+      }
+      updateData.patientPortalEnabled = patientPortalEnabled
+    }
+    if (portalCancelMinHours !== undefined) updateData.portalCancelMinHours = portalCancelMinHours
+
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
         { error: "Nenhum campo para atualizar" },
@@ -257,6 +281,8 @@ export const PATCH = withFeatureAuth(
       aiHistoryContext: true,
       aiTermsAcceptedAt: true,
       aiTermsAcceptedByUserId: true,
+      patientPortalEnabled: true,
+      portalCancelMinHours: true,
     } as const
 
     const updatedClinic = billingMode === "MONTHLY_FIXED"

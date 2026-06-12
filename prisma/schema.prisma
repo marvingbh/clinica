@@ -47,6 +47,24 @@ enum NotificationType {
   INTAKE_FORM_SUBMITTED
   ONLINE_BOOKING_RECEIVED
   ONLINE_BOOKING_REJECTED
+  PATIENT_PORTAL_OTP
+}
+
+enum PortalSessionScope {
+  FULL // login por OTP: todos os perfis do identificador, todas as áreas
+  AGENDA // deep link: 1 paciente, apenas área de sessões
+}
+
+enum PortalRequestType {
+  RESCHEDULE
+  UPDATE_DATA
+  LGPD_EXPORT
+}
+
+enum PortalRequestStatus {
+  PENDING
+  RESOLVED
+  REJECTED
 }
 
 enum OnlineBookingMode {
@@ -200,6 +218,8 @@ model Plan {
   isActive         Boolean  @default(true)
   /// AI evolução credits per month per clinic: 0 = no AI; -1 = unlimited; N = N successful generations/month
   aiMonthlyCredits Int      @default(0)
+  /// Gating premium: allows the clinic to enable the patient portal (Área do Paciente)
+  allowPatientPortal Boolean @default(false)
   createdAt        DateTime @default(now())
 
   // Relations
@@ -321,6 +341,10 @@ model Clinic {
   aiTermsAcceptedAt       DateTime?
   aiTermsAcceptedByUserId String?
 
+  // Patient portal (Área do Paciente) — per-clinic toggle + cancellation window
+  patientPortalEnabled    Boolean   @default(false) // toggle por clínica (Fluxo F)
+  portalCancelMinHours    Int       @default(24) // janela de cancelamento do portal (horas antes da sessão)
+
   // Relations
   users                  User[]
   patients               Patient[]
@@ -358,6 +382,9 @@ model Clinic {
   recordDisposals            RecordDisposal[]
   onlineBookingSettings      OnlineBookingSettings?
   bookingRequests            BookingRequest[]
+  patientPortalSessions      PatientPortalSession[]
+  patientPortalOtps          PatientPortalOtp[]
+  portalRequests             PortalRequest[]
 
   @@index([slug])
   @@index([isActive])
@@ -394,6 +421,7 @@ model User {
   noteAddenda                NoteAddendum[]
   recordDisposals            RecordDisposal[]
   reviewedBookingRequests    BookingRequest[]
+  resolvedPortalRequests     PortalRequest[]
 
   @@unique([clinicId, email])
   @@index([clinicId])
@@ -567,6 +595,8 @@ model Patient {
   intakeSubmissions      IntakeSubmission[]
   clinicalNotes          ClinicalNote[]
   bookingRequests        BookingRequest[]
+  portalSessions         PatientPortalSession[]
+  portalRequests         PortalRequest[]
 
   @@unique([clinicId, cpf])
   @@index([clinicId])
@@ -779,6 +809,7 @@ model Appointment {
   sessionCredits          SessionCredit[]
   clinicalNotes           ClinicalNote[]
   bookingRequest          BookingRequest?
+  portalRequests          PortalRequest[]
 
   @@index([clinicId])
   @@index([professionalProfileId])
@@ -1284,6 +1315,78 @@ model NfseEmission {
   @@index([invoiceId])
   @@index([invoiceId, status])
   @@index([invoiceItemId])
+}
+
+// ============================================================================
+// PATIENT PORTAL (Área do Paciente) — passwordless OTP web portal
+// ============================================================================
+
+/// Sessão passwordless do portal do paciente (cookie httpOnly, hash do token)
+model PatientPortalSession {
+  id                String             @id @default(cuid())
+  clinicId          String
+  identifier        String // contato verificado, normalizado (telefone dígitos ou e-mail lowercase)
+  patientId         String? // só para scope AGENDA (deep link fixa 1 paciente)
+  tokenHash         String             @unique // sha256 do token aleatório de 256 bits
+  scope             PortalSessionScope @default(FULL)
+  expiresAt         DateTime // janela deslizante: lastUsedAt + 30d
+  absoluteExpiresAt DateTime // teto: createdAt + 90d
+  lastUsedAt        DateTime           @default(now())
+  revokedAt         DateTime?
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime           @default(now())
+
+  clinic  Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, identifier])
+  @@index([expiresAt])
+  @@index([patientId])
+}
+
+/// Código OTP de login do portal (hash HMAC, nunca o código em claro)
+model PatientPortalOtp {
+  id         String              @id @default(cuid())
+  clinicId   String
+  identifier String // normalizado, mesmo formato da sessão
+  codeHash   String // HMAC-SHA256(AUTH_SECRET, clinicId:identifier:code)
+  channel    NotificationChannel
+  attempts   Int                 @default(0)
+  expiresAt  DateTime // createdAt + 10min
+  consumedAt DateTime?
+  createdAt  DateTime            @default(now())
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, identifier, expiresAt])
+  @@index([expiresAt])
+}
+
+/// Solicitação feita pelo paciente no portal, tratada pelo staff
+model PortalRequest {
+  id               String              @id @default(cuid())
+  clinicId         String
+  patientId        String
+  appointmentId    String? // para RESCHEDULE
+  type             PortalRequestType
+  status           PortalRequestStatus @default(PENDING)
+  payload          Json // RESCHEDULE: { message, preferences[] } | UPDATE_DATA: { changes: [...] } | LGPD_EXPORT: {}
+  resolutionNotes  String?
+  resolvedByUserId String?
+  resolvedAt       DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  clinic      Clinic       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  resolvedBy  User?        @relation(fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId, status])
+  @@index([clinicId, createdAt])
+  @@index([patientId])
+  @@index([appointmentId])
 }
 
 // ============================================================================

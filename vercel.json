@@ -26,6 +26,10 @@
     {
       "path": "/api/jobs/expire-booking-requests",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/jobs/cleanup-portal-sessions",
+      "schedule": "0 4 * * *"
     }
   ]
 }

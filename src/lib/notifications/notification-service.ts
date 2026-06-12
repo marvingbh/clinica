@@ -35,6 +35,9 @@ const ALWAYS_ENABLED_EMAIL_TYPES = new Set<NotificationType>([
   // Courtesy reply to a rejected/declined public booking request. Not a
   // confirmation/reminder, so it is not gated by appointmentNotificationsEnabled.
   NotificationType.ONLINE_BOOKING_REJECTED,
+  // Transactional, user-initiated portal login code — not an outbound
+  // confirmation/reminder, so it is not gated by appointmentNotificationsEnabled.
+  NotificationType.PATIENT_PORTAL_OTP,
 ])
 
 /**

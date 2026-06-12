@@ -28,6 +28,9 @@ export interface ClinicSettings {
   aiHistoryContext: boolean
   aiTermsAcceptedAt: string | null
   aiTermsAcceptedByUserId: string | null
+  patientPortalEnabled?: boolean
+  portalCancelMinHours?: number
+  planAllowsPatientPortal?: boolean
 }
 
 export interface TabProps {

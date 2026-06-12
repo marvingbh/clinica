@@ -433,6 +433,43 @@ describe("DEFAULT_TEMPLATES", () => {
   })
 })
 
+describe("PATIENT_PORTAL_OTP templates", () => {
+  it("has a default template for both channels", () => {
+    const whatsapp = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "PATIENT_PORTAL_OTP" && t.channel === "WHATSAPP",
+    )
+    const email = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "PATIENT_PORTAL_OTP" && t.channel === "EMAIL",
+    )
+    expect(whatsapp).toBeDefined()
+    expect(email).toBeDefined()
+    expect(email!.subject).toBeTruthy()
+  })
+
+  it("substitutes {{otpCode}} and {{clinicName}}", () => {
+    const tmpl = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "PATIENT_PORTAL_OTP" && t.channel === "EMAIL",
+    )!
+    const rendered = renderTemplate(tmpl.content, {
+      otpCode: "123456",
+      clinicName: "Clínica Exemplo",
+    })
+    expect(rendered).toContain("123456")
+    expect(rendered).toContain("Clínica Exemplo")
+    expect(rendered).not.toContain("{{")
+  })
+})
+
+describe("renderTemplate with portalLink", () => {
+  it("substitutes {{portalLink}} when provided", () => {
+    const rendered = renderTemplate("Veja seus horários: {{portalLink}}", {
+      portalLink: "https://app.example.com/paciente/x/entrar?token=abc",
+    })
+    expect(rendered).toContain("https://app.example.com/paciente/x/entrar?token=abc")
+    expect(rendered).not.toContain("{{portalLink}}")
+  })
+})
+
 describe("TEMPLATE_VARIABLES", () => {
   it("includes all expected variable keys", () => {
     const keys = TEMPLATE_VARIABLES.map((v) => v.key)

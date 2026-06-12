@@ -30,6 +30,7 @@ import {
   PatientForm,
 } from "./components"
 import { IntakeSubmissionsTab } from "./components/IntakeSubmissionsTab"
+import { PortalRequestsTable } from "./components/PortalRequestsTable"
 import type { Patient, Professional, AdditionalPhone, UsualPayer, Pagination, PatientFormData } from "./components"
 
 const ITEMS_PER_PAGE = 15
@@ -69,7 +70,7 @@ export default function PatientsPage() {
   const { canRead: canReadAudit } = usePermission("audit_logs")
   const [patientTab, setPatientTab] = useState<"dados" | "historico" | "financeiro" | "prontuario">("dados")
   const [billingMode, setBillingMode] = useState<string>("PER_SESSION")
-  const [pageTab, setPageTab] = useState<"pacientes" | "fichas">("pacientes")
+  const [pageTab, setPageTab] = useState<"pacientes" | "fichas" | "solicitacoes">("pacientes")
   // Read ?tab= once on mount so a deep-link from the pending-intake banner
   // (/patients?tab=fichas) opens the intake tab directly. Reading via
   // window.location avoids `useSearchParams`, which would force a Suspense
@@ -78,6 +79,7 @@ export default function PatientsPage() {
     if (typeof window === "undefined") return
     const tab = new URLSearchParams(window.location.search).get("tab")
     if (tab === "fichas") setPageTab("fichas")
+    if (tab === "solicitacoes") setPageTab("solicitacoes")
   })
 
 
@@ -390,11 +392,23 @@ export default function PatientsPage() {
           >
             Fichas de Cadastro
           </button>
+          <button
+            onClick={() => setPageTab("solicitacoes")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              pageTab === "solicitacoes"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Solicitações do Portal
+          </button>
         </div>
 
         {pageTab === "fichas" && (
           <IntakeSubmissionsTab canWrite={canWrite} />
         )}
+
+        {pageTab === "solicitacoes" && <PortalRequestsTable canWrite={canWrite} />}
 
         {pageTab === "pacientes" && <>
         {/* Search and Filter */}

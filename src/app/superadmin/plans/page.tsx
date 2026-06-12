@@ -13,6 +13,7 @@ interface Plan {
   maxProfessionals: number
   priceInCents: number
   aiMonthlyCredits: number
+  allowPatientPortal: boolean
   isActive: boolean
   createdAt: string
   _count: { clinics: number }
@@ -25,6 +26,7 @@ interface PlanFormData {
   maxProfessionals: number
   priceInCents: number
   aiMonthlyCredits: number
+  allowPatientPortal: boolean
 }
 
 const emptyForm: PlanFormData = {
@@ -34,6 +36,7 @@ const emptyForm: PlanFormData = {
   maxProfessionals: -1,
   priceInCents: 0,
   aiMonthlyCredits: 0,
+  allowPatientPortal: false,
 }
 
 export default function SuperAdminPlansPage() {
@@ -81,6 +84,7 @@ export default function SuperAdminPlansPage() {
       maxProfessionals: plan.maxProfessionals,
       priceInCents: plan.priceInCents,
       aiMonthlyCredits: plan.aiMonthlyCredits ?? 0,
+      allowPatientPortal: plan.allowPatientPortal ?? false,
     })
     setFormError("")
     setShowModal(true)
@@ -355,6 +359,21 @@ export default function SuperAdminPlansPage() {
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   0 = sem IA · -1 = ilimitado
+                </p>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={form.allowPatientPortal}
+                    onChange={(e) => setForm({ ...form, allowPatientPortal: e.target.checked })}
+                    className="h-4 w-4 accent-brand-600"
+                  />
+                  Permitir Portal do Paciente
+                </label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Libera a clínica para habilitar a Área do Paciente.
                 </p>
               </div>
 

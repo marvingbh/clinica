@@ -97,10 +97,12 @@ export function buildReminderTemplateVariables(
   clinic: { name: string },
   baseUrl: string,
   confirmLink: string,
-  cancelLink: string
+  cancelLink: string,
+  /** Optional patient-portal deep link, included only when the portal is on. */
+  portalLink?: string
 ): Record<string, string> {
   const scheduledDate = new Date(appointment.scheduledAt)
-  return {
+  const vars: Record<string, string> = {
     patientName: patient.name,
     professionalName: appointment.professionalProfile.user.name,
     date: scheduledDate.toLocaleDateString("pt-BR", {
@@ -118,6 +120,8 @@ export function buildReminderTemplateVariables(
     clinicName: clinic.name,
     modality: appointment.modality === "ONLINE" ? "Online" : "Presencial",
   }
+  if (portalLink) vars.portalLink = portalLink
+  return vars
 }
 
 /**

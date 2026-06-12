@@ -308,7 +308,7 @@ export function SidebarNav() {
   const { count: pendingIntakeCount } = usePendingIntake()
   const { count: pendingBookingCount } = usePendingBookingCount()
 
-  const publicPaths = ["/login", "/confirm", "/cancel", "/intake"]
+  const publicPaths = ["/login", "/confirm", "/cancel", "/intake", "/paciente"]
   if (publicPaths.some((p) => pathname.startsWith(p)) || status === "unauthenticated") {
     return null
   }
