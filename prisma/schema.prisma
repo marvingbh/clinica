@@ -48,6 +48,22 @@ enum NotificationType {
   ONLINE_BOOKING_RECEIVED
   ONLINE_BOOKING_REJECTED
   PATIENT_PORTAL_OTP
+  WAITLIST_OFFER
+  WAITLIST_OFFER_EXPIRED
+}
+
+enum WaitlistEntryStatus {
+  ATIVA
+  OFERTADA
+  CONVERTIDA
+  REMOVIDA
+}
+
+enum WaitlistOfferStatus {
+  ENVIADA
+  ACEITA
+  EXPIRADA
+  RECUSADA
 }
 
 enum PortalSessionScope {
@@ -322,6 +338,11 @@ model Clinic {
   /// through resolveAgendaColors() in src/lib/clinic/colors/schema.ts — never cast directly.
   agendaColors           Json        @default("{}")
 
+  /// Configuração da lista de espera. Shape: { mode, strategy, holdHours,
+  /// minNoticeHours }. Leituras SEMPRE via resolveWaitlistSettings() em
+  /// src/lib/waitlist/settings.ts — nunca cast direto.
+  waitlistSettings       Json        @default("{}")
+
   // SaaS subscription fields
   planId               String?
   plan                 Plan?     @relation(fields: [planId], references: [id])
@@ -385,6 +406,8 @@ model Clinic {
   patientPortalSessions      PatientPortalSession[]
   patientPortalOtps          PatientPortalOtp[]
   portalRequests             PortalRequest[]
+  waitlistEntries            WaitlistEntry[]
+  waitlistOffers             WaitlistOffer[]
 
   @@index([slug])
   @@index([isActive])
@@ -469,6 +492,8 @@ model ProfessionalProfile {
   clinicalNotes             ClinicalNote[]
   prontuarioResponsibleFor  Clinic[]                   @relation("ProntuarioResponsible")
   bookingRequests           BookingRequest[]
+  waitlistEntries           WaitlistEntry[]
+  waitlistOffers            WaitlistOffer[]
 
   @@index([userId])
   @@index([publicBookingSlug])
@@ -597,6 +622,7 @@ model Patient {
   bookingRequests        BookingRequest[]
   portalSessions         PatientPortalSession[]
   portalRequests         PortalRequest[]
+  waitlistEntries        WaitlistEntry[]
 
   @@unique([clinicId, cpf])
   @@index([clinicId])
@@ -1779,4 +1805,68 @@ model RecordDisposal {
   disposedBy User?  @relation(fields: [disposedByUserId], references: [id], onDelete: SetNull)
 
   @@index([clinicId, disposedAt])
+}
+
+/// Entrada na lista de espera. patientId nulo = lead (leadName/leadPhone).
+model WaitlistEntry {
+  id                     String              @id @default(cuid())
+  clinicId               String
+  patientId             String?
+  leadName              String? // obrigatório (app-level) quando patientId é nulo
+  leadPhone             String?
+  leadEmail             String?
+  professionalProfileId String? // null = qualquer profissional
+  /// Shape: { weekdays: number[], timeRanges: {start,end}[], modality }
+  /// Validado por waitlistPreferencesSchema (zod). Vazio = aceita tudo.
+  preferences           Json                @default("{}")
+  priorityNote          String?
+  priority              Int                 @default(0) // ordenação manual (drag)
+  status                WaitlistEntryStatus @default(ATIVA)
+  removedReason         String?
+  lastOfferedAt         DateTime?
+  convertedAppointmentId String? // Appointment criado na conversão (métricas)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic              Clinic               @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient             Patient?             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile? @relation(fields: [professionalProfileId], references: [id], onDelete: SetNull)
+  offers              WaitlistOffer[]
+
+  @@index([clinicId, status])
+  @@index([clinicId, professionalProfileId, status])
+  @@index([patientId])
+  // Índice único PARCIAL anti-duplicidade (Prisma DSL não expressa parciais;
+  // criado direto na migration SQL — mesmo precedente do Todo 20260503100000):
+  //   UNIQUE (clinicId, patientId, COALESCE(professionalProfileId, ''))
+  //   WHERE status IN ('ATIVA','OFERTADA') AND patientId IS NOT NULL
+}
+
+/// Oferta de um slot específico a uma entrada da lista.
+model WaitlistOffer {
+  id                    String               @id @default(cuid())
+  clinicId              String
+  entryId               String
+  professionalProfileId String
+  slotStart             DateTime
+  slotEnd               DateTime
+  modality              AppointmentModality?
+  tokenHash             String               @unique // sha256 do token bruto do link
+  status                WaitlistOfferStatus  @default(ENVIADA)
+  expiresAt             DateTime
+  respondedAt           DateTime?
+  appointmentId         String? // Appointment criado no aceite
+  sourceAppointmentId   String? // Appointment cancelado que abriu o slot (métricas)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  entry               WaitlistEntry       @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, status, expiresAt])
+  @@index([clinicId, slotStart])
+  @@index([entryId])
 }

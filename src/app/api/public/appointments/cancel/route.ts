@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyLink } from "@/lib/appointments/appointment-links"
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "@/lib/rate-limit"
+import { notifyWaitlistSlotsOpened } from "@/lib/waitlist"
 
 /**
  * POST /api/public/appointments/cancel
@@ -151,6 +152,23 @@ export async function POST(req: NextRequest) {
       ipAddress: ip !== "unknown" ? ip : null,
       userAgent: req.headers.get("user-agent") ?? null,
     },
+  })
+
+  // Waitlist: a public cancel opens 1 slot.
+  await notifyWaitlistSlotsOpened({
+    clinicId: existingAppointment.clinicId,
+    appointments: [
+      {
+        id: appointment.id,
+        type: appointment.type,
+        blocksTime: appointment.blocksTime,
+        scheduledAt: appointment.scheduledAt,
+        endAt: appointment.endAt,
+        modality: appointment.modality,
+        professionalProfileId: appointment.professionalProfileId,
+      },
+    ],
+    trigger: "PUBLIC_CANCEL",
   })
 
   return NextResponse.json({

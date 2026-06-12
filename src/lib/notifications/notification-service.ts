@@ -49,6 +49,10 @@ const ALWAYS_ENABLED_EMAIL_TYPES = new Set<NotificationType>([
 const APPOINTMENT_GATED_EMAIL_TYPES = new Set<NotificationType>([
   NotificationType.APPOINTMENT_CONFIRMATION,
   NotificationType.APPOINTMENT_REMINDER,
+  // Outbound waitlist offers/expirations follow the same per-clinic gate as
+  // confirmations/reminders.
+  NotificationType.WAITLIST_OFFER,
+  NotificationType.WAITLIST_OFFER_EXPIRED,
 ])
 
 const DISABLED_FAILURE_REASON = "Notification type currently disabled"

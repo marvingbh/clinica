@@ -431,6 +431,77 @@ describe("DEFAULT_TEMPLATES", () => {
     expect(rendered).not.toContain("{{")
     expect(rendered).toContain("Maria")
   })
+
+  it("has WAITLIST_OFFER templates for both channels", () => {
+    expect(
+      DEFAULT_TEMPLATES.find((t) => t.type === "WAITLIST_OFFER" && t.channel === "WHATSAPP")
+    ).toBeDefined()
+    expect(
+      DEFAULT_TEMPLATES.find((t) => t.type === "WAITLIST_OFFER" && t.channel === "EMAIL")
+    ).toBeDefined()
+  })
+
+  it("has WAITLIST_OFFER_EXPIRED templates for both channels", () => {
+    expect(
+      DEFAULT_TEMPLATES.find((t) => t.type === "WAITLIST_OFFER_EXPIRED" && t.channel === "WHATSAPP")
+    ).toBeDefined()
+    expect(
+      DEFAULT_TEMPLATES.find((t) => t.type === "WAITLIST_OFFER_EXPIRED" && t.channel === "EMAIL")
+    ).toBeDefined()
+  })
+})
+
+describe("waitlist template rendering", () => {
+  const offerVars = {
+    patientName: "João Silva",
+    professionalName: "Dra. Maria",
+    date: "17/06/2026",
+    time: "14:00",
+    modality: "Online",
+    offerUrl: "https://app.exemplo.com/oferta?token=abc",
+    expiresAt: "17/06 12:00",
+    clinicName: "Clínica Exemplo",
+  }
+
+  it("WAITLIST_OFFER WhatsApp substitutes every variable", () => {
+    const tpl = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "WAITLIST_OFFER" && t.channel === "WHATSAPP"
+    )!
+    const rendered = renderTemplate(tpl.content, offerVars)
+    expect(rendered).toContain("João Silva")
+    expect(rendered).toContain("Dra. Maria")
+    expect(rendered).toContain("17/06/2026")
+    expect(rendered).toContain("14:00")
+    expect(rendered).toContain("Online")
+    expect(rendered).toContain("https://app.exemplo.com/oferta?token=abc")
+    expect(rendered).toContain("17/06 12:00")
+    expect(rendered).not.toMatch(/\{\{.*?\}\}/)
+  })
+
+  it("WAITLIST_OFFER Email subject and body render", () => {
+    const tpl = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "WAITLIST_OFFER" && t.channel === "EMAIL"
+    )!
+    expect(renderTemplate(tpl.subject!, offerVars)).toBe(
+      "Horário disponível — 17/06/2026 às 14:00"
+    )
+    const body = renderTemplate(tpl.content, offerVars)
+    expect(body).toContain("https://app.exemplo.com/oferta?token=abc")
+    expect(body).not.toMatch(/\{\{.*?\}\}/)
+  })
+
+  it("WAITLIST_OFFER_EXPIRED renders the polite copy on both channels", () => {
+    const vars = { patientName: "João", date: "17/06/2026", time: "14:00", clinicName: "Clínica Exemplo" }
+    for (const channel of ["WHATSAPP", "EMAIL"] as const) {
+      const tpl = DEFAULT_TEMPLATES.find(
+        (t) => t.type === "WAITLIST_OFFER_EXPIRED" && t.channel === channel
+      )!
+      const rendered = renderTemplate(tpl.content, vars)
+      expect(rendered).toContain("já foi preenchido")
+      expect(rendered).toContain("continua na nossa lista de espera")
+      expect(rendered).not.toMatch(/\{\{.*?\}\}/)
+    }
+  })
 })
 
 describe("PATIENT_PORTAL_OTP templates", () => {

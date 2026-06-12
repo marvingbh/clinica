@@ -19,6 +19,7 @@ export const FEATURES = [
   "prontuario",
   "ai_assist",
   "online_booking",
+  "waitlist",
 ] as const
 
 export type Feature = (typeof FEATURES)[number]
@@ -42,6 +43,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   prontuario: "Prontuario",
   ai_assist: "Assistente de IA",
   online_booking: "Agendamento Online",
+  waitlist: "Lista de Espera",
 }
 
 export type ResolvedPermissions = Record<Feature, FeatureAccess>

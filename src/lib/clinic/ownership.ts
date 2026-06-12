@@ -74,3 +74,27 @@ export async function assertProfessionalInClinic(
   })
   if (!professional) throw new OwnershipError()
 }
+
+/** Boolean: does this patient belong to the clinic? (non-throwing variant) */
+export async function patientBelongsToClinic(
+  patientId: string,
+  clinicId: string
+): Promise<boolean> {
+  const patient = await prisma.patient.findFirst({
+    where: { id: patientId, clinicId },
+    select: { id: true },
+  })
+  return patient !== null
+}
+
+/** Boolean: does this professional profile belong to the clinic? (non-throwing) */
+export async function professionalBelongsToClinic(
+  professionalProfileId: string,
+  clinicId: string
+): Promise<boolean> {
+  const professional = await prisma.professionalProfile.findFirst({
+    where: { id: professionalProfileId, user: { clinicId } },
+    select: { id: true },
+  })
+  return professional !== null
+}

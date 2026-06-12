@@ -5,6 +5,7 @@ import { meetsMinAccess } from "@/lib/rbac"
 import { createAuditLog } from "@/lib/rbac/audit"
 import { addException, removeException } from "@/lib/appointments/recurrence"
 import { AppointmentStatus } from "@prisma/client"
+import { notifyWaitlistSlotsOpened } from "@/lib/waitlist"
 
 /**
  * POST /api/appointments/recurrences/:id/exceptions
@@ -152,6 +153,21 @@ export const POST = withFeatureAuth(
         newValues: { exceptions: newExceptions, skippedDate: date },
         ipAddress,
         userAgent,
+      })
+
+      // Waitlist: skipping a recurrence date opens that occurrence's slot.
+      await notifyWaitlistSlotsOpened({
+        clinicId: user.clinicId,
+        appointments: recurrence.appointments.map((apt) => ({
+          id: apt.id,
+          type: apt.type,
+          blocksTime: apt.blocksTime,
+          scheduledAt: apt.scheduledAt,
+          endAt: apt.endAt,
+          modality: apt.modality,
+          professionalProfileId: apt.professionalProfileId,
+        })),
+        trigger: "RECURRENCE_SKIP",
       })
 
       return NextResponse.json({

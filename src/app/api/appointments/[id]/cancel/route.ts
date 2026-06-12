@@ -5,6 +5,7 @@ import { meetsMinAccess } from "@/lib/rbac"
 import { createAuditLog } from "@/lib/rbac/audit"
 import { NotificationChannel, NotificationType, AppointmentStatus } from "@prisma/client"
 import { createAndSendNotification, getPatientPhoneNumbers } from "@/lib/notifications"
+import { notifyWaitlistSlotsOpened } from "@/lib/waitlist"
 
 /**
  * POST /api/appointments/:id/cancel
@@ -246,6 +247,21 @@ export const POST = withFeatureAuth(
         }
       }
 
+      // Waitlist: a series cancel opens N slots → a single triage Todo.
+      await notifyWaitlistSlotsOpened({
+        clinicId: user.clinicId,
+        appointments: futureAppointments.map((a) => ({
+          id: a.id,
+          type: a.type,
+          blocksTime: a.blocksTime,
+          scheduledAt: a.scheduledAt,
+          endAt: a.endAt,
+          modality: a.modality,
+          professionalProfileId: a.professionalProfileId,
+        })),
+        trigger: "STAFF_SERIES_CANCEL",
+      })
+
       return NextResponse.json({
         success: true,
         message: `${futureAppointments.length} agendamento(s) cancelado(s) com sucesso`,
@@ -353,6 +369,23 @@ export const POST = withFeatureAuth(
         notificationCreated = true
       }
     }
+
+    // Waitlist: a single cancel opens 1 slot → triage or automatic offer.
+    await notifyWaitlistSlotsOpened({
+      clinicId: user.clinicId,
+      appointments: [
+        {
+          id: existing.id,
+          type: existing.type,
+          blocksTime: existing.blocksTime,
+          scheduledAt: existing.scheduledAt,
+          endAt: existing.endAt,
+          modality: existing.modality,
+          professionalProfileId: existing.professionalProfileId,
+        },
+      ],
+      trigger: "STAFF_CANCEL",
+    })
 
     return NextResponse.json({
       success: true,

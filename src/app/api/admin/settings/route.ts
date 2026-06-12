@@ -9,6 +9,7 @@ import {
 import { assertProfessionalInClinic, OwnershipError } from "@/lib/clinic/ownership"
 import { clampRetentionYears } from "@/lib/prontuario"
 import { createAuditLog, AuditAction } from "@/lib/rbac/audit"
+import { waitlistSettingsSchema, resolveWaitlistSettings } from "@/lib/waitlist"
 
 const updateSettingsSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(200).optional(),
@@ -51,6 +52,7 @@ const updateSettingsSchema = z.object({
   aiHistoryContext: z.boolean().optional(),
   patientPortalEnabled: z.boolean().optional(),
   portalCancelMinHours: z.number().int().min(1, "Mínimo 1 hora").max(168, "Máximo 168 horas").optional(),
+  waitlistSettings: waitlistSettingsSchema.optional(),
 })
 
 /**
@@ -91,6 +93,8 @@ export const GET = withFeatureAuth(
         aiTermsAcceptedByUserId: true,
         patientPortalEnabled: true,
         portalCancelMinHours: true,
+        appointmentNotificationsEnabled: true,
+        waitlistSettings: true,
         logoData: true,
         plan: { select: { allowPatientPortal: true } },
       },
@@ -103,12 +107,13 @@ export const GET = withFeatureAuth(
       )
     }
 
-    const { logoData, agendaColors, plan, ...rest } = clinic
+    const { logoData, agendaColors, waitlistSettings, plan, ...rest } = clinic
     return NextResponse.json({
       settings: {
         ...rest,
         hasLogo: !!logoData,
         agendaColors: resolveAgendaColors(agendaColors),
+        waitlistSettings: resolveWaitlistSettings(waitlistSettings),
         planAllowsPatientPortal: !!plan?.allowPatientPortal,
       },
     })
@@ -143,7 +148,7 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors, prontuarioRetentionYears, prontuarioResponsibleProfessionalId, aiEnabled, aiHistoryContext, patientPortalEnabled, portalCancelMinHours } =
+    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors, prontuarioRetentionYears, prontuarioResponsibleProfessionalId, aiEnabled, aiHistoryContext, patientPortalEnabled, portalCancelMinHours, waitlistSettings } =
       parsed.data
 
     // Check slug uniqueness
@@ -187,6 +192,17 @@ export const PATCH = withFeatureAuth(
       })
       const merged = { ...resolveAgendaColors(current?.agendaColors), ...agendaColors }
       updateData.agendaColors = merged
+    }
+    if (waitlistSettings !== undefined) {
+      // Merge partial PATCH on top of stored settings (resolved with defaults).
+      const current = await prisma.clinic.findUnique({
+        where: { id: user.clinicId },
+        select: { waitlistSettings: true },
+      })
+      updateData.waitlistSettings = {
+        ...resolveWaitlistSettings(current?.waitlistSettings),
+        ...waitlistSettings,
+      }
     }
     if (prontuarioRetentionYears !== undefined)
       updateData.prontuarioRetentionYears = clampRetentionYears(prontuarioRetentionYears)

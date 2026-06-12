@@ -169,6 +169,7 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     prontuario: "NONE",
     ai_assist: "WRITE",
     online_booking: "WRITE",
+    waitlist: "WRITE",
   },
   PROFESSIONAL: {
     agenda_own: "WRITE",
@@ -190,6 +191,9 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     // Acts only on the professional's own requests — scoped in the handler,
     // mirroring agenda_own.
     online_booking: "WRITE",
+    // Sees/manages entries citing them or "qualquer profissional" — the
+    // visibility cut happens in the handler (mirrors agenda_own).
+    waitlist: "WRITE",
   },
 }
 

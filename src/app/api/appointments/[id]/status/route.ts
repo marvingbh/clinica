@@ -13,6 +13,7 @@ import {
 } from "@/lib/appointments/status-transitions"
 import { resolveGrouping } from "@/lib/financeiro/invoice-grouping"
 import { handlePerSessionCancellation } from "@/lib/financeiro/per-session-cancellation"
+import { notifyWaitlistSlotsOpened } from "@/lib/waitlist"
 
 /**
  * PATCH /api/appointments/:id/status
@@ -426,6 +427,25 @@ export const PATCH = withFeatureAuth(
       ipAddress,
       userAgent,
     })
+
+    // Waitlist: a transition to a cancelled status opens the (future) slot.
+    if (isCancelStatus) {
+      await notifyWaitlistSlotsOpened({
+        clinicId: user.clinicId,
+        appointments: [
+          {
+            id: existing.id,
+            type: existing.type,
+            blocksTime: existing.blocksTime,
+            scheduledAt: existing.scheduledAt,
+            endAt: existing.endAt,
+            modality: existing.modality,
+            professionalProfileId: existing.professionalProfileId,
+          },
+        ],
+        trigger: "STATUS_CANCEL",
+      })
+    }
 
     return NextResponse.json({
       success: true,

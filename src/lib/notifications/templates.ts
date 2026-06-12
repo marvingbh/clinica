@@ -29,6 +29,10 @@ export interface TemplateVariables {
   otpCode?: string
   /** Patient-portal deep link embedded in reminders. */
   portalLink?: string
+  /** Public acceptance link for WAITLIST_OFFER. */
+  offerUrl?: string
+  /** Human-readable expiry (DD/MM HH:mm) for WAITLIST_OFFER. */
+  expiresAt?: string
 }
 
 /**
@@ -255,6 +259,55 @@ Seu código de acesso à área do paciente de {{clinicName}} é:
 {{otpCode}}
 
 Ele é válido por 10 minutos. Se você não solicitou este código, ignore esta mensagem.
+
+Atenciosamente,
+{{clinicName}}`,
+  },
+  // WAITLIST_OFFER - WhatsApp
+  {
+    type: NotificationType.WAITLIST_OFFER,
+    channel: NotificationChannel.WHATSAPP,
+    name: "Oferta de Horário (WhatsApp)",
+    subject: null,
+    content: `Olá {{patientName}}! Surgiu um horário com {{professionalName}} no dia {{date}} às {{time}} ({{modality}}). Para aceitar, acesse: {{offerUrl}}. Esta oferta é válida até {{expiresAt}}.`,
+  },
+  // WAITLIST_OFFER - Email
+  {
+    type: NotificationType.WAITLIST_OFFER,
+    channel: NotificationChannel.EMAIL,
+    name: "Oferta de Horário (Email)",
+    subject: "Horário disponível — {{date}} às {{time}}",
+    content: `Olá {{patientName}}!
+
+Surgiu um horário com {{professionalName}} no dia {{date}} às {{time}} ({{modality}}).
+
+Para aceitar, acesse:
+{{offerUrl}}
+
+Esta oferta é válida até {{expiresAt}}.
+
+Atenciosamente,
+{{clinicName}}`,
+  },
+  // WAITLIST_OFFER_EXPIRED - WhatsApp
+  {
+    type: NotificationType.WAITLIST_OFFER_EXPIRED,
+    channel: NotificationChannel.WHATSAPP,
+    name: "Horário Já Preenchido (WhatsApp)",
+    subject: null,
+    content: `O horário de {{date}} às {{time}} já foi preenchido. Você continua na nossa lista de espera e avisaremos na próxima oportunidade.
+
+{{clinicName}}`,
+  },
+  // WAITLIST_OFFER_EXPIRED - Email
+  {
+    type: NotificationType.WAITLIST_OFFER_EXPIRED,
+    channel: NotificationChannel.EMAIL,
+    name: "Horário Já Preenchido (Email)",
+    subject: "Atualização sobre seu horário — {{clinicName}}",
+    content: `Olá {{patientName}}.
+
+O horário de {{date}} às {{time}} já foi preenchido. Você continua na nossa lista de espera e avisaremos na próxima oportunidade.
 
 Atenciosamente,
 {{clinicName}}`,

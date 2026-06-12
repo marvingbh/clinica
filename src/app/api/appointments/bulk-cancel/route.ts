@@ -12,6 +12,7 @@ import {
   findRecurrencesToDeactivate,
   type BulkCancelAppointment,
 } from "@/lib/appointments/bulk-cancel"
+import { notifyWaitlistSlotsOpened } from "@/lib/waitlist"
 
 /**
  * POST /api/appointments/bulk-cancel
@@ -115,6 +116,11 @@ async function handleExecute(
     select: {
       id: true,
       status: true,
+      type: true,
+      blocksTime: true,
+      scheduledAt: true,
+      endAt: true,
+      modality: true,
       professionalProfileId: true,
       recurrenceId: true,
       additionalProfessionals: { select: { professionalProfileId: true } },
@@ -209,6 +215,21 @@ async function handleExecute(
       })
     )
   )
+
+  // Waitlist: bulk cancel opens N slots → a single triage Todo (never offers).
+  await notifyWaitlistSlotsOpened({
+    clinicId: user.clinicId,
+    appointments: appointments.map((a) => ({
+      id: a.id,
+      type: a.type,
+      blocksTime: a.blocksTime,
+      scheduledAt: a.scheduledAt,
+      endAt: a.endAt,
+      modality: a.modality,
+      professionalProfileId: a.professionalProfileId,
+    })),
+    trigger: "BULK_CANCEL",
+  })
 
   return NextResponse.json({
     success: true,

@@ -140,6 +140,26 @@ describe("online_booking feature", () => {
   })
 })
 
+describe("waitlist feature", () => {
+  it("ADMIN default is WRITE", () => {
+    expect(ROLE_DEFAULTS.ADMIN.waitlist).toBe("WRITE")
+  })
+
+  it("PROFESSIONAL default is WRITE", () => {
+    expect(ROLE_DEFAULTS.PROFESSIONAL.waitlist).toBe("WRITE")
+  })
+
+  it("resolves to WRITE for both roles with no overrides", () => {
+    expect(resolvePermissions("ADMIN", {}).waitlist).toBe("WRITE")
+    expect(resolvePermissions("PROFESSIONAL", {}).waitlist).toBe("WRITE")
+  })
+
+  it("honors an override to NONE", () => {
+    const resolved = resolvePermissions("PROFESSIONAL", { waitlist: "NONE" })
+    expect(resolved.waitlist).toBe("NONE")
+  })
+})
+
 describe("meetsMinAccess", () => {
   it("WRITE meets WRITE", () => {
     expect(meetsMinAccess("WRITE", "WRITE")).toBe(true)

@@ -7,6 +7,7 @@ import { meetsMinAccess } from "@/lib/rbac"
 import { checkConflict, formatConflictError } from "@/lib/appointments"
 import { findAppointmentsLinkedToInvoices, buildInvoiceLinkError } from "@/lib/appointments/invoice-link-guard"
 import { createAuditLog, audit, AuditAction } from "@/lib/rbac/audit"
+import { notifyWaitlistSlotsOpened } from "@/lib/waitlist"
 
 const updateAppointmentSchema = z.object({
   scheduledAt: z.string().datetime().optional(),
@@ -354,6 +355,25 @@ export const PATCH = withFeatureAuth(
       userAgent,
     })
 
+    // Waitlist: when an appointment is MOVED to a new time, its OLD slot opens.
+    if (scheduledAt !== undefined && scheduledAt !== existing.scheduledAt.toISOString()) {
+      await notifyWaitlistSlotsOpened({
+        clinicId: user.clinicId,
+        appointments: [
+          {
+            id: existing.id,
+            type: existing.type,
+            blocksTime: existing.blocksTime,
+            scheduledAt: existing.scheduledAt,
+            endAt: existing.endAt,
+            modality: existing.modality,
+            professionalProfileId: existing.professionalProfileId,
+          },
+        ],
+        trigger: "APPOINTMENT_MOVED",
+      })
+    }
+
     return NextResponse.json({ appointment: result.appointment })
   }
 )
@@ -424,6 +444,23 @@ export const DELETE = withFeatureAuth(
         modality: existing.modality,
       },
       request: req,
+    })
+
+    // Waitlist: deleting a future CONSULTA opens its slot.
+    await notifyWaitlistSlotsOpened({
+      clinicId: user.clinicId,
+      appointments: [
+        {
+          id: existing.id,
+          type: existing.type,
+          blocksTime: existing.blocksTime,
+          scheduledAt: existing.scheduledAt,
+          endAt: existing.endAt,
+          modality: existing.modality,
+          professionalProfileId: existing.professionalProfileId,
+        },
+      ],
+      trigger: "APPOINTMENT_DELETED",
     })
 
     return NextResponse.json({ success: true })

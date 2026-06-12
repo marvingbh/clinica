@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/shared/components/ui/card"
 import { formatDateHeader, toDateString, toDisplayDateFromDate } from "../lib/utils"
 import type { Professional } from "../lib/types"
 import { PendingNotesBadge } from "./PendingNotesBadge"
+import { WaitlistHeaderButton } from "./WaitlistHeaderButton"
 import { PROFESSIONAL_COLORS, type ProfessionalColorMap } from "../lib/professional-colors"
 
 export interface AgendaHeaderProps {
@@ -92,6 +93,7 @@ export function AgendaHeader({
           </div>
           <div className="flex items-center gap-2 print-hidden">
             <PendingNotesBadge />
+            <WaitlistHeaderButton />
             {onBulkCancel && (
               <button
                 type="button"

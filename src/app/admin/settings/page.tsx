@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Building2, Calendar, DollarSign, Mail, FileText, Palette, ClipboardList, Sparkles, Smartphone } from "lucide-react"
+import { Building2, Calendar, DollarSign, Mail, FileText, Palette, ClipboardList, Sparkles, Smartphone, ListChecks } from "lucide-react"
 import { useRequireAuth } from "@/shared/hooks"
 import type { ClinicSettings } from "./types"
 import GeneralTab from "./components/GeneralTab"
@@ -15,6 +15,7 @@ import AgendaColorsTab from "./components/AgendaColorsTab"
 import ProntuarioTab from "./components/ProntuarioTab"
 import AiSettingsTab from "./components/AiSettingsTab"
 import PortalTab from "./components/PortalTab"
+import WaitlistTab from "./components/WaitlistTab"
 
 // eslint-disable-next-line no-restricted-imports
 import { useEffect } from "react"
@@ -29,6 +30,7 @@ const TABS = [
   { id: "prontuario" as const, label: "Prontuário", icon: ClipboardList },
   { id: "ia" as const, label: "IA", icon: Sparkles },
   { id: "portal" as const, label: "Portal", icon: Smartphone },
+  { id: "espera" as const, label: "Lista de espera", icon: ListChecks },
 ]
 
 type TabId = (typeof TABS)[number]["id"]
@@ -130,6 +132,7 @@ export default function AdminSettingsPage() {
             {activeTab === "prontuario" && <ProntuarioTab settings={settings} onUpdate={setSettings} />}
             {activeTab === "ia" && <AiSettingsTab settings={settings} onUpdate={setSettings} />}
             {activeTab === "portal" && <PortalTab settings={settings} onUpdate={setSettings} />}
+            {activeTab === "espera" && <WaitlistTab settings={settings} onUpdate={setSettings} />}
           </>
         )}
       </div>

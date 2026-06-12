@@ -1,4 +1,5 @@
 import type { AgendaColors } from "@/lib/clinic/colors/types"
+import type { WaitlistSettings } from "@/lib/waitlist"
 
 export interface ClinicSettings {
   id: string
@@ -31,6 +32,8 @@ export interface ClinicSettings {
   patientPortalEnabled?: boolean
   portalCancelMinHours?: number
   planAllowsPatientPortal?: boolean
+  appointmentNotificationsEnabled?: boolean
+  waitlistSettings?: WaitlistSettings
 }
 
 export interface TabProps {
