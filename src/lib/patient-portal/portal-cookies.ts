@@ -26,12 +26,21 @@ export async function setPortalCookie(
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge,
-    path: `/paciente/${slug}`,
+    // Path must cover both the portal pages (/paciente/[slug]) and the portal
+    // API routes (/api/public/portal/[slug]); the cookie name is already
+    // namespaced per slug, so "/" keeps clinics isolated without scoping issues.
+    path: "/",
   })
 }
 
 /** Clears the portal session cookie for a slug. */
 export async function clearPortalCookie(slug: string): Promise<void> {
   const cookieStore = await cookies()
-  cookieStore.delete(portalCookieName(slug))
+  cookieStore.set(portalCookieName(slug), "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 0,
+    path: "/",
+  })
 }
