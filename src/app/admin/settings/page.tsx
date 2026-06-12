@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Building2, Calendar, DollarSign, Mail, FileText, Palette, ClipboardList } from "lucide-react"
+import { Building2, Calendar, DollarSign, Mail, FileText, Palette, ClipboardList, Sparkles } from "lucide-react"
 import { useRequireAuth } from "@/shared/hooks"
 import type { ClinicSettings } from "./types"
 import GeneralTab from "./components/GeneralTab"
@@ -13,6 +13,7 @@ import EmailTab from "./components/EmailTab"
 import NfseConfigForm from "./components/NfseConfigForm"
 import AgendaColorsTab from "./components/AgendaColorsTab"
 import ProntuarioTab from "./components/ProntuarioTab"
+import AiSettingsTab from "./components/AiSettingsTab"
 
 // eslint-disable-next-line no-restricted-imports
 import { useEffect } from "react"
@@ -25,6 +26,7 @@ const TABS = [
   { id: "email" as const, label: "E-mail", icon: Mail },
   { id: "nfse" as const, label: "NFS-e", icon: FileText },
   { id: "prontuario" as const, label: "Prontuário", icon: ClipboardList },
+  { id: "ia" as const, label: "IA", icon: Sparkles },
 ]
 
 type TabId = (typeof TABS)[number]["id"]
@@ -124,6 +126,7 @@ export default function AdminSettingsPage() {
             {activeTab === "email" && <EmailTab settings={settings} onUpdate={setSettings} />}
             {activeTab === "nfse" && <NfseConfigForm />}
             {activeTab === "prontuario" && <ProntuarioTab settings={settings} onUpdate={setSettings} />}
+            {activeTab === "ia" && <AiSettingsTab settings={settings} onUpdate={setSettings} />}
           </>
         )}
       </div>

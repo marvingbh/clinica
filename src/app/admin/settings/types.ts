@@ -24,6 +24,10 @@ export interface ClinicSettings {
   agendaColors: AgendaColors
   prontuarioRetentionYears: number
   prontuarioResponsibleProfessionalId: string | null
+  aiEnabled: boolean
+  aiHistoryContext: boolean
+  aiTermsAcceptedAt: string | null
+  aiTermsAcceptedByUserId: string | null
 }
 
 export interface TabProps {

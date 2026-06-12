@@ -6,12 +6,17 @@ interface NoteSectionFieldProps {
   value: string
   readOnly: boolean
   onChange: (value: string) => void
+  /** Optional inline element rendered next to the label (e.g. AI review tag). */
+  adornment?: React.ReactNode
 }
 
-export function NoteSectionField({ label, helpText, value, readOnly, onChange }: NoteSectionFieldProps) {
+export function NoteSectionField({ label, helpText, value, readOnly, onChange, adornment }: NoteSectionFieldProps) {
   return (
     <div className="space-y-1">
-      <label className="text-sm font-medium text-foreground">{label}</label>
+      <div className="flex items-center gap-2">
+        <label className="text-sm font-medium text-foreground">{label}</label>
+        {adornment}
+      </div>
       {helpText && <p className="text-xs text-muted-foreground">{helpText}</p>}
       <textarea
         value={value}

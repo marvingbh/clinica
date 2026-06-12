@@ -12,6 +12,7 @@ interface Plan {
   stripePriceId: string
   maxProfessionals: number
   priceInCents: number
+  aiMonthlyCredits: number
   isActive: boolean
   createdAt: string
   _count: { clinics: number }
@@ -23,6 +24,7 @@ interface PlanFormData {
   stripePriceId: string
   maxProfessionals: number
   priceInCents: number
+  aiMonthlyCredits: number
 }
 
 const emptyForm: PlanFormData = {
@@ -31,6 +33,7 @@ const emptyForm: PlanFormData = {
   stripePriceId: "",
   maxProfessionals: -1,
   priceInCents: 0,
+  aiMonthlyCredits: 0,
 }
 
 export default function SuperAdminPlansPage() {
@@ -77,6 +80,7 @@ export default function SuperAdminPlansPage() {
       stripePriceId: plan.stripePriceId,
       maxProfessionals: plan.maxProfessionals,
       priceInCents: plan.priceInCents,
+      aiMonthlyCredits: plan.aiMonthlyCredits ?? 0,
     })
     setFormError("")
     setShowModal(true)
@@ -332,6 +336,25 @@ export default function SuperAdminPlansPage() {
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Ex: 9900 = R$ 99,00
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Créditos de IA / mês
+                </label>
+                <input
+                  type="number"
+                  value={form.aiMonthlyCredits}
+                  onChange={(e) =>
+                    setForm({ ...form, aiMonthlyCredits: parseInt(e.target.value) || 0 })
+                  }
+                  min={-1}
+                  className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="0"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  0 = sem IA · -1 = ilimitado
                 </p>
               </div>
 

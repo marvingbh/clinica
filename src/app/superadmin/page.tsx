@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useMountEffect } from "@/shared/hooks"
 import { Building2, Users, CreditCard, AlertTriangle, Clock, DollarSign } from "lucide-react"
 import { formatCurrency } from "@/app/superadmin/components/StatusBadge"
+import { AiUsageTable } from "@/app/superadmin/components/AiUsageTable"
 
 interface DashboardData {
   totalClinics: number
@@ -95,6 +96,8 @@ export default function SuperAdminDashboardPage() {
           </p>
         </div>
       </div>
+
+      <AiUsageTable />
     </div>
   )
 }

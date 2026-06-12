@@ -11,6 +11,7 @@ const updateProfileSchema = z.object({
   phone: z.string().max(20).optional().nullable(),
   specialty: z.string().max(100).optional().nullable(),
   appointmentDuration: z.number().int().min(15).max(180).optional(),
+  aiOptOut: z.boolean().optional(),
 })
 
 /**
@@ -25,6 +26,7 @@ export const GET = withAuthentication(async (_req, user) => {
       email: true,
       name: true,
       role: true,
+      aiOptOut: true,
       createdAt: true,
       clinic: {
         select: {
@@ -75,14 +77,14 @@ export const PATCH = withAuthentication(async (req, user) => {
     )
   }
 
-  const { name, specialty, appointmentDuration } = result.data
+  const { name, specialty, appointmentDuration, aiOptOut } = result.data
 
-  // Update user name if provided
-  if (name !== undefined) {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { name },
-    })
+  // Update user-level fields (name, AI privacy opt-out) if provided
+  if (name !== undefined || aiOptOut !== undefined) {
+    const userData: Record<string, unknown> = {}
+    if (name !== undefined) userData.name = name
+    if (aiOptOut !== undefined) userData.aiOptOut = aiOptOut
+    await prisma.user.update({ where: { id: user.id }, data: userData })
   }
 
   // Update professional profile if user has one and relevant fields are provided
@@ -105,6 +107,7 @@ export const PATCH = withAuthentication(async (req, user) => {
       email: true,
       name: true,
       role: true,
+      aiOptOut: true,
       createdAt: true,
       clinic: {
         select: {

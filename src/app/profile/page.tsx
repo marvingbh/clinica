@@ -29,6 +29,7 @@ interface UserProfile {
   email: string
   name: string
   role: string
+  aiOptOut: boolean
   createdAt: string
   clinic: {
     id: string
@@ -121,6 +122,23 @@ export default function ProfilePage() {
       toast.error(error instanceof Error ? error.message : "Erro ao atualizar perfil")
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  async function handleAiOptOut(next: boolean) {
+    // Optimistic toggle, reverted on failure. Event-driven — no effect.
+    setUser((prev) => (prev ? { ...prev, aiOptOut: next } : prev))
+    try {
+      const response = await fetch("/api/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aiOptOut: next }),
+      })
+      if (!response.ok) throw new Error()
+      toast.success("Preferência de IA atualizada")
+    } catch {
+      setUser((prev) => (prev ? { ...prev, aiOptOut: !next } : prev))
+      toast.error("Não foi possível atualizar a preferência de IA")
     }
   }
 
@@ -271,6 +289,29 @@ export default function ProfilePage() {
                 )}
               </>
             )}
+
+            <hr className="border-border" />
+
+            <div>
+              <h2 className="text-lg font-medium text-foreground mb-3">Privacidade</h2>
+              <label className="flex items-start justify-between gap-4 cursor-pointer">
+                <span>
+                  <span className="block text-sm font-medium text-foreground">
+                    Não usar recursos de IA
+                  </span>
+                  <span className="block text-xs text-muted-foreground mt-1">
+                    O painel &ldquo;Gerar com IA&rdquo; não será exibido para você e nenhum texto seu
+                    será enviado ao provedor de IA.
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={user.aiOptOut}
+                  onChange={(e) => void handleAiOptOut(e.target.checked)}
+                  className="mt-1 h-5 w-5 accent-primary"
+                />
+              </label>
+            </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <button
