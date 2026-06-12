@@ -11,7 +11,8 @@ import { SignConfirmDialog } from "./SignConfirmDialog"
 import { AddendumList } from "./AddendumList"
 import { NoteEditorHeader } from "./NoteEditorHeader"
 import { NoteEditorFooter } from "./NoteEditorFooter"
-import { NOTE_FORMAT_LABELS } from "./labels"
+import { NOTE_FORMAT_LABELS, NOTE_FORMAT_DESCRIPTIONS } from "./labels"
+import { HelpTooltip } from "@/shared/components/ui/help-tooltip"
 import { AiDraftPanel, AiReviewBanner, AiSectionTag } from "./ai"
 import { DEFAULT_TEMPLATES, type ClinicalNoteType } from "@/lib/prontuario"
 import type { NoteDetail, NoteAddendumItem, NoteTemplateItem } from "./api-types"
@@ -186,7 +187,22 @@ export function NoteEditor({ initialNote, initialAddenda, templates }: NoteEdito
         <TemplatePicker templates={templates} selectedId={note.templateId} onSelect={handleTemplate} />
       )}
 
-      <div className="space-y-1 text-xs text-muted-foreground">Formato: {NOTE_FORMAT_LABELS[note.format]}</div>
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span>Formato: {NOTE_FORMAT_LABELS[note.format]}</span>
+        <HelpTooltip label="O que significam os formatos de registro?">
+          <ul className="space-y-2">
+            <li>
+              <span className="font-semibold text-foreground">SOAP</span> — {NOTE_FORMAT_DESCRIPTIONS.SOAP}
+            </li>
+            <li>
+              <span className="font-semibold text-foreground">DAP</span> — {NOTE_FORMAT_DESCRIPTIONS.DAP}
+            </li>
+            <li>
+              <span className="font-semibold text-foreground">Livre</span> — {NOTE_FORMAT_DESCRIPTIONS.LIVRE}
+            </li>
+          </ul>
+        </HelpTooltip>
+      </div>
 
       {editable && note.patientId && (
         <AiDraftPanel

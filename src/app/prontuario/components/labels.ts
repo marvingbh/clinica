@@ -20,6 +20,14 @@ export const NOTE_FORMAT_LABELS: Record<ClinicalNoteFormat, string> = {
   LIVRE: "Livre",
 }
 
+/** Plain-language explanation of each note format, shown in the editor's help
+ *  tooltip. The Record type guarantees every format stays documented. */
+export const NOTE_FORMAT_DESCRIPTIONS: Record<ClinicalNoteFormat, string> = {
+  SOAP: "Subjetivo, Objetivo, Avaliação e Plano — registro estruturado em quatro seções (padrão internacional).",
+  DAP: "Dados, Avaliação e Plano — versão enxuta do SOAP, em três seções.",
+  LIVRE: "Texto livre — evolução em formato narrativo, sem seções predefinidas.",
+}
+
 const APPOINTMENT_STATUS_LABELS: Record<string, string> = {
   AGENDADO: "Agendado",
   CONFIRMADO: "Confirmado",
