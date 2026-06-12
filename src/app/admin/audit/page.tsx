@@ -93,6 +93,11 @@ const ACTION_LABELS: Record<string, string> = {
   PORTAL_INVOICE_DOWNLOADED: "Fatura baixada no portal",
   PORTAL_DANFSE_DOWNLOADED: "NFS-e baixada no portal",
   PORTAL_REQUEST_APPLIED: "Solicitação do portal aplicada",
+  DOCUMENT_GENERATED: "Documento gerado",
+  DOCUMENT_SENT: "Documento enviado",
+  DOCUMENT_TEMPLATE_CREATED: "Modelo de documento criado",
+  DOCUMENT_TEMPLATE_UPDATED: "Modelo de documento atualizado",
+  DOCUMENT_TEMPLATE_DEACTIVATED: "Modelo de documento desativado",
 }
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -101,6 +106,8 @@ const ENTITY_LABELS: Record<string, string> = {
   User: "Usuário",
   "professional-profile": "Profissional",
   ClinicalNote: "Registro clínico",
+  GeneratedDocument: "Documento",
+  ClinicDocumentTemplate: "Modelo de documento",
 }
 
 const ACTION_COLORS: Record<string, string> = {

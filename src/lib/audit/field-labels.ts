@@ -89,6 +89,12 @@ export const FIELD_LABELS: Record<string, string> = {
   responsavelNome: "Nome do responsável",
   responsavelDdd: "DDD do responsável",
   responsavelTelefone: "Telefone do responsável",
+
+  // Document generator (CFP)
+  templateType: "Tipo de documento",
+  templateName: "Nome do modelo",
+  channel: "Canal de envio",
+  recipient: "Destinatário",
 }
 
 // ---------------------------------------------------------------------------

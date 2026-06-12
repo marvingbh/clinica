@@ -11,6 +11,7 @@ import { RecurrenceTabContent } from "./RecurrenceTabContent"
 import { HistoryTimeline } from "@/shared/components/HistoryTimeline"
 import { usePermission } from "@/shared/hooks/usePermission"
 import { RegisterEvolutionButton } from "./RegisterEvolutionButton"
+import { GenerateDocumentButton } from "./GenerateDocumentButton"
 import { Appointment, AppointmentStatus, EditAppointmentFormData, CalendarEntryType, Professional } from "../lib/types"
 import { TimeInput } from "./TimeInput"
 import { DateInput } from "./DateInput"
@@ -340,11 +341,18 @@ export function AppointmentEditor({
                 </div>
               )}
               {isConsulta && appointment.patient?.id && (
-                <RegisterEvolutionButton
-                  appointmentId={appointment.id}
-                  patientId={appointment.patient.id}
-                  type={appointment.type}
-                />
+                <div className="flex flex-wrap items-center">
+                  <RegisterEvolutionButton
+                    appointmentId={appointment.id}
+                    patientId={appointment.patient.id}
+                    type={appointment.type}
+                  />
+                  <GenerateDocumentButton
+                    appointmentId={appointment.id}
+                    patientId={appointment.patient.id}
+                    type={appointment.type}
+                  />
+                </div>
               )}
             </div>
           </div>

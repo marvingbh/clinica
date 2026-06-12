@@ -22,6 +22,7 @@ export const FEATURES = [
   "waitlist",
   "calendar_sync",
   "fiscal",
+  "documents",
 ] as const
 
 export type Feature = (typeof FEATURES)[number]
@@ -48,6 +49,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   waitlist: "Lista de Espera",
   calendar_sync: "Sincronizacao de Agenda",
   fiscal: "Fiscal (Receita Saúde/DMED)",
+  documents: "Documentos",
 }
 
 export type ResolvedPermissions = Record<Feature, FeatureAccess>

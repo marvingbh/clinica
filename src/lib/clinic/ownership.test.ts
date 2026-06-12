@@ -5,6 +5,7 @@ const mockAppointmentFindFirst = vi.fn()
 const mockProfessionalFindFirst = vi.fn()
 const mockInvoiceCount = vi.fn()
 const mockReconciliationLinkCount = vi.fn()
+const mockInvoiceItemCount = vi.fn()
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -13,6 +14,7 @@ vi.mock("@/lib/prisma", () => ({
     professionalProfile: { findFirst: (...a: unknown[]) => mockProfessionalFindFirst(...a) },
     invoice: { count: (...a: unknown[]) => mockInvoiceCount(...a) },
     reconciliationLink: { count: (...a: unknown[]) => mockReconciliationLinkCount(...a) },
+    invoiceItem: { count: (...a: unknown[]) => mockInvoiceItemCount(...a) },
   },
 }))
 
@@ -22,6 +24,7 @@ import {
   assertProfessionalInClinic,
   assertInvoicesInClinic,
   assertReconciliationLinksInClinic,
+  assertInvoiceItemsInClinic,
   OwnershipError,
 } from "./ownership"
 
@@ -116,5 +119,33 @@ describe("assertReconciliationLinksInClinic", () => {
   it("throws OwnershipError when some link is missing or cross-tenant", async () => {
     mockReconciliationLinkCount.mockResolvedValue(0)
     await expect(assertReconciliationLinksInClinic("c1", ["l1"])).rejects.toBeInstanceOf(OwnershipError)
+  })
+})
+
+describe("assertInvoiceItemsInClinic", () => {
+  it("resolves when every item belongs to the clinic and patient", async () => {
+    mockInvoiceItemCount.mockResolvedValue(2)
+    await expect(assertInvoiceItemsInClinic("c1", ["it1", "it2"], "p1")).resolves.toBeUndefined()
+    expect(mockInvoiceItemCount).toHaveBeenCalledWith({
+      where: { id: { in: ["it1", "it2"] }, invoice: { clinicId: "c1", patientId: "p1" } },
+    })
+  })
+
+  it("omits the patient filter when patientId is not provided", async () => {
+    mockInvoiceItemCount.mockResolvedValue(1)
+    await expect(assertInvoiceItemsInClinic("c1", ["it1"])).resolves.toBeUndefined()
+    expect(mockInvoiceItemCount).toHaveBeenCalledWith({
+      where: { id: { in: ["it1"] }, invoice: { clinicId: "c1" } },
+    })
+  })
+
+  it("is a no-op for an empty list (no query)", async () => {
+    await expect(assertInvoiceItemsInClinic("c1", [])).resolves.toBeUndefined()
+    expect(mockInvoiceItemCount).not.toHaveBeenCalled()
+  })
+
+  it("throws OwnershipError when some item is missing or cross-tenant", async () => {
+    mockInvoiceItemCount.mockResolvedValue(1)
+    await expect(assertInvoiceItemsInClinic("c1", ["it1", "it2"], "p1")).rejects.toBeInstanceOf(OwnershipError)
   })
 })

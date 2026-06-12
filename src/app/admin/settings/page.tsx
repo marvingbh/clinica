@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Building2, Calendar, DollarSign, Mail, FileText, Palette, ClipboardList, Sparkles, Smartphone, ListChecks, Landmark, CreditCard } from "lucide-react"
+import { Building2, Calendar, DollarSign, Mail, FileText, Palette, ClipboardList, Sparkles, Smartphone, ListChecks, Landmark, CreditCard, FileSignature } from "lucide-react"
 import { useRequireAuth } from "@/shared/hooks"
 import type { ClinicSettings } from "./types"
 import GeneralTab from "./components/GeneralTab"
@@ -18,6 +18,7 @@ import PortalTab from "./components/PortalTab"
 import WaitlistTab from "./components/WaitlistTab"
 import FiscalConfigTab from "./components/FiscalConfigTab"
 import PaymentsTab from "./components/PaymentsTab"
+import DocumentTemplatesSection from "./components/DocumentTemplatesSection"
 
 // eslint-disable-next-line no-restricted-imports
 import { useEffect } from "react"
@@ -31,6 +32,7 @@ const TABS = [
   { id: "email" as const, label: "E-mail", icon: Mail },
   { id: "nfse" as const, label: "NFS-e", icon: FileText },
   { id: "fiscal" as const, label: "Fiscal", icon: Landmark },
+  { id: "documentos" as const, label: "Documentos", icon: FileSignature },
   { id: "prontuario" as const, label: "Prontuário", icon: ClipboardList },
   { id: "ia" as const, label: "IA", icon: Sparkles },
   { id: "portal" as const, label: "Portal", icon: Smartphone },
@@ -139,6 +141,7 @@ export default function AdminSettingsPage() {
             {activeTab === "email" && <EmailTab settings={settings} onUpdate={setSettings} />}
             {activeTab === "nfse" && <NfseConfigForm />}
             {activeTab === "fiscal" && <FiscalConfigTab />}
+            {activeTab === "documentos" && <DocumentTemplatesSection />}
             {activeTab === "prontuario" && <ProntuarioTab settings={settings} onUpdate={setSettings} />}
             {activeTab === "ia" && <AiSettingsTab settings={settings} onUpdate={setSettings} />}
             {activeTab === "portal" && <PortalTab settings={settings} onUpdate={setSettings} />}

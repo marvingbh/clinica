@@ -52,6 +52,7 @@ const updateSettingsSchema = z.object({
   aiHistoryContext: z.boolean().optional(),
   patientPortalEnabled: z.boolean().optional(),
   portalCancelMinHours: z.number().int().min(1, "Mínimo 1 hora").max(168, "Máximo 168 horas").optional(),
+  restrictClinicalDocsToProfessionals: z.boolean().optional(),
   waitlistSettings: waitlistSettingsSchema.optional(),
 })
 
@@ -93,6 +94,7 @@ export const GET = withFeatureAuth(
         aiTermsAcceptedByUserId: true,
         patientPortalEnabled: true,
         portalCancelMinHours: true,
+        restrictClinicalDocsToProfessionals: true,
         appointmentNotificationsEnabled: true,
         waitlistSettings: true,
         logoData: true,
@@ -148,7 +150,7 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors, prontuarioRetentionYears, prontuarioResponsibleProfessionalId, aiEnabled, aiHistoryContext, patientPortalEnabled, portalCancelMinHours, waitlistSettings } =
+    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors, prontuarioRetentionYears, prontuarioResponsibleProfessionalId, aiEnabled, aiHistoryContext, patientPortalEnabled, portalCancelMinHours, restrictClinicalDocsToProfessionals, waitlistSettings } =
       parsed.data
 
     // Check slug uniqueness
@@ -258,6 +260,7 @@ export const PATCH = withFeatureAuth(
       updateData.patientPortalEnabled = patientPortalEnabled
     }
     if (portalCancelMinHours !== undefined) updateData.portalCancelMinHours = portalCancelMinHours
+    if (restrictClinicalDocsToProfessionals !== undefined) updateData.restrictClinicalDocsToProfessionals = restrictClinicalDocsToProfessionals
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
@@ -299,6 +302,7 @@ export const PATCH = withFeatureAuth(
       aiTermsAcceptedByUserId: true,
       patientPortalEnabled: true,
       portalCancelMinHours: true,
+      restrictClinicalDocsToProfessionals: true,
     } as const
 
     const updatedClinic = billingMode === "MONTHLY_FIXED"

@@ -200,6 +200,26 @@ describe("fiscal feature", () => {
   })
 })
 
+describe("documents feature", () => {
+  it("ADMIN default is WRITE", () => {
+    expect(ROLE_DEFAULTS.ADMIN.documents).toBe("WRITE")
+  })
+
+  it("PROFESSIONAL default is WRITE", () => {
+    expect(ROLE_DEFAULTS.PROFESSIONAL.documents).toBe("WRITE")
+  })
+
+  it("resolves to WRITE for both roles with no overrides", () => {
+    expect(resolvePermissions("ADMIN", {}).documents).toBe("WRITE")
+    expect(resolvePermissions("PROFESSIONAL", {}).documents).toBe("WRITE")
+  })
+
+  it("honors an override to NONE", () => {
+    const resolved = resolvePermissions("PROFESSIONAL", { documents: "NONE" })
+    expect(resolved.documents).toBe("NONE")
+  })
+})
+
 describe("meetsMinAccess", () => {
   it("WRITE meets WRITE", () => {
     expect(meetsMinAccess("WRITE", "WRITE")).toBe(true)

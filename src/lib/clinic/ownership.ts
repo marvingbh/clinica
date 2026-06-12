@@ -131,3 +131,25 @@ export async function assertReconciliationLinksInClinic(
   })
   if (found !== unique.length) throw new OwnershipError()
 }
+
+/**
+ * Throws {@link OwnershipError} if any of the invoice-item ids does not belong
+ * to the clinic (via its invoice) and, when provided, to the given patient.
+ * Used by the reembolso flow to validate item ids coming from the body.
+ * Deduplicates and ignores empty input.
+ */
+export async function assertInvoiceItemsInClinic(
+  clinicId: string,
+  invoiceItemIds: string[],
+  patientId?: string
+): Promise<void> {
+  const unique = [...new Set(invoiceItemIds)].filter(Boolean)
+  if (unique.length === 0) return
+  const found = await prisma.invoiceItem.count({
+    where: {
+      id: { in: unique },
+      invoice: { clinicId, ...(patientId ? { patientId } : {}) },
+    },
+  })
+  if (found !== unique.length) throw new OwnershipError()
+}

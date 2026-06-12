@@ -176,6 +176,9 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     // Receita Saúde / DMED. Clinic-level data (DMED, fiscal config) is further
     // gated by an explicit ADMIN check inside the handlers.
     fiscal: "WRITE",
+    // CFP document generator. ADMIN generates for any patient of the clinic;
+    // clinical-doc restriction is enforced in the handler.
+    documents: "WRITE",
   },
   PROFESSIONAL: {
     agenda_own: "WRITE",
@@ -205,6 +208,9 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     // Sees/exports only their own Receita Saúde receipts — the handler forces
     // professionalProfileId === user.professionalProfileId (mirrors finances).
     fiscal: "WRITE",
+    // Generates/lists documents only for own-patients — the "own patient"
+    // scope cut happens in the handler (mirrors agenda_own).
+    documents: "WRITE",
   },
 }
 

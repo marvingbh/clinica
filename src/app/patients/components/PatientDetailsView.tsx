@@ -9,8 +9,9 @@ import { AppointmentHistorySection } from "./AppointmentHistorySection"
 import { getFeeLabel } from "@/lib/financeiro/billing-labels"
 import { usePermission } from "@/shared/hooks"
 import { ProntuarioTab } from "./prontuario/ProntuarioTab"
+import { DocumentsTab } from "./DocumentsTab"
 
-type PatientTabKey = "dados" | "historico" | "financeiro" | "prontuario"
+type PatientTabKey = "dados" | "historico" | "financeiro" | "prontuario" | "documentos"
 
 interface PatientDetailsViewProps {
   patient: Patient
@@ -47,10 +48,11 @@ export function PatientDetailsView({
 }: PatientDetailsViewProps) {
   const { canRead: canReadProntuario } = usePermission("prontuario")
   const { canWrite: canManagePatients } = usePermission("patients")
+  const { canRead: canReadDocuments, canWrite: canWriteDocuments } = usePermission("documents")
   // The Prontuário tab appears for clinical readers (notes) and for staff who
   // manage the patient lifecycle (ADMIN), who still cannot read note content.
   const canSeeProntuarioTab = canReadProntuario || canManagePatients
-  const showTabs = canReadAudit || canSeeProntuarioTab
+  const showTabs = canReadAudit || canSeeProntuarioTab || canReadDocuments
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -113,6 +115,18 @@ export function PatientDetailsView({
               }`}
             >
               Prontuário
+            </button>
+          )}
+          {canReadDocuments && (
+            <button
+              onClick={() => onTabChange("documentos")}
+              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                patientTab === "documentos"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Documentos
             </button>
           )}
         </div>
@@ -287,6 +301,15 @@ export function PatientDetailsView({
           <ProntuarioTab
             patientId={patient.id}
             recordClosedAt={patient.recordClosedAt ?? null}
+          />
+        )}
+
+        {patientTab === "documentos" && (
+          <DocumentsTab
+            patientId={patient.id}
+            patientEmail={patient.email}
+            patientPhone={patient.phone}
+            canWrite={canWriteDocuments}
           />
         )}
         </>
