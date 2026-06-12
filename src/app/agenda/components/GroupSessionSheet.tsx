@@ -9,6 +9,7 @@ import { toast } from "sonner"
 import type { GroupSession, AppointmentStatus, Professional } from "../lib/types"
 import type { CancelContext, CancelVariant } from "./group-session/types"
 import { GroupSessionHeader, GroupProfessionalEdit, GroupParticipantList, GroupMemberActions, GroupRecurrenceTab } from "./group-session"
+import { GroupEvolutionAction } from "./GroupEvolutionAction"
 
 type SheetTab = "session" | "members" | "recurrence"
 
@@ -131,13 +132,18 @@ export function GroupSessionSheet({
 
       {/* Session tab — attendance management */}
       {activeTab === "session" && (
-        <GroupParticipantList
-          participants={session.participants}
-          updatingId={updatingId}
-          isBulkUpdating={isBulkUpdating}
-          onUpdateStatus={handleUpdateStatus}
-          onOpenCancel={openIndividualCancel}
-        />
+        <>
+          <GroupParticipantList
+            participants={session.participants}
+            updatingId={updatingId}
+            isBulkUpdating={isBulkUpdating}
+            onUpdateStatus={handleUpdateStatus}
+            onOpenCancel={openIndividualCancel}
+          />
+          <GroupEvolutionAction
+            appointmentIds={session.participants.map((p) => p.appointmentId)}
+          />
+        </>
       )}
 
       {/* Members tab — member management + professionals */}

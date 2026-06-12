@@ -18,6 +18,10 @@
     {
       "path": "/api/jobs/mark-overdue-expenses",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/jobs/pending-clinical-notes",
+      "schedule": "0 9 * * *"
     }
   ]
 }

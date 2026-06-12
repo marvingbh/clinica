@@ -164,6 +164,9 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     finances: "WRITE",
     expenses: "WRITE",
     todos: "WRITE",
+    // Deliberate inversion (professional secrecy / CFP): ADMIN cannot read
+    // clinical content by default. Grant READ to a clinical director via override.
+    prontuario: "NONE",
   },
   PROFESSIONAL: {
     agenda_own: "WRITE",
@@ -180,6 +183,7 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     finances: "WRITE",
     expenses: "NONE",
     todos: "WRITE",
+    prontuario: "WRITE",
   },
 }
 

@@ -7,8 +7,10 @@ import { HistoryTimeline } from "@/shared/components/HistoryTimeline"
 import { Patient, formatPhone, formatDate, formatCurrency } from "./types"
 import { AppointmentHistorySection } from "./AppointmentHistorySection"
 import { getFeeLabel } from "@/lib/financeiro/billing-labels"
+import { usePermission } from "@/shared/hooks"
+import { ProntuarioTab } from "./prontuario/ProntuarioTab"
 
-type PatientTabKey = "dados" | "historico" | "financeiro"
+type PatientTabKey = "dados" | "historico" | "financeiro" | "prontuario"
 
 interface PatientDetailsViewProps {
   patient: Patient
@@ -43,6 +45,12 @@ export function PatientDetailsView({
   onLoadMoreAppointments,
   billingMode = "PER_SESSION",
 }: PatientDetailsViewProps) {
+  const { canRead: canReadProntuario } = usePermission("prontuario")
+  const { canWrite: canManagePatients } = usePermission("patients")
+  // The Prontuário tab appears for clinical readers (notes) and for staff who
+  // manage the patient lifecycle (ADMIN), who still cannot read note content.
+  const canSeeProntuarioTab = canReadProntuario || canManagePatients
+  const showTabs = canReadAudit || canSeeProntuarioTab
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -59,7 +67,7 @@ export function PatientDetailsView({
         )}
       </div>
 
-      {canReadAudit && (
+      {showTabs && (
         <div className="flex gap-1 border-b border-gray-200 mb-4">
           <button
             onClick={() => onTabChange("dados")}
@@ -71,26 +79,42 @@ export function PatientDetailsView({
           >
             Dados
           </button>
-          <button
-            onClick={() => onTabChange("historico")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-              patientTab === "historico"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Historico
-          </button>
-          <button
-            onClick={() => onTabChange("financeiro")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-              patientTab === "financeiro"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Financeiro
-          </button>
+          {canReadAudit && (
+            <button
+              onClick={() => onTabChange("historico")}
+              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                patientTab === "historico"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Historico
+            </button>
+          )}
+          {canReadAudit && (
+            <button
+              onClick={() => onTabChange("financeiro")}
+              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                patientTab === "financeiro"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Financeiro
+            </button>
+          )}
+          {canSeeProntuarioTab && (
+            <button
+              onClick={() => onTabChange("prontuario")}
+              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                patientTab === "prontuario"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Prontuário
+            </button>
+          )}
         </div>
       )}
 
@@ -257,6 +281,13 @@ export function PatientDetailsView({
 
         {patientTab === "financeiro" && (
           <PatientFinanceTab patient={patient} billingMode={billingMode} />
+        )}
+
+        {patientTab === "prontuario" && (
+          <ProntuarioTab
+            patientId={patient.id}
+            recordClosedAt={patient.recordClosedAt ?? null}
+          />
         )}
         </>
       )}

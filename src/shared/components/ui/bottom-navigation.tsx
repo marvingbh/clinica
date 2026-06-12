@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { HomeIcon, CalendarIcon, StethoscopeIcon, UserIcon, UsersIcon, DollarSignIcon, ListChecksIcon } from "./icons"
+import { HomeIcon, CalendarIcon, StethoscopeIcon, UserIcon, UsersIcon, DollarSignIcon, ListChecksIcon, FileTextIcon } from "./icons"
 import type { Feature } from "@/lib/rbac/types"
 import { usePendingIntake } from "@/shared/components/PendingIntakeProvider"
 
@@ -13,6 +13,8 @@ interface NavItem {
   activeIcon: React.ReactNode
   matchPaths?: string[]
   feature?: Feature
+  /** Minimum access required to see the item; defaults to READ. */
+  minAccess?: "READ" | "WRITE"
 }
 
 const navItems: NavItem[] = [
@@ -53,6 +55,15 @@ const navItems: NavItem[] = [
     activeIcon: <UsersIcon className="w-6 h-6" strokeWidth={2} />,
     matchPaths: ["/groups"],
     feature: "groups",
+  },
+  {
+    href: "/prontuario",
+    label: "Prontuário",
+    icon: <FileTextIcon className="w-6 h-6" strokeWidth={1.5} />,
+    activeIcon: <FileTextIcon className="w-6 h-6" strokeWidth={2} />,
+    matchPaths: ["/prontuario"],
+    feature: "prontuario",
+    minAccess: "WRITE",
   },
   {
     href: "/financeiro",
@@ -97,6 +108,7 @@ export function BottomNavigation() {
   const visibleItems = navItems.filter((item) => {
     if (!item.feature) return true
     const access = permissions?.[item.feature]
+    if (item.minAccess === "WRITE") return access === "WRITE"
     return access === "READ" || access === "WRITE"
   })
 

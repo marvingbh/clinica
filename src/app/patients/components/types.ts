@@ -81,6 +81,7 @@ export interface Patient {
   invoiceMessageTemplate?: string | null
   referenceProfessionalId: string | null
   referenceProfessional: ReferenceProfessional | null
+  recordClosedAt?: string | null
   additionalPhones?: AdditionalPhone[]
   appointments?: Appointment[]
   usualPayers?: UsualPayer[]

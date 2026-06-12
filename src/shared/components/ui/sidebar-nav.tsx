@@ -41,6 +41,8 @@ interface NavItem {
   icon: React.ReactNode
   matchPaths?: string[]
   feature?: Feature
+  /** Minimum access required to see the item; defaults to READ. */
+  minAccess?: "READ" | "WRITE"
   badge?: { label: string; tone: NavBadgeTone }
 }
 
@@ -85,6 +87,14 @@ const navGroups: NavGroup[] = [
         icon: <AlertCircleIcon className="w-4 h-4" strokeWidth={1.75} />,
         matchPaths: ["/agenda/pendencias"],
         feature: "agenda_own",
+      },
+      {
+        href: "/prontuario",
+        label: "Prontuário",
+        icon: <FileTextIcon className="w-4 h-4" strokeWidth={1.75} />,
+        matchPaths: ["/prontuario"],
+        feature: "prontuario",
+        minAccess: "WRITE",
       },
       {
         href: "/patients",
@@ -303,6 +313,7 @@ export function SidebarNav() {
     items: group.items.filter((item) => {
       if (!item.feature) return true
       const access = permissions?.[item.feature]
+      if (item.minAccess === "WRITE") return access === "WRITE"
       return access === "READ" || access === "WRITE"
     }),
   })

@@ -6,6 +6,7 @@ import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, BanIcon, PrinterIcon, 
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { formatDateHeader, toDateString, toDisplayDateFromDate } from "../lib/utils"
 import type { Professional } from "../lib/types"
+import { PendingNotesBadge } from "./PendingNotesBadge"
 import { PROFESSIONAL_COLORS, type ProfessionalColorMap } from "../lib/professional-colors"
 
 export interface AgendaHeaderProps {
@@ -90,6 +91,7 @@ export function AgendaHeader({
             </h1>
           </div>
           <div className="flex items-center gap-2 print-hidden">
+            <PendingNotesBadge />
             {onBulkCancel && (
               <button
                 type="button"

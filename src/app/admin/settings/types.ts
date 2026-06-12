@@ -22,6 +22,8 @@ export interface ClinicSettings {
   taxPercentage: number
   hasLogo: boolean
   agendaColors: AgendaColors
+  prontuarioRetentionYears: number
+  prontuarioResponsibleProfessionalId: string | null
 }
 
 export interface TabProps {

@@ -105,6 +105,7 @@ export const GET = withFeatureAuth(
           therapeuticProject: true,
           isActive: true,
           lastVisitAt: true,
+          recordClosedAt: true,
           consentWhatsApp: true,
           consentWhatsAppAt: true,
           consentEmail: true,

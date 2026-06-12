@@ -10,6 +10,7 @@ import type { Segment } from "./SegmentedControl"
 import { RecurrenceTabContent } from "./RecurrenceTabContent"
 import { HistoryTimeline } from "@/shared/components/HistoryTimeline"
 import { usePermission } from "@/shared/hooks/usePermission"
+import { RegisterEvolutionButton } from "./RegisterEvolutionButton"
 import { Appointment, AppointmentStatus, EditAppointmentFormData, CalendarEntryType, Professional } from "../lib/types"
 import { TimeInput } from "./TimeInput"
 import { DateInput } from "./DateInput"
@@ -327,6 +328,13 @@ export function AppointmentEditor({
                     </a>
                   )}
                 </div>
+              )}
+              {isConsulta && appointment.patient?.id && (
+                <RegisterEvolutionButton
+                  appointmentId={appointment.id}
+                  patientId={appointment.patient.id}
+                  type={appointment.type}
+                />
               )}
             </div>
           </div>

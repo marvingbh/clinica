@@ -80,6 +80,26 @@ describe("resolvePermissions", () => {
   })
 })
 
+describe("prontuario feature (CFP secrecy inversion)", () => {
+  it("ADMIN default is NONE (cannot read clinical content)", () => {
+    expect(ROLE_DEFAULTS.ADMIN.prontuario).toBe("NONE")
+  })
+
+  it("PROFESSIONAL default is WRITE", () => {
+    expect(ROLE_DEFAULTS.PROFESSIONAL.prontuario).toBe("WRITE")
+  })
+
+  it("override grants READ to a clinical director (ADMIN)", () => {
+    const resolved = resolvePermissions("ADMIN", { prontuario: "READ" })
+    expect(resolved.prontuario).toBe("READ")
+  })
+
+  it("resolves to NONE for sessions missing the feature override", () => {
+    const resolved = resolvePermissions("ADMIN", {})
+    expect(resolved.prontuario).toBe("NONE")
+  })
+})
+
 describe("meetsMinAccess", () => {
   it("WRITE meets WRITE", () => {
     expect(meetsMinAccess("WRITE", "WRITE")).toBe(true)

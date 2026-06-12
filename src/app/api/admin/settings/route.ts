@@ -6,6 +6,8 @@ import {
   agendaColorsPatchSchema,
   resolveAgendaColors,
 } from "@/lib/clinic/colors/schema"
+import { assertProfessionalInClinic, OwnershipError } from "@/lib/clinic/ownership"
+import { clampRetentionYears } from "@/lib/prontuario"
 
 const updateSettingsSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(200).optional(),
@@ -42,6 +44,8 @@ const updateSettingsSchema = z.object({
   invoiceGrouping: z.enum(["MONTHLY", "PER_SESSION"]).optional(),
   taxPercentage: z.number().min(0).max(100).optional(),
   agendaColors: agendaColorsPatchSchema.optional(),
+  prontuarioRetentionYears: z.number().int().min(5).max(20).optional(),
+  prontuarioResponsibleProfessionalId: z.string().min(1).nullable().optional(),
 })
 
 /**
@@ -74,6 +78,8 @@ export const GET = withFeatureAuth(
         invoiceGrouping: true,
         taxPercentage: true,
         agendaColors: true,
+        prontuarioRetentionYears: true,
+        prontuarioResponsibleProfessionalId: true,
         logoData: true,
       },
     })
@@ -124,7 +130,7 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors } =
+    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors, prontuarioRetentionYears, prontuarioResponsibleProfessionalId } =
       parsed.data
 
     // Check slug uniqueness
@@ -169,6 +175,21 @@ export const PATCH = withFeatureAuth(
       const merged = { ...resolveAgendaColors(current?.agendaColors), ...agendaColors }
       updateData.agendaColors = merged
     }
+    if (prontuarioRetentionYears !== undefined)
+      updateData.prontuarioRetentionYears = clampRetentionYears(prontuarioRetentionYears)
+    if (prontuarioResponsibleProfessionalId !== undefined) {
+      if (prontuarioResponsibleProfessionalId) {
+        try {
+          await assertProfessionalInClinic(user.clinicId, prontuarioResponsibleProfessionalId)
+        } catch (error) {
+          if (error instanceof OwnershipError) {
+            return NextResponse.json({ error: "Profissional não encontrado." }, { status: 404 })
+          }
+          throw error
+        }
+      }
+      updateData.prontuarioResponsibleProfessionalId = prontuarioResponsibleProfessionalId
+    }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
@@ -202,6 +223,8 @@ export const PATCH = withFeatureAuth(
       invoiceGrouping: true,
       taxPercentage: true,
       agendaColors: true,
+      prontuarioRetentionYears: true,
+      prontuarioResponsibleProfessionalId: true,
     } as const
 
     const updatedClinic = billingMode === "MONTHLY_FIXED"

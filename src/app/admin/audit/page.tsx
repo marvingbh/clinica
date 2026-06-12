@@ -68,6 +68,16 @@ const ACTION_LABELS: Record<string, string> = {
   LOGIN_SUCCESS: "Login realizado",
   LOGIN_FAILED: "Falha no login",
   PERMISSION_DENIED: "Acesso negado",
+  CLINICAL_NOTE_CREATED: "Registro clínico criado",
+  CLINICAL_NOTE_UPDATED: "Registro clínico atualizado",
+  CLINICAL_NOTE_SIGNED: "Registro clínico assinado",
+  CLINICAL_NOTE_DELETED: "Registro clínico excluído",
+  CLINICAL_NOTE_ADDENDUM_CREATED: "Adendo adicionado",
+  CLINICAL_NOTE_ACCESSED: "Registro clínico acessado",
+  PATIENT_RECORD_CLOSED: "Prontuário encerrado",
+  PATIENT_RECORD_REOPENED: "Prontuário reaberto",
+  PATIENT_RECORD_DISPOSED: "Prontuário descartado",
+  PENDING_NOTES_JOB_EXECUTED: "Job de pendências executado",
 }
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -75,6 +85,7 @@ const ENTITY_LABELS: Record<string, string> = {
   Patient: "Paciente",
   User: "Usuário",
   "professional-profile": "Profissional",
+  ClinicalNote: "Registro clínico",
 }
 
 const ACTION_COLORS: Record<string, string> = {
