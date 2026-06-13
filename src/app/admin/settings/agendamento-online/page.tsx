@@ -1,9 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
+// eslint-disable-next-line no-restricted-imports -- auth-readiness data fetch must re-run when isReady flips
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { useRequireAuth, useMountEffect } from "@/shared/hooks"
+import { useRequireAuth } from "@/shared/hooks"
 import { BookingSettingsForm } from "./components/BookingSettingsForm"
 import { ProfessionalBookingTable } from "./components/ProfessionalBookingTable"
 import type { BookingSettingsState } from "./components/types"
@@ -15,11 +17,7 @@ export default function AgendamentoOnlineSettingsPage() {
   const [settings, setSettings] = useState<BookingSettingsState | null>(null)
   const [clinicSlug, setClinicSlug] = useState<string>("")
 
-  useMountEffect(() => {
-    if (isReady) void load()
-  })
-
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const [settingsRes, meRes] = await Promise.all([
         fetch("/api/clinic/booking-settings"),
@@ -41,7 +39,13 @@ export default function AgendamentoOnlineSettingsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [router])
+
+  // Data fetch depends on auth readiness — must re-run when isReady flips true
+  // (a mount-only effect would never fire on a direct URL load / refresh).
+  useEffect(() => {
+    if (isReady) void load()
+  }, [isReady, load])
 
   if (status === "loading" || loading) {
     return (
