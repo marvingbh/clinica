@@ -87,7 +87,7 @@ export function PatientDetailsView({
       </div>
 
       {showTabs && (
-        <div className="flex gap-1 border-b border-gray-200 mb-4 overflow-x-auto">
+        <div className="flex flex-wrap gap-1 border-b border-gray-200 mb-4">
           {(
             [
               { key: "dados", label: "Dados", visible: true },
