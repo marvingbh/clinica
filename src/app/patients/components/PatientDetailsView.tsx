@@ -87,99 +87,33 @@ export function PatientDetailsView({
       </div>
 
       {showTabs && (
-        <div className="flex gap-1 border-b border-gray-200 mb-4">
-          <button
-            onClick={() => onTabChange("dados")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-              patientTab === "dados"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Dados
-          </button>
-          {canReadAudit && (
-            <button
-              onClick={() => onTabChange("historico")}
-              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-                patientTab === "historico"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Historico
-            </button>
-          )}
-          {canReadAudit && (
-            <button
-              onClick={() => onTabChange("financeiro")}
-              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-                patientTab === "financeiro"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Financeiro
-            </button>
-          )}
-          {canSeeProntuarioTab && (
-            <button
-              onClick={() => onTabChange("prontuario")}
-              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-                patientTab === "prontuario"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Prontuário
-            </button>
-          )}
-          {canReadDocuments && (
-            <button
-              onClick={() => onTabChange("documentos")}
-              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-                patientTab === "documentos"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Documentos
-            </button>
-          )}
-          <button
-            onClick={() => onTabChange("anexos")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-              patientTab === "anexos"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Anexos
-          </button>
-          {canReadForms && (
-            <button
-              onClick={() => onTabChange("formularios")}
-              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-                patientTab === "formularios"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Formulários
-            </button>
-          )}
-          {canSeeEscalasTab && (
-            <button
-              onClick={() => onTabChange("escalas")}
-              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-                patientTab === "escalas"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Escalas
-            </button>
-          )}
+        <div className="flex gap-1 border-b border-gray-200 mb-4 overflow-x-auto">
+          {(
+            [
+              { key: "dados", label: "Dados", visible: true },
+              { key: "historico", label: "Historico", visible: canReadAudit },
+              { key: "financeiro", label: "Financeiro", visible: canReadAudit },
+              { key: "prontuario", label: "Prontuário", visible: canSeeProntuarioTab },
+              { key: "documentos", label: "Documentos", visible: canReadDocuments },
+              { key: "anexos", label: "Anexos", visible: true },
+              { key: "formularios", label: "Formulários", visible: canReadForms },
+              { key: "escalas", label: "Escalas", visible: canSeeEscalasTab },
+            ] as { key: PatientTabKey; label: string; visible: boolean }[]
+          )
+            .filter((t) => t.visible)
+            .map((t) => (
+              <button
+                key={t.key}
+                onClick={() => onTabChange(t.key)}
+                className={`px-3 py-2 text-sm font-medium border-b-2 whitespace-nowrap flex-shrink-0 transition-colors ${
+                  patientTab === t.key
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
         </div>
       )}
 
