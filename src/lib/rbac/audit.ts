@@ -195,6 +195,9 @@ export const AuditAction = {
   DOCUMENT_DELETED: "DOCUMENT_DELETED",
   DOCUMENT_RESTORED: "DOCUMENT_RESTORED",
   DOCUMENTS_PURGED: "DOCUMENTS_PURGED", // cron (aggregated per clinic)
+
+  // Operational reports (/relatorios) — metadata only (report name + period)
+  REPORT_EXPORTED: "REPORT_EXPORTED",
 } as const
 
 export type AuditActionType = (typeof AuditAction)[keyof typeof AuditAction]

@@ -190,6 +190,9 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     // scores/answers/risk are clinical data, so ADMIN is NONE by default.
     // A clinical director gets READ/WRITE via a per-user override.
     escalas: "NONE",
+    // Operational dashboard (/relatorios). ADMIN sees clinic-wide comparatives;
+    // scope ("clinic") is enforced inside the handler.
+    reports: "READ",
   },
   PROFESSIONAL: {
     agenda_own: "WRITE",
@@ -231,6 +234,10 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     // Clinical scales: professionals send/score/track only for the patients
     // they treat — the "tratante" cut happens in the handler (canViewScaleContent).
     escalas: "WRITE",
+    // Operational dashboard (/relatorios). Professionals see only their own
+    // numbers — the handler forces professionalProfileId === user's and never
+    // returns colleagues' revenue or rows (mirrors finances).
+    reports: "READ",
   },
 }
 

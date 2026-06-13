@@ -26,6 +26,9 @@ export const FIELD_LABELS: Record<string, string> = {
   consentEmail: "Consentimento Email",
   isActive: "Ativo",
   referenceProfessionalId: "Profissional Referencia",
+  referralSource: "Origem do paciente",
+  referralSourceDetail: "Detalhe da origem",
+  capacity: "Capacidade do grupo",
 
   // Appointment fields
   status: "Status",

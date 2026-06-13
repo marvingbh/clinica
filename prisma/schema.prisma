@@ -188,6 +188,17 @@ enum IntakeSubmissionStatus {
   REJECTED
 }
 
+/// How a patient first heard about the clinic ("Como conheceu a clínica?").
+/// Drives the acquisition report in /relatorios; legacy rows are null ("Não informado").
+enum ReferralSource {
+  INDICACAO
+  INSTAGRAM
+  GOOGLE
+  SITE
+  CONVENIO
+  OUTRO
+}
+
 enum NotificationStatus {
   PENDING
   SENT
@@ -815,6 +826,10 @@ model Patient {
   // Opt-out from automated dunning (régua de cobrança); manual charging still allowed
   dunningOptOut Boolean @default(false)
 
+  // Acquisition source ("Como conheceu a clínica?") — powers the /relatorios Origens report.
+  referralSource       ReferralSource?
+  referralSourceDetail String? // free text (who referred / which "outro")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -850,6 +865,8 @@ model Patient {
   @@index([email])
   @@index([isActive])
   @@index([referenceProfessionalId])
+  @@index([clinicId, createdAt]) // new patients per month (acquisition report)
+  @@index([clinicId, referralSource]) // grouping by acquisition source
 }
 
 /// Additional phone numbers for a patient (contacts, guardians, etc.)
@@ -927,6 +944,10 @@ model IntakeSubmission {
   // Consents
   consentPhotoVideo       Boolean @default(false)
   consentSessionRecording Boolean @default(false)
+
+  // Acquisition source ("Como conheceu a clínica?") — transferred to Patient on approval.
+  referralSource       ReferralSource?
+  referralSourceDetail String?
 
   // Review tracking
   patientId        String?
@@ -1315,6 +1336,7 @@ model TherapyGroup {
   startTime             String // e.g., "14:00"
   duration              Int            @default(90) // in minutes
   recurrenceType        RecurrenceType @default(WEEKLY)
+  capacity              Int? // max members; null = derive occupancy from active members
   isActive              Boolean        @default(true)
 
   createdAt DateTime @default(now())
