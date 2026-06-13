@@ -51,6 +51,11 @@ const ALWAYS_ENABLED_EMAIL_TYPES = new Set<NotificationType>([
   NotificationType.DOCUMENT_SIGNATURE_OTP,
   NotificationType.DOCUMENT_SIGNATURE_REMINDER,
   NotificationType.DOCUMENT_SIGNED,
+  // Form/anamnese: the request is an explicit user-initiated send and the
+  // completion notice is an internal staff alert — neither is an
+  // appointment confirmation/reminder, so they aren't gated by the flag.
+  NotificationType.FORM_REQUEST,
+  NotificationType.FORM_COMPLETED,
 ])
 
 /**

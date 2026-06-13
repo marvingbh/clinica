@@ -51,6 +51,12 @@ export interface TemplateVariables {
   code?: string
   /** Patient teleconsulta link (/teleconsulta/{token} or external meetingUrl). */
   videoLink?: string
+  /** Name of the form/anamnese sent for completion. */
+  formName?: string
+  /** Public form-fill link (/f/{token}). */
+  formLink?: string
+  /** Human-readable expiry (DD/MM/YYYY) for the form link. */
+  expiryDate?: string
 }
 
 /**
@@ -70,6 +76,9 @@ export const TEMPLATE_VARIABLES = [
   { key: "dueDate", label: "Vencimento", example: "15/06/2026" },
   { key: "referenceMonth", label: "Mês de Referência", example: "06/2026" },
   { key: "videoLink", label: "Link da Teleconsulta", example: "https://..." },
+  { key: "formName", label: "Nome do Formulário", example: "Anamnese adulto" },
+  { key: "formLink", label: "Link do Formulário", example: "https://..." },
+  { key: "expiryDate", label: "Validade do Link", example: "26/06/2026" },
 ] as const
 
 /**
@@ -480,6 +489,44 @@ Atenciosamente,
     content: `O documento "{{documentTitle}}" de {{patientName}} foi assinado com sucesso.
 
 Acesse o sistema para baixar a via assinada.
+
+{{clinicName}}`,
+  },
+  // FORM_REQUEST - WhatsApp (to patient/guardian)
+  {
+    type: NotificationType.FORM_REQUEST,
+    channel: NotificationChannel.WHATSAPP,
+    name: "Formulário para Preencher (WhatsApp)",
+    subject: null,
+    content: `Olá, {{patientName}}! A {{clinicName}} pede que você preencha o formulário "{{formName}}". Acesse: {{formLink}} (válido até {{expiryDate}}).`,
+  },
+  // FORM_REQUEST - Email (to patient/guardian)
+  {
+    type: NotificationType.FORM_REQUEST,
+    channel: NotificationChannel.EMAIL,
+    name: "Formulário para Preencher (Email)",
+    subject: 'Formulário para preencher — {{clinicName}}',
+    content: `Olá, {{patientName}}!
+
+A {{clinicName}} pede que você preencha o formulário "{{formName}}".
+
+Acesse o link abaixo para responder no seu celular ou computador:
+{{formLink}}
+
+O link é válido até {{expiryDate}}.
+
+Atenciosamente,
+{{clinicName}}`,
+  },
+  // FORM_COMPLETED - Email (to responsible professional)
+  {
+    type: NotificationType.FORM_COMPLETED,
+    channel: NotificationChannel.EMAIL,
+    name: "Formulário Respondido (Email)",
+    subject: "Formulário respondido — {{patientName}}",
+    content: `O paciente {{patientName}} respondeu o formulário "{{formName}}".
+
+Acesse o sistema para revisar as respostas antes da sessão.
 
 {{clinicName}}`,
   },

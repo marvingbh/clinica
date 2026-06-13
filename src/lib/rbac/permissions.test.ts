@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { hasPermission, resolvePermissions, meetsMinAccess, rolePermissions, ROLE_DEFAULTS } from "./permissions"
+import { FEATURES } from "./types"
 
 describe("hasPermission", () => {
   it("ADMIN has clinic-scoped appointment permissions", () => {
@@ -237,6 +238,30 @@ describe("assinaturas feature", () => {
   it("honors an override to NONE", () => {
     const resolved = resolvePermissions("PROFESSIONAL", { assinaturas: "NONE" })
     expect(resolved.assinaturas).toBe("NONE")
+  })
+})
+
+describe("forms feature", () => {
+  it("is present in FEATURES", () => {
+    expect(FEATURES).toContain("forms")
+  })
+
+  it("ADMIN default is WRITE", () => {
+    expect(ROLE_DEFAULTS.ADMIN.forms).toBe("WRITE")
+  })
+
+  it("PROFESSIONAL default is WRITE", () => {
+    expect(ROLE_DEFAULTS.PROFESSIONAL.forms).toBe("WRITE")
+  })
+
+  it("resolves to WRITE for both roles with no overrides", () => {
+    expect(resolvePermissions("ADMIN", {}).forms).toBe("WRITE")
+    expect(resolvePermissions("PROFESSIONAL", {}).forms).toBe("WRITE")
+  })
+
+  it("honors an override to NONE", () => {
+    const resolved = resolvePermissions("PROFESSIONAL", { forms: "NONE" })
+    expect(resolved.forms).toBe("NONE")
   })
 })
 

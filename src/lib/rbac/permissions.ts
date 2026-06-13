@@ -182,6 +182,10 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     // Electronic signature of TCLE/contracts. ADMIN sends for any patient;
     // ownership is validated in the handler.
     assinaturas: "WRITE",
+    // Form / anamnese builder. ADMIN builds and sends clinic-wide; response
+    // CONTENT access is further restricted in the handler (ADMIN / reference
+    // professional / sender).
+    forms: "WRITE",
   },
   PROFESSIONAL: {
     agenda_own: "WRITE",
@@ -217,6 +221,9 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     // Sends/manages signatures only for own patients — handler scopes it
     // (mirrors documents/agenda_own).
     assinaturas: "WRITE",
+    // Professionals build their own anamneses and send to their patients;
+    // restrictive clinics use a per-user override via UserPermission.
+    forms: "WRITE",
   },
 }
 

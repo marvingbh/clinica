@@ -641,3 +641,41 @@ describe("payment notification templates (cobrança)", () => {
     expect(keys).toContain("referenceMonth")
   })
 })
+
+describe("form notification templates (anamnese)", () => {
+  it("ships FORM_REQUEST on both channels and FORM_COMPLETED on email", () => {
+    expect(
+      DEFAULT_TEMPLATES.find((t) => t.type === "FORM_REQUEST" && t.channel === "WHATSAPP")
+    ).toBeDefined()
+    expect(
+      DEFAULT_TEMPLATES.find((t) => t.type === "FORM_REQUEST" && t.channel === "EMAIL")
+    ).toBeDefined()
+    const completed = DEFAULT_TEMPLATES.find((t) => t.type === "FORM_COMPLETED")
+    expect(completed).toBeDefined()
+    expect(completed!.channel).toBe("EMAIL")
+  })
+
+  it("renders {{formLink}}, {{formName}} and {{expiryDate}} in FORM_REQUEST", () => {
+    const tmpl = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "FORM_REQUEST" && t.channel === "WHATSAPP"
+    )!
+    const rendered = renderTemplate(tmpl.content, {
+      patientName: "Maria",
+      clinicName: "Clínica X",
+      formName: "Anamnese adulto",
+      formLink: "https://app/f/abc",
+      expiryDate: "26/06/2026",
+    })
+    expect(rendered).toContain("Anamnese adulto")
+    expect(rendered).toContain("https://app/f/abc")
+    expect(rendered).toContain("26/06/2026")
+    expect(rendered).not.toContain("{{")
+  })
+
+  it("exposes form variables in TEMPLATE_VARIABLES", () => {
+    const keys = TEMPLATE_VARIABLES.map((v) => v.key)
+    expect(keys).toContain("formName")
+    expect(keys).toContain("formLink")
+    expect(keys).toContain("expiryDate")
+  })
+})

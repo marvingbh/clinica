@@ -57,6 +57,21 @@ enum NotificationType {
   DOCUMENT_SIGNATURE_OTP // código OTP para concluir a assinatura
   DOCUMENT_SIGNATURE_REMINDER // lembrete de assinatura pendente (D+3/D+7)
   DOCUMENT_SIGNED // documento assinado — aviso ao solicitante
+  FORM_REQUEST // formulário/anamnese enviado ao paciente para preenchimento
+  FORM_COMPLETED // formulário respondido — aviso ao profissional responsável
+}
+
+enum FormResponseStatus {
+  ENVIADO
+  EM_PREENCHIMENTO
+  CONCLUIDO
+  EXPIRADO
+}
+
+enum FormSentVia {
+  WHATSAPP
+  EMAIL
+  LINK
 }
 
 /// Role of a signer inside a signature envelope.
@@ -549,6 +564,9 @@ model Clinic {
   signatureEnvelopes         SignatureEnvelope[]
   signatureRequests          SignatureRequest[]
   signatureOtps              SignatureOtp[]
+  formTemplates              FormTemplate[]
+  formVersions               FormVersion[]
+  formResponses              FormResponse[]
 
   @@index([slug])
   @@index([isActive])
@@ -591,6 +609,8 @@ model User {
   createdPaymentCharges     PaymentCharge[]             @relation("CreatedPaymentCharges")
   generatedDocuments        GeneratedDocument[]
   requestedSignatureEnvelopes SignatureEnvelope[]
+  formTemplatesCreated      FormTemplate[]
+  formResponsesSent         FormResponse[]
 
   @@unique([clinicId, email])
   @@index([clinicId])
@@ -649,6 +669,7 @@ model ProfessionalProfile {
   reciboSaudeBatches        ReciboSaudeBatch[]
   reciboSaudeEmissions      ReciboSaudeEmission[]
   generatedDocuments        GeneratedDocument[]
+  formResponses             FormResponse[]
 
   @@index([userId])
   @@index([publicBookingSlug])
@@ -784,6 +805,7 @@ model Patient {
   reciboSaudeEmissions   ReciboSaudeEmission[]
   generatedDocuments     GeneratedDocument[]
   signatureEnvelopes     SignatureEnvelope[]
+  formResponses          FormResponse[]
 
   @@unique([clinicId, cpf])
   @@index([clinicId])
@@ -2454,4 +2476,84 @@ model SignatureOtp {
 
   @@index([requestId, expiresAt])
   @@index([expiresAt])
+}
+
+/// Modelo de formulário (anamnese/questionário). Excluir = desativar.
+model FormTemplate {
+  id                       String  @id @default(cuid())
+  clinicId                 String
+  name                     String
+  description              String?
+  isActive                 Boolean @default(true)
+  /// Envia automaticamente ao aprovar uma IntakeSubmission
+  autoSendOnIntakeApproval Boolean @default(false)
+  /// Rascunho de trabalho (FormField[] validado por zod em src/lib/forms/schema.ts)
+  draftFields              Json    @default("[]")
+  createdByUserId          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic    Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  createdBy User?         @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  versions  FormVersion[]
+
+  @@index([clinicId, isActive])
+  @@index([clinicId])
+}
+
+/// Snapshot imutável publicado de um FormTemplate. Nunca é editado nem deletado.
+model FormVersion {
+  id          String   @id @default(cuid())
+  clinicId    String
+  templateId  String
+  version     Int
+  /// FormField[] congelado no momento da publicação
+  fields      Json
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  clinic    Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  template  FormTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  responses FormResponse[]
+
+  @@unique([templateId, version])
+  @@index([clinicId])
+  @@index([templateId])
+}
+
+/// Envio de formulário a um paciente + respostas. Imutável após CONCLUIDO.
+model FormResponse {
+  id                    String             @id @default(cuid())
+  clinicId              String
+  patientId             String
+  formVersionId         String
+  /// Profissional responsável (recebe o Todo na conclusão)
+  professionalProfileId String?
+  sentByUserId          String?
+  status                FormResponseStatus @default(ENVIADO)
+  /// Record<fieldId, string | string[] | number | boolean>
+  answers               Json               @default("{}")
+  sentVia               FormSentVia
+  sentAt                DateTime           @default(now())
+  expiresAt             DateTime
+  startedAt             DateTime?
+  completedAt           DateTime?
+  /// SHA-256 hex do token público — o token em si nunca é persistido
+  tokenHash             String             @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic              Clinic               @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient             Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  formVersion         FormVersion          @relation(fields: [formVersionId], references: [id], onDelete: Restrict)
+  professionalProfile ProfessionalProfile? @relation(fields: [professionalProfileId], references: [id], onDelete: SetNull)
+  sentBy              User?                @relation(fields: [sentByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId, patientId])
+  @@index([clinicId, status])
+  @@index([patientId])
+  @@index([formVersionId])
+  @@index([professionalProfileId])
 }

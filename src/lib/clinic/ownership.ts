@@ -63,6 +63,18 @@ export async function assertAppointmentInClinic(
   return appointment
 }
 
+/** Throws {@link OwnershipError} if the form template is not in the clinic. */
+export async function assertFormTemplateInClinic(
+  clinicId: string,
+  templateId: string
+): Promise<void> {
+  const template = await prisma.formTemplate.findFirst({
+    where: { id: templateId, clinicId },
+    select: { id: true },
+  })
+  if (!template) throw new OwnershipError()
+}
+
 /** Throws {@link OwnershipError} if the professional profile is not in the clinic. */
 export async function assertProfessionalInClinic(
   clinicId: string,
