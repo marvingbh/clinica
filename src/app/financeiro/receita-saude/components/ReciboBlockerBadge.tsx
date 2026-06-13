@@ -24,7 +24,9 @@ export function ReciboBlockerBadge({
 }) {
   if (blockers.length === 0) return null
   const isProfessional = blockers.some((b) => PROFESSIONAL_BLOCKERS.has(b))
-  const fixHref = isProfessional ? "/professionals" : `/patients/${patientId}`
+  // Patients open via a query param on the list page (there is no /patients/[id]
+  // route); &edit=1 opens the edit form so the missing CPF/birthdate can be fixed.
+  const fixHref = isProfessional ? "/professionals" : `/patients?id=${patientId}&edit=1`
 
   return (
     <div className="flex flex-col gap-1">
