@@ -68,7 +68,7 @@ export default function PatientsPage() {
 
   const { canWrite } = usePermission("patients")
   const { canRead: canReadAudit } = usePermission("audit_logs")
-  const [patientTab, setPatientTab] = useState<"dados" | "historico" | "financeiro" | "prontuario" | "documentos">("dados")
+  const [patientTab, setPatientTab] = useState<"dados" | "historico" | "financeiro" | "prontuario" | "documentos" | "formularios">("dados")
   const [billingMode, setBillingMode] = useState<string>("PER_SESSION")
   const [pageTab, setPageTab] = useState<"pacientes" | "fichas" | "solicitacoes">("pacientes")
   // Read ?tab= once on mount so a deep-link from the pending-intake banner

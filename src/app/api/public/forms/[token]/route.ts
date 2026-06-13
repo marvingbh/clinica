@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { NotificationChannel, NotificationType } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "@/lib/rate-limit"
-import { createAndSendNotification } from "@/lib/notifications/notification-service"
-import { getTemplate, renderTemplate } from "@/lib/notifications/templates"
-import { logSystemAudit, AuditAction } from "@/lib/rbac/audit"
 import {
   hashFormToken,
   parseFieldsSafe,
@@ -14,9 +10,8 @@ import {
   sanitizeAnswers,
   validateSubmission,
   validateAnswer,
-  resolveTodoAssignee,
+  runFormCompletionSideEffects,
   type FormAnswers,
-  type FormField,
 } from "@/lib/forms"
 
 const answersSchema = z.object({
@@ -112,7 +107,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ to
   const merged = sanitizeAnswers(fields, { ...current, ...(parsed.data.answers as FormAnswers) })
 
   // Reject only if an explicitly-sent field is itself invalid (e.g. bad date).
-  for (const [id, value] of Object.entries(parsed.data.answers)) {
+  for (const id of Object.keys(parsed.data.answers)) {
     const field = fields.find((f) => f.id === id)
     if (!field || field.type === "section") continue
     if (merged[id] !== undefined) {
@@ -165,77 +160,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   })
 
   // Side effects must not fail the patient's submit.
-  await runCompletionSideEffects(response, fields).catch((err) =>
+  await runFormCompletionSideEffects(response, fields).catch((err) =>
     console.error("Form completion side effects failed:", err)
   )
 
   return NextResponse.json({ message: "Respostas enviadas com sucesso" })
-}
-
-async function runCompletionSideEffects(response: LoadedResponse, fields: FormField[]): Promise<void> {
-  const clinicId = response.clinic.id
-  const formName = response.formVersion.template.name
-  const patientName = response.patient.name
-
-  // 1) Todo for the resolved professional.
-  const assignee = resolveTodoAssignee({
-    patientReferenceProfessionalId: response.patient.referenceProfessionalId,
-    responseProfessionalProfileId: response.professionalProfileId,
-  })
-  if (assignee) {
-    const today = new Date()
-    const day = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()))
-    await prisma.todo.create({
-      data: {
-        clinicId,
-        professionalProfileId: assignee,
-        title: `Formulário respondido — ${patientName}`,
-        day,
-      },
-    })
-  }
-
-  // 2) FORM_COMPLETED email to the responsible professional, else admins.
-  const recipients = await resolveCompletionRecipients(clinicId, assignee)
-  if (recipients.length > 0) {
-    const clinic = await prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true } })
-    const vars = { patientName, formName, clinicName: clinic?.name ?? "" }
-    const tmpl = await getTemplate(clinicId, NotificationType.FORM_COMPLETED, NotificationChannel.EMAIL)
-    const content = renderTemplate(tmpl.content, vars)
-    const subject = tmpl.subject ? renderTemplate(tmpl.subject, vars) : undefined
-    for (const email of recipients) {
-      await createAndSendNotification({
-        clinicId,
-        type: NotificationType.FORM_COMPLETED,
-        channel: NotificationChannel.EMAIL,
-        recipient: email,
-        subject,
-        content,
-      })
-    }
-  }
-
-  // 3) Public audit (no staff actor).
-  await logSystemAudit({
-    clinicId,
-    action: AuditAction.FORM_RESPONSE_COMPLETED,
-    entityType: "FormResponse",
-    entityId: response.id,
-    newValues: { fieldCount: fields.filter((f) => f.type !== "section").length },
-  })
-}
-
-async function resolveCompletionRecipients(clinicId: string, assignee: string | null): Promise<string[]> {
-  if (assignee) {
-    const prof = await prisma.professionalProfile.findFirst({
-      where: { id: assignee, user: { clinicId } },
-      select: { user: { select: { email: true, isActive: true } } },
-    })
-    if (prof?.user.isActive && prof.user.email) return [prof.user.email]
-  }
-  const admins = await prisma.user.findMany({
-    where: { clinicId, role: "ADMIN", isActive: true },
-    select: { email: true },
-  })
-  return admins.map((a) => a.email).filter((e): e is string => !!e)
 }

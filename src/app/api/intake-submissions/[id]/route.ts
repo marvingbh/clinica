@@ -6,6 +6,8 @@ import { intakeUpdateSchema, mapSubmissionToPatient } from "@/lib/intake"
 import { audit, AuditAction } from "@/lib/rbac"
 import { patientApiSchema } from "@/lib/patients/schema"
 import { normalizePhone } from "@/lib/phone"
+import { sendFormToPatient } from "@/lib/forms"
+import { getAppBaseUrl } from "@/lib/forms/base-url"
 
 /**
  * GET /api/intake-submissions/[id] — Fetch a single submission
@@ -317,6 +319,13 @@ export const PATCH = withFeatureAuth(
         request: req,
       })
 
+      // Auto-send configured anamneses (best-effort; never fail the approval).
+      try {
+        await autoSendForms(user.clinicId, result.patient.id, user.id)
+      } catch (err) {
+        console.error("Failed to auto-send forms on intake approval:", err)
+      }
+
       return NextResponse.json({
         message: "Ficha aprovada e paciente criado",
         patientId: result.patient.id,
@@ -352,3 +361,37 @@ export const PATCH = withFeatureAuth(
     }
   }
 )
+
+/**
+ * Sends every active form template flagged autoSendOnIntakeApproval to the
+ * newly-created patient via e-mail. Each send is independently guarded so one
+ * failure (e.g. no published version) never blocks the others or the approval.
+ */
+async function autoSendForms(clinicId: string, patientId: string, userId: string): Promise<void> {
+  const templates = await prisma.formTemplate.findMany({
+    where: { clinicId, isActive: true, autoSendOnIntakeApproval: true },
+    select: { id: true },
+  })
+  if (templates.length === 0) return
+
+  const patient = await prisma.patient.findFirst({
+    where: { id: patientId, clinicId },
+    select: { referenceProfessionalId: true },
+  })
+
+  for (const template of templates) {
+    try {
+      await sendFormToPatient({
+        clinicId,
+        templateId: template.id,
+        patientId,
+        sentByUserId: userId,
+        professionalProfileId: patient?.referenceProfessionalId ?? null,
+        sentVia: "EMAIL",
+        baseUrl: getAppBaseUrl(),
+      })
+    } catch (err) {
+      console.error(`Auto-send form ${template.id} failed:`, err)
+    }
+  }
+}

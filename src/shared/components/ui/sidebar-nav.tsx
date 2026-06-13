@@ -10,6 +10,7 @@ import {
   CalendarIcon,
   CalendarDaysIcon,
   StethoscopeIcon,
+  ClipboardListIcon,
   UserIcon,
   UsersIcon,
   SettingsIcon,
@@ -111,6 +112,13 @@ const navGroups: NavGroup[] = [
         icon: <UsersIcon className="w-4 h-4" strokeWidth={1.75} />,
         matchPaths: ["/patients"],
         feature: "patients",
+      },
+      {
+        href: "/formularios",
+        label: "Formulários",
+        icon: <ClipboardListIcon className="w-4 h-4" strokeWidth={1.75} />,
+        matchPaths: ["/formularios"],
+        feature: "forms",
       },
       {
         href: "/professionals",
@@ -308,7 +316,7 @@ export function SidebarNav() {
   const { count: pendingIntakeCount } = usePendingIntake()
   const { count: pendingBookingCount } = usePendingBookingCount()
 
-  const publicPaths = ["/login", "/confirm", "/cancel", "/intake", "/paciente", "/teleconsulta"]
+  const publicPaths = ["/login", "/confirm", "/cancel", "/intake", "/paciente", "/teleconsulta", "/f"]
   if (publicPaths.some((p) => pathname.startsWith(p)) || status === "unauthenticated") {
     return null
   }

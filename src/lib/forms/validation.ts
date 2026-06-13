@@ -1,5 +1,4 @@
 import {
-  CHOICE_TYPES,
   LONG_TEXT_MAX,
   SHORT_TEXT_MAX,
   type AnswerValue,

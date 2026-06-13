@@ -21,11 +21,15 @@ export const GET = withFeatureAuth(
     const template = await prisma.formTemplate.findFirst({
       where: { id: params.id, clinicId: user.clinicId },
       include: {
-        versions: { orderBy: { version: "desc" }, select: { id: true, version: true, publishedAt: true } },
+        versions: {
+          orderBy: { version: "desc" },
+          select: { id: true, version: true, publishedAt: true, fields: true },
+        },
       },
     })
     if (!template) return NextResponse.json({ error: "Modelo não encontrado" }, { status: 404 })
 
+    const latest = template.versions[0] ?? null
     return NextResponse.json({
       template: {
         id: template.id,
@@ -35,7 +39,8 @@ export const GET = withFeatureAuth(
         autoSendOnIntakeApproval: template.autoSendOnIntakeApproval,
       },
       draftFields: parseFieldsSafe(template.draftFields),
-      versions: template.versions,
+      publishedFields: latest ? parseFieldsSafe(latest.fields) : null,
+      versions: template.versions.map((v) => ({ id: v.id, version: v.version, publishedAt: v.publishedAt })),
     })
   }
 )

@@ -10,6 +10,7 @@ import {
   CalendarIcon,
   CalendarDaysIcon,
   StethoscopeIcon,
+  ClipboardListIcon,
   UserIcon,
   UsersIcon,
   SettingsIcon,
@@ -58,6 +59,13 @@ const navItems: NavItem[] = [
     icon: <UserIcon className="w-4 h-4" />,
     matchPaths: ["/patients"],
     feature: "patients",
+  },
+  {
+    href: "/formularios",
+    label: "Formulários",
+    icon: <ClipboardListIcon className="w-4 h-4" />,
+    matchPaths: ["/formularios"],
+    feature: "forms",
   },
   {
     href: "/groups",
