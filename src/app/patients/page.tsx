@@ -519,7 +519,7 @@ export default function PatientsPage() {
           {/* Sheet Container - centered on larger screens */}
           <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center">
             {/* Sheet - full width on mobile, max-width on larger screens */}
-            <div className="w-full max-w-4xl bg-background border-t border-border rounded-t-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden animate-slide-up">
+            <div className="w-full max-w-4xl bg-background border-t border-border rounded-t-2xl h-[85vh] overflow-y-auto overflow-x-hidden animate-slide-up">
               {/* max-w-3xl (not 2xl) so the 8 patient tabs fit on one row */}
               <div className="max-w-3xl mx-auto px-4 py-6">
                 {/* Handle + Close */}
