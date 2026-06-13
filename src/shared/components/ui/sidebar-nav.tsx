@@ -323,7 +323,9 @@ export function SidebarNav() {
   const { count: pendingIntakeCount } = usePendingIntake()
   const { count: pendingBookingCount } = usePendingBookingCount()
 
-  const publicPaths = ["/login", "/confirm", "/cancel", "/intake", "/paciente", "/teleconsulta", "/f"]
+  // "/f/" (trailing slash) targets the public form-fill page /f/[token] WITHOUT
+  // colliding with /financeiro or /formularios (which also start with "/f").
+  const publicPaths = ["/login", "/confirm", "/cancel", "/intake", "/paciente", "/teleconsulta", "/f/"]
   if (publicPaths.some((p) => pathname.startsWith(p)) || status === "unauthenticated") {
     return null
   }
