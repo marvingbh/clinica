@@ -55,6 +55,7 @@ const updateSettingsSchema = z.object({
   portalCancelMinHours: z.number().int().min(1, "Mínimo 1 hora").max(168, "Máximo 168 horas").optional(),
   restrictClinicalDocsToProfessionals: z.boolean().optional(),
   telehealthEnabled: z.boolean().optional(),
+  scaleRiskMessage: z.string().max(2000).optional().nullable(),
   waitlistSettings: waitlistSettingsSchema.optional(),
 })
 
@@ -99,6 +100,7 @@ export const GET = withFeatureAuth(
         restrictClinicalDocsToProfessionals: true,
         appointmentNotificationsEnabled: true,
         telehealthEnabled: true,
+        scaleRiskMessage: true,
         waitlistSettings: true,
         logoData: true,
         plan: { select: { allowPatientPortal: true } },
@@ -156,7 +158,7 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors, prontuarioRetentionYears, prontuarioResponsibleProfessionalId, aiEnabled, aiHistoryContext, patientPortalEnabled, portalCancelMinHours, restrictClinicalDocsToProfessionals, telehealthEnabled, waitlistSettings } =
+    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors, prontuarioRetentionYears, prontuarioResponsibleProfessionalId, aiEnabled, aiHistoryContext, patientPortalEnabled, portalCancelMinHours, restrictClinicalDocsToProfessionals, telehealthEnabled, scaleRiskMessage, waitlistSettings } =
       parsed.data
 
     // Check slug uniqueness
@@ -268,6 +270,7 @@ export const PATCH = withFeatureAuth(
     if (portalCancelMinHours !== undefined) updateData.portalCancelMinHours = portalCancelMinHours
     if (restrictClinicalDocsToProfessionals !== undefined) updateData.restrictClinicalDocsToProfessionals = restrictClinicalDocsToProfessionals
     if (telehealthEnabled !== undefined) updateData.telehealthEnabled = telehealthEnabled
+    if (scaleRiskMessage !== undefined) updateData.scaleRiskMessage = scaleRiskMessage
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
@@ -311,6 +314,7 @@ export const PATCH = withFeatureAuth(
       portalCancelMinHours: true,
       restrictClinicalDocsToProfessionals: true,
       telehealthEnabled: true,
+      scaleRiskMessage: true,
     } as const
 
     const updatedClinic = billingMode === "MONTHLY_FIXED"

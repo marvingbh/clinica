@@ -290,3 +290,27 @@ describe("meetsMinAccess", () => {
     expect(meetsMinAccess("NONE", "READ")).toBe(false)
   })
 })
+
+describe("escalas feature (clinical-data secrecy inversion)", () => {
+  it("is registered in FEATURES", () => {
+    expect(FEATURES).toContain("escalas")
+  })
+
+  it("ADMIN default is NONE (cannot read scores/answers)", () => {
+    expect(ROLE_DEFAULTS.ADMIN.escalas).toBe("NONE")
+  })
+
+  it("PROFESSIONAL default is WRITE", () => {
+    expect(ROLE_DEFAULTS.PROFESSIONAL.escalas).toBe("WRITE")
+  })
+
+  it("override grants READ to a clinical director (ADMIN)", () => {
+    const resolved = resolvePermissions("ADMIN", { escalas: "READ" })
+    expect(resolved.escalas).toBe("READ")
+  })
+
+  it("resolves to NONE for ADMIN sessions missing the override", () => {
+    const resolved = resolvePermissions("ADMIN", {})
+    expect(resolved.escalas).toBe("NONE")
+  })
+})

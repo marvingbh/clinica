@@ -59,6 +59,24 @@ enum NotificationType {
   DOCUMENT_SIGNED // documento assinado — aviso ao solicitante
   FORM_REQUEST // formulário/anamnese enviado ao paciente para preenchimento
   FORM_COMPLETED // formulário respondido — aviso ao profissional responsável
+  SCALE_INVITE // convite de escala clínica (PHQ-9/GAD-7) ao paciente
+  SCALE_RISK_ALERT // alerta de risco ao profissional (sem dado clínico no corpo)
+}
+
+enum ScaleAdministrationSource {
+  LINK_PACIENTE
+  EM_SESSAO
+}
+
+enum ScaleAdministrationStatus {
+  ENVIADA
+  CONCLUIDA
+  EXPIRADA
+}
+
+enum ScaleCadenceType {
+  ANTES_DE_SESSAO
+  A_CADA_N_SEMANAS
 }
 
 enum FormResponseStatus {
@@ -508,6 +526,10 @@ model Clinic {
   // the platform has TELEHEALTH_JITSI_DOMAIN configured (see src/lib/telehealth/config.ts).
   telehealthEnabled Boolean @default(true)
 
+  // Mensagem de acolhimento exibida ao paciente quando uma resposta de escala
+  // clínica endossa um item de risco (PHQ-9 item 9). Default em código quando null.
+  scaleRiskMessage String?
+
   // Relations
   users                      User[]
   patients                   Patient[]
@@ -567,6 +589,8 @@ model Clinic {
   formTemplates              FormTemplate[]
   formVersions               FormVersion[]
   formResponses              FormResponse[]
+  scaleAdministrations       ScaleAdministration[]
+  scaleSchedules             ScaleSchedule[]
 
   @@index([slug])
   @@index([isActive])
@@ -670,6 +694,8 @@ model ProfessionalProfile {
   reciboSaudeEmissions      ReciboSaudeEmission[]
   generatedDocuments        GeneratedDocument[]
   formResponses             FormResponse[]
+  scaleAdministrations      ScaleAdministration[]
+  scaleSchedules            ScaleSchedule[]
 
   @@index([userId])
   @@index([publicBookingSlug])
@@ -806,6 +832,8 @@ model Patient {
   generatedDocuments     GeneratedDocument[]
   signatureEnvelopes     SignatureEnvelope[]
   formResponses          FormResponse[]
+  scaleAdministrations   ScaleAdministration[]
+  scaleSchedules         ScaleSchedule[]
 
   @@unique([clinicId, cpf])
   @@index([clinicId])
@@ -1024,6 +1052,7 @@ model Appointment {
   bookingRequest          BookingRequest?
   portalRequests          PortalRequest[]
   generatedDocuments      GeneratedDocument[]
+  scaleAdministrations    ScaleAdministration[]
 
   // Prevents the same patient from being scheduled twice in the same group session.
   // NULLs in groupId/patientId are treated as distinct by Postgres, so non-group
@@ -2556,4 +2585,75 @@ model FormResponse {
   @@index([patientId])
   @@index([formVersionId])
   @@index([professionalProfileId])
+}
+
+/// Uma aplicação de escala clínica (PHQ-9/GAD-7) para um paciente.
+/// `answers` = { [itemId: string]: number } — parcial enquanto ENVIADA.
+/// Pontuação/severidade/riskFlag são DADOS CLÍNICOS (RBAC feature "escalas").
+model ScaleAdministration {
+  id                    String                    @id @default(cuid())
+  clinicId              String
+  patientId             String
+  professionalProfileId String // profissional responsável pela aplicação
+  scheduleId            String? // agendamento que originou o envio (cron)
+  appointmentId         String? // CONSULTA alvo (modo ANTES_DE_SESSAO) — dedup
+  scaleCode             String // "PHQ9" | "GAD7" — validado contra o registry em código
+  scaleVersion          Int                       @default(1) // versão da definição no envio
+  source                ScaleAdministrationSource
+  status                ScaleAdministrationStatus @default(ENVIADA)
+  answers               Json                      @default("{}")
+  totalScore            Int?
+  severityLabel         String?
+  riskFlag              Boolean                   @default(false)
+  tokenHash             String?                   @unique // sha256 do token público; null em EM_SESSAO
+  expiresAt             DateTime?
+  sentAt                DateTime?
+  startedAt             DateTime? // primeiro autosave do paciente
+  completedAt           DateTime?
+  supersededById        String? // id da administração que substituiu esta
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient             Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  schedule            ScaleSchedule?      @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  appointment         Appointment?        @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId])
+  @@index([patientId, scaleCode, completedAt])
+  @@index([clinicId, status])
+  @@index([professionalProfileId])
+  @@index([scheduleId])
+  @@index([appointmentId])
+  @@index([clinicId, riskFlag])
+}
+
+/// Cadência de envio automático de uma escala clínica para um paciente.
+model ScaleSchedule {
+  id                    String           @id @default(cuid())
+  clinicId              String
+  patientId             String
+  professionalProfileId String
+  scaleCode             String
+  cadenceType           ScaleCadenceType
+  intervalWeeks         Int? // 1..26 — obrigatório em A_CADA_N_SEMANAS
+  active                Boolean          @default(true)
+  pausedReason          String? // SEM_AGENDAMENTOS_FUTUROS | SEM_CANAL_CONSENTIDO | PROFISSIONAL_INATIVO
+  lastSentAt            DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic              Clinic                @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient             Patient               @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile   @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  administrations     ScaleAdministration[]
+
+  @@index([clinicId, active])
+  @@index([patientId])
+  @@index([professionalProfileId])
+  // Unique parcial (patientId, scaleCode) WHERE active — apenas no SQL da migration
+  // (Prisma DSL não expressa unique parcial; mesmo padrão do Todo).
 }

@@ -176,6 +176,17 @@ export const AuditAction = {
   FORM_RESEND: "FORM_RESEND",
   FORM_CANCELLED: "FORM_CANCELLED",
   FORM_RESPONSE_COMPLETED: "FORM_RESPONSE_COMPLETED",
+
+  // Clinical scales (PHQ-9/GAD-7) — never include scores/answers in values
+  SCALE_SENT: "scale.sent",
+  SCALE_RESENT: "scale.resent",
+  SCALE_VIEWED: "scale.viewed",
+  SCALE_COMPLETED: "scale.completed",
+  SCALE_RISK_FLAGGED: "scale.risk_flagged",
+  SCALE_SCHEDULE_CREATED: "scale.schedule_created",
+  SCALE_SCHEDULE_UPDATED: "scale.schedule_updated",
+  SCALE_SCHEDULE_DELETED: "scale.schedule_deleted",
+  SCALE_PDF_EXPORTED: "scale.pdf_exported",
 } as const
 
 export type AuditActionType = (typeof AuditAction)[keyof typeof AuditAction]

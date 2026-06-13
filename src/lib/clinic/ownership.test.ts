@@ -6,6 +6,8 @@ const mockProfessionalFindFirst = vi.fn()
 const mockInvoiceCount = vi.fn()
 const mockReconciliationLinkCount = vi.fn()
 const mockInvoiceItemCount = vi.fn()
+const mockScaleAdministrationFindFirst = vi.fn()
+const mockScaleScheduleFindFirst = vi.fn()
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -15,6 +17,8 @@ vi.mock("@/lib/prisma", () => ({
     invoice: { count: (...a: unknown[]) => mockInvoiceCount(...a) },
     reconciliationLink: { count: (...a: unknown[]) => mockReconciliationLinkCount(...a) },
     invoiceItem: { count: (...a: unknown[]) => mockInvoiceItemCount(...a) },
+    scaleAdministration: { findFirst: (...a: unknown[]) => mockScaleAdministrationFindFirst(...a) },
+    scaleSchedule: { findFirst: (...a: unknown[]) => mockScaleScheduleFindFirst(...a) },
   },
 }))
 
@@ -25,6 +29,8 @@ import {
   assertInvoicesInClinic,
   assertReconciliationLinksInClinic,
   assertInvoiceItemsInClinic,
+  assertScaleAdministrationInClinic,
+  assertScaleScheduleInClinic,
   OwnershipError,
 } from "./ownership"
 
@@ -147,5 +153,48 @@ describe("assertInvoiceItemsInClinic", () => {
   it("throws OwnershipError when some item is missing or cross-tenant", async () => {
     mockInvoiceItemCount.mockResolvedValue(1)
     await expect(assertInvoiceItemsInClinic("c1", ["it1", "it2"], "p1")).rejects.toBeInstanceOf(OwnershipError)
+  })
+})
+
+describe("assertScaleAdministrationInClinic", () => {
+  it("returns selected fields when the administration belongs to the clinic", async () => {
+    const admin = {
+      id: "sa1",
+      patientId: "p1",
+      professionalProfileId: "prof1",
+      status: "CONCLUIDA",
+      scaleCode: "PHQ9",
+    }
+    mockScaleAdministrationFindFirst.mockResolvedValue(admin)
+    const result = await assertScaleAdministrationInClinic("c1", "sa1")
+    expect(result).toEqual(admin)
+    expect(mockScaleAdministrationFindFirst).toHaveBeenCalledWith({
+      where: { id: "sa1", clinicId: "c1" },
+      select: {
+        id: true,
+        patientId: true,
+        professionalProfileId: true,
+        status: true,
+        scaleCode: true,
+      },
+    })
+  })
+
+  it("throws OwnershipError when missing or cross-tenant", async () => {
+    mockScaleAdministrationFindFirst.mockResolvedValue(null)
+    await expect(assertScaleAdministrationInClinic("c1", "sa1")).rejects.toBeInstanceOf(OwnershipError)
+  })
+})
+
+describe("assertScaleScheduleInClinic", () => {
+  it("returns id and patientId when the schedule belongs to the clinic", async () => {
+    mockScaleScheduleFindFirst.mockResolvedValue({ id: "sch1", patientId: "p1" })
+    const result = await assertScaleScheduleInClinic("c1", "sch1")
+    expect(result).toEqual({ id: "sch1", patientId: "p1" })
+  })
+
+  it("throws OwnershipError when missing or cross-tenant", async () => {
+    mockScaleScheduleFindFirst.mockResolvedValue(null)
+    await expect(assertScaleScheduleInClinic("c1", "sch1")).rejects.toBeInstanceOf(OwnershipError)
   })
 })

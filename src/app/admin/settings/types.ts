@@ -36,6 +36,8 @@ export interface ClinicSettings {
   telehealthEnabled?: boolean
   /** Platform-level availability (TELEHEALTH_JITSI_DOMAIN configured). */
   telehealthConfigured?: boolean
+  /** Acolhimento message shown to a patient who endorses a scale risk item. */
+  scaleRiskMessage?: string | null
   waitlistSettings?: WaitlistSettings
 }
 

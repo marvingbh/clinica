@@ -54,6 +54,10 @@
     {
       "path": "/api/jobs/signature-reminders",
       "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/jobs/scale-sends",
+      "schedule": "0 11 * * *"
     }
   ]
 }

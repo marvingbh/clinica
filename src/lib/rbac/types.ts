@@ -25,6 +25,7 @@ export const FEATURES = [
   "documents",
   "assinaturas",
   "forms",
+  "escalas",
 ] as const
 
 export type Feature = (typeof FEATURES)[number]
@@ -54,6 +55,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   documents: "Documentos",
   assinaturas: "Assinaturas",
   forms: "Formulários",
+  escalas: "Escalas Clinicas",
 }
 
 export type ResolvedPermissions = Record<Feature, FeatureAccess>

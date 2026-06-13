@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma"
-import type { AppointmentType, AppointmentStatus } from "@prisma/client"
+import type {
+  AppointmentType,
+  AppointmentStatus,
+  ScaleAdministrationStatus,
+} from "@prisma/client"
 
 /**
  * Thrown when a record does not belong to the caller's clinic.
@@ -164,4 +168,51 @@ export async function assertInvoiceItemsInClinic(
     },
   })
   if (found !== unique.length) throw new OwnershipError()
+}
+
+/** Fields returned by {@link assertScaleAdministrationInClinic}. */
+export interface OwnedScaleAdministration {
+  id: string
+  patientId: string
+  professionalProfileId: string
+  status: ScaleAdministrationStatus
+  scaleCode: string
+}
+
+/**
+ * Throws {@link OwnershipError} if the scale administration is not in the
+ * clinic. Returns the fields needed by the resend/detail flows.
+ */
+export async function assertScaleAdministrationInClinic(
+  clinicId: string,
+  administrationId: string
+): Promise<OwnedScaleAdministration> {
+  const administration = await prisma.scaleAdministration.findFirst({
+    where: { id: administrationId, clinicId },
+    select: {
+      id: true,
+      patientId: true,
+      professionalProfileId: true,
+      status: true,
+      scaleCode: true,
+    },
+  })
+  if (!administration) throw new OwnershipError()
+  return administration
+}
+
+/**
+ * Throws {@link OwnershipError} if the scale schedule is not in the clinic.
+ * Returns the patientId so the route can verify it matches the URL patient.
+ */
+export async function assertScaleScheduleInClinic(
+  clinicId: string,
+  scheduleId: string
+): Promise<{ id: string; patientId: string }> {
+  const schedule = await prisma.scaleSchedule.findFirst({
+    where: { id: scheduleId, clinicId },
+    select: { id: true, patientId: true },
+  })
+  if (!schedule) throw new OwnershipError()
+  return schedule
 }

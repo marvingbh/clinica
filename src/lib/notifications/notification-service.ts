@@ -56,6 +56,11 @@ const ALWAYS_ENABLED_EMAIL_TYPES = new Set<NotificationType>([
   // appointment confirmation/reminder, so they aren't gated by the flag.
   NotificationType.FORM_REQUEST,
   NotificationType.FORM_COMPLETED,
+  // Clinical scales: the invite is an explicit professional/scheduled action
+  // (consent-gated at the call site), and the risk alert is an internal staff
+  // notification — neither is an appointment confirmation/reminder.
+  NotificationType.SCALE_INVITE,
+  NotificationType.SCALE_RISK_ALERT,
 ])
 
 /**

@@ -486,6 +486,34 @@ describe("DEFAULT_TEMPLATES", () => {
       DEFAULT_TEMPLATES.find((t) => t.type === "WAITLIST_OFFER_EXPIRED" && t.channel === "EMAIL")
     ).toBeDefined()
   })
+
+  it("has SCALE_INVITE templates for both channels", () => {
+    const whatsapp = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "SCALE_INVITE" && t.channel === "WHATSAPP"
+    )
+    const email = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "SCALE_INVITE" && t.channel === "EMAIL"
+    )
+    expect(whatsapp).toBeDefined()
+    expect(email).toBeDefined()
+  })
+
+  it("renders the SCALE_INVITE template with all variables resolved", () => {
+    const tmpl = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "SCALE_INVITE" && t.channel === "EMAIL"
+    )!
+    const rendered = renderTemplate(tmpl.content, {
+      patientName: "Ana",
+      professionalName: "Dra. Maria",
+      scaleName: "PHQ-9",
+      scaleLink: "https://app/escala/abc",
+      clinicName: "Clínica Exemplo",
+    })
+    expect(rendered).not.toContain("{{")
+    expect(rendered).toContain("Ana")
+    expect(rendered).toContain("PHQ-9")
+    expect(rendered).toContain("https://app/escala/abc")
+  })
 })
 
 describe("waitlist template rendering", () => {

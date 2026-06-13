@@ -186,6 +186,10 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     // CONTENT access is further restricted in the handler (ADMIN / reference
     // professional / sender).
     forms: "WRITE",
+    // Clinical scales (PHQ-9/GAD-7). Same secrecy posture as prontuário:
+    // scores/answers/risk are clinical data, so ADMIN is NONE by default.
+    // A clinical director gets READ/WRITE via a per-user override.
+    escalas: "NONE",
   },
   PROFESSIONAL: {
     agenda_own: "WRITE",
@@ -224,6 +228,9 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     // Professionals build their own anamneses and send to their patients;
     // restrictive clinics use a per-user override via UserPermission.
     forms: "WRITE",
+    // Clinical scales: professionals send/score/track only for the patients
+    // they treat — the "tratante" cut happens in the handler (canViewScaleContent).
+    escalas: "WRITE",
   },
 }
 

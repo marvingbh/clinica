@@ -57,6 +57,10 @@ export interface TemplateVariables {
   formLink?: string
   /** Human-readable expiry (DD/MM/YYYY) for the form link. */
   expiryDate?: string
+  /** Name of the clinical scale (PHQ-9/GAD-7) sent to the patient. */
+  scaleName?: string
+  /** Public scale-fill link (/escala/{token}). */
+  scaleLink?: string
 }
 
 /**
@@ -527,6 +531,28 @@ Atenciosamente,
     content: `O paciente {{patientName}} respondeu o formulário "{{formName}}".
 
 Acesse o sistema para revisar as respostas antes da sessão.
+
+{{clinicName}}`,
+  },
+  // SCALE_INVITE - WhatsApp (to patient)
+  {
+    type: NotificationType.SCALE_INVITE,
+    channel: NotificationChannel.WHATSAPP,
+    name: "Questionário Clínico (WhatsApp)",
+    subject: null,
+    content: `Olá {{patientName}}! {{professionalName}} pediu que você responda um breve questionário ({{scaleName}}). Leva menos de 3 minutos e ajuda no acompanhamento do seu cuidado: {{scaleLink}}`,
+  },
+  // SCALE_INVITE - Email (to patient)
+  {
+    type: NotificationType.SCALE_INVITE,
+    channel: NotificationChannel.EMAIL,
+    name: "Questionário Clínico (Email)",
+    subject: "Questionário {{scaleName}} — {{clinicName}}",
+    content: `Olá {{patientName}}! {{professionalName}} pediu que você responda um breve questionário ({{scaleName}}). Leva menos de 3 minutos e ajuda no acompanhamento do seu cuidado:
+
+{{scaleLink}}
+
+Se preferir, fale com a clínica.
 
 {{clinicName}}`,
   },
