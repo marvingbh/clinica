@@ -4,6 +4,7 @@ import { useState, useRef } from "react"
 // eslint-disable-next-line no-restricted-imports
 import { useEffect } from "react"
 import { UseFormReturn } from "react-hook-form"
+import { toast } from "sonner"
 import { Sheet } from "./Sheet"
 import { InlineAlert } from "./InlineAlert"
 import { TelepsychContractWarning } from "./TelepsychContractWarning"
@@ -13,6 +14,7 @@ import { HistoryTimeline } from "@/shared/components/HistoryTimeline"
 import { usePermission } from "@/shared/hooks/usePermission"
 import { RegisterEvolutionButton } from "./RegisterEvolutionButton"
 import { GenerateDocumentButton } from "./GenerateDocumentButton"
+import { TeleconsultaButton } from "./TeleconsultaButton"
 import { Appointment, AppointmentStatus, EditAppointmentFormData, CalendarEntryType, Professional } from "../lib/types"
 import { TimeInput } from "./TimeInput"
 import { DateInput } from "./DateInput"
@@ -444,6 +446,19 @@ export function AppointmentEditor({
               patientId={appointment.patient.id}
               modality={appointment.modality ?? null}
               type="CONSULTA"
+            />
+          </div>
+        )}
+
+        {isConsulta && appointment.modality === "ONLINE" && (
+          <div className="mt-3">
+            <TeleconsultaButton
+              appointmentId={appointment.id}
+              type={appointment.type}
+              modality={appointment.modality}
+              status={appointment.status}
+              meetingUrl={appointment.meetingUrl}
+              onUpdateStatus={onUpdateStatus}
             />
           </div>
         )}
@@ -1033,6 +1048,42 @@ function EditFormWithPreview({
                 />
               </ChipField>
             </div>
+            {form.watch("modality") === "ONLINE" && (
+              <div className="mt-3">
+                <label htmlFor="editMeetingUrl" className={EDIT_LABEL}>
+                  Link externo (Zoom/Meet) — opcional
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="editMeetingUrl"
+                    type="url"
+                    {...form.register("meetingUrl")}
+                    placeholder="https://meet.google.com/..."
+                    className={EDIT_INPUT}
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`/api/appointments/${appointment.id}/teleconsulta`)
+                        const data = await res.json().catch(() => ({}))
+                        if (res.ok && data.patientVideoUrl) {
+                          await navigator.clipboard.writeText(data.patientVideoUrl)
+                          toast.success("Link copiado")
+                        } else {
+                          toast.error("Não foi possível copiar o link")
+                        }
+                      } catch {
+                        toast.error("Não foi possível copiar o link")
+                      }
+                    }}
+                    className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-ink-200 bg-white text-ink-700 text-[12px] font-medium hover:bg-ink-50 transition-colors"
+                  >
+                    Copiar link do paciente
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
 

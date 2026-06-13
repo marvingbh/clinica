@@ -49,6 +49,8 @@ export interface TemplateVariables {
   signingLink?: string
   /** OTP code for DOCUMENT_SIGNATURE_OTP. */
   code?: string
+  /** Patient teleconsulta link (/teleconsulta/{token} or external meetingUrl). */
+  videoLink?: string
 }
 
 /**
@@ -67,6 +69,7 @@ export const TEMPLATE_VARIABLES = [
   { key: "invoiceAmount", label: "Valor da Fatura", example: "R$ 300,00" },
   { key: "dueDate", label: "Vencimento", example: "15/06/2026" },
   { key: "referenceMonth", label: "Mês de Referência", example: "06/2026" },
+  { key: "videoLink", label: "Link da Teleconsulta", example: "https://..." },
 ] as const
 
 /**
@@ -93,6 +96,7 @@ Sua consulta foi agendada com sucesso.
 🕐 Horário: {{time}}
 👤 Profissional: {{professionalName}}
 📍 Modalidade: {{modality}}
+💻 Teleconsulta — acesse no horário: {{videoLink}}
 
 Para confirmar sua presença, clique aqui:
 {{confirmLink}}
@@ -117,6 +121,7 @@ Data: {{date}}
 Horário: {{time}}
 Profissional: {{professionalName}}
 Modalidade: {{modality}}
+Teleconsulta — acesse no horário: {{videoLink}}
 
 Para confirmar sua presença, clique no link abaixo:
 {{confirmLink}}
@@ -141,6 +146,7 @@ Lembrete: você tem uma consulta agendada.
 🕐 Horário: {{time}}
 👤 Profissional: {{professionalName}}
 📍 Modalidade: {{modality}}
+💻 Teleconsulta — acesse no horário: {{videoLink}}
 
 Confirme sua presença:
 {{confirmLink}}
@@ -164,6 +170,7 @@ Data: {{date}}
 Horário: {{time}}
 Profissional: {{professionalName}}
 Modalidade: {{modality}}
+Teleconsulta — acesse no horário: {{videoLink}}
 
 Confirme sua presença:
 {{confirmLink}}
@@ -659,6 +666,7 @@ export function previewTemplate(
     cancelLink: "https://clinica.exemplo.com/cancel/abc123",
     clinicName: "Clínica Exemplo",
     modality: "Presencial",
+    videoLink: "https://clinica.exemplo.com/teleconsulta/abc123",
   }
 
   return {

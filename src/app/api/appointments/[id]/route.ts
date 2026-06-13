@@ -15,6 +15,7 @@ const updateAppointmentSchema = z.object({
   endAt: z.string().datetime().optional(),
   status: z.enum(["AGENDADO", "CONFIRMADO", "FINALIZADO", "CANCELADO_ACORDADO", "CANCELADO_FALTA", "CANCELADO_PROFISSIONAL"]).optional(),
   modality: z.enum(["ONLINE", "PRESENCIAL"]).nullable().optional(),
+  meetingUrl: z.string().url("Link inválido").max(2000).nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
   price: z.union([z.number().nonnegative(), z.string(), z.null()]).optional(),
   cancellationReason: z.string().max(1000).nullable().optional(),
@@ -157,7 +158,7 @@ export const PATCH = withFeatureAuth(
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message || "Dados inválidos" }, { status: 400 })
     }
-    const { scheduledAt, endAt, status, modality, notes, price, cancellationReason, title, additionalProfessionalIds, attendingProfessionalId } = parsed.data
+    const { scheduledAt, endAt, status, modality, meetingUrl, notes, price, cancellationReason, title, additionalProfessionalIds, attendingProfessionalId } = parsed.data
 
     // Reject time changes for non-reschedulable appointments
     const isReschedule = scheduledAt !== undefined || endAt !== undefined
@@ -200,6 +201,9 @@ export const PATCH = withFeatureAuth(
       oldValues.modality = existing.modality
       newValues.modality = modality
       updateData.modality = modality
+    }
+    if (meetingUrl !== undefined) {
+      updateData.meetingUrl = meetingUrl || null
     }
     if (notes !== undefined) {
       oldValues.notes = existing.notes

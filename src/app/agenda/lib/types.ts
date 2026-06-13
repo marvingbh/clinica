@@ -22,6 +22,7 @@ export const editAppointmentSchema = z.object({
   startTime: z.string().regex(timeRegex, "Horário inválido (HH:mm)"),
   duration: z.number().int().min(15).max(480).optional(),
   modality: z.enum(["ONLINE", "PRESENCIAL"]).nullable().optional(),
+  meetingUrl: z.string().url("Link inválido").or(z.literal("")).nullable().optional(),
   notes: z.string().max(2000).optional().nullable(),
   price: z.union([z.number().min(0), z.string(), z.null()]).optional().nullable(),
   attendingProfessionalId: z.string().nullable().optional(),
@@ -126,6 +127,7 @@ export interface Appointment {
   title: string | null
   blocksTime: boolean
   modality: Modality | null
+  meetingUrl?: string | null
   notes: string | null
   price: string | null
   cancellationReason: string | null
@@ -207,6 +209,7 @@ export interface GroupSession {
   isOneOff: boolean
   scheduledAt: string
   endAt: string
+  modality?: Modality | null
   professionalProfileId: string
   professionalName: string
   additionalProfessionals?: Array<{

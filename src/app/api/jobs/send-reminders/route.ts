@@ -6,9 +6,14 @@ import {
   NotificationType,
 } from "@prisma/client"
 import { createNotification, processPendingNotifications, getPatientPhoneNumbers } from "@/lib/notifications"
-import { getTemplate, renderTemplate } from "@/lib/notifications/templates"
+import { getTemplate } from "@/lib/notifications/templates"
 import { buildConfirmUrl, buildCancelUrl } from "@/lib/appointments/appointment-links"
 import { buildPortalDeepLink } from "@/lib/patient-portal"
+import {
+  getTelehealthConfig,
+  resolveVideoLinkForNotification,
+  renderWithVideoLink,
+} from "@/lib/telehealth"
 import {
   calculateReminderWindow,
   hasPatientConsent,
@@ -60,6 +65,7 @@ export async function GET(req: Request) {
         timezone: true,
         reminderHours: true,
         patientPortalEnabled: true,
+        telehealthEnabled: true,
       },
     })
 
@@ -131,6 +137,7 @@ interface ClinicInfo {
   timezone: string
   reminderHours: number[]
   patientPortalEnabled: boolean
+  telehealthEnabled: boolean
 }
 
 interface ClinicResults {
@@ -181,6 +188,7 @@ async function findAndCreateReminders(
   }
 
   const now = new Date()
+  const telehealthConfig = getTelehealthConfig()
   // Calculate the window: appointments that are hoursBeforeAppointment away
   // We check a 1-hour window to account for hourly cron runs
   const { windowStart, windowEnd } = calculateReminderWindow(now, hoursBeforeAppointment)
@@ -262,6 +270,19 @@ async function findAndCreateReminders(
       ? buildPortalDeepLink(baseUrl, clinic.slug, patient.id, new Date(appointment.scheduledAt))
       : undefined
 
+    const videoLink = resolveVideoLinkForNotification({
+      appointment: {
+        id: appointment.id,
+        type: appointment.type,
+        modality: appointment.modality,
+        meetingUrl: appointment.meetingUrl,
+      },
+      clinic: { telehealthEnabled: clinic.telehealthEnabled },
+      config: telehealthConfig,
+      baseUrl,
+      secret: process.env.AUTH_SECRET ?? "",
+    })
+
     const templateVariables = buildReminderTemplateVariables(
       appointment,
       patient,
@@ -269,7 +290,8 @@ async function findAndCreateReminders(
       baseUrl,
       confirmLink,
       cancelLink,
-      portalLink
+      portalLink,
+      videoLink
     )
 
     // Send WhatsApp notification to all phone numbers if consent exists
@@ -280,7 +302,7 @@ async function findAndCreateReminders(
           NotificationType.APPOINTMENT_REMINDER,
           NotificationChannel.WHATSAPP
         )
-        const content = renderTemplate(template.content, templateVariables)
+        const content = renderWithVideoLink(template.content, templateVariables)
 
         const phoneNumbers = await getPatientPhoneNumbers(patient.id, clinic.id)
         for (const { phone } of phoneNumbers) {
@@ -311,9 +333,9 @@ async function findAndCreateReminders(
           NotificationType.APPOINTMENT_REMINDER,
           NotificationChannel.EMAIL
         )
-        const content = renderTemplate(template.content, templateVariables)
+        const content = renderWithVideoLink(template.content, templateVariables)
         const subject = template.subject
-          ? renderTemplate(template.subject, templateVariables)
+          ? renderWithVideoLink(template.subject, templateVariables)
           : `Lembrete de Consulta - ${appointment.clinic.name}`
 
         await createNotification({

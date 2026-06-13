@@ -335,6 +335,43 @@ describe("previewTemplate", () => {
   })
 })
 
+describe("videoLink template variable", () => {
+  it("renderTemplate substitutes videoLink", () => {
+    const result = renderTemplate("Acesse: {{videoLink}}", {
+      videoLink: "https://app/teleconsulta/abc",
+    })
+    expect(result).toBe("Acesse: https://app/teleconsulta/abc")
+  })
+
+  it("CONFIRMATION default templates contain {{videoLink}} on both channels", () => {
+    const whatsapp = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "APPOINTMENT_CONFIRMATION" && t.channel === "WHATSAPP"
+    )!
+    const email = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "APPOINTMENT_CONFIRMATION" && t.channel === "EMAIL"
+    )!
+    expect(whatsapp.content).toContain("{{videoLink}}")
+    expect(email.content).toContain("{{videoLink}}")
+  })
+
+  it("REMINDER default templates contain {{videoLink}} on both channels", () => {
+    const whatsapp = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "APPOINTMENT_REMINDER" && t.channel === "WHATSAPP"
+    )!
+    const email = DEFAULT_TEMPLATES.find(
+      (t) => t.type === "APPOINTMENT_REMINDER" && t.channel === "EMAIL"
+    )!
+    expect(whatsapp.content).toContain("{{videoLink}}")
+    expect(email.content).toContain("{{videoLink}}")
+  })
+
+  it("previewTemplate resolves videoLink", () => {
+    const result = previewTemplate("Sala: {{videoLink}}", null)
+    expect(result.content).not.toContain("{{videoLink}}")
+    expect(result.content).toContain("teleconsulta")
+  })
+})
+
 describe("DEFAULT_TEMPLATES", () => {
   it("has templates for APPOINTMENT_CONFIRMATION on both channels", () => {
     const whatsapp = DEFAULT_TEMPLATES.find(

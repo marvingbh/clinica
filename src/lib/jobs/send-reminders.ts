@@ -99,7 +99,13 @@ export function buildReminderTemplateVariables(
   confirmLink: string,
   cancelLink: string,
   /** Optional patient-portal deep link, included only when the portal is on. */
-  portalLink?: string
+  portalLink?: string,
+  /**
+   * Optional teleconsulta link. Included only when a non-empty string is
+   * passed; otherwise the `{{videoLink}}` template line is later removed by
+   * stripUnresolvedVideoLines (RN-07).
+   */
+  videoLink?: string | null
 ): Record<string, string> {
   const scheduledDate = new Date(appointment.scheduledAt)
   const vars: Record<string, string> = {
@@ -121,6 +127,7 @@ export function buildReminderTemplateVariables(
     modality: appointment.modality === "ONLINE" ? "Online" : "Presencial",
   }
   if (portalLink) vars.portalLink = portalLink
+  if (videoLink) vars.videoLink = videoLink
   return vars
 }
 

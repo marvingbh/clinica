@@ -265,6 +265,31 @@ describe("buildReminderTemplateVariables", () => {
     )
     expect(vars).not.toHaveProperty("portalLink")
   })
+
+  it("includes videoLink when provided (RN-07)", () => {
+    const vars = buildReminderTemplateVariables(
+      appointment, patient, clinic, baseUrl,
+      "https://app/confirm", "https://app/cancel",
+      undefined,
+      "https://app/teleconsulta/abc.def"
+    )
+    expect(vars.videoLink).toBe("https://app/teleconsulta/abc.def")
+  })
+
+  it("omits videoLink when null/undefined (line stripped later — RN-07)", () => {
+    const withNull = buildReminderTemplateVariables(
+      appointment, patient, clinic, baseUrl,
+      "https://app/confirm", "https://app/cancel",
+      undefined,
+      null
+    )
+    expect(withNull).not.toHaveProperty("videoLink")
+    const withUndefined = buildReminderTemplateVariables(
+      appointment, patient, clinic, baseUrl,
+      "https://app/confirm", "https://app/cancel"
+    )
+    expect(withUndefined).not.toHaveProperty("videoLink")
+  })
 })
 
 // ---------------------------------------------------------------------------

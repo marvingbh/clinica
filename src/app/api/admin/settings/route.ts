@@ -10,6 +10,7 @@ import { assertProfessionalInClinic, OwnershipError } from "@/lib/clinic/ownersh
 import { clampRetentionYears } from "@/lib/prontuario"
 import { createAuditLog, AuditAction } from "@/lib/rbac/audit"
 import { waitlistSettingsSchema, resolveWaitlistSettings } from "@/lib/waitlist"
+import { getTelehealthConfig } from "@/lib/telehealth"
 
 const updateSettingsSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(200).optional(),
@@ -53,6 +54,7 @@ const updateSettingsSchema = z.object({
   patientPortalEnabled: z.boolean().optional(),
   portalCancelMinHours: z.number().int().min(1, "Mínimo 1 hora").max(168, "Máximo 168 horas").optional(),
   restrictClinicalDocsToProfessionals: z.boolean().optional(),
+  telehealthEnabled: z.boolean().optional(),
   waitlistSettings: waitlistSettingsSchema.optional(),
 })
 
@@ -96,6 +98,7 @@ export const GET = withFeatureAuth(
         portalCancelMinHours: true,
         restrictClinicalDocsToProfessionals: true,
         appointmentNotificationsEnabled: true,
+        telehealthEnabled: true,
         waitlistSettings: true,
         logoData: true,
         plan: { select: { allowPatientPortal: true } },
@@ -117,6 +120,9 @@ export const GET = withFeatureAuth(
         agendaColors: resolveAgendaColors(agendaColors),
         waitlistSettings: resolveWaitlistSettings(waitlistSettings),
         planAllowsPatientPortal: !!plan?.allowPatientPortal,
+        // Platform-level availability (env). Drives the disabled-with-notice
+        // state of the telehealth toggle when no video domain is configured.
+        telehealthConfigured: getTelehealthConfig().configured,
       },
     })
   }
@@ -150,7 +156,7 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors, prontuarioRetentionYears, prontuarioResponsibleProfessionalId, aiEnabled, aiHistoryContext, patientPortalEnabled, portalCancelMinHours, restrictClinicalDocsToProfessionals, waitlistSettings } =
+    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors, prontuarioRetentionYears, prontuarioResponsibleProfessionalId, aiEnabled, aiHistoryContext, patientPortalEnabled, portalCancelMinHours, restrictClinicalDocsToProfessionals, telehealthEnabled, waitlistSettings } =
       parsed.data
 
     // Check slug uniqueness
@@ -261,6 +267,7 @@ export const PATCH = withFeatureAuth(
     }
     if (portalCancelMinHours !== undefined) updateData.portalCancelMinHours = portalCancelMinHours
     if (restrictClinicalDocsToProfessionals !== undefined) updateData.restrictClinicalDocsToProfessionals = restrictClinicalDocsToProfessionals
+    if (telehealthEnabled !== undefined) updateData.telehealthEnabled = telehealthEnabled
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
@@ -303,6 +310,7 @@ export const PATCH = withFeatureAuth(
       patientPortalEnabled: true,
       portalCancelMinHours: true,
       restrictClinicalDocsToProfessionals: true,
+      telehealthEnabled: true,
     } as const
 
     const updatedClinic = billingMode === "MONTHLY_FIXED"

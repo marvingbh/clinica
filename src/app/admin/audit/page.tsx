@@ -56,6 +56,8 @@ const ACTION_LABELS: Record<string, string> = {
   APPOINTMENT_DELETED: "Agendamento excluído",
   APPOINTMENT_STATUS_CHANGED: "Status alterado",
   APPOINTMENT_CANCELLED: "Agendamento cancelado",
+  TELECONSULTA_INICIADA: "Teleconsulta iniciada",
+  TELECONSULTA_ACESSO_PACIENTE: "Acesso do paciente à teleconsulta",
   PROFESSIONAL_CANCELLATION: "Cancelamento pelo profissional",
   PATIENT_CREATED: "Paciente criado",
   PATIENT_UPDATED: "Paciente atualizado",

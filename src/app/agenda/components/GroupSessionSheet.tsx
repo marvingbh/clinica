@@ -10,6 +10,7 @@ import type { GroupSession, AppointmentStatus, Professional } from "../lib/types
 import type { CancelContext, CancelVariant } from "./group-session/types"
 import { GroupSessionHeader, GroupProfessionalEdit, GroupParticipantList, GroupMemberActions, GroupRecurrenceTab } from "./group-session"
 import { GroupEvolutionAction } from "./GroupEvolutionAction"
+import { TeleconsultaButton } from "./TeleconsultaButton"
 
 type SheetTab = "session" | "members" | "recurrence"
 
@@ -39,6 +40,10 @@ export function GroupSessionSheet({
   if (!session) return null
 
   const isRecurring = !!session.groupId
+  // First member in an active status drives the shared teleconsulta room.
+  const activeMember = session.participants.find(
+    (p) => p.status === "AGENDADO" || p.status === "CONFIRMADO"
+  )
 
   const tabs: Array<{ key: SheetTab; label: string }> = [
     { key: "session", label: "Sessão" },
@@ -133,6 +138,19 @@ export function GroupSessionSheet({
       {/* Session tab — attendance management */}
       {activeTab === "session" && (
         <>
+          {/* Teleconsulta — shared room for ONLINE group sessions (RN-08). The
+              professional opens it from any active member's appointment; all
+              members resolve to the same room via resolveRoomKey. */}
+          {session.modality === "ONLINE" && activeMember && (
+            <div className="px-4 pt-3">
+              <TeleconsultaButton
+                appointmentId={activeMember.appointmentId}
+                type="CONSULTA"
+                modality="ONLINE"
+                status={activeMember.status}
+              />
+            </div>
+          )}
           <GroupParticipantList
             participants={session.participants}
             updatingId={updatingId}

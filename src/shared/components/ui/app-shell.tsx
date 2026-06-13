@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react"
 import { useSidebar } from "./sidebar-context"
 
 // Paths that render without the sidebar — must match sidebar-nav.tsx.
-const PUBLIC_PATHS = ["/login", "/signup", "/confirm", "/cancel", "/intake", "/paciente", "/pagar", "/oferta", "/assinar", "/verificar"]
+const PUBLIC_PATHS = ["/login", "/signup", "/confirm", "/cancel", "/intake", "/paciente", "/pagar", "/oferta", "/assinar", "/verificar", "/teleconsulta"]
 
 /** Wraps app content with left padding to clear the sidebar.
  *  Returns bare children on public paths or when unauthenticated, so the

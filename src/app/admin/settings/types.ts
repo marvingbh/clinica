@@ -33,6 +33,9 @@ export interface ClinicSettings {
   portalCancelMinHours?: number
   planAllowsPatientPortal?: boolean
   appointmentNotificationsEnabled?: boolean
+  telehealthEnabled?: boolean
+  /** Platform-level availability (TELEHEALTH_JITSI_DOMAIN configured). */
+  telehealthConfigured?: boolean
   waitlistSettings?: WaitlistSettings
 }
 

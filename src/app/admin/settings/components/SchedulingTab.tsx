@@ -20,6 +20,25 @@ const labelClass = "block text-sm font-medium text-foreground mb-2"
 
 export default function SchedulingTab({ settings, onUpdate }: TabProps) {
   const [isSaving, setIsSaving] = useState(false)
+  const [telehealthEnabled, setTelehealthEnabled] = useState(settings.telehealthEnabled ?? true)
+  const [savingTelehealth, setSavingTelehealth] = useState(false)
+  const telehealthConfigured = settings.telehealthConfigured ?? false
+
+  async function saveTelehealth(next: boolean) {
+    setSavingTelehealth(true)
+    setTelehealthEnabled(next)
+    try {
+      const updated = await patchSettings({ telehealthEnabled: next })
+      onUpdate(updated)
+      setTelehealthEnabled(updated.telehealthEnabled ?? next)
+      toast.success("Configuração de teleconsulta salva")
+    } catch (e) {
+      setTelehealthEnabled(settings.telehealthEnabled ?? true)
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar")
+    } finally {
+      setSavingTelehealth(false)
+    }
+  }
 
   const {
     register,
@@ -119,6 +138,28 @@ export default function SchedulingTab({ settings, onUpdate }: TabProps) {
         >
           {isSaving ? "Salvando..." : "Salvar"}
         </button>
+      </div>
+
+      <div className="border-t border-border pt-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <label className="text-sm font-medium text-foreground">Teleconsulta integrada</label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Gera uma sala de vídeo para consultas online e inclui o link nos lembretes e
+              confirmações.
+            </p>
+            {!telehealthConfigured && (
+              <p className="text-xs text-amber-600 mt-1">Indisponível no momento — fale com o suporte.</p>
+            )}
+          </div>
+          <input
+            type="checkbox"
+            checked={telehealthEnabled}
+            disabled={savingTelehealth || !telehealthConfigured}
+            onChange={(e) => void saveTelehealth(e.target.checked)}
+            className="h-5 w-5 accent-brand-600 disabled:opacity-50"
+          />
+        </div>
       </div>
     </div>
   )

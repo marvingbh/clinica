@@ -53,6 +53,7 @@ function computeFormValues(appointment: Appointment): EditAppointmentFormData {
     startTime: `${scheduledDate.getHours().toString().padStart(2, "0")}:${scheduledDate.getMinutes().toString().padStart(2, "0")}`,
     duration: durationMinutes,
     modality: appointment.modality as "ONLINE" | "PRESENCIAL",
+    meetingUrl: appointment.meetingUrl ?? "",
     notes: appointment.notes || "",
     price: appointment.price ? parseFloat(appointment.price) : null,
   }
@@ -129,6 +130,7 @@ export function useAppointmentEdit({
         const updateData: Record<string, unknown> = {
           title: data.title?.trim() ? data.title.trim() : null,
           modality: data.modality,
+          meetingUrl: data.modality === "ONLINE" && data.meetingUrl ? data.meetingUrl : null,
           notes: data.notes || null,
           price: data.price != null && data.price !== "" && !isNaN(Number(data.price)) ? Number(data.price) : null,
           additionalProfessionalIds: editAdditionalProfIds,

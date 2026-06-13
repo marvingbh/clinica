@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
 import { buildConfirmUrl, buildCancelUrl } from "@/lib/appointments/appointment-links"
+import { getTelehealthConfig, resolveVideoLinkForNotification } from "@/lib/telehealth"
 import { createAndSendNotification } from "@/lib/notifications"
 import { NotificationChannel, NotificationType } from "@prisma/client"
 import { audit, AuditAction } from "@/lib/rbac"
@@ -143,7 +144,27 @@ export const POST = withFeatureAuth(
       minute: "2-digit",
     })
 
-    const notificationContent = `Ola ${patient.name}!\n\nEstamos reenviando os links de confirmacao do seu agendamento.\n\n📅 Data: ${formattedDate}\n🕐 Horario: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n📍 Modalidade: ${appointment.modality === "ONLINE" ? "Online" : "Presencial"}\n\nPara confirmar seu agendamento, acesse:\n${confirmLink}\n\nPara cancelar, acesse:\n${cancelLink}`
+    // Teleconsulta link (built-in room or external meetingUrl) for ONLINE
+    // consultations — null otherwise (RN-06/07).
+    const clinicTelehealth = await prisma.clinic.findUnique({
+      where: { id: user.clinicId },
+      select: { telehealthEnabled: true },
+    })
+    const videoLink = resolveVideoLinkForNotification({
+      appointment: {
+        id: appointment.id,
+        type: appointment.type,
+        modality: appointment.modality,
+        meetingUrl: appointment.meetingUrl,
+      },
+      clinic: { telehealthEnabled: clinicTelehealth?.telehealthEnabled ?? false },
+      config: getTelehealthConfig(),
+      baseUrl,
+      secret: process.env.AUTH_SECRET ?? "",
+    })
+    const videoLine = videoLink ? `\n💻 Teleconsulta — acesse no horario: ${videoLink}` : ""
+
+    const notificationContent = `Ola ${patient.name}!\n\nEstamos reenviando os links de confirmacao do seu agendamento.\n\n📅 Data: ${formattedDate}\n🕐 Horario: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n📍 Modalidade: ${appointment.modality === "ONLINE" ? "Online" : "Presencial"}${videoLine}\n\nPara confirmar seu agendamento, acesse:\n${confirmLink}\n\nPara cancelar, acesse:\n${cancelLink}`
 
     // Send notifications based on consent
     const notificationsSent: string[] = []

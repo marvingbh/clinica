@@ -489,6 +489,10 @@ model Clinic {
   // to users with a professional profile when true.
   restrictClinicalDocsToProfessionals Boolean @default(false)
 
+  // Per-clinic toggle for the built-in telehealth room. Effective only when
+  // the platform has TELEHEALTH_JITSI_DOMAIN configured (see src/lib/telehealth/config.ts).
+  telehealthEnabled Boolean @default(true)
+
   // Relations
   users                      User[]
   patients                   Patient[]
@@ -967,7 +971,11 @@ model Appointment {
   endAt                   DateTime
   status                  AppointmentStatus    @default(AGENDADO)
   modality                AppointmentModality?
-  meetingUrl              String? // For online appointments
+  meetingUrl              String? // For online appointments (external Zoom/Meet link — telehealth escape hatch)
+  // Set when the professional opens the built-in telehealth room ("Iniciar
+  // teleconsulta"). Drives the patient waiting screen and is a coarse
+  // attendance signal. Read only by PK; no index needed.
+  telehealthStartedAt     DateTime?
   notes                   String?
   price                   Decimal?             @db.Decimal(10, 2) // Session price
   cancellationReason      String?

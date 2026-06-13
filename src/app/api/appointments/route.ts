@@ -13,6 +13,7 @@ import {
   annotateAlternateWeekInfo,
 } from "@/lib/appointments/biweekly"
 import { createNotification, getPatientPhoneNumbers } from "@/lib/notifications"
+import { getTelehealthConfig, resolveVideoLinkForNotification } from "@/lib/telehealth"
 import { enqueueCalendarSync, flushCalendarSyncAfterResponse } from "@/lib/calendar-sync"
 import { NotificationChannel, NotificationType, RecurrenceType, RecurrenceEndType, AppointmentType } from "@prisma/client"
 import { audit, AuditAction, type AuthUser } from "@/lib/rbac"
@@ -945,7 +946,7 @@ async function handleCreateGroupSession(
 
   // Audit + notifications (side effects)
   await auditGroupSessionCreation(user, result.appointments, targetProfessionalProfileId, professional.user.name, result.sessionGroupId, req)
-  sendGroupSessionNotifications(result.appointments, patients, user.clinicId, professional.user.name, modality)
+  sendGroupSessionNotifications(result.appointments, patients, user.clinicId, professional.user.name, modality).catch(() => {})
 
   await enqueueCalendarSync(prisma, {
     clinicId: user.clinicId,
@@ -1437,7 +1438,29 @@ async function handleCreateAppointment(
       minute: "2-digit",
     })
 
-    let notificationContent = `Ola ${patient.name}!\n\nSeu agendamento foi criado com sucesso.\n\n📅 Data: ${formattedDate}\n🕐 Horario: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n📍 Modalidade: ${modality === "ONLINE" ? "Online" : "Presencial"}`
+    // Teleconsulta link for ONLINE consultations (built-in room) — RN-06/07.
+    let videoLine = ""
+    if (modality === "ONLINE") {
+      const clinicTelehealth = await prisma.clinic.findUnique({
+        where: { id: user.clinicId },
+        select: { telehealthEnabled: true },
+      })
+      const videoLink = resolveVideoLinkForNotification({
+        appointment: {
+          id: firstAppointment.id,
+          type: "CONSULTA",
+          modality: "ONLINE",
+          meetingUrl: firstAppointment.meetingUrl ?? null,
+        },
+        clinic: { telehealthEnabled: clinicTelehealth?.telehealthEnabled ?? false },
+        config: getTelehealthConfig(),
+        baseUrl,
+        secret: process.env.AUTH_SECRET ?? "",
+      })
+      if (videoLink) videoLine = `\n💻 Teleconsulta — acesse no horario: ${videoLink}`
+    }
+
+    let notificationContent = `Ola ${patient.name}!\n\nSeu agendamento foi criado com sucesso.\n\n📅 Data: ${formattedDate}\n🕐 Horario: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n📍 Modalidade: ${modality === "ONLINE" ? "Online" : "Presencial"}${videoLine}`
 
     if (recurrence) {
       const recurrenceTypeLabels: Record<string, string> = {

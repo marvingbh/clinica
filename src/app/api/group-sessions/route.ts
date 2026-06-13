@@ -10,6 +10,7 @@ interface SessionEntry {
   isOneOff: boolean
   scheduledAt: string
   endAt: string
+  modality: string | null
   professionalProfileId: string
   professionalName: string
   additionalProfessionals: Array<{
@@ -146,6 +147,7 @@ export const GET = withFeatureAuth(
         scheduledAt: true,
         endAt: true,
         status: true,
+        modality: true,
         patient: {
           select: { id: true, name: true },
         },
@@ -221,6 +223,7 @@ export const GET = withFeatureAuth(
           isOneOff,
           scheduledAt: apt.scheduledAt.toISOString(),
           endAt: apt.endAt.toISOString(),
+          modality: apt.modality,
           professionalProfileId: profId,
           professionalName: profName,
           additionalProfessionals: addlProfs,

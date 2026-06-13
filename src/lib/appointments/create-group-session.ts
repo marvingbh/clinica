@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { checkConflictsBulk, formatConflictError, type ConflictingAppointment } from "./conflict-check"
 import { buildConfirmUrl, buildCancelUrl } from "./appointment-links"
+import { getTelehealthConfig, resolveVideoLinkForNotification } from "@/lib/telehealth"
 import { createNotification, getPatientPhoneNumbers } from "@/lib/notifications"
 import { NotificationChannel, NotificationType } from "@prisma/client"
 import { audit, AuditAction, type AuthUser } from "@/lib/rbac"
@@ -121,7 +122,7 @@ export async function auditGroupSessionCreation(
   }
 }
 
-export function sendGroupSessionNotifications(
+export async function sendGroupSessionNotifications(
   appointments: { id: string; patientId: string | null; scheduledAt: Date }[],
   patients: { id: string; name: string; phone: string; email: string | null; consentWhatsApp: boolean; consentEmail: boolean }[],
   clinicId: string,
@@ -137,13 +138,28 @@ export function sendGroupSessionNotifications(
   })
   const formattedTime = first.scheduledAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
 
+  // Telehealth toggle resolved once; each member gets a link to their own
+  // appointment token but lands in the shared session room (RN-08).
+  const telehealthConfig = getTelehealthConfig()
+  const clinic = modality === "ONLINE"
+    ? await prisma.clinic.findUnique({ where: { id: clinicId }, select: { telehealthEnabled: true } })
+    : null
+
   for (const apt of appointments) {
     const patient = patients.find(p => p.id === apt.patientId)
     if (!patient) continue
 
     const confirmLink = buildConfirmUrl(baseUrl, apt.id, apt.scheduledAt)
     const cancelLink = buildCancelUrl(baseUrl, apt.id, apt.scheduledAt)
-    const content = `Ola ${patient.name}!\n\nSeu agendamento em grupo foi criado.\n\n📅 Data: ${formattedDate}\n🕐 Horario: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n📍 Modalidade: ${modality === "ONLINE" ? "Online" : "Presencial"}\n\nPara confirmar:\n${confirmLink}\n\nPara cancelar:\n${cancelLink}`
+    const videoLink = resolveVideoLinkForNotification({
+      appointment: { id: apt.id, type: "CONSULTA", modality, meetingUrl: null },
+      clinic: { telehealthEnabled: clinic?.telehealthEnabled ?? false },
+      config: telehealthConfig,
+      baseUrl,
+      secret: process.env.AUTH_SECRET ?? "",
+    })
+    const videoLine = videoLink ? `\n💻 Teleconsulta — acesse no horario: ${videoLink}` : ""
+    const content = `Ola ${patient.name}!\n\nSeu agendamento em grupo foi criado.\n\n📅 Data: ${formattedDate}\n🕐 Horario: ${formattedTime}\n👨‍⚕️ Profissional: ${professionalName}\n📍 Modalidade: ${modality === "ONLINE" ? "Online" : "Presencial"}${videoLine}\n\nPara confirmar:\n${confirmLink}\n\nPara cancelar:\n${cancelLink}`
 
     if (patient.consentWhatsApp && patient.phone) {
       getPatientPhoneNumbers(patient.id, clinicId).then(phoneNumbers => {
