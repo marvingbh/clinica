@@ -21,6 +21,10 @@ interface CompletedResponse {
  *  1. Todo for the resolved professional (skipped if none).
  *  2. FORM_COMPLETED email to that professional, else clinic admins.
  *  3. Public audit log (no staff actor).
+ *
+ * The patient-document PDF archive (source FORMULARIO, deferred from plan 008)
+ * is fired separately from the submit route — keeping @react-pdf/renderer out
+ * of this module's static graph, which the forms barrel re-exports to clients.
  */
 export async function runFormCompletionSideEffects(
   response: CompletedResponse,

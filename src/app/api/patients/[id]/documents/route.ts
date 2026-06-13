@@ -8,12 +8,12 @@ import {
   CATEGORY_VALUES,
 } from "@/lib/patient-documents"
 import {
-  getStorageProvider,
   buildStorageKey,
   validateUpload,
   getMaxFileSizeBytes,
   checkStorageQuota,
 } from "@/lib/storage"
+import { getStorageProvider } from "@/lib/storage/server"
 import { ensurePatient, loadStorageContext, mapDocumentError } from "./_helpers"
 
 const DOC_SELECT = {

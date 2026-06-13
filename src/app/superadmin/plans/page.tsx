@@ -14,6 +14,7 @@ interface Plan {
   priceInCents: number
   aiMonthlyCredits: number
   allowPatientPortal: boolean
+  maxStorageMb: number
   isActive: boolean
   createdAt: string
   _count: { clinics: number }
@@ -27,6 +28,7 @@ interface PlanFormData {
   priceInCents: number
   aiMonthlyCredits: number
   allowPatientPortal: boolean
+  maxStorageMb: number
 }
 
 const emptyForm: PlanFormData = {
@@ -37,6 +39,7 @@ const emptyForm: PlanFormData = {
   priceInCents: 0,
   aiMonthlyCredits: 0,
   allowPatientPortal: false,
+  maxStorageMb: 1024,
 }
 
 export default function SuperAdminPlansPage() {
@@ -85,6 +88,7 @@ export default function SuperAdminPlansPage() {
       priceInCents: plan.priceInCents,
       aiMonthlyCredits: plan.aiMonthlyCredits ?? 0,
       allowPatientPortal: plan.allowPatientPortal ?? false,
+      maxStorageMb: plan.maxStorageMb ?? 1024,
     })
     setFormError("")
     setShowModal(true)
@@ -359,6 +363,25 @@ export default function SuperAdminPlansPage() {
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   0 = sem IA · -1 = ilimitado
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Armazenamento (MB)
+                </label>
+                <input
+                  type="number"
+                  value={form.maxStorageMb}
+                  onChange={(e) =>
+                    setForm({ ...form, maxStorageMb: parseInt(e.target.value) || 0 })
+                  }
+                  min={-1}
+                  className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="1024"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Quota de anexos · -1 = ilimitado
                 </p>
               </div>
 

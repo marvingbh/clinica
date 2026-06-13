@@ -13,6 +13,7 @@ import {
   runFormCompletionSideEffects,
   type FormAnswers,
 } from "@/lib/forms"
+import { archiveFormResponseAsDocument } from "@/lib/patient-documents/server"
 
 const answersSchema = z.object({
   answers: z.record(z.string(), z.unknown()),
@@ -40,7 +41,7 @@ async function loadByToken(token: string) {
   return prisma.formResponse.findUnique({
     where: { tokenHash: hashFormToken(token) },
     include: {
-      formVersion: { select: { fields: true, template: { select: { name: true } } } },
+      formVersion: { select: { version: true, fields: true, template: { select: { name: true } } } },
       patient: { select: { id: true, name: true, referenceProfessionalId: true } },
       clinic: { select: { id: true, name: true, logoData: true } },
     },
@@ -163,6 +164,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   await runFormCompletionSideEffects(response, fields).catch((err) =>
     console.error("Form completion side effects failed:", err)
   )
+
+  // Archive the completed response as a PDF in the patient's document library
+  // (source FORMULARIO). Best-effort: never blocks the submit. Kept here (a
+  // server-only route) so @react-pdf/renderer stays out of the forms barrel.
+  await archiveFormResponseAsDocument({
+    id: response.id,
+    completedAt: now,
+    answers: sanitized,
+    professionalProfileId: response.professionalProfileId,
+    patient: { id: response.patient.id, name: response.patient.name },
+    clinic: { id: response.clinic.id, name: response.clinic.name },
+    formVersion: response.formVersion,
+  }).catch((err) => console.error("Form archive failed:", err))
 
   return NextResponse.json({ message: "Respostas enviadas com sucesso" })
 }

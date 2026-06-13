@@ -1,3 +1,7 @@
+// Pure, browser-safe exports only. Server-only provider code (filesystem,
+// @vercel/blob) lives in "@/lib/storage/server" so client bundles never pull in
+// node:fs or the blob SDK.
+
 export type {
   StorageProvider,
   StorageProviderName,
@@ -32,13 +36,3 @@ export {
   usagePercent,
   type StorageQuotaCheck,
 } from "./quota"
-
-export {
-  getStorageProvider,
-  setStorageProvider,
-  resolveProviderName,
-  isClientUploadProvider,
-} from "./provider"
-
-export { MemoryStorageProvider } from "./memory-provider"
-export { FsStorageProvider } from "./fs-provider"

@@ -6,7 +6,8 @@ import {
   findOrphanKeys,
   TRASH_RETENTION_DAYS,
 } from "@/lib/patient-documents"
-import { getStorageProvider, clinicPrefix } from "@/lib/storage"
+import { clinicPrefix } from "@/lib/storage"
+import { getStorageProvider } from "@/lib/storage/server"
 
 /**
  * GET /api/jobs/cleanup-documents

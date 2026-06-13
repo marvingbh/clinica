@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac"
 import { canViewDocument } from "@/lib/patient-documents"
-import { getStorageProvider } from "@/lib/storage"
+import { getStorageProvider } from "@/lib/storage/server"
 import { loadStorageContext } from "../../_helpers"
 
 /**

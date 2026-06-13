@@ -20,13 +20,9 @@ const { mockPrisma, mockProvider } = vi.hoisted(() => {
 })
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }))
-vi.mock("@/lib/storage", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/storage")>()
-  return {
-    ...actual,
-    getStorageProvider: () => mockProvider,
-  }
-})
+vi.mock("@/lib/storage/server", () => ({
+  getStorageProvider: () => mockProvider,
+}))
 
 import { GET } from "./route"
 

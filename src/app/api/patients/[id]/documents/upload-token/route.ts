@@ -5,8 +5,8 @@ import {
   getMaxFileSizeBytes,
   checkStorageQuota,
   patientPrefix,
-  isClientUploadProvider,
 } from "@/lib/storage"
+import { isClientUploadProvider } from "@/lib/storage/server"
 import { ensurePatient, loadStorageContext, mapDocumentError } from "../_helpers"
 
 /**

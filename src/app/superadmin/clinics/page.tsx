@@ -6,6 +6,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { StatusBadge, formatDate } from "@/app/superadmin/components/StatusBadge"
+import { formatBytes } from "@/lib/storage"
 
 interface ClinicRow {
   id: string
@@ -19,6 +20,7 @@ interface ClinicRow {
   createdAt: string
   plan: { id: string; name: string; slug: string } | null
   _count: { users: number; patients: number }
+  storageUsedBytes?: number
 }
 
 interface ClinicsResponse {
@@ -139,6 +141,9 @@ export default function SuperAdminClinicsPage() {
                     <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Pacientes
                     </th>
+                    <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Armazenamento
+                    </th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Criado em
                     </th>
@@ -147,7 +152,7 @@ export default function SuperAdminClinicsPage() {
                 <tbody className="divide-y divide-border">
                   {data.clinics.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                      <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                         Nenhuma clinica encontrada
                       </td>
                     </tr>
@@ -179,6 +184,9 @@ export default function SuperAdminClinicsPage() {
                         </td>
                         <td className="px-4 py-3 text-sm text-foreground text-right">
                           {clinic._count.patients}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-foreground text-right">
+                          {formatBytes(clinic.storageUsedBytes ?? 0)}
                         </td>
                         <td className="px-4 py-3 text-sm text-muted-foreground">
                           {formatDate(clinic.createdAt)}

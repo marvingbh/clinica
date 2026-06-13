@@ -5,12 +5,12 @@ import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac"
 import { CATEGORY_VALUES } from "@/lib/patient-documents"
 import {
-  getStorageProvider,
   keyBelongsTo,
   validateUpload,
   getMaxFileSizeBytes,
   checkStorageQuota,
 } from "@/lib/storage"
+import { getStorageProvider } from "@/lib/storage/server"
 import { ensurePatient, loadStorageContext, mapDocumentError } from "../_helpers"
 
 const registerSchema = z.object({

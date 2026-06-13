@@ -108,6 +108,7 @@ All data is scoped by `clinicId`. Users belong to a clinic and can only access d
 - **TherapyGroup/GroupMembership**: Group therapy with patient membership tracking
 - **Invoice/InvoiceItem/SessionCredit**: Financial module for billing, invoicing, and credit management
 - **Plan/SuperAdmin**: SaaS subscription plans and platform administration
+- **PatientDocument**: Patient file attachments (anexos). Binary lives in a `StorageProvider` (`src/lib/storage`: `memory`/`fs`/`vercel-blob`); only metadata + `storageKey` live in the DB. Clinic-scoped, soft-deleted (30-day trash, purged by the weekly `cleanup-documents` cron), quota-limited by `Plan.maxStorageMb` (-1 = unlimited). Rides on the `patients` RBAC feature (READ = list/download, WRITE = upload/edit/remove). Download is always proxied through the authenticated route (the blob URL is never exposed) and every access is audited (`DOCUMENT_*`). System artifacts (`source` GERADO/ASSINADO/FORMULARIO) are registered via `registerSystemDocument` (`src/lib/patient-documents`), are immutable, and bypass the upload quota. Server-only storage/provider code lives behind `@/lib/storage/server`; client code imports only the pure helpers from `@/lib/storage`.
 
 ### Appointment Types
 

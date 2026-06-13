@@ -38,6 +38,8 @@ export interface ClinicSettings {
   telehealthConfigured?: boolean
   /** Acolhimento message shown to a patient who endorses a scale risk item. */
   scaleRiskMessage?: string | null
+  /** Restrict EXAME-category patient documents to users with a professional profile. */
+  restrictExamesToProfessionals?: boolean
   waitlistSettings?: WaitlistSettings
 }
 
