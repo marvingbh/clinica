@@ -134,6 +134,13 @@ const navGroups: NavGroup[] = [
         matchPaths: ["/groups"],
         feature: "groups",
       },
+      {
+        href: "/relatorios",
+        label: "Relatórios",
+        icon: <BarChart3Icon className="w-4 h-4" strokeWidth={1.75} />,
+        matchPaths: ["/relatorios"],
+        feature: "reports",
+      },
     ],
   },
   {

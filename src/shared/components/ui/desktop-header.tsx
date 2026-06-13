@@ -18,6 +18,7 @@ import {
   ChevronDownIcon,
   ShieldIcon,
   DollarSignIcon,
+  BarChart3Icon,
 } from "./icons"
 import { usePermission } from "@/shared/hooks/usePermission"
 import type { Feature } from "@/lib/rbac/types"
@@ -73,6 +74,13 @@ const navItems: NavItem[] = [
     icon: <UsersIcon className="w-4 h-4" />,
     matchPaths: ["/groups"],
     feature: "groups",
+  },
+  {
+    href: "/relatorios",
+    label: "Relatórios",
+    icon: <BarChart3Icon className="w-4 h-4" />,
+    matchPaths: ["/relatorios"],
+    feature: "reports",
   },
   {
     href: "/financeiro",

@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { NextRequest } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+
+type Handler = (req: NextRequest, ctx: { user: unknown }) => Promise<NextResponse>
 
 // Pass-through auth.
 vi.mock("@/lib/api", () => ({
-  withFeatureAuth: (_config: unknown, handler: Function) => handler,
+  withFeatureAuth: (_config: unknown, handler: Handler) => handler,
 }))
 
 // Mock Prisma — only the calls fetchOverview makes.
@@ -50,7 +52,7 @@ function makeRequest(params?: Record<string, string>) {
 }
 
 async function callGET(params?: Record<string, string>, user = mockAdmin) {
-  const handler = GET as Function
+  const handler = GET as unknown as Handler
   return handler(makeRequest(params), { user })
 }
 
