@@ -5,6 +5,7 @@ import { withFeatureAuth, forbiddenResponse } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac"
 import { isGroupingAllowed } from "@/lib/financeiro/invoice-grouping"
 import { isValidPhone, normalizePhone, PHONE_ERROR_MESSAGE } from "@/lib/phone"
+import { referralSourceEnum } from "@/lib/patients/schema"
 
 const additionalPhoneSchema = z.object({
   id: z.string().optional(),
@@ -48,6 +49,8 @@ const updatePatientSchema = z.object({
   invoiceGrouping: z.enum(["MONTHLY", "PER_SESSION"]).nullable().optional(),
   splitInvoiceByProfessional: z.boolean().optional(),
   invoiceMessageTemplate: z.string().nullable().optional(),
+  referralSource: referralSourceEnum.nullish().or(z.literal("")),
+  referralSourceDetail: z.string().max(200).optional().nullable().or(z.literal("")),
   additionalPhones: z.array(additionalPhoneSchema).max(4, "Máximo de 4 telefones adicionais").optional(),
 })
 
@@ -118,6 +121,8 @@ export const GET = withFeatureAuth(
           invoiceMessageTemplate: true,
           createdAt: true,
           updatedAt: true,
+          referralSource: true,
+          referralSourceDetail: true,
           referenceProfessionalId: true,
           referenceProfessional: {
             select: {
@@ -275,6 +280,8 @@ export const PATCH = withFeatureAuth(
     }
     if (data.splitInvoiceByProfessional !== undefined) updateData.splitInvoiceByProfessional = data.splitInvoiceByProfessional
     if (data.invoiceMessageTemplate !== undefined) updateData.invoiceMessageTemplate = data.invoiceMessageTemplate || null
+    if (data.referralSource !== undefined) updateData.referralSource = data.referralSource || null
+    if (data.referralSourceDetail !== undefined) updateData.referralSourceDetail = data.referralSourceDetail || null
 
     // Handle phone update with duplicate check
     if (data.phone !== undefined) {

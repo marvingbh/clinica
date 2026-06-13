@@ -9,6 +9,7 @@ export const groupSchema = z.object({
   startTime: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "Horário inválido"),
   duration: z.number().int().min(15).max(480),
   recurrenceType: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]),
+  capacity: z.number().int().min(1).max(100).nullable().optional(),
 })
 
 export type GroupFormData = z.infer<typeof groupSchema>
@@ -36,6 +37,7 @@ export interface TherapyGroup {
   startTime: string
   duration: number
   recurrenceType: string
+  capacity?: number | null
   isActive: boolean
   createdAt: string
   activeMemberCount?: number

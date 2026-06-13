@@ -175,6 +175,27 @@ export function GroupForm({
           </div>
         </div>
 
+        <div>
+          <label htmlFor="capacity" className="block text-sm font-medium text-foreground mb-2">
+            Capacidade (opcional)
+          </label>
+          <input
+            id="capacity"
+            type="number"
+            {...register("capacity", { setValueAs: (v) => (v === "" || v == null ? null : Number(v)) })}
+            min={1}
+            max={100}
+            placeholder="Nº máximo de participantes"
+            className="w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Usada no relatório de ocupação. Se vazia, usamos o nº de membros ativos.
+          </p>
+          {errors.capacity && (
+            <p className="text-sm text-destructive mt-1">{errors.capacity.message}</p>
+          )}
+        </div>
+
         <div className="flex flex-col sm:flex-row gap-3 pt-4">
           <button
             type="submit"

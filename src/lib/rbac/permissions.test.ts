@@ -314,3 +314,17 @@ describe("escalas feature (clinical-data secrecy inversion)", () => {
     expect(resolved.escalas).toBe("NONE")
   })
 })
+
+describe("reports feature (operational dashboard)", () => {
+  it("is registered in FEATURES", () => {
+    expect(FEATURES).toContain("reports")
+  })
+
+  it("ADMIN default is READ", () => {
+    expect(ROLE_DEFAULTS.ADMIN.reports).toBe("READ")
+  })
+
+  it("PROFESSIONAL default is READ", () => {
+    expect(ROLE_DEFAULTS.PROFESSIONAL.reports).toBe("READ")
+  })
+})

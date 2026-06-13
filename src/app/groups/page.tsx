@@ -71,6 +71,7 @@ export default function GroupsPage() {
       dayOfWeek: 1, // Monday
       duration: 90,
       recurrenceType: "WEEKLY",
+      capacity: null,
     },
   })
 
@@ -141,6 +142,7 @@ export default function GroupsPage() {
       startTime: "",
       duration: 90,
       recurrenceType: "WEEKLY",
+      capacity: null,
     })
     setIsSheetOpen(true)
   }
@@ -159,6 +161,7 @@ export default function GroupsPage() {
       startTime: group.startTime,
       duration: group.duration,
       recurrenceType: group.recurrenceType as "WEEKLY" | "BIWEEKLY" | "MONTHLY",
+      capacity: group.capacity ?? null,
     })
     setIsSheetOpen(true)
   }

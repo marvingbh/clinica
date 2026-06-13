@@ -111,6 +111,8 @@ export async function POST(
         fatherPhone: data.fatherPhone ? normalizePhone(data.fatherPhone) : null,
         consentPhotoVideo: data.consentPhotoVideo,
         consentSessionRecording: data.consentSessionRecording,
+        referralSource: data.referralSource || null,
+        referralSourceDetail: data.referralSourceDetail || null,
         ipAddress: ip,
       },
     })

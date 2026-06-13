@@ -15,6 +15,7 @@ const updateGroupSchema = z.object({
   startTime: z.string().regex(timeRegex, "Formato de horário inválido (HH:mm)").optional(),
   duration: z.number().int().min(15).max(480).optional(),
   recurrenceType: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]).optional(),
+  capacity: z.number().int().min(1).max(100).nullish(),
   isActive: z.boolean().optional(),
   additionalProfessionalIds: z.array(z.string()).optional(),
   applyTo: z.enum(["future"]).optional(),

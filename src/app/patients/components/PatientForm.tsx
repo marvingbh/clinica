@@ -2,10 +2,19 @@
 
 import { useState, useCallback } from "react"
 import { useMountEffect } from "@/shared/hooks"
-import { Controller, UseFormRegister, Control, FieldErrors } from "react-hook-form"
+import { Controller, UseFormRegister, Control, FieldErrors, useWatch } from "react-hook-form"
 import { DatePickerInput } from "@/shared/components/ui"
 import { Professional, AdditionalPhone, UsualPayer } from "./types"
 import { getFeeLabel } from "@/lib/financeiro/billing-labels"
+
+const REFERRAL_SOURCE_OPTIONS: { value: string; label: string }[] = [
+  { value: "INDICACAO", label: "Indicação" },
+  { value: "INSTAGRAM", label: "Instagram" },
+  { value: "GOOGLE", label: "Google" },
+  { value: "SITE", label: "Site" },
+  { value: "CONVENIO", label: "Convênio" },
+  { value: "OUTRO", label: "Outro" },
+]
 
 export interface PatientFormData {
   name: string
@@ -39,6 +48,8 @@ export interface PatientFormData {
   consentWhatsApp: boolean
   consentEmail: boolean
   dunningOptOut: boolean
+  referralSource?: string | undefined
+  referralSourceDetail?: string | undefined
 }
 
 interface PatientFormProps {
@@ -92,6 +103,8 @@ export function PatientForm({
   onRemoveUsualPayer,
 }: PatientFormProps) {
   const [activeTab, setActiveTab] = useState<Tab>("cadastro")
+  const referralSource = useWatch({ control, name: "referralSource" })
+  const showReferralDetail = referralSource === "INDICACAO" || referralSource === "OUTRO"
 
   // ESC to close
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -183,6 +196,24 @@ export function PatientForm({
             <div>
               <label htmlFor="schoolName" className="block text-sm font-medium text-foreground mb-2">Nome da Escola</label>
               <input id="schoolName" type="text" {...register("schoolName")} className={inputClass} />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="referralSource" className="block text-sm font-medium text-foreground mb-2">Como conheceu a clínica?</label>
+                <select id="referralSource" {...register("referralSource")} className={inputClass}>
+                  <option value="">Não informado</option>
+                  {REFERRAL_SOURCE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              {showReferralDetail && (
+                <div>
+                  <label htmlFor="referralSourceDetail" className="block text-sm font-medium text-foreground mb-2">Detalhe (opcional)</label>
+                  <input id="referralSourceDetail" type="text" {...register("referralSourceDetail")} placeholder="Ex.: quem indicou" className={inputClass} />
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

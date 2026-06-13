@@ -32,5 +32,7 @@ export function mapSubmissionToPatient(submission: IntakeSubmission, clinicId: s
     consentPhotoVideoAt: submission.consentPhotoVideo ? now : undefined,
     consentSessionRecording: submission.consentSessionRecording,
     consentSessionRecordingAt: submission.consentSessionRecording ? now : undefined,
+    referralSource: submission.referralSource ?? undefined,
+    referralSourceDetail: submission.referralSourceDetail || undefined,
   }
 }

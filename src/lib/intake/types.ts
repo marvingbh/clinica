@@ -86,6 +86,11 @@ export const intakeSubmissionSchema = z.object({
   fatherPhone: z.string().regex(phoneRegex, "Telefone do pai invalido").optional().or(z.literal("")),
   consentPhotoVideo: z.boolean(),
   consentSessionRecording: z.boolean(),
+  referralSource: z
+    .enum(["INDICACAO", "INSTAGRAM", "GOOGLE", "SITE", "CONVENIO", "OUTRO"])
+    .optional()
+    .or(z.literal("")),
+  referralSourceDetail: z.string().max(200).optional().default(""),
 })
 
 /** Partial schema for admin edits */

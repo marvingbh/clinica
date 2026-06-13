@@ -3,6 +3,18 @@ import { phoneRegex, isValidPhone, PHONE_ERROR_MESSAGE } from "@/lib/phone"
 
 export { phoneRegex }
 
+/** Acquisition source options ("Como conheceu a clínica?"). Mirrors the Prisma enum. */
+export const REFERRAL_SOURCE_VALUES = [
+  "INDICACAO",
+  "INSTAGRAM",
+  "GOOGLE",
+  "SITE",
+  "CONVENIO",
+  "OUTRO",
+] as const
+
+export const referralSourceEnum = z.enum(REFERRAL_SOURCE_VALUES)
+
 /** Additional phone shape — shared by both the form and the API. */
 export const additionalPhoneSchema = z.object({
   phone: z.string().refine(isValidPhone, PHONE_ERROR_MESSAGE),
@@ -56,6 +68,8 @@ export const patientFormSchema = z.object({
   consentWhatsApp: z.boolean(),
   consentEmail: z.boolean(),
   dunningOptOut: z.boolean(),
+  referralSource: z.string().optional().or(z.literal("")),
+  referralSourceDetail: z.string().max(200).optional().or(z.literal("")),
 })
 
 export type PatientFormData = z.infer<typeof patientFormSchema>
@@ -98,6 +112,8 @@ export const patientApiSchema = z.object({
   consentWhatsApp: z.boolean().default(false),
   consentEmail: z.boolean().default(false),
   dunningOptOut: z.boolean().optional(),
+  referralSource: referralSourceEnum.nullish().or(z.literal("")),
+  referralSourceDetail: z.string().max(200).optional().nullable().or(z.literal("")),
   additionalPhones: z
     .array(additionalPhoneSchema)
     .max(4, "Máximo de 4 telefones adicionais")

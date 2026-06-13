@@ -27,6 +27,8 @@ const baseSubmission: IntakeSubmission = {
   fatherPhone: "11988776655",
   consentPhotoVideo: true,
   consentSessionRecording: false,
+  referralSource: "INSTAGRAM",
+  referralSourceDetail: null,
   patientId: null,
   reviewedByUserId: null,
   reviewedAt: null,
@@ -100,6 +102,29 @@ describe("mapSubmissionToPatient", () => {
   it("uses provided clinicId", () => {
     const result = mapSubmissionToPatient(baseSubmission, "different_clinic")
     expect(result.clinicId).toBe("different_clinic")
+  })
+
+  it("transfers the acquisition source to the patient", () => {
+    const result = mapSubmissionToPatient(baseSubmission, "clinic_1")
+    expect(result.referralSource).toBe("INSTAGRAM")
+  })
+
+  it("transfers the acquisition source detail when present", () => {
+    const submission = {
+      ...baseSubmission,
+      referralSource: "INDICACAO" as const,
+      referralSourceDetail: "Indicada por Dra. Paula",
+    }
+    const result = mapSubmissionToPatient(submission, "clinic_1")
+    expect(result.referralSource).toBe("INDICACAO")
+    expect(result.referralSourceDetail).toBe("Indicada por Dra. Paula")
+  })
+
+  it("leaves acquisition source undefined when not provided", () => {
+    const submission = { ...baseSubmission, referralSource: null, referralSourceDetail: null }
+    const result = mapSubmissionToPatient(submission, "clinic_1")
+    expect(result.referralSource).toBeUndefined()
+    expect(result.referralSourceDetail).toBeUndefined()
   })
 
   it("converts empty strings to undefined for optional fields", () => {

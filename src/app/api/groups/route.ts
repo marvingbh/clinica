@@ -13,6 +13,7 @@ const createGroupSchema = z.object({
   startTime: z.string().regex(timeRegex, "Formato de horário inválido (HH:mm)"),
   duration: z.number().int().min(15).max(480).default(90),
   recurrenceType: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]).default("WEEKLY"),
+  capacity: z.number().int().min(1).max(100).nullish(),
 })
 
 /**
@@ -108,7 +109,7 @@ export const POST = withFeatureAuth(
       )
     }
 
-    const { name, dayOfWeek, startTime, duration, recurrenceType } = validation.data
+    const { name, dayOfWeek, startTime, duration, recurrenceType, capacity } = validation.data
 
     // Determine professionalProfileId
     let targetProfessionalProfileId = validation.data.professionalProfileId
@@ -180,6 +181,7 @@ export const POST = withFeatureAuth(
           startTime,
           duration,
           recurrenceType,
+          capacity: capacity ?? null,
         },
         include: {
           professionalProfile: {

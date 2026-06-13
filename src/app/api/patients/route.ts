@@ -216,7 +216,7 @@ export const POST = withFeatureAuth(
       )
     }
 
-    const { name, email, phone, birthDate, cpf, billingCpf, billingResponsibleName, nfseDescriptionTemplate, nfsePerAppointment, nfseObs, addressStreet, addressNumber, addressNeighborhood, addressCity, addressState, addressZip, fatherName, motherName, notes, schoolName, firstAppointmentDate, lastFeeAdjustmentDate, sessionFee, therapeuticProject, referenceProfessionalId, invoiceGrouping, consentWhatsApp, consentEmail, additionalPhones } =
+    const { name, email, phone, birthDate, cpf, billingCpf, billingResponsibleName, nfseDescriptionTemplate, nfsePerAppointment, nfseObs, addressStreet, addressNumber, addressNeighborhood, addressCity, addressState, addressZip, fatherName, motherName, notes, schoolName, firstAppointmentDate, lastFeeAdjustmentDate, sessionFee, therapeuticProject, referenceProfessionalId, invoiceGrouping, consentWhatsApp, consentEmail, referralSource, referralSourceDetail, additionalPhones } =
       validation.data
 
     if (invoiceGrouping === "PER_SESSION") {
@@ -306,6 +306,8 @@ export const POST = withFeatureAuth(
         consentWhatsAppAt: consentWhatsApp ? now : null,
         consentEmail,
         consentEmailAt: consentEmail ? now : null,
+        referralSource: referralSource || null,
+        referralSourceDetail: referralSourceDetail || null,
         additionalPhones: normalizedAdditionalPhones.length > 0 ? {
           create: normalizedAdditionalPhones.map((p) => ({
             clinicId: user.clinicId,

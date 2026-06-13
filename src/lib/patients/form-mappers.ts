@@ -38,6 +38,8 @@ export interface PatientForFormPrefill {
   consentWhatsApp: boolean
   consentEmail: boolean
   dunningOptOut?: boolean
+  referralSource?: string | null
+  referralSourceDetail?: string | null
 }
 
 /**
@@ -128,6 +130,8 @@ export function defaultPatientFormValues(): PatientFormData {
     consentWhatsApp: false,
     consentEmail: false,
     dunningOptOut: false,
+    referralSource: "",
+    referralSourceDetail: "",
   }
 }
 
@@ -165,6 +169,8 @@ export function patientToFormData(patient: PatientForFormPrefill): PatientFormDa
     consentWhatsApp: patient.consentWhatsApp,
     consentEmail: patient.consentEmail,
     dunningOptOut: patient.dunningOptOut ?? false,
+    referralSource: patient.referralSource ?? "",
+    referralSourceDetail: patient.referralSourceDetail ?? "",
   }
 }
 
@@ -241,6 +247,8 @@ export function buildPatientPayload({
     consentWhatsApp: data.consentWhatsApp,
     consentEmail: data.consentEmail,
     dunningOptOut: data.dunningOptOut,
+    referralSource: data.referralSource || null,
+    referralSourceDetail: data.referralSourceDetail || null,
     additionalPhones: additionalPhones
       .filter((p) => p.phone.trim() && p.label.trim())
       .map((p) => ({
