@@ -2,9 +2,11 @@
 
 import { useState } from "react"
 import { toast } from "sonner"
-import { FileSignature, Send, RotateCcw, XCircle, Download } from "lucide-react"
+import { FileSignature, Send, RotateCcw, XCircle, Download, ListChecks } from "lucide-react"
 import { useMountEffect } from "@/shared/hooks"
+import { BottomSheet } from "@/shared/components/ui/bottom-sheet"
 import { SignatureStatusBadge } from "./SignatureStatusBadge"
+import { SignatureEvidenceTimeline } from "./SignatureEvidenceTimeline"
 import { SendForSignatureDialog, type SignerDefaults } from "./SendForSignatureDialog"
 import type { GeneratedDocumentDTO } from "@/shared/components/documents"
 
@@ -40,6 +42,8 @@ export function DocumentSignaturesPanel({ patientId, documents, defaultSigners, 
   const [envelopes, setEnvelopes] = useState<Envelope[]>([])
   const [loading, setLoading] = useState(true)
   const [sendDocId, setSendDocId] = useState<string | null>(null)
+  const [evidence, setEvidence] = useState<{ signerId: string; signerName: string; lines: string[] }[] | null>(null)
+  const [evidenceLoading, setEvidenceLoading] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -72,6 +76,21 @@ export function DocumentSignaturesPanel({ patientId, documents, defaultSigners, 
     const res = await fetch(`/api/assinaturas/${envelopeId}/cancel`, { method: "POST" })
     if (res.ok) { toast.success("Envio cancelado."); load() } else {
       const d = await res.json().catch(() => ({})); toast.error(d.error ?? "Erro ao cancelar")
+    }
+  }
+  async function openEvidence(envelopeId: string) {
+    setEvidence([])
+    setEvidenceLoading(true)
+    try {
+      const res = await fetch(`/api/assinaturas/${envelopeId}`)
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setEvidence(data.envelope?.timeline ?? [])
+    } catch {
+      toast.error("Erro ao carregar evidências")
+      setEvidence(null)
+    } finally {
+      setEvidenceLoading(false)
     }
   }
 
@@ -127,6 +146,11 @@ export function DocumentSignaturesPanel({ patientId, documents, defaultSigners, 
                             <Download className="h-3.5 w-3.5" /> Via assinada
                           </a>
                         )}
+                        {env && (
+                          <button type="button" onClick={() => openEvidence(env.id)} className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-muted">
+                            <ListChecks className="h-3.5 w-3.5" /> Evidências
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -147,6 +171,14 @@ export function DocumentSignaturesPanel({ patientId, documents, defaultSigners, 
           onSent={load}
         />
       )}
+
+      <BottomSheet isOpen={evidence !== null} onClose={() => setEvidence(null)} title="Evidências da assinatura">
+        {evidenceLoading ? (
+          <div className="h-24 w-full animate-pulse rounded-md bg-muted" />
+        ) : (
+          <SignatureEvidenceTimeline timeline={evidence ?? []} />
+        )}
+      </BottomSheet>
     </div>
   )
 }
