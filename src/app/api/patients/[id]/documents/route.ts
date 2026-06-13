@@ -55,7 +55,9 @@ export const GET = withFeatureAuth(
       const where = {
         clinicId: user.clinicId,
         patientId: params.id,
-        deletedAt: includeDeleted ? undefined : null,
+        // Active view: only non-deleted. Trash view: ONLY the soft-deleted ones
+        // (the toggle "Mostrar lixeira" lists removed documents — Fluxo E.3).
+        deletedAt: includeDeleted ? { not: null } : null,
         category: { in: categoryFilter },
       }
 
