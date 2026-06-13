@@ -95,6 +95,13 @@ export const FIELD_LABELS: Record<string, string> = {
   templateName: "Nome do modelo",
   channel: "Canal de envio",
   recipient: "Destinatário",
+
+  // Patient documents (anexos)
+  category: "Categoria",
+  filename: "Arquivo",
+  sharedWithPatient: "Compartilhar com paciente",
+  description: "Descrição",
+  disposition: "Tipo de acesso",
 }
 
 // ---------------------------------------------------------------------------

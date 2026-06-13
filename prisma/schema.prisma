@@ -384,6 +384,8 @@ model Plan {
   allowPatientPortal    Boolean  @default(false)
   /// Platform take-rate (%) applied as Stripe application fee on each charge; 0 = no fee
   applicationFeePercent Decimal  @default(0) @db.Decimal(5, 2)
+  /// Quota de armazenamento de anexos (MB); -1 = ilimitado (semântica igual a maxProfessionals)
+  maxStorageMb          Int      @default(1024)
   createdAt             DateTime @default(now())
 
   // Relations
@@ -530,6 +532,9 @@ model Clinic {
   // clínica endossa um item de risco (PHQ-9 item 9). Default em código quando null.
   scaleRiskMessage String?
 
+  // Anexos do paciente — categoria EXAME visível só a quem tem professionalProfile quando true.
+  restrictExamesToProfessionals Boolean @default(false)
+
   // Relations
   users                      User[]
   patients                   Patient[]
@@ -591,6 +596,7 @@ model Clinic {
   formResponses              FormResponse[]
   scaleAdministrations       ScaleAdministration[]
   scaleSchedules             ScaleSchedule[]
+  patientDocuments           PatientDocument[]
 
   @@index([slug])
   @@index([isActive])
@@ -635,6 +641,7 @@ model User {
   requestedSignatureEnvelopes SignatureEnvelope[]
   formTemplatesCreated      FormTemplate[]
   formResponsesSent         FormResponse[]
+  uploadedPatientDocuments  PatientDocument[]           @relation("UploadedPatientDocuments")
 
   @@unique([clinicId, email])
   @@index([clinicId])
@@ -834,6 +841,7 @@ model Patient {
   formResponses          FormResponse[]
   scaleAdministrations   ScaleAdministration[]
   scaleSchedules         ScaleSchedule[]
+  documents              PatientDocument[]
 
   @@unique([clinicId, cpf])
   @@index([clinicId])
@@ -2656,4 +2664,53 @@ model ScaleSchedule {
   @@index([professionalProfileId])
   // Unique parcial (patientId, scaleCode) WHERE active — apenas no SQL da migration
   // (Prisma DSL não expressa unique parcial; mesmo padrão do Todo).
+}
+
+// ============================================================================
+// Patient documents (anexos do paciente) — blob lives in the StorageProvider;
+// only metadata + storageKey live in the database. See src/lib/storage and
+// src/lib/patient-documents.
+// ============================================================================
+
+enum PatientDocumentSource {
+  UPLOAD // anexado manualmente pela equipe
+  GERADO // PDF do gerador de documentos CFP (plano 009)
+  ASSINADO // PDF carimbado da assinatura digital (plano 010)
+  FORMULARIO // exportação de formulário/anamnese (plano 008)
+}
+
+enum PatientDocumentCategory {
+  EXAME
+  ENCAMINHAMENTO
+  DOCUMENTO
+  CONTRATO
+  OUTRO
+}
+
+/// Documento/arquivo anexado a um paciente (blob fica no StorageProvider)
+model PatientDocument {
+  id                String                  @id @default(cuid())
+  clinicId          String
+  patientId         String
+  uploaderUserId    String? // null = gerado pelo sistema
+  source            PatientDocumentSource   @default(UPLOAD)
+  category          PatientDocumentCategory @default(DOCUMENTO)
+  filename          String // nome original, para exibição
+  mimeType          String
+  sizeBytes         Int
+  storageKey        String                  @unique // clinics/{clinicId}/patients/{patientId}/{docId}-{slug}
+  description       String?
+  sharedWithPatient Boolean                 @default(false) // portal do paciente (plano 003)
+  deletedAt         DateTime? // soft delete; purga após 30 dias
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  // Relations
+  clinic   Clinic  @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient  Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  uploader User?   @relation("UploadedPatientDocuments", fields: [uploaderUserId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId])
+  @@index([clinicId, patientId, deletedAt, createdAt])
+  @@index([deletedAt]) // varredura do cron de purga
 }

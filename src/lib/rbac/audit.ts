@@ -187,6 +187,14 @@ export const AuditAction = {
   SCALE_SCHEDULE_UPDATED: "scale.schedule_updated",
   SCALE_SCHEDULE_DELETED: "scale.schedule_deleted",
   SCALE_PDF_EXPORTED: "scale.pdf_exported",
+
+  // Patient documents (anexos) — never include file content in values
+  DOCUMENT_UPLOADED: "DOCUMENT_UPLOADED",
+  DOCUMENT_DOWNLOADED: "DOCUMENT_DOWNLOADED",
+  DOCUMENT_UPDATED: "DOCUMENT_UPDATED",
+  DOCUMENT_DELETED: "DOCUMENT_DELETED",
+  DOCUMENT_RESTORED: "DOCUMENT_RESTORED",
+  DOCUMENTS_PURGED: "DOCUMENTS_PURGED", // cron (aggregated per clinic)
 } as const
 
 export type AuditActionType = (typeof AuditAction)[keyof typeof AuditAction]
