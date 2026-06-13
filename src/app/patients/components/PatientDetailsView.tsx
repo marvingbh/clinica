@@ -105,7 +105,7 @@ export function PatientDetailsView({
               <button
                 key={t.key}
                 onClick={() => onTabChange(t.key)}
-                className={`px-3 py-2 text-sm font-medium border-b-2 whitespace-nowrap flex-shrink-0 transition-colors ${
+                className={`px-2.5 py-2 text-sm font-medium border-b-2 whitespace-nowrap flex-shrink-0 transition-colors ${
                   patientTab === t.key
                     ? "border-blue-600 text-blue-600"
                     : "border-transparent text-gray-500 hover:text-gray-700"
