@@ -53,6 +53,37 @@ enum NotificationType {
   CALENDAR_SYNC_ERROR
   PAYMENT_LINK // envio manual de link de cobrança
   PAYMENT_REMINDER // régua de cobrança (dunning)
+  DOCUMENT_SIGNATURE_REQUEST // link de assinatura enviado ao signatário
+  DOCUMENT_SIGNATURE_OTP // código OTP para concluir a assinatura
+  DOCUMENT_SIGNATURE_REMINDER // lembrete de assinatura pendente (D+3/D+7)
+  DOCUMENT_SIGNED // documento assinado — aviso ao solicitante
+}
+
+/// Role of a signer inside a signature envelope.
+enum SignerRole {
+  PACIENTE
+  RESPONSAVEL
+}
+
+/// Lifecycle status of a single signer's request.
+enum SignatureRequestStatus {
+  PENDENTE // link criado; aguardando vez/abertura
+  VISUALIZADO // signatário abriu o documento
+  ASSINADO
+  RECUSADO
+  EXPIRADO
+  CANCELADO // staff cancelou o envelope
+  INVALIDADO // hash do documento divergiu (regenerado após envio)
+}
+
+/// Aggregate status of an envelope (1 documento, N signatários).
+enum SignatureEnvelopeStatus {
+  EM_ANDAMENTO
+  CONCLUIDO
+  RECUSADO
+  EXPIRADO
+  CANCELADO
+  INVALIDADO
 }
 
 enum StripeConnectStatus {
@@ -294,6 +325,11 @@ enum DocumentType {
   ENCAMINHAMENTO
   CONTRATO_TERAPEUTICO
   RECIBO_REEMBOLSO
+  TCLE
+  CONSENTIMENTO_MENOR
+  CONSENTIMENTO_IMAGEM
+  CONSENTIMENTO_GRAVACAO
+  TERMO_LGPD
 }
 
 // ============================================================================
@@ -506,6 +542,9 @@ model Clinic {
   dunningConfig              DunningConfig?
   clinicDocumentTemplates    ClinicDocumentTemplate[]
   generatedDocuments         GeneratedDocument[]
+  signatureEnvelopes         SignatureEnvelope[]
+  signatureRequests          SignatureRequest[]
+  signatureOtps              SignatureOtp[]
 
   @@index([slug])
   @@index([isActive])
@@ -547,6 +586,7 @@ model User {
   reciboSaudeBatches        ReciboSaudeBatch[]
   createdPaymentCharges     PaymentCharge[]             @relation("CreatedPaymentCharges")
   generatedDocuments        GeneratedDocument[]
+  requestedSignatureEnvelopes SignatureEnvelope[]
 
   @@unique([clinicId, email])
   @@index([clinicId])
@@ -739,6 +779,7 @@ model Patient {
   waitlistEntries        WaitlistEntry[]
   reciboSaudeEmissions   ReciboSaudeEmission[]
   generatedDocuments     GeneratedDocument[]
+  signatureEnvelopes     SignatureEnvelope[]
 
   @@unique([clinicId, cpf])
   @@index([clinicId])
@@ -2310,10 +2351,99 @@ model GeneratedDocument {
   appointment         Appointment?            @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
   template            ClinicDocumentTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   generatedByUser     User?                   @relation(fields: [generatedByUserId], references: [id], onDelete: SetNull)
+  signatureEnvelopes  SignatureEnvelope[]
 
   @@index([clinicId, patientId, createdAt])
   @@index([clinicId, createdAt])
   @@index([clinicId, templateType])
   @@index([professionalProfileId])
   @@index([appointmentId])
+}
+
+// ============================================================================
+// ELECTRONIC SIGNATURE (TCLE / CONTRACTS) MODELS — feature 010
+// ============================================================================
+
+/// A document sent for electronic signature (1 document, N sequential signers).
+/// Source of truth for signature status (GeneratedDocument has no status field).
+model SignatureEnvelope {
+  id                String                  @id @default(cuid())
+  clinicId          String
+  documentId        String // FK -> GeneratedDocument
+  patientId         String
+  requestedByUserId String?
+  status            SignatureEnvelopeStatus @default(EM_ANDAMENTO)
+  originalSha256    String // hash of the PDF at send time (freezes the content)
+  signedPdf         Bytes? // final stamped PDF (immutable once CONCLUIDO) — never select in lists
+  signedSha256      String? // hash of the final file
+  verificationCode  String?                 @unique // printed on the signature page
+  countersignedAt   DateTime? // ICP A1 countersignature (optional)
+  countersignature  String?                 @db.Text // base64 RSA-SHA256(signedSha256)
+  completedAt       DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  clinic      Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  document    GeneratedDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  patient     Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  requestedBy User?              @relation(fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  requests    SignatureRequest[]
+
+  @@index([clinicId, status])
+  @@index([clinicId, patientId])
+  @@index([documentId])
+}
+
+/// A single signer inside an envelope.
+model SignatureRequest {
+  id             String                 @id @default(cuid())
+  clinicId       String // denormalized for tenant isolation
+  envelopeId     String
+  signerName     String
+  signerCpf      String? // normalized digits; required at signing time
+  signerEmail    String?
+  signerPhone    String?
+  role           SignerRole
+  signingOrder   Int                    @default(1)
+  status         SignatureRequestStatus @default(PENDENTE)
+  tokenHash      String                 @unique // sha256 of the link token
+  linkSentAt     DateTime? // when the link was sent to THIS signer
+  expiresAt      DateTime
+  viewedAt       DateTime?
+  signedAt       DateTime?
+  declinedAt     DateTime?
+  declineReason  String?
+  otpChannel     NotificationChannel?
+  evidence       Json                   @default("{}") // SignatureEvidence
+  remindersSent  Int                    @default(0)
+  lastReminderAt DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  clinic   Clinic            @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  envelope SignatureEnvelope @relation(fields: [envelopeId], references: [id], onDelete: Cascade)
+  otps     SignatureOtp[]
+
+  @@index([clinicId, status])
+  @@index([envelopeId, signingOrder])
+  @@index([status, expiresAt])
+}
+
+/// OTP for signing (hash of the code, never plaintext).
+model SignatureOtp {
+  id         String              @id @default(cuid())
+  clinicId   String
+  requestId  String
+  codeHash   String // HMAC-SHA256(AUTH_SECRET, requestId:code)
+  channel    NotificationChannel
+  attempts   Int                 @default(0)
+  expiresAt  DateTime // createdAt + 10 min
+  consumedAt DateTime?
+  createdAt  DateTime            @default(now())
+
+  clinic  Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  request SignatureRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, expiresAt])
+  @@index([expiresAt])
 }

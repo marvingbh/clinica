@@ -179,6 +179,9 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     // CFP document generator. ADMIN generates for any patient of the clinic;
     // clinical-doc restriction is enforced in the handler.
     documents: "WRITE",
+    // Electronic signature of TCLE/contracts. ADMIN sends for any patient;
+    // ownership is validated in the handler.
+    assinaturas: "WRITE",
   },
   PROFESSIONAL: {
     agenda_own: "WRITE",
@@ -211,6 +214,9 @@ export const ROLE_DEFAULTS: Record<Role, Record<Feature, FeatureAccess>> = {
     // Generates/lists documents only for own-patients — the "own patient"
     // scope cut happens in the handler (mirrors agenda_own).
     documents: "WRITE",
+    // Sends/manages signatures only for own patients — handler scopes it
+    // (mirrors documents/agenda_own).
+    assinaturas: "WRITE",
   },
 }
 

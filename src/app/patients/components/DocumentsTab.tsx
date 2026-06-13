@@ -10,15 +10,42 @@ import {
   SendDocumentDialog,
   type GeneratedDocumentDTO,
 } from "@/shared/components/documents"
+import { DocumentSignaturesPanel } from "./DocumentSignaturesPanel"
+import type { SignerDefaults } from "./SendForSignatureDialog"
 
 interface Props {
   patientId: string
   patientEmail: string | null
   patientPhone: string
+  patientName: string
+  patientCpf: string | null
+  patientBirthDate: string | null
+  guardianName: string | null
+  guardianCpf: string | null
+  guardianPhone: string | null
   canWrite: boolean
 }
 
-export function DocumentsTab({ patientId, patientEmail, patientPhone, canWrite }: Props) {
+function computeIsMinor(birthDate: string | null): boolean {
+  if (!birthDate) return false
+  const d = new Date(birthDate)
+  if (isNaN(d.getTime())) return false
+  const age = (Date.now() - d.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+  return age < 18
+}
+
+export function DocumentsTab({
+  patientId,
+  patientEmail,
+  patientPhone,
+  patientName,
+  patientCpf,
+  patientBirthDate,
+  guardianName,
+  guardianCpf,
+  guardianPhone,
+  canWrite,
+}: Props) {
   const [documents, setDocuments] = useState<GeneratedDocumentDTO[]>([])
   const [loading, setLoading] = useState(true)
   const [wizardOpen, setWizardOpen] = useState(false)
@@ -42,6 +69,11 @@ export function DocumentsTab({ patientId, patientEmail, patientPhone, canWrite }
     load()
   })
 
+  const isMinor = computeIsMinor(patientBirthDate)
+  const defaultSigners: SignerDefaults[] = isMinor
+    ? [{ name: guardianName ?? "", cpf: guardianCpf ?? undefined, phone: guardianPhone ?? patientPhone ?? undefined, email: patientEmail ?? undefined, role: "RESPONSAVEL" }]
+    : [{ name: patientName, cpf: patientCpf ?? undefined, email: patientEmail ?? undefined, phone: patientPhone ?? undefined, role: "PACIENTE" }]
+
   return (
     <div className="space-y-4">
       {canWrite && (
@@ -57,6 +89,16 @@ export function DocumentsTab({ patientId, patientEmail, patientPhone, canWrite }
       )}
 
       <DocumentsList documents={documents} loading={loading} onSend={(d) => setSendDoc(d)} />
+
+      {!loading && documents.length > 0 && (
+        <DocumentSignaturesPanel
+          patientId={patientId}
+          documents={documents}
+          isMinor={isMinor}
+          canWrite={canWrite}
+          defaultSigners={defaultSigners}
+        />
+      )}
 
       {wizardOpen && (
         <DocumentWizardSheet

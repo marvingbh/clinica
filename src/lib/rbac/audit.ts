@@ -149,6 +149,19 @@ export const AuditAction = {
   DOCUMENT_TEMPLATE_CREATED: "DOCUMENT_TEMPLATE_CREATED",
   DOCUMENT_TEMPLATE_UPDATED: "DOCUMENT_TEMPLATE_UPDATED",
   DOCUMENT_TEMPLATE_DEACTIVATED: "DOCUMENT_TEMPLATE_DEACTIVATED",
+
+  // Electronic signature (TCLE / contracts) — never include document body in values
+  SIGNATURE_REQUEST_SENT: "SIGNATURE_REQUEST_SENT",
+  SIGNATURE_REQUEST_RESENT: "SIGNATURE_REQUEST_RESENT",
+  SIGNATURE_REQUEST_CANCELLED: "SIGNATURE_REQUEST_CANCELLED",
+  SIGNATURE_VIEWED: "SIGNATURE_VIEWED",
+  SIGNATURE_COMPLETED: "SIGNATURE_COMPLETED",
+  SIGNATURE_DECLINED: "SIGNATURE_DECLINED",
+  SIGNATURE_EXPIRED: "SIGNATURE_EXPIRED",
+  SIGNATURE_INVALIDATED: "SIGNATURE_INVALIDATED",
+  SIGNATURE_RENEWAL_REQUESTED: "SIGNATURE_RENEWAL_REQUESTED",
+  SIGNATURE_FILE_DOWNLOADED: "SIGNATURE_FILE_DOWNLOADED",
+  SIGNATURE_REMINDER_JOB_EXECUTED: "SIGNATURE_REMINDER_JOB_EXECUTED",
 } as const
 
 export type AuditActionType = (typeof AuditAction)[keyof typeof AuditAction]
@@ -273,6 +286,38 @@ export const audit = {
       userAgent,
     })
   },
+}
+
+/**
+ * Log an event that has no authenticated staff actor (e.g. a public signer or
+ * a cron job). `userId` is null. IP/user-agent can be passed explicitly or
+ * extracted from a Request.
+ */
+export async function logSystemAudit(params: {
+  clinicId: string
+  action: AuditActionType
+  entityType: string
+  entityId: string
+  newValues?: Record<string, unknown>
+  oldValues?: Record<string, unknown>
+  request?: Request
+  ipAddress?: string
+  userAgent?: string
+}): Promise<void> {
+  const meta = extractRequestMetadata(params.request)
+  await prisma.auditLog.create({
+    data: {
+      clinicId: params.clinicId,
+      userId: null,
+      action: params.action,
+      entityType: params.entityType,
+      entityId: params.entityId,
+      oldValues: (params.oldValues as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+      newValues: (params.newValues as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+      ipAddress: params.ipAddress ?? meta.ipAddress ?? null,
+      userAgent: params.userAgent ?? meta.userAgent ?? null,
+    },
+  })
 }
 
 /**

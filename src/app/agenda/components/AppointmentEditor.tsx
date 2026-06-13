@@ -6,6 +6,7 @@ import { useEffect } from "react"
 import { UseFormReturn } from "react-hook-form"
 import { Sheet } from "./Sheet"
 import { InlineAlert } from "./InlineAlert"
+import { TelepsychContractWarning } from "./TelepsychContractWarning"
 import type { Segment } from "./SegmentedControl"
 import { RecurrenceTabContent } from "./RecurrenceTabContent"
 import { HistoryTimeline } from "@/shared/components/HistoryTimeline"
@@ -435,6 +436,17 @@ export function AppointmentEditor({
             </span>
           )}
         </div>
+
+        {isConsulta && appointment.patient?.id && (
+          <div className="mt-3">
+            <TelepsychContractWarning
+              key={`${appointment.patient.id}-${appointment.modality ?? "none"}`}
+              patientId={appointment.patient.id}
+              modality={appointment.modality ?? null}
+              type="CONSULTA"
+            />
+          </div>
+        )}
 
         {/* Lista de espera — open slot from a cancelled future consulta */}
         {showWaitlistMatches && (

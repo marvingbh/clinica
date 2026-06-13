@@ -5,7 +5,8 @@ import { getPlaceholder } from "./placeholders"
 import { DOCUMENT_TYPES } from "./types"
 
 describe("SYSTEM_TEMPLATES", () => {
-  it("has a seed for all 8 document types", () => {
+  it("has a seed for all document types", () => {
+    expect(DOCUMENT_TYPES.length).toBe(13)
     for (const type of DOCUMENT_TYPES) {
       expect(SYSTEM_TEMPLATES[type]).toBeDefined()
       expect(SYSTEM_TEMPLATES[type].name.length).toBeGreaterThan(0)

@@ -21,6 +21,7 @@ import { Sheet } from "./Sheet"
 import { PatientSearch } from "./PatientSearch"
 import { RecurrenceOptions, FREQUENCY_OPTIONS } from "./RecurrenceOptions"
 import { InlineAlert } from "./InlineAlert"
+import { TelepsychContractWarning } from "./TelepsychContractWarning"
 import { TimeInput } from "./TimeInput"
 import { DateInput } from "./DateInput"
 import { calculateEndTime, addMonthsToDate } from "../lib/utils"
@@ -362,6 +363,13 @@ export function CreateAppointmentSheet({
                 </div>
               )}
             </div>
+
+            <TelepsychContractWarning
+              key={`${selectedPatient?.id ?? "none"}-${watchedModality}`}
+              patientId={selectedPatient?.id ?? null}
+              modality={watchedModality}
+              type="CONSULTA"
+            />
 
             {/* ---------- Recorrência ---------- */}
             <SectionLabel>Recorrência</SectionLabel>

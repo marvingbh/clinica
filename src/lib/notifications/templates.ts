@@ -41,6 +41,14 @@ export interface TemplateVariables {
   dueDate?: string
   /** Invoice reference month (MM/YYYY) for payment messages. */
   referenceMonth?: string
+  /** Signer's name for signature notifications. */
+  signerName?: string
+  /** Title of the document sent for signature. */
+  documentTitle?: string
+  /** Public signing link (/assinar/{token}). */
+  signingLink?: string
+  /** OTP code for DOCUMENT_SIGNATURE_OTP. */
+  code?: string
 }
 
 /**
@@ -373,6 +381,99 @@ Pague por Pix ou cartão:
 {{paymentLink}}
 
 Atenciosamente,
+{{clinicName}}`,
+  },
+  // DOCUMENT_SIGNATURE_REQUEST - WhatsApp
+  {
+    type: NotificationType.DOCUMENT_SIGNATURE_REQUEST,
+    channel: NotificationChannel.WHATSAPP,
+    name: "Documento para Assinatura (WhatsApp)",
+    subject: null,
+    content: `Olá, {{signerName}}! A {{clinicName}} enviou o documento "{{documentTitle}}" para sua assinatura eletrônica. Acesse: {{signingLink}} (válido até {{expiresAt}}).`,
+  },
+  // DOCUMENT_SIGNATURE_REQUEST - Email
+  {
+    type: NotificationType.DOCUMENT_SIGNATURE_REQUEST,
+    channel: NotificationChannel.EMAIL,
+    name: "Documento para Assinatura (Email)",
+    subject: "Documento para assinatura — {{clinicName}}",
+    content: `Olá, {{signerName}}!
+
+A {{clinicName}} enviou o documento "{{documentTitle}}" para sua assinatura eletrônica.
+
+Acesse o link abaixo para ler e assinar:
+{{signingLink}}
+
+O link é válido até {{expiresAt}}.
+
+Atenciosamente,
+{{clinicName}}`,
+  },
+  // DOCUMENT_SIGNATURE_OTP - WhatsApp
+  {
+    type: NotificationType.DOCUMENT_SIGNATURE_OTP,
+    channel: NotificationChannel.WHATSAPP,
+    name: "Código para Assinar (WhatsApp)",
+    subject: null,
+    content: `{{code}} é seu código para assinar "{{documentTitle}}" — {{clinicName}}. Válido por 10 minutos.`,
+  },
+  // DOCUMENT_SIGNATURE_OTP - Email
+  {
+    type: NotificationType.DOCUMENT_SIGNATURE_OTP,
+    channel: NotificationChannel.EMAIL,
+    name: "Código para Assinar (Email)",
+    subject: "Seu código de assinatura — {{clinicName}}",
+    content: `Olá!
+
+{{code}} é o seu código para assinar o documento "{{documentTitle}}" da {{clinicName}}.
+
+Ele é válido por 10 minutos. Se você não solicitou este código, ignore esta mensagem.
+
+Atenciosamente,
+{{clinicName}}`,
+  },
+  // DOCUMENT_SIGNATURE_REMINDER - WhatsApp
+  {
+    type: NotificationType.DOCUMENT_SIGNATURE_REMINDER,
+    channel: NotificationChannel.WHATSAPP,
+    name: "Lembrete de Assinatura (WhatsApp)",
+    subject: null,
+    content: `Lembrete: o documento "{{documentTitle}}" da {{clinicName}} aguarda sua assinatura. Acesse: {{signingLink}}`,
+  },
+  // DOCUMENT_SIGNATURE_REMINDER - Email
+  {
+    type: NotificationType.DOCUMENT_SIGNATURE_REMINDER,
+    channel: NotificationChannel.EMAIL,
+    name: "Lembrete de Assinatura (Email)",
+    subject: "Lembrete: documento aguardando assinatura — {{clinicName}}",
+    content: `Olá, {{signerName}}!
+
+Lembrete: o documento "{{documentTitle}}" da {{clinicName}} ainda aguarda sua assinatura.
+
+Acesse o link abaixo para concluir:
+{{signingLink}}
+
+Atenciosamente,
+{{clinicName}}`,
+  },
+  // DOCUMENT_SIGNED - WhatsApp (to requesting staff)
+  {
+    type: NotificationType.DOCUMENT_SIGNED,
+    channel: NotificationChannel.WHATSAPP,
+    name: "Documento Assinado (WhatsApp)",
+    subject: null,
+    content: `O documento "{{documentTitle}}" de {{patientName}} foi assinado. — {{clinicName}}`,
+  },
+  // DOCUMENT_SIGNED - Email (to requesting staff)
+  {
+    type: NotificationType.DOCUMENT_SIGNED,
+    channel: NotificationChannel.EMAIL,
+    name: "Documento Assinado (Email)",
+    subject: "Documento assinado — {{clinicName}}",
+    content: `O documento "{{documentTitle}}" de {{patientName}} foi assinado com sucesso.
+
+Acesse o sistema para baixar a via assinada.
+
 {{clinicName}}`,
   },
 ]

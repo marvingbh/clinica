@@ -15,6 +15,11 @@ export type DocumentType =
   | "ENCAMINHAMENTO"
   | "CONTRATO_TERAPEUTICO"
   | "RECIBO_REEMBOLSO"
+  | "TCLE"
+  | "CONSENTIMENTO_MENOR"
+  | "CONSENTIMENTO_IMAGEM"
+  | "CONSENTIMENTO_GRAVACAO"
+  | "TERMO_LGPD"
 
 export const DOCUMENT_TYPES: DocumentType[] = [
   "DECLARACAO_COMPARECIMENTO",
@@ -25,6 +30,11 @@ export const DOCUMENT_TYPES: DocumentType[] = [
   "ENCAMINHAMENTO",
   "CONTRATO_TERAPEUTICO",
   "RECIBO_REEMBOLSO",
+  "TCLE",
+  "CONSENTIMENTO_MENOR",
+  "CONSENTIMENTO_IMAGEM",
+  "CONSENTIMENTO_GRAVACAO",
+  "TERMO_LGPD",
 ]
 
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
@@ -36,6 +46,11 @@ export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   ENCAMINHAMENTO: "Encaminhamento",
   CONTRATO_TERAPEUTICO: "Contrato terapêutico",
   RECIBO_REEMBOLSO: "Recibo para reembolso",
+  TCLE: "Termo de consentimento livre e esclarecido (TCLE)",
+  CONSENTIMENTO_MENOR: "Consentimento para atendimento de menor",
+  CONSENTIMENTO_IMAGEM: "Consentimento de uso de imagem",
+  CONSENTIMENTO_GRAVACAO: "Consentimento de gravação de sessão",
+  TERMO_LGPD: "Termo de proteção de dados (LGPD)",
 }
 
 /** Internal token a body uses to request the session table render. */

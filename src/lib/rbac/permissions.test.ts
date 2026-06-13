@@ -220,6 +220,26 @@ describe("documents feature", () => {
   })
 })
 
+describe("assinaturas feature", () => {
+  it("ADMIN default is WRITE", () => {
+    expect(ROLE_DEFAULTS.ADMIN.assinaturas).toBe("WRITE")
+  })
+
+  it("PROFESSIONAL default is WRITE", () => {
+    expect(ROLE_DEFAULTS.PROFESSIONAL.assinaturas).toBe("WRITE")
+  })
+
+  it("resolves to WRITE for both roles with no overrides", () => {
+    expect(resolvePermissions("ADMIN", {}).assinaturas).toBe("WRITE")
+    expect(resolvePermissions("PROFESSIONAL", {}).assinaturas).toBe("WRITE")
+  })
+
+  it("honors an override to NONE", () => {
+    const resolved = resolvePermissions("PROFESSIONAL", { assinaturas: "NONE" })
+    expect(resolved.assinaturas).toBe("NONE")
+  })
+})
+
 describe("meetsMinAccess", () => {
   it("WRITE meets WRITE", () => {
     expect(meetsMinAccess("WRITE", "WRITE")).toBe(true)

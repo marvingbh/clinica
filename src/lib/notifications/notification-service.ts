@@ -45,6 +45,12 @@ const ALWAYS_ENABLED_EMAIL_TYPES = new Set<NotificationType>([
   // action ("Cobrar"), not the agenda-notifications flag.
   NotificationType.PAYMENT_LINK,
   NotificationType.PAYMENT_REMINDER,
+  // Electronic signature: link / OTP / reminder / signed-notice are all driven
+  // by an explicit staff/signer action, not the agenda-notifications flag.
+  NotificationType.DOCUMENT_SIGNATURE_REQUEST,
+  NotificationType.DOCUMENT_SIGNATURE_OTP,
+  NotificationType.DOCUMENT_SIGNATURE_REMINDER,
+  NotificationType.DOCUMENT_SIGNED,
 ])
 
 /**

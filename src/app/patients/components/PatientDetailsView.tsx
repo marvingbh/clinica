@@ -309,6 +309,12 @@ export function PatientDetailsView({
             patientId={patient.id}
             patientEmail={patient.email}
             patientPhone={patient.phone}
+            patientName={patient.name}
+            patientCpf={patient.cpf ?? null}
+            patientBirthDate={patient.birthDate ?? null}
+            guardianName={patient.billingResponsibleName ?? patient.motherName ?? patient.fatherName ?? null}
+            guardianCpf={patient.billingCpf ?? null}
+            guardianPhone={patient.phone ?? null}
             canWrite={canWriteDocuments}
           />
         )}
