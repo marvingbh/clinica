@@ -13,7 +13,7 @@ export const GET = withSuperAdmin(async () => {
 
 export const POST = withSuperAdmin(async (req: NextRequest) => {
   const body = await req.json()
-  const { name, slug, stripePriceId, maxProfessionals, priceInCents, aiMonthlyCredits, allowPatientPortal } = body
+  const { name, slug, stripePriceId, maxProfessionals, priceInCents, aiMonthlyCredits, allowPatientPortal, maxStorageMb } = body
 
   if (!name || !slug || !stripePriceId || maxProfessionals === undefined || !priceInCents) {
     return NextResponse.json(
@@ -28,6 +28,12 @@ export const POST = withSuperAdmin(async (req: NextRequest) => {
       ? aiMonthlyCredits
       : 0
 
+  // maxStorageMb: -1 = unlimited; N >= 0 = N MB quota. Default 1024 MB.
+  const storageMb =
+    typeof maxStorageMb === "number" && Number.isInteger(maxStorageMb) && maxStorageMb >= -1
+      ? maxStorageMb
+      : 1024
+
   const plan = await prisma.plan.create({
     data: {
       name,
@@ -37,6 +43,7 @@ export const POST = withSuperAdmin(async (req: NextRequest) => {
       priceInCents,
       aiMonthlyCredits: aiCredits,
       allowPatientPortal: allowPatientPortal === true,
+      maxStorageMb: storageMb,
     },
   })
 

@@ -54,6 +54,7 @@ const updateSettingsSchema = z.object({
   patientPortalEnabled: z.boolean().optional(),
   portalCancelMinHours: z.number().int().min(1, "Mínimo 1 hora").max(168, "Máximo 168 horas").optional(),
   restrictClinicalDocsToProfessionals: z.boolean().optional(),
+  restrictExamesToProfessionals: z.boolean().optional(),
   telehealthEnabled: z.boolean().optional(),
   scaleRiskMessage: z.string().max(2000).optional().nullable(),
   waitlistSettings: waitlistSettingsSchema.optional(),
@@ -98,6 +99,7 @@ export const GET = withFeatureAuth(
         patientPortalEnabled: true,
         portalCancelMinHours: true,
         restrictClinicalDocsToProfessionals: true,
+        restrictExamesToProfessionals: true,
         appointmentNotificationsEnabled: true,
         telehealthEnabled: true,
         scaleRiskMessage: true,
@@ -158,7 +160,7 @@ export const PATCH = withFeatureAuth(
       )
     }
 
-    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors, prontuarioRetentionYears, prontuarioResponsibleProfessionalId, aiEnabled, aiHistoryContext, patientPortalEnabled, portalCancelMinHours, restrictClinicalDocsToProfessionals, telehealthEnabled, scaleRiskMessage, waitlistSettings } =
+    const { name, slug, phone, email, address, timezone, defaultSessionDuration, minAdvanceBooking, reminderHours, invoiceDueDay, invoiceMessageTemplate, paymentInfo, emailSenderName, emailFromAddress, emailBcc, billingMode, invoiceGrouping, taxPercentage, agendaColors, prontuarioRetentionYears, prontuarioResponsibleProfessionalId, aiEnabled, aiHistoryContext, patientPortalEnabled, portalCancelMinHours, restrictClinicalDocsToProfessionals, restrictExamesToProfessionals, telehealthEnabled, scaleRiskMessage, waitlistSettings } =
       parsed.data
 
     // Check slug uniqueness
@@ -269,6 +271,7 @@ export const PATCH = withFeatureAuth(
     }
     if (portalCancelMinHours !== undefined) updateData.portalCancelMinHours = portalCancelMinHours
     if (restrictClinicalDocsToProfessionals !== undefined) updateData.restrictClinicalDocsToProfessionals = restrictClinicalDocsToProfessionals
+    if (restrictExamesToProfessionals !== undefined) updateData.restrictExamesToProfessionals = restrictExamesToProfessionals
     if (telehealthEnabled !== undefined) updateData.telehealthEnabled = telehealthEnabled
     if (scaleRiskMessage !== undefined) updateData.scaleRiskMessage = scaleRiskMessage
 
@@ -313,6 +316,7 @@ export const PATCH = withFeatureAuth(
       patientPortalEnabled: true,
       portalCancelMinHours: true,
       restrictClinicalDocsToProfessionals: true,
+      restrictExamesToProfessionals: true,
       telehealthEnabled: true,
       scaleRiskMessage: true,
     } as const

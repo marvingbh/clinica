@@ -36,15 +36,26 @@ export const GET = withSuperAdmin(async (req: NextRequest) => {
         stripeConnectStatus: true,
         trialEndsAt: true,
         createdAt: true,
-        plan: { select: { id: true, name: true, slug: true } },
+        plan: { select: { id: true, name: true, slug: true, maxStorageMb: true } },
         _count: { select: { users: true, patients: true } },
       },
     }),
     prisma.clinic.count({ where }),
   ])
 
+  // Aggregate document storage per listed clinic (platform cost visibility).
+  const storage = await prisma.patientDocument.groupBy({
+    by: ["clinicId"],
+    where: { clinicId: { in: clinics.map((c) => c.id) } },
+    _sum: { sizeBytes: true },
+  })
+  const usedByClinic = new Map(storage.map((s) => [s.clinicId, s._sum.sizeBytes ?? 0]))
+
   return NextResponse.json({
-    clinics,
+    clinics: clinics.map((c) => ({
+      ...c,
+      storageUsedBytes: usedByClinic.get(c.id) ?? 0,
+    })),
     total,
     page,
     totalPages: Math.ceil(total / limit),

@@ -12,6 +12,7 @@ const ALLOWED_FIELDS = [
   "aiMonthlyCredits",
   "allowPatientPortal",
   "applicationFeePercent",
+  "maxStorageMb",
 ] as const
 
 export const PATCH = withSuperAdmin(async (req: NextRequest, _admin, params) => {
@@ -32,6 +33,12 @@ export const PATCH = withSuperAdmin(async (req: NextRequest, _admin, params) => 
     const v = data.applicationFeePercent
     if (typeof v !== "number" || v < 0 || v > 100) {
       return NextResponse.json({ error: "applicationFeePercent inválido (0-100)" }, { status: 400 })
+    }
+  }
+  if (data.maxStorageMb !== undefined) {
+    const v = data.maxStorageMb
+    if (typeof v !== "number" || !Number.isInteger(v) || v < -1) {
+      return NextResponse.json({ error: "maxStorageMb inválido (>= -1)" }, { status: 400 })
     }
   }
 
