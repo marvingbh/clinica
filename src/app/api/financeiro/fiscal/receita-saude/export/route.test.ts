@@ -127,11 +127,13 @@ describe("POST receita-saude/export", () => {
     )
   })
 
-  it("returns 422 when a selected row has a blocker (beneficiary without CPF)", async () => {
+  it("returns 422 when a selected row has a blocker (self-pay beneficiary without CPF)", async () => {
     mockProfFindMany.mockResolvedValue([profRecord()])
     mockInvFindMany.mockResolvedValue([
       invoiceRecord({
-        patient: { ...invoiceRecord().patient, cpf: null }, // beneficiary has no CPF
+        // No CPF AND no financial responsible → genuinely blocked (a minor with a
+        // billingCpf responsible would NOT be blocked, by design).
+        patient: { ...invoiceRecord().patient, cpf: null, billingCpf: null },
       }),
     ])
 

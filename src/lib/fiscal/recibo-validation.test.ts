@@ -69,9 +69,20 @@ describe("buildReciboRows blockers", () => {
     expect(isExportable(row)).toBe(true)
   })
 
-  it("flags BENEFICIARIO_SEM_CPF", () => {
+  it("flags BENEFICIARIO_SEM_CPF when the patient pays for themselves and has no CPF", () => {
     const [row] = build(event(), patient({ cpf: null }), professional({}))
     expect(row.blockers).toContain("BENEFICIARIO_SEM_CPF")
+  })
+
+  it("does NOT require beneficiary CPF when a financial responsible (billingCpf) covers it (e.g. a minor)", () => {
+    const [row] = build(
+      event(),
+      patient({ cpf: null, billingCpf: VALID_PAYER_CPF, billingResponsibleName: "João Pai" }),
+      professional()
+    )
+    expect(row.blockers).not.toContain("BENEFICIARIO_SEM_CPF")
+    expect(row.blockers).not.toContain("PAGADOR_SEM_CPF")
+    expect(isExportable(row)).toBe(true)
   })
 
   it("flags BENEFICIARIO_SEM_NASCIMENTO", () => {

@@ -1,4 +1,4 @@
-import { validateCpf } from "./cpf"
+import { validateCpf, stripCpf } from "./cpf"
 import type {
   PatientFiscalData,
   PaymentEvent,
@@ -38,9 +38,16 @@ function computeBlockers(
 ): ReciboBlocker[] {
   const blockers: ReciboBlocker[] = []
 
-  if (!beneficiary.cpf || !validateCpf(beneficiary.cpf)) blockers.push("BENEFICIARIO_SEM_CPF")
+  const beneficiaryHasCpf = !!beneficiary.cpf && validateCpf(beneficiary.cpf)
+  const payerHasCpf = !!payer.cpf && validateCpf(payer.cpf)
+  // A financial responsible (e.g. a parent) distinct from the beneficiary covers
+  // the payment. In that case a minor/dependente WITHOUT their own CPF is valid —
+  // DMED/recibo reports them by name + birth date under the responsible's CPF —
+  // so the beneficiary CPF is only required when they pay for themselves.
+  const coveredByResponsible = payerHasCpf && stripCpf(payer.cpf ?? "") !== stripCpf(beneficiary.cpf ?? "")
+  if (!beneficiaryHasCpf && !coveredByResponsible) blockers.push("BENEFICIARIO_SEM_CPF")
   if (!beneficiary.birthDate) blockers.push("BENEFICIARIO_SEM_NASCIMENTO")
-  if (!payer.cpf || !validateCpf(payer.cpf)) blockers.push("PAGADOR_SEM_CPF")
+  if (!payerHasCpf) blockers.push("PAGADOR_SEM_CPF")
   if (!professional.cpf || !validateCpf(professional.cpf)) blockers.push("PROFISSIONAL_SEM_CPF")
   if (!professional.crp || professional.crp.trim().length === 0) blockers.push("PROFISSIONAL_SEM_CRP")
   if (!event.paymentDate) blockers.push("PAGAMENTO_SEM_DATA")
