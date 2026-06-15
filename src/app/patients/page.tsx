@@ -85,7 +85,10 @@ export default function PatientsPage() {
     // (used by global search and the DMED issues card, which only have an id).
     const id = search.get("id")
     if (id) {
-      setPatientTab("dados")
+      // Honor ?tab=<inner tab> so deep-links (e.g. "Gerar contrato" → tab=documentos)
+      // open the right tab instead of always landing on Dados.
+      const innerTabs = ["dados", "historico", "financeiro", "prontuario", "documentos", "anexos", "formularios", "escalas"] as const
+      setPatientTab(innerTabs.find((t) => t === tab) ?? "dados")
       setAppointmentsStatusFilter("")
       setAppointmentsTotal(0)
       fetchPatientDetails(id)
