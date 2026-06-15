@@ -6,8 +6,10 @@ import {
   parsePeriodParams,
   serializeReciboRow,
   serializeIssue,
+  filterPfReciboRows,
   type EmissionStatusSnapshot,
 } from "@/lib/fiscal"
+import { parsePagination, paginate } from "@/lib/routes/pagination"
 
 /**
  * GET /api/financeiro/fiscal/receita-saude/payments?from&to&professionalId
@@ -45,8 +47,18 @@ export const GET = withFeatureAuth(
       return serializeReciboRow(row, status)
     })
 
+    // Receita Saúde is PF-only: drop rows owned by PJ (or unconfigured)
+    // professionals so a PJ selection never shows an empty/confusing table.
+    // The professionals dropdown below stays the full roster on purpose.
+    const pfRows = filterPfReciboRows(serialized, professionals)
+
+    // Server-side pagination so an active clinic's full year doesn't ship in one
+    // unbounded payload. `total` lets the client render the page controls.
+    const pageRows = paginate(pfRows, parsePagination(url.searchParams))
+
     return NextResponse.json({
-      rows: serialized,
+      rows: pageRows,
+      total: pfRows.length,
       issues: issues.map(serializeIssue),
       professionals: [...professionals.values()].map((p) => ({
         id: p.id,
