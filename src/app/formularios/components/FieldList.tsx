@@ -75,7 +75,7 @@ export function FieldList({ fields, selectedId, onReorder, onSelect, onChangeFie
   }
 
   if (fields.length === 0) {
-    return <p className="text-[13px] text-ink-400 py-6 text-center">Nenhum campo. Use o seletor &ldquo;Adicionar campo&rdquo;.</p>
+    return <p className="text-[13px] text-ink-400 py-6 text-center">Nenhum campo. Use o botão &ldquo;Adicionar campo&rdquo;.</p>
   }
 
   return (

@@ -1,10 +1,18 @@
 import { z } from "zod"
-import { randomUUID } from "crypto"
 import { CHOICE_TYPES, type FormField, type FormFieldType } from "./types"
 
-/** Generates a stable, unique field id for a new field within a template. */
+/**
+ * Generates a stable, unique field id for a new field within a template.
+ * Uses the Web Crypto API (available in browsers on localhost/https and Node 19+)
+ * so it works in the client-side form builder — the node "crypto" import threw
+ * "randomUUID is not a function" in the browser bundle.
+ */
 export function makeFieldId(): string {
-  return `f_${randomUUID().replace(/-/g, "").slice(0, 16)}`
+  const uuid =
+    typeof globalThis.crypto?.randomUUID === "function"
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`
+  return `f_${uuid.replace(/-/g, "").slice(0, 16)}`
 }
 
 const FIELD_TYPES: [FormFieldType, ...FormFieldType[]] = [
