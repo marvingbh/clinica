@@ -77,9 +77,20 @@ export default function PatientsPage() {
   // boundary around the whole page in Next 16.
   useMountEffect(() => {
     if (typeof window === "undefined") return
-    const tab = new URLSearchParams(window.location.search).get("tab")
+    const search = new URLSearchParams(window.location.search)
+    const tab = search.get("tab")
     if (tab === "fichas") setPageTab("fichas")
     if (tab === "solicitacoes") setPageTab("solicitacoes")
+    // Deep-link: /patients?id=<id> opens that patient's detail sheet directly
+    // (used by global search and the DMED issues card, which only have an id).
+    const id = search.get("id")
+    if (id) {
+      setPatientTab("dados")
+      setAppointmentsStatusFilter("")
+      setAppointmentsTotal(0)
+      fetchPatientDetails(id)
+      setIsSheetOpen(true)
+    }
   })
 
 
@@ -176,10 +187,12 @@ export default function PatientsPage() {
     }
   }, [])
 
-  // Re-fetches when search, filters, or page change.
+  // Re-fetches when search, filters, or page change. Guarded on isReady so the
+  // first fetch only fires after auth is confirmed (avoids a 401 on direct load).
   useEffect(() => {
+    if (!isReady) return
     fetchPatients()
-  }, [fetchPatients])
+  }, [isReady, fetchPatients])
 
   useMountEffect(() => {
     fetchProfessionals()

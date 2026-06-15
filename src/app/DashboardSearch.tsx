@@ -162,7 +162,7 @@ export function DashboardSearch() {
               {results.patients.map((p) => (
                 <Link
                   key={p.id}
-                  href={`/patients/${p.id}`}
+                  href={`/patients?id=${p.id}`}
                   onClick={() => setOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 hover:bg-ink-50 transition-colors"
                 >

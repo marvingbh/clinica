@@ -33,7 +33,7 @@ export function DmedIssuesCard({ issues, unexplainedDiff }: { issues: DmedIssueV
                 <span>
                   {issue.patientName}: {issue.blockers.map((b) => BLOCKER_LABELS[b] ?? b).join(", ")}
                 </span>
-                <Link href={`/patients/${issue.patientId}`} className="text-primary hover:underline">
+                <Link href={`/patients?id=${issue.patientId}`} className="text-primary hover:underline">
                   Corrigir →
                 </Link>
               </>
