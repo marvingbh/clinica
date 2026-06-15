@@ -1,9 +1,11 @@
 "use client"
 
 import { useCallback, useState } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { toast } from "sonner"
 import { PlusIcon } from "@/shared/components/ui/icons"
-import { useRequireAuth, usePermission, useMountEffect } from "@/shared/hooks"
+import { useRequireAuth, usePermission } from "@/shared/hooks"
 import { loadProfessionals, type ProfessionalLite } from "@/lib/professionals/list"
 import { WaitlistMetricsCards } from "./components/WaitlistMetricsCards"
 import { WaitlistTable } from "./components/WaitlistTable"
@@ -44,11 +46,13 @@ export default function EsperaPage() {
     }
   }, [])
 
-  useMountEffect(() => {
+  // Auth-readiness data fetch: must re-run when isReady flips true on a direct
+  // page load/refresh, so a real useEffect with [isReady] — not useMountEffect.
+  useEffect(() => {
     if (!isReady) return
     reload()
     loadProfessionals().then(setProfessionals).catch(() => setProfessionals([]))
-  })
+  }, [isReady, reload])
 
   if (!isReady) {
     return <div className="p-6 text-[13px] text-ink-500">Carregando...</div>

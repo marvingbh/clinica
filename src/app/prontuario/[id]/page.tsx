@@ -1,10 +1,12 @@
 "use client"
 
-import { use, useState } from "react"
+import { use, useCallback, useState } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { ArrowLeft } from "lucide-react"
-import { useRequireAuth, useMountEffect } from "@/shared/hooks"
+import { useRequireAuth } from "@/shared/hooks"
 import { NoteEditor } from "../components/NoteEditor"
 import type { NoteDetail, NoteAddendumItem, NoteTemplateItem } from "../components/api-types"
 
@@ -21,7 +23,7 @@ export default function NoteEditorPage({ params }: { params: Promise<{ id: strin
   const [data, setData] = useState<LoadedData | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const [noteRes, tplRes] = await Promise.all([
         fetch(`/api/prontuario/notes/${id}`),
@@ -46,11 +48,14 @@ export default function NoteEditorPage({ params }: { params: Promise<{ id: strin
       toast.error("Erro ao carregar o registro.")
       setError("Erro ao carregar o registro.")
     }
-  }
+  }, [id])
 
-  useMountEffect(() => {
+  // Auth-readiness data fetch: only fetch the note once auth is confirmed, and
+  // re-run when isReady flips true on a direct page load/refresh.
+  useEffect(() => {
+    if (!isReady) return
     void load()
-  })
+  }, [isReady, load])
 
   if (!isReady) {
     return <div className="mx-auto max-w-2xl p-6 text-sm text-muted-foreground">Carregando...</div>

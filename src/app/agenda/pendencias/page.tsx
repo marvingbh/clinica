@@ -112,7 +112,18 @@ export default function PendenciasPage() {
     }
   }, [fromIso, toIso, search, statusFilter, profFilter, isAdmin])
 
+  // Mount-only: track mounted state and tear down any in-flight request on unmount.
   useMountEffect(() => {
+    return () => {
+      mountedRef.current = false
+      abortRef.current?.abort()
+    }
+  })
+
+  // Auth-readiness: load the professionals dropdown once auth is confirmed.
+  // Must re-run when isReady flips true on a direct page load/refresh, so a real
+  // useEffect with [isReady, ...] — not useMountEffect.
+  useEffect(() => {
     if (!isReady) return
     if (isAdmin) {
       loadProfessionals().then((list) => {
@@ -121,11 +132,7 @@ export default function PendenciasPage() {
     } else if (myProfId) {
       setProfessionals([{ id: myProfId, name: session?.user?.name ?? "Eu" }])
     }
-    return () => {
-      mountedRef.current = false
-      abortRef.current?.abort()
-    }
-  })
+  }, [isReady, isAdmin, myProfId, session])
 
   // Refetch whenever filter args change. The hook closes over them through
   // `reload`'s dependency list, so a single `[reload]` dep covers all of them.

@@ -1,10 +1,12 @@
 "use client"
 
 import { useState, useMemo, useCallback } from "react"
+// eslint-disable-next-line no-restricted-imports
+import { useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { PlusIcon } from "@/shared/components/ui/icons"
-import { useRequireAuth, usePermission, useMountEffect } from "@/shared/hooks"
+import { useRequireAuth, usePermission } from "@/shared/hooks"
 import { isOverdue } from "@/lib/todos"
 import { TodoStatCards } from "./components/TodoStatCards"
 import { TodoFiltersBar } from "./components/TodoFiltersBar"
@@ -64,7 +66,9 @@ export default function TarefasPage() {
     }
   }, [])
 
-  useMountEffect(() => {
+  // Auth-readiness data fetch: must re-run when isReady flips true on a direct
+  // page load/refresh, so a real useEffect with [isReady, ...] — not useMountEffect.
+  useEffect(() => {
     if (!isReady) return
     reload()
     if (isAdmin) {
@@ -74,7 +78,7 @@ export default function TarefasPage() {
         { id: session.user.professionalProfileId, name: session.user.name ?? "Eu" },
       ])
     }
-  })
+  }, [isReady, isAdmin, session, reload])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
