@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
 import type { DmedPayerView } from "./types"
@@ -36,8 +36,8 @@ export function DmedConferenceTable({ payers, grandTotal }: { payers: DmedPayerV
             const open = expanded.has(payer.cpf)
             const hasBenef = payer.beneficiaries.length > 0
             return (
-              <>
-                <tr key={payer.cpf}>
+              <Fragment key={payer.cpf}>
+                <tr>
                   <td className="px-3 py-2">
                     {hasBenef && (
                       <button onClick={() => toggle(payer.cpf)} className="mr-1 align-middle text-muted-foreground">
@@ -50,8 +50,8 @@ export function DmedConferenceTable({ payers, grandTotal }: { payers: DmedPayerV
                   <td className="px-3 py-2 text-right">{formatCurrencyBRL(payer.total)}</td>
                 </tr>
                 {open &&
-                  payer.beneficiaries.map((b) => (
-                    <tr key={`${payer.cpf}-${b.cpf}`} className="bg-muted/30 text-xs">
+                  payer.beneficiaries.map((b, i) => (
+                    <tr key={`${payer.cpf}-${b.cpf || i}`} className="bg-muted/30 text-xs">
                       <td className="px-3 py-1.5 pl-8">
                         {b.name}
                         {b.birthDate && (
@@ -62,7 +62,7 @@ export function DmedConferenceTable({ payers, grandTotal }: { payers: DmedPayerV
                       <td className="px-3 py-1.5 text-right">{formatCurrencyBRL(b.total)}</td>
                     </tr>
                   ))}
-              </>
+              </Fragment>
             )
           })}
         </tbody>
