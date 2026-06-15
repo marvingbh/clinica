@@ -34,6 +34,7 @@ import {
 import { usePermission } from "@/shared/hooks/usePermission"
 import type { Feature } from "@/lib/rbac/types"
 import { useSidebar } from "./sidebar-context"
+import { isPublicPagePath } from "@/lib/routes/public-paths"
 import { NavBadge, type NavBadgeTone } from "./nav-badge"
 import { usePendingIntake } from "@/shared/components/PendingIntakeProvider"
 import { usePendingBookingCount } from "@/shared/hooks"
@@ -323,10 +324,7 @@ export function SidebarNav() {
   const { count: pendingIntakeCount } = usePendingIntake()
   const { count: pendingBookingCount } = usePendingBookingCount()
 
-  // "/f/" (trailing slash) targets the public form-fill page /f/[token] WITHOUT
-  // colliding with /financeiro or /formularios (which also start with "/f").
-  const publicPaths = ["/login", "/confirm", "/cancel", "/intake", "/paciente", "/teleconsulta", "/f/"]
-  if (publicPaths.some((p) => pathname.startsWith(p)) || status === "unauthenticated") {
+  if (isPublicPagePath(pathname) || status === "unauthenticated") {
     return null
   }
 

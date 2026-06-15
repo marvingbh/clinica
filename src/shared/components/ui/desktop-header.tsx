@@ -21,6 +21,7 @@ import {
   BarChart3Icon,
 } from "./icons"
 import { usePermission } from "@/shared/hooks/usePermission"
+import { isPublicPagePath } from "@/lib/routes/public-paths"
 import type { Feature } from "@/lib/rbac/types"
 import { NavBadge } from "./nav-badge"
 import { usePendingIntake } from "@/shared/components/PendingIntakeProvider"
@@ -222,8 +223,7 @@ export function DesktopHeader() {
   }
 
   // Don't render on public pages or when not authenticated
-  const publicPaths = ["/login", "/confirm", "/cancel", "/intake"]
-  if (publicPaths.some(p => pathname.startsWith(p)) || status === "unauthenticated") {
+  if (isPublicPagePath(pathname) || status === "unauthenticated") {
     return null
   }
 

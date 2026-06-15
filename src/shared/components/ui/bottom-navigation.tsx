@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { HomeIcon, CalendarIcon, StethoscopeIcon, UserIcon, UsersIcon, DollarSignIcon, ListChecksIcon, FileTextIcon } from "./icons"
 import type { Feature } from "@/lib/rbac/types"
+import { isPublicPagePath } from "@/lib/routes/public-paths"
 import { usePendingIntake } from "@/shared/components/PendingIntakeProvider"
 import { usePendingBookingCount } from "@/shared/hooks"
 
@@ -101,9 +102,8 @@ export function BottomNavigation() {
 
   // Don't render on public pages, on the landing (/) when logged out, or when
   // not authenticated at all.
-  const publicPaths = ["/login", "/signup", "/confirm", "/cancel", "/intake"]
   const isLandingAnon = pathname === "/" && status === "unauthenticated"
-  if (publicPaths.some(p => pathname.startsWith(p)) || isLandingAnon || status !== "authenticated") {
+  if (isPublicPagePath(pathname) || isLandingAnon || status !== "authenticated") {
     return null
   }
 

@@ -3,11 +3,7 @@
 import { usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useSidebar } from "./sidebar-context"
-
-// Paths that render without the sidebar — must match sidebar-nav.tsx.
-// "/f/" (trailing slash) targets the public form-fill page /f/[token] without
-// colliding with /financeiro or /formularios (which also start with "/f").
-const PUBLIC_PATHS = ["/login", "/signup", "/confirm", "/cancel", "/intake", "/paciente", "/pagar", "/oferta", "/assinar", "/verificar", "/teleconsulta", "/f/"]
+import { isPublicPagePath } from "@/lib/routes/public-paths"
 
 /** Wraps app content with left padding to clear the sidebar.
  *  Returns bare children on public paths or when unauthenticated, so the
@@ -17,7 +13,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { status } = useSession()
   const { collapsed } = useSidebar()
 
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
+  const isPublic = isPublicPagePath(pathname)
   const isLandingAnon = pathname === "/" && status === "unauthenticated"
   const showPadding = !isPublic && !isLandingAnon && status === "authenticated"
 

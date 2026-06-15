@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth"
+import { isPublicPagePath } from "@/lib/routes/public-paths"
 
 /**
  * Edge-compatible auth configuration.
@@ -19,20 +20,17 @@ export const authConfig: NextAuthConfig = {
       const isLoggedIn = !!auth?.user
       const isHomePage = nextUrl.pathname === "/"
       const isLoginPage = nextUrl.pathname === "/login"
-      const isSignupPage = nextUrl.pathname === "/signup"
       const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth")
       const isPublicApiRoute = nextUrl.pathname.startsWith("/api/public")
       const isWebhookRoute = nextUrl.pathname.startsWith("/api/webhooks")
-      const isConfirmPage = nextUrl.pathname === "/confirm"
-      const isCancelPage = nextUrl.pathname === "/cancel"
-      const isIntakePage = nextUrl.pathname.startsWith("/intake")
-      const isBookingPage = nextUrl.pathname.startsWith("/agendar")
       const isSuperAdminRoute = nextUrl.pathname.startsWith("/superadmin") ||
         nextUrl.pathname.startsWith("/api/superadmin")
+      // Patient-facing public pages (login/signup/intake/agendar/paciente/pagar/
+      // oferta/assinar/escala/verificar/teleconsulta/f) — single source of truth.
+      const isPublicPage = isPublicPagePath(nextUrl.pathname)
       const isPublicRoute =
-        isHomePage || isLoginPage || isSignupPage || isApiAuthRoute || isPublicApiRoute ||
-        isWebhookRoute || isConfirmPage || isCancelPage || isIntakePage || isBookingPage ||
-        isSuperAdminRoute
+        isHomePage || isApiAuthRoute || isPublicApiRoute ||
+        isWebhookRoute || isSuperAdminRoute || isPublicPage
 
       if (isPublicRoute) {
         if (isLoggedIn && isLoginPage) {
