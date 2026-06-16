@@ -617,33 +617,47 @@ describe("sendNotification", () => {
     )
   })
 
-  it("falls back to env-default sender when clinic has no emailFromAddress", async () => {
-    const notif = makeNotificationRecord({
-      id: "notif-email-no-clinic-sender",
-      type: "INTAKE_FORM_SUBMITTED",
-      clinicId: "clinic-8",
-      channel: "EMAIL",
-      recipient: "admin@example.com",
-      subject: "Hello",
-      content: "Body",
-    })
-    mockFindUnique.mockResolvedValueOnce(notif)
-    mockClinicFindUnique.mockResolvedValueOnce({
-      emailFromAddress: null,
-      emailSenderName: null,
-      name: "Clínica Sem Email",
-      email: null,
-    })
-    mockEmailSend.mockResolvedValueOnce({ success: true, externalId: "ext-2" })
-    mockUpdate.mockResolvedValueOnce({})
+  it("uses the env-default sender when clinic has no custom domain/from-address", async () => {
+    const prevFrom = process.env.RESEND_FROM_EMAIL
+    const prevShared = process.env.EMAIL_SHARED_DOMAIN
+    process.env.RESEND_FROM_EMAIL = "default@sistema.com.br"
+    delete process.env.EMAIL_SHARED_DOMAIN
+    try {
+      const notif = makeNotificationRecord({
+        id: "notif-email-no-clinic-sender",
+        type: "INTAKE_FORM_SUBMITTED",
+        clinicId: "clinic-8",
+        channel: "EMAIL",
+        recipient: "admin@example.com",
+        subject: "Hello",
+        content: "Body",
+      })
+      mockFindUnique.mockResolvedValueOnce(notif)
+      mockClinicFindUnique.mockResolvedValueOnce({
+        emailFromAddress: null,
+        emailSenderName: null,
+        name: "Clínica Sem Email",
+        email: null,
+        emailDomain: null,
+        emailDomainStatus: null,
+      })
+      mockEmailSend.mockResolvedValueOnce({ success: true, externalId: "ext-2" })
+      mockUpdate.mockResolvedValueOnce({})
 
-    await sendNotification("notif-email-no-clinic-sender")
+      await sendNotification("notif-email-no-clinic-sender")
 
-    // Only fromName is forwarded (derived from clinic.name); fromEmail is
-    // omitted so the provider falls back to RESEND_FROM_EMAIL.
-    const args = mockEmailSend.mock.calls[0]
-    expect(args[3]).toEqual(expect.not.objectContaining({ fromEmail: expect.anything() }))
-    expect(args[3]).toEqual(expect.objectContaining({ fromName: "Clínica Sem Email" }))
+      // The sender resolver centralizes the env-default sender into the options
+      // (the direct send paths — NFS-e, documents — need a concrete from-address).
+      const args = mockEmailSend.mock.calls[0]
+      expect(args[3]).toEqual(
+        expect.objectContaining({ fromEmail: "default@sistema.com.br", fromName: "Clínica Sem Email" }),
+      )
+    } finally {
+      if (prevFrom === undefined) delete process.env.RESEND_FROM_EMAIL
+      else process.env.RESEND_FROM_EMAIL = prevFrom
+      if (prevShared === undefined) delete process.env.EMAIL_SHARED_DOMAIN
+      else process.env.EMAIL_SHARED_DOMAIN = prevShared
+    }
   })
 
   it("does not look up the clinic for non-EMAIL channels", async () => {

@@ -12,6 +12,7 @@ import {
   buildDocumentDownloadUrl,
   DOCUMENT_TYPE_LABELS,
 } from "@/lib/documents"
+import { resolveClinicSender } from "@/lib/email/sender"
 import { canAccessPatientDocuments } from "../../_lib/scope"
 import { documentFileName } from "../../_lib/render-pdf"
 
@@ -42,7 +43,7 @@ export const POST = withFeatureAuth(
       select: {
         id: true, title: true, templateType: true, patientId: true, pdfData: true,
         patient: { select: { name: true, billingResponsibleName: true } },
-        clinic: { select: { name: true, email: true, phone: true, address: true, emailSenderName: true, emailFromAddress: true, emailBcc: true, timezone: true } },
+        clinic: { select: { name: true, email: true, phone: true, address: true, emailSenderName: true, emailFromAddress: true, emailBcc: true, timezone: true, emailDomain: true, emailDomainStatus: true } },
         createdAt: true,
       },
     })
@@ -59,8 +60,8 @@ export const POST = withFeatureAuth(
 
     if (channel === "EMAIL") {
       recipient = parsed.data.email!
-      const fromEmail = doc.clinic.emailFromAddress || process.env.RESEND_FROM_EMAIL
-      if (!process.env.RESEND_API_KEY || !fromEmail) {
+      const sender = resolveClinicSender(doc.clinic)
+      if (!process.env.RESEND_API_KEY || !sender) {
         return NextResponse.json({ error: "Serviço de e-mail não configurado" }, { status: 400 })
       }
       const generatedDate = doc.createdAt.toLocaleDateString("pt-BR", { timeZone: doc.clinic.timezone, day: "2-digit", month: "2-digit", year: "numeric" })
@@ -75,9 +76,9 @@ export const POST = withFeatureAuth(
         clinicAddress: doc.clinic.address,
       })
       const sendResult = await emailResendProvider.send(recipient, "Segue o documento solicitado em anexo.", `${typeLabel} — ${doc.clinic.name}`, {
-        fromEmail,
-        fromName: doc.clinic.emailSenderName || doc.clinic.name,
-        replyTo: doc.clinic.email || undefined,
+        fromEmail: sender.fromEmail,
+        fromName: sender.fromName,
+        replyTo: sender.replyTo,
         html,
         attachments: [{ filename: documentFileName(doc.title), content: Buffer.from(doc.pdfData).toString("base64"), content_type: "application/pdf" }],
       })

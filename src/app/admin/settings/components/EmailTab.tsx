@@ -3,6 +3,7 @@ import { toast } from "sonner"
 import Link from "next/link"
 import type { TabProps } from "../types"
 import { patchSettings } from "../types"
+import EmailDomainSection from "./EmailDomainSection"
 
 const inputClass =
   "w-full h-12 px-4 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
@@ -84,6 +85,8 @@ export default function EmailTab({ settings, onUpdate }: TabProps) {
           </button>
         </div>
       </div>
+
+      <EmailDomainSection />
 
       <div className="bg-card border border-border rounded-lg p-6">
         <div className="flex items-center justify-between">

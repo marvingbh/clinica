@@ -493,6 +493,13 @@ model Clinic {
   emailSenderName                 String? // Display name for outgoing emails (defaults to clinic name)
   emailFromAddress                String? // Verified sender email address (e.g. naoresponda@dominio.com.br)
   emailBcc                        String? // BCC address for all outgoing emails (e.g. archive@dominio.com.br)
+  // White-label sending domain (optional). When emailDomainStatus = "verified",
+  // emails send from emailFromAddress on this domain; otherwise the shared SaaS
+  // domain (EMAIL_SHARED_DOMAIN) is used with the clinic's name + reply-to.
+  emailDomain                     String? // e.g. elenasabino.com.br
+  emailDomainResendId             String? // Resend domain id (verify/status/delete)
+  emailDomainStatus               String? // pending | verified | failed | temporary_failure
+  emailDomainRecords              Json?   // Cached DNS records to display for verification
 
   /// Per-clinic agenda color preferences. Stored as `{ consulta, reuniao, lembrete, groupSession, availability }`
   /// where each value is a Tailwind palette name from src/lib/clinic/colors/palette.ts. Reads must always go

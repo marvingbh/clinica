@@ -8,6 +8,7 @@ import { createDanfseDocument } from "@/lib/nfse/danfse-pdf"
 import { audit, AuditAction } from "@/lib/rbac/audit"
 import { buildNfseEmailHtml } from "@/lib/nfse/email-template"
 import type { AuthUser } from "@/lib/rbac/types"
+import { resolveClinicSender } from "@/lib/email/sender"
 
 const bodySchema = z.object({
   email: z.string().email("E-mail inválido"),
@@ -94,6 +95,7 @@ async function fetchInvoice(invoiceId: string, clinicId: string) {
         select: {
           name: true, email: true, phone: true, address: true,
           emailSenderName: true, emailFromAddress: true, emailBcc: true,
+          emailDomain: true, emailDomainStatus: true,
           nfseConfig: true,
         },
       },
@@ -134,11 +136,12 @@ export const POST = withFeatureAuth(
         return NextResponse.json({ error: "Serviço de e-mail não configurado" }, { status: 500 })
       }
 
-      const fromEmail = invoice.clinic.emailFromAddress || process.env.RESEND_FROM_EMAIL
-      if (!fromEmail) {
+      const sender = resolveClinicSender(invoice.clinic)
+      if (!sender) {
         return NextResponse.json({ error: "Endereço de envio de e-mail não configurado. Configure em Configurações > E-mail." }, { status: 400 })
       }
-      const fromName = invoice.clinic.emailSenderName || invoice.clinic.name
+      const fromEmail = sender.fromEmail
+      const fromName = sender.fromName
       const emissionDate = emitidaAt
         ? new Date(emitidaAt).toLocaleDateString("pt-BR")
         : new Date().toLocaleDateString("pt-BR")

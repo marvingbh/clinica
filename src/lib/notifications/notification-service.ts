@@ -14,6 +14,7 @@ import type {
 import { calculateNextRetryDelay, DEFAULT_RETRY_CONFIG } from "./types"
 import { whatsAppMockProvider } from "./providers/whatsapp-mock"
 import { emailResendProvider } from "./providers/email-resend"
+import { resolveClinicSender } from "@/lib/email/sender"
 
 const providers: Record<NotificationChannel, NotificationProvider> = {
   [NotificationChannel.WHATSAPP]: whatsAppMockProvider,
@@ -107,16 +108,17 @@ async function resolveProviderOptions(
   if (channel !== NotificationChannel.EMAIL) return undefined
   const clinic = await prisma.clinic.findUnique({
     where: { id: clinicId },
-    select: { emailFromAddress: true, emailSenderName: true, name: true, email: true },
+    select: {
+      emailFromAddress: true, emailSenderName: true, name: true, email: true,
+      emailDomain: true, emailDomainStatus: true,
+    },
   })
   if (!clinic) return undefined
-  const options: Record<string, unknown> = {}
-  if (clinic.emailFromAddress) options.fromEmail = clinic.emailFromAddress
-  if (clinic.emailSenderName || clinic.name) {
-    options.fromName = clinic.emailSenderName || clinic.name
-  }
-  if (clinic.email) options.replyTo = clinic.email
-  return Object.keys(options).length > 0 ? options : undefined
+  const sender = resolveClinicSender(clinic)
+  if (!sender) return undefined
+  const options: Record<string, unknown> = { fromEmail: sender.fromEmail, fromName: sender.fromName }
+  if (sender.replyTo) options.replyTo = sender.replyTo
+  return options
 }
 
 /**
