@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { withFeatureAuth } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
-import { validateManualInvoiceInput, buildManualInvoiceItems } from "@/lib/financeiro/manual-invoice"
+import { validateManualInvoiceInput, buildManualInvoiceItems, resolveInvoiceReference } from "@/lib/financeiro/manual-invoice"
 import { calculateInvoiceTotals, InvoiceItemData } from "@/lib/financeiro/invoice-generator"
 import { renderInvoiceTemplate, buildDetailBlock, DEFAULT_INVOICE_TEMPLATE } from "@/lib/financeiro/invoice-template"
 import { getMonthName, formatCurrencyBRL, formatDateBR } from "@/lib/financeiro/format"
@@ -69,15 +69,14 @@ export const POST = withFeatureAuth(
     const profName = professional?.user?.name || ""
     const sessionFee = patient.sessionFee ? Number(patient.sessionFee) : 0
 
+    // New invoices always reference the current month, not the session month.
+    ;({ referenceMonth, referenceYear } = resolveInvoiceReference(new Date(), referenceMonth, referenceYear))
+
     let items: InvoiceItemData[]
     let totals: { totalSessions: number; creditsApplied: number; extrasAdded: number; totalAmount: number }
 
     if (manualAmount) {
       // Manual amount — no appointments needed
-      const now = new Date()
-      referenceMonth = referenceMonth || (now.getMonth() + 1)
-      referenceYear = referenceYear || now.getFullYear()
-
       items = [{
         appointmentId: null,
         type: "SESSAO_REGULAR" as const,
@@ -127,13 +126,6 @@ export const POST = withFeatureAuth(
 
       items = buildManualInvoiceItems(mapped, sessionFee)
       totals = calculateInvoiceTotals(items)
-
-      const firstDate = appointments.sort((a, b) =>
-        new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
-      )[0].scheduledAt
-      const refDate = new Date(firstDate)
-      referenceMonth = refDate.getMonth() + 1
-      referenceYear = refDate.getFullYear()
     }
 
     const dueDate = new Date(Date.UTC(referenceYear!, referenceMonth! - 1, patient.invoiceDueDay ?? clinic?.invoiceDueDay ?? 15, 12))

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest"
 import {
   validateManualInvoiceInput,
   buildManualInvoiceItems,
+  resolveInvoiceReference,
 } from "./manual-invoice"
 
 const makeAppointment = (overrides = {}) => ({
@@ -123,5 +124,28 @@ describe("buildManualInvoiceItems", () => {
     const appointments = [makeAppointment({ type: "REUNIAO", title: "Reunião escola ABC" })]
     const items = buildManualInvoiceItems(appointments, sessionFee)
     expect(items[0].description).toContain("Reunião escola ABC")
+  })
+})
+
+describe("resolveInvoiceReference", () => {
+  it("defaults to the current month/year when not supplied", () => {
+    const now = new Date("2026-06-16T12:00:00")
+    expect(resolveInvoiceReference(now)).toEqual({ referenceMonth: 6, referenceYear: 2026 })
+  })
+
+  it("uses the current month even when billing a past-month session", () => {
+    // Session was in May, but the invoice is created in June -> references June.
+    const now = new Date("2026-06-16T12:00:00")
+    expect(resolveInvoiceReference(now)).toEqual({ referenceMonth: 6, referenceYear: 2026 })
+  })
+
+  it("honors an explicit referenceMonth/referenceYear", () => {
+    const now = new Date("2026-06-16T12:00:00")
+    expect(resolveInvoiceReference(now, 4, 2025)).toEqual({ referenceMonth: 4, referenceYear: 2025 })
+  })
+
+  it("falls back to current year when only month is supplied", () => {
+    const now = new Date("2026-06-16T12:00:00")
+    expect(resolveInvoiceReference(now, 3)).toEqual({ referenceMonth: 3, referenceYear: 2026 })
   })
 })

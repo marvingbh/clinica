@@ -61,6 +61,24 @@ function getDescription(apt: ManualInvoiceAppointment, type: InvoiceItemData["ty
   return `Sessão - ${dateStr}`
 }
 
+/**
+ * Resolves the reference month/year for a manually created invoice.
+ *
+ * A new invoice always defaults to the CURRENT month — not the month of the
+ * underlying session(s) — so a past-month session billed today lands on the
+ * current month's invoice. Explicit values supplied by the caller are honored.
+ */
+export function resolveInvoiceReference(
+  now: Date,
+  referenceMonth?: number,
+  referenceYear?: number,
+): { referenceMonth: number; referenceYear: number } {
+  return {
+    referenceMonth: referenceMonth || now.getMonth() + 1,
+    referenceYear: referenceYear || now.getFullYear(),
+  }
+}
+
 export function buildManualInvoiceItems(
   appointments: ManualInvoiceAppointment[],
   sessionFee: number,
