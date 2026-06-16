@@ -57,8 +57,24 @@ export const POST = withFeatureAuth(
       select: { patientId: true },
     })
 
-    // Step 2: Collect unique patientIds
-    const patientIds = [...new Set(filteredAppointments.map(a => a.patientId).filter(Boolean))] as string[]
+    // Step 1b: Sweep prior-month uninvoiced appointments clinic-wide (respecting the professional
+    // filter). This bills past-month extra sessions that were created/finalized after that month's
+    // invoices were already generated — even for patients with no appointment in the target month.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const priorAptsBulk = await fetchUninvoicedPriorAppointmentsBulk(prisma as any, {
+      clinicId: user.clinicId,
+      professionalProfileId,
+      beforeDate: startDate,
+      targetMonth: month,
+      targetYear: year,
+    })
+
+    // Step 2: Collect unique patientIds — union of target-month patients and patients with
+    // uninvoiced prior-month sessions.
+    const patientIdSet = new Set<string>()
+    for (const a of filteredAppointments) if (a.patientId) patientIdSet.add(a.patientId)
+    for (const a of priorAptsBulk) if (a.patientId) patientIdSet.add(a.patientId)
+    const patientIds = [...patientIdSet]
     if (patientIds.length === 0) {
       return NextResponse.json({ error: "Nenhum paciente com agendamentos neste mês" }, { status: 404 })
     }
@@ -100,16 +116,9 @@ export const POST = withFeatureAuth(
       byGroup.set(key, list)
     }
 
-    // Step 4b: Fetch uninvoiced prior appointments first (needed for cleanup decisions)
-    // Also includes appointments only invoiced in PENDENTE invoices for this month (will be rebuilt)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const priorAptsBulk = await fetchUninvoicedPriorAppointmentsBulk(prisma as any, {
-      clinicId: user.clinicId,
-      patientIds,
-      beforeDate: startDate,
-      targetMonth: month,
-      targetYear: year,
-    })
+    // Step 4b: Merge the prior-month uninvoiced appointments (fetched in Step 1b) into the groups.
+    // These were already swept clinic-wide above; they may belong to patients with no target-month
+    // appointment, whose ids are already included via the Step 2 union.
     for (const apt of priorAptsBulk) {
       if (!apt.patientId) continue
       const patient = patientMap.get(apt.patientId)

@@ -64,14 +64,21 @@ export async function fetchUninvoicedPriorAppointmentsBulk(
   client: { appointment: { findMany: (...args: unknown[]) => Promise<(AppointmentSelect & { patientId: string | null; professionalProfileId: string })[]> } },
   params: {
     clinicId: string
-    patientIds: string[]
+    /**
+     * Restrict to these patients. Omit to sweep the whole clinic — this is what lets
+     * past-month uninvoiced sessions get billed even when the patient has no appointment
+     * in the target month.
+     */
+    patientIds?: string[]
+    /** Restrict to a single professional (used when generating one professional's invoices). */
+    professionalProfileId?: string
     beforeDate: Date
     /** Also include appointments invoiced only in PENDENTE invoices for this month/year (will be rebuilt) */
     targetMonth?: number
     targetYear?: number
   }
 ): Promise<(AppointmentSelect & { patientId: string | null; professionalProfileId: string })[]> {
-  const { clinicId, patientIds, beforeDate, targetMonth, targetYear } = params
+  const { clinicId, patientIds, professionalProfileId, beforeDate, targetMonth, targetYear } = params
   const lookbackDate = new Date(beforeDate)
   lookbackDate.setMonth(lookbackDate.getMonth() - LOOKBACK_MONTHS)
 
@@ -100,7 +107,8 @@ export async function fetchUninvoicedPriorAppointmentsBulk(
   return (client as any).appointment.findMany({
     where: {
       clinicId,
-      patientId: { in: patientIds },
+      ...(patientIds ? { patientId: { in: patientIds } } : {}),
+      ...(professionalProfileId ? { professionalProfileId } : {}),
       scheduledAt: { gte: lookbackDate, lt: beforeDate },
       type: { in: INVOICEABLE_TYPES },
       status: { in: BILLABLE_STATUSES },

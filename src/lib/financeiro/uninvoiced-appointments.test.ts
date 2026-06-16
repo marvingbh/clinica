@@ -201,6 +201,42 @@ describe("fetchUninvoicedPriorAppointmentsBulk", () => {
     expect(select.status).toBe(true)
   })
 
+  it("omits the patientId filter when patientIds is not provided (clinic-wide sweep)", async () => {
+    const client = makeMockClient()
+    await fetchUninvoicedPriorAppointmentsBulk(client, {
+      clinicId: "c",
+      beforeDate: new Date("2026-04-01"),
+    })
+
+    const where = client.appointment.findMany.mock.calls[0][0].where
+    expect(where.patientId).toBeUndefined()
+    expect(where.clinicId).toBe("c")
+  })
+
+  it("applies the professionalProfileId filter when provided", async () => {
+    const client = makeMockClient()
+    await fetchUninvoicedPriorAppointmentsBulk(client, {
+      clinicId: "c",
+      professionalProfileId: "prof-1",
+      beforeDate: new Date("2026-04-01"),
+    })
+
+    const where = client.appointment.findMany.mock.calls[0][0].where
+    expect(where.professionalProfileId).toBe("prof-1")
+  })
+
+  it("omits the professionalProfileId filter when not provided", async () => {
+    const client = makeMockClient()
+    await fetchUninvoicedPriorAppointmentsBulk(client, {
+      clinicId: "c",
+      patientIds: ["p1"],
+      beforeDate: new Date("2026-04-01"),
+    })
+
+    const where = client.appointment.findMany.mock.calls[0][0].where
+    expect(where.professionalProfileId).toBeUndefined()
+  })
+
   it("calculates lookback date correctly for bulk queries", async () => {
     const client = makeMockClient()
     const beforeDate = new Date("2026-05-01T00:00:00.000Z")
