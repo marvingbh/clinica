@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
-import { stripe } from "@/lib/stripe"
+import { stripe, isStripeConfigured, stripeNotConfiguredResponse } from "@/lib/stripe"
 import { audit, AuditAction } from "@/lib/rbac/audit"
 
 function appBaseUrl(): string {
@@ -16,6 +16,8 @@ function appBaseUrl(): string {
 export const POST = withFeatureAuth(
   { feature: "clinic_settings", minAccess: "WRITE" },
   async (req, { user }) => {
+    if (!isStripeConfigured()) return stripeNotConfiguredResponse()
+
     const clinic = await prisma.clinic.findUnique({
       where: { id: user.clinicId },
       select: { id: true, email: true, stripeConnectAccountId: true },

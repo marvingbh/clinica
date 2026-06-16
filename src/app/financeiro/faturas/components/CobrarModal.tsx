@@ -43,8 +43,8 @@ export default function CobrarModal({ invoiceId, openBalance, onClose, onCreated
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: value, channels }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || "Erro ao criar cobrança")
       setPaymentLink(data.paymentLink)
       toast.success("Link de cobrança criado")
       onCreated?.()

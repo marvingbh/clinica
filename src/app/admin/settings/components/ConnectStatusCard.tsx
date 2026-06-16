@@ -23,7 +23,7 @@ export default function ConnectStatusCard({ onStatusChange }: { onStatusChange?:
     try {
       const res = await fetch("/api/clinic/payments/status")
       if (!res.ok) throw new Error()
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       setStatus(data.status)
       onStatusChange?.(data.status)
     } catch {
@@ -39,7 +39,7 @@ export default function ConnectStatusCard({ onStatusChange }: { onStatusChange?:
     setBusy(true)
     try {
       const res = await fetch("/api/clinic/payments/connect", { method: "POST" })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error)
       window.location.href = data.url
     } catch (e) {

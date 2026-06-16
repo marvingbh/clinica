@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { PaymentChargeStatus } from "@prisma/client"
-import { stripe } from "@/lib/stripe"
+import { stripe, isStripeConfigured } from "@/lib/stripe"
 import { computeInvoiceStatus } from "@/lib/bank-reconciliation"
 import {
   buildCheckoutSessionParams,
@@ -69,6 +69,9 @@ export async function createChargeForInvoice(opts: {
   const { clinic } = invoice
   if (clinic.stripeConnectStatus !== "ACTIVE" || !clinic.stripeConnectAccountId) {
     throw new ChargeError("Conecte a clínica ao Stripe para cobrar", 409)
+  }
+  if (!isStripeConfigured()) {
+    throw new ChargeError("Pagamentos com Stripe não estão configurados neste ambiente.", 503)
   }
 
   const open = await openBalanceForInvoice(opts.invoiceId)

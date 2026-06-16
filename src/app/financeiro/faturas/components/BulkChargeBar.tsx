@@ -24,8 +24,8 @@ export default function BulkChargeBar({ selectedInvoiceIds, onClear, onDone }: B
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ invoiceIds: selectedInvoiceIds, channels: ["WHATSAPP"] }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || "Erro ao gerar cobranças")
       toast.success(`Cobranças geradas para ${data.created} fatura${data.created === 1 ? "" : "s"}`)
       if (data.skipped?.length) {
         toast.warning(`${data.skipped.length} fatura(s) ignorada(s) (sem saldo ou Stripe inativo)`)
