@@ -1,0 +1,215 @@
+---
+title: "Configurações financeiras"
+description: "Vencimento, modo de cobrança, agrupamento, imposto, template e dados de pagamento."
+feature: financeiro
+sources:
+  - "src/app/admin/settings/components/BillingTab.tsx"
+  - "src/lib/financeiro/invoice-template.ts"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+---
+
+As configurações financeiras definem como a clínica fatura, agrupa e cobra os atendimentos. Elas valem para toda a clínica e servem de padrão quando você gera faturas — exceto onde um paciente tem uma regra própria que sobrescreve o padrão.
+
+<Callout type="info" title="Onde encontrar">
+Acesse **Configurações** e abra a aba **Financeiro**. Apenas perfis **administradores** com acesso de escrita às configurações da clínica veem e podem alterar esta aba.
+</Callout>
+
+Cada bloco abaixo é salvo de forma independente — você ajusta uma seção por vez. Os blocos com campos (vencimento, imposto, modelo e dados de pagamento) têm o seu próprio botão **Salvar**; os blocos de seleção (modo de cobrança e agrupamento) salvam automaticamente assim que você marca a opção. Ao salvar, aparece a confirmação "Salvo com sucesso".
+
+<Screenshot src="/img/configuracao-configuracoes-financeiras-1.png" alt="Aba Financeiro das configurações da clínica com os blocos de vencimento, modo de cobrança, agrupamento, imposto, modelo de mensagem e dados de pagamento" />
+
+## Dia de vencimento da fatura
+
+Define em que dia do mês as faturas vencem. As faturas geradas usam este dia para calcular a data de vencimento exibida ao paciente.
+
+<Steps>
+<Step>
+No bloco **Dia de Vencimento da Fatura**, informe um número entre **1 e 28** no campo "Dia do mês (1-28)".
+</Step>
+<Step>
+Clique em **Salvar**.
+</Step>
+</Steps>
+
+<Callout type="info">
+O limite é o dia **28** de propósito: assim a data de vencimento existe em todos os meses, inclusive fevereiro. Se você deixar o campo em branco, o sistema assume o dia **15**.
+</Callout>
+
+## Modo de cobrança
+
+O modo de cobrança define como os valores são cobrados nas faturas. É uma escolha entre duas opções (seleção por rádio): ao marcar uma, ela é salva imediatamente.
+
+| Opção | O que significa |
+| --- | --- |
+| **Por sessão** | Cada sessão realizada é cobrada individualmente. O valor da fatura soma as sessões do período. |
+| **Mensalidade fixa** | Valor fixo mensal por paciente, independentemente do número de sessões. |
+
+<Callout type="warn" title="Mensalidade fixa força o agrupamento mensal">
+Quando você escolhe **Mensalidade fixa**, o **Agrupamento de Faturas** passa automaticamente para **Mensal** e fica travado nessa opção — não faz sentido emitir uma fatura por sessão se o valor é fixo no mês. Além disso, ao mudar para mensalidade fixa, eventuais regras de agrupamento "por sessão" definidas individualmente em pacientes são removidas, para que todos sigam o padrão mensal.
+</Callout>
+
+## Agrupamento de faturas
+
+O agrupamento define se as sessões de um paciente entram juntas em uma fatura mensal ou se cada sessão gera a sua própria fatura.
+
+| Opção | O que significa |
+| --- | --- |
+| **Mensal (uma fatura por mês)** | Todas as sessões do mês entram em uma única fatura. |
+| **Por Sessão (uma fatura por sessão)** | Cada sessão gera uma fatura individual. |
+
+<Callout type="info">
+A opção **Por Sessão** fica **indisponível** quando o modo de cobrança é **Mensalidade fixa** — nesse caso só é possível usar o agrupamento **Mensal**. Para liberar o agrupamento por sessão, volte o modo de cobrança para **Por sessão**.
+</Callout>
+
+## Imposto para repasse
+
+Define o percentual descontado do valor bruto **antes** do repasse dos profissionais. É o desconto aplicado no cálculo do quanto cada profissional recebe — não muda o valor cobrado do paciente.
+
+<Steps>
+<Step>
+No bloco **Imposto para Repasse**, informe o percentual no campo "Percentual (%)". Aceita valores de **0 a 100**, com casas decimais. O campo é numérico (use ponto como separador decimal, por exemplo `6` ou `4.5`).
+</Step>
+<Step>
+Clique em **Salvar**.
+</Step>
+</Steps>
+
+<Callout type="info">
+Deixe em **0** se a clínica não desconta imposto no repasse. O valor é usado no módulo de repasse para calcular o líquido a pagar a cada profissional.
+</Callout>
+
+## Modelo de mensagem da fatura
+
+É o texto enviado junto com a fatura. Você escreve o modelo uma vez e o sistema substitui as variáveis (escritas entre chaves duplas, como `{{paciente}}`) pelos dados reais de cada fatura no momento do envio.
+
+<Steps>
+<Step>
+No bloco **Modelo de Mensagem da Fatura**, edite o texto na caixa. Use as variáveis disponíveis onde quiser inserir dados dinâmicos.
+</Step>
+<Step>
+Clique em **Salvar modelo**. Para voltar ao texto sugerido pelo sistema, clique em **Restaurar padrão**.
+</Step>
+</Steps>
+
+### Variáveis disponíveis
+
+| Variável | Conteúdo |
+| --- | --- |
+| `{{paciente}}` | Nome do paciente |
+| `{{mae}}` | Nome da mãe / responsável |
+| `{{pai}}` | Nome do pai / responsável |
+| `{{valor}}` | Valor total da fatura |
+| `{{mes}}` | Mês de referência |
+| `{{ano}}` | Ano de referência |
+| `{{vencimento}}` | Data de vencimento |
+| `{{sessoes}}` | Total de sessões |
+| `{{profissional}}` | Nome do profissional |
+| `{{sessoes_regulares}}` | Quantidade de sessões regulares |
+| `{{sessoes_extras}}` | Quantidade de sessões extras |
+| `{{sessoes_grupo}}` | Quantidade de sessões em grupo |
+| `{{reunioes_escola}}` | Quantidade de reuniões de escola |
+| `{{creditos}}` | Créditos aplicados |
+| `{{valor_sessao}}` | Valor por sessão |
+| `{{detalhes}}` | Bloco detalhado, item a item |
+
+<Callout type="info">
+Se você usar uma variável que não existe na lista, o texto `{{...}}` fica no lugar (não é apagado) — útil para detectar erros de digitação. Deixar a caixa vazia faz a clínica voltar a usar o modelo padrão do sistema.
+</Callout>
+
+### Modelo padrão
+
+Se você não personalizar nada, o sistema usa este texto:
+
+```text
+Prezado(a) {{mae}},
+
+Segue a fatura de {{paciente}} referente ao mês de {{mes}}/{{ano}}.
+
+Valor: {{valor}}
+Vencimento: {{vencimento}}
+Total de sessões: {{sessoes}}
+
+Atenciosamente,
+{{profissional}}
+```
+
+### Como o bloco de detalhes é montado
+
+A variável `{{detalhes}}` lista os itens da fatura. Dependendo de como a fatura foi gerada, o bloco pode vir simples ou agrupado:
+
+<Tabs items={["Lista simples", "Agrupado por tipo", "Agrupado por profissional"]}>
+<Tab value="Lista simples">
+
+Uma linha por item, com descrição e valor:
+
+```text
+- Sessão 03/06/2026: R$ 150,00
+- Sessão 10/06/2026: R$ 150,00
+```
+
+</Tab>
+<Tab value="Agrupado por tipo">
+
+Os itens são separados em seções por categoria, na ordem **Sessões regulares**, **Sessões extras**, **Sessões grupo**, **Reuniões escola** e **Créditos** (seções vazias são omitidas):
+
+```text
+Sessões regulares:
+  - Sessão 03/06/2026: R$ 150,00
+  - Sessão 10/06/2026: R$ 150,00
+
+Sessões extras:
+  - Sessão extra 17/06/2026: R$ 180,00
+```
+
+</Tab>
+<Tab value="Agrupado por profissional">
+
+Os itens são separados por profissional que atendeu, em seções "Atendido por …". Itens sem profissional vão para uma seção **Outros** e os créditos para uma seção **Créditos**, ambas ao final:
+
+```text
+Atendido por Ana Souza:
+  - Sessão 03/06/2026: R$ 150,00
+
+Atendido por Bruno Lima:
+  - Sessão 10/06/2026: R$ 150,00
+
+Créditos:
+  - Crédito de sessão: -R$ 150,00
+```
+
+</Tab>
+</Tabs>
+
+## Dados para pagamento
+
+É o texto exibido no **PDF da fatura** com as instruções de pagamento — chave PIX, dados bancários, CNPJ, etc.
+
+<Steps>
+<Step>
+No bloco **Dados para Pagamento**, preencha a caixa de texto. Você pode usar várias linhas.
+</Step>
+<Step>
+Clique em **Salvar**.
+</Step>
+</Steps>
+
+Um exemplo do formato (texto sugerido como guia):
+
+```text
+PIX: 12.345.678/0001-00 (CNPJ)
+Banco: Itaú
+Agência: 1234 / Conta: 56789-0
+```
+
+<Callout type="info">
+Deixar a caixa vazia remove os dados de pagamento — nesse caso o PDF da fatura não exibe instruções de pagamento. Mantenha estas informações atualizadas para que os pacientes saibam como quitar a fatura.
+</Callout>
+
+## Próximos passos
+
+<Cards>
+<Card title="Faturas" href="/docs/financeiro/faturas" description="Use o vencimento, o modo de cobrança e o agrupamento configurados aqui." />
+<Card title="Repasse de profissionais" href="/docs/financeiro/repasse" description="O imposto definido aqui entra no cálculo do líquido a repassar." />
+</Cards>

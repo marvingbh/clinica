@@ -1,0 +1,161 @@
+---
+title: "Fluxo de caixa"
+description: "Realizado x projetado, gráfico/tabela, granularidade e estimativa de impostos."
+feature: financeiro
+sources:
+  - "src/app/financeiro/fluxo-de-caixa/**"
+  - "src/lib/cashflow/**"
+  - "src/app/api/financeiro/cashflow/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+A aba **Fluxo de Caixa** mostra quanto dinheiro entrou e saiu da clínica e projeta o saldo nos próximos meses. Você acessa em **Financeiro → Fluxo de Caixa** (`/financeiro/fluxo-de-caixa`). É uma visão de nível administrativo: depende da permissão **Finanças** com acesso de leitura.
+
+<Callout type="info" title="Funcionalidade recém-lançada">
+O Fluxo de Caixa é uma adição recente ao módulo financeiro. Ele reúne faturas, despesas, repasses e impostos em um único painel de entradas e saídas, com projeção do saldo dentro do período selecionado no filtro.
+</Callout>
+
+## Escolhendo o período
+
+O Fluxo de Caixa usa a mesma barra de filtro do topo do módulo Financeiro. Use as setas **←** e **→** para mudar de ano e os botões de mês (**Jan** a **Dez**) ou **Ano todo** para definir a janela.
+
+- **Mês selecionado** (ex.: **Jun**): o painel mostra do dia 01 ao último dia daquele mês e ajusta a granularidade para **Diário** automaticamente.
+- **Ano todo**: o painel cobre 01/01 a 31/12 e ajusta a granularidade para **Mensal** automaticamente.
+
+Você pode trocar a granularidade manualmente depois (veja abaixo).
+
+## Os três controles
+
+Logo abaixo dos alertas (quando houver), há uma faixa de controles:
+
+<Steps>
+
+<Step>
+**Visão** — alterna entre **Realizado** e **Projetado**. Esta é a escolha mais importante; ela define *quais dados* aparecem (detalhada na próxima seção).
+</Step>
+
+<Step>
+**Granularidade** — agrupa as entradas em **Diário**, **Semanal** (semanas de segunda a domingo) ou **Mensal**. Útil para enxergar tendências sem o ruído do dia a dia.
+</Step>
+
+<Step>
+**Visualização** — alterna entre **Gráfico** e **Tabela** dos mesmos números.
+</Step>
+
+</Steps>
+
+{/* TODO screenshot: /img/financeiro/fluxo-de-caixa-controles.png */}
+
+## Realizado x Projetado
+
+A diferença entre as duas visões não está no período — é o mesmo intervalo do filtro — e sim em **o que é incluído**.
+
+<Tabs items={["Realizado", "Projetado"]}>
+
+<Tab value="Realizado">
+
+Mostra apenas o que **de fato entrou e saiu**:
+
+- **Entradas**: faturas com status **Pago** (pela data de pagamento).
+- **Saídas**: despesas com status **Pago** (pela data de pagamento).
+
+Se a clínica tiver a **integração com o Banco Inter** ativa, o Realizado passa a usar as **transações bancárias** como fonte da verdade do caixa: cada movimentação é vinculada à fatura ou despesa conciliada e, quando não há vínculo, aparece marcada com **⚠ Não conciliado**. Sem integração, o cálculo usa as faturas e despesas pagas.
+
+Nesta visão você ainda vê o cartão **Faturas Pendentes** (faturas com status Pendente, Enviado ou Parcial que vencem no período), junto de **Fluxo Líquido (realizado)** e **Fluxo Líquido + Pendentes**, para enxergar o que ainda falta receber.
+
+</Tab>
+
+<Tab value="Projetado">
+
+Mostra o realizado **somado às projeções** do que ainda deve acontecer. Inclui:
+
+- **Receita das sessões agendadas** — consultas e reuniões com status Agendado, Confirmado ou Finalizado, usando o preço da sessão (ou o valor por sessão do paciente). Quando já existe fatura para o paciente no mês, o valor real da fatura é usado; para o restante das sessões, aplica-se um desconto pela **taxa de cancelamento** histórica da clínica (últimos 6 meses).
+- **Faturas em aberto** — pelo vencimento.
+- **Despesas em aberto e vencidas** mais **despesas recorrentes** ainda não lançadas (marcadas como "(recorrente)").
+- **Repasse aos profissionais** — calculado a partir das faturas do mês quando existem, ou estimado a partir das sessões agendadas.
+- **Impostos estimados** (veja a seção sobre impostos).
+
+Uma etiqueta azul confirma: *"Inclui projeções de despesas recorrentes e faturas em aberto"*. No gráfico e na tabela, uma linha **"Hoje"** separa o que já aconteceu do que é projeção.
+
+</Tab>
+
+</Tabs>
+
+## Cartões de resumo
+
+Em qualquer visão, uma faixa de cartões resume o período:
+
+| Cartão | O que mostra |
+| --- | --- |
+| **Saldo inicial** | Saldo no começo do período. Quando vem da integração bancária, traz a marca **(Inter)** e a data de atualização. |
+| **Entradas** | Soma das entradas do período. |
+| **Saídas** | Soma das saídas do período. |
+| **Fluxo líquido** | Entradas menos saídas (verde se positivo, vermelho se negativo). |
+| **Saldo final** | Saldo projetado ao fim do período. |
+
+Se a integração com o **Banco Inter** estiver ativa, um cartão verde no topo mostra o **Saldo atual — Banco Inter** com a data e hora da última atualização (formato DD/MM/AAAA às HH:mm).
+
+### Detalhamento da projeção
+
+Na visão **Projetado**, acima do gráfico aparecem cartões específicos da projeção: **Receita Recebida**, **Receita Projetada** (com nº de sessões e % de cancelamento), **Despesas Executadas**, **Despesas Projetadas** (abertas + recorrentes), **Impostos Estimados**, **Repasse** e, ao final, a **Sobra clínica estimada** — receita total menos despesas, impostos e repasse.
+
+{/* TODO screenshot: /img/financeiro/fluxo-de-caixa-projecao.png */}
+
+## Gráfico e tabela
+
+Os mesmos números podem ser vistos de duas formas, definidas pelo controle **Visualização**:
+
+- **Gráfico**: área verde para **Entradas**, área vermelha para **Saídas** e linha índigo para o **Saldo** acumulado. Passe o cursor sobre um ponto para ver os valores daquela data. Na visão Projetado, uma linha tracejada **"Hoje"** marca o início da projeção.
+- **Tabela**: colunas **Período**, **Entradas**, **Saídas**, **Líquido** e **Saldo**. Passe o cursor sobre um valor de entrada ou saída para ver o detalhamento (faturas, despesas e repasses que compõem o total). Na granularidade **Diário**, dias sem movimento são omitidos para deixar a tabela mais limpa; na visão Projetado, uma linha **"Hoje — abaixo: projetado"** separa o realizado da projeção.
+
+<Screenshot src="/img/financeiro/fluxo-de-caixa-grafico.png" alt="Gráfico de fluxo de caixa com áreas de entradas e saídas e a linha de saldo acumulado" caption="No modo Gráfico, a linha índigo acompanha o saldo acumulado." />
+
+## Alertas
+
+Quando o sistema detecta riscos no período, faixas coloridas aparecem no topo da página:
+
+- **Saldo negativo / Saldo projetado negativo** — o saldo acumulado fica abaixo de zero em alguma data. No Realizado com integração bancária ativa esse alerta é suprimido, porque as datas de pagamento de faturas e despesas nem sempre coincidem com as datas das transações no banco.
+- **Despesa grande prevista** — uma ou mais saídas futuras somam **R$ 5.000,00 ou mais** num único dia.
+- **Concentração de vencidos** — **3 ou mais** despesas vencidas no período, com o total acumulado.
+
+## Estimativa de impostos
+
+Na visão **Projetado**, o cartão **Impostos Estimados** projeta a carga tributária do mês com base no **regime tributário** configurado na clínica (em **Configurações → NFS-e**, campo *regime tributário*). A estimativa é apenas indicativa — não substitui a apuração da sua contabilidade.
+
+O cálculo varia por regime:
+
+<Tabs items={["MEI", "Simples Nacional", "Lucro Presumido"]}>
+
+<Tab value="MEI">
+Valor **fixo mensal** do DAS. Não há componente trimestral.
+</Tab>
+
+<Tab value="Simples Nacional">
+**DAS mensal** calculado pelo Anexo III (serviços), com a alíquota efetiva determinada pela faixa de receita bruta dos últimos 12 meses (RBT12). É um imposto sempre mensal.
+</Tab>
+
+<Tab value="Lucro Presumido">
+Combina componentes **mensais** e **trimestrais**:
+
+- **Mensal**: ISS (alíquota da configuração de NFS-e, padrão 5%), PIS e COFINS.
+- **Trimestral**: IRPJ e CSLL sobre a base presumida (32% da receita de serviços), com o adicional de 10% de IRPJ sobre o lucro presumido que exceder R$ 60.000,00 no trimestre.
+
+A parcela trimestral só entra na estimativa nos meses de **vencimento**: janeiro, abril, julho e outubro (referente ao trimestre anterior).
+</Tab>
+
+</Tabs>
+
+Os impostos estimados são lançados como saídas projetadas no fluxo (com vencimento no dia 20 do mês), então também impactam o **Saldo final** e a **Sobra clínica estimada**.
+
+<Callout type="warn">
+A receita usada na estimativa parte da projeção de sessões e das faturas do mês. Se os preços por sessão ou o regime tributário estiverem desatualizados, os impostos estimados ficarão imprecisos. Mantenha esses cadastros em dia para uma projeção confiável.
+</Callout>
+
+## Dicas rápidas
+
+- Para acompanhar o caixa do mês corrente, deixe em **Realizado** + **Diário**.
+- Para planejar os próximos meses, use **Projetado** + **Mensal** com **Ano todo** selecionado.
+- Se um alerta de saldo negativo aparecer no Projetado, abra a **Tabela** e use os tooltips para identificar quais despesas ou repasses pressionam aquela data.

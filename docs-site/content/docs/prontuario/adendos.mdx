@@ -1,0 +1,111 @@
+---
+title: "Adendos (correções de nota assinada)"
+description: "Adicionar correções imutáveis e datadas a notas já assinadas."
+feature: prontuario
+sources:
+  - "src/lib/prontuario/immutability.ts"
+  - "src/app/prontuario/components/AddendumList.tsx"
+  - "src/app/api/prontuario/notes/[id]/addenda/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+isNew: true
+---
+
+Depois que você assina uma nota clínica, ela se torna **imutável**: não pode mais ser editada nem excluída. Isso protege o registro como documento clínico-legal. Quando você precisa corrigir, complementar ou esclarecer algo numa nota já assinada, o caminho é adicionar um **adendo** — um texto novo, datado e atribuído a você, que fica anexado à nota original sem alterar o conteúdo assinado.
+
+<Callout type="info" title="Funcionalidade recente">
+Os adendos foram adicionados recentemente ao prontuário eletrônico. Se você não encontrar a área de adendos, confirme que está abrindo uma nota **assinada** (adendos não aparecem em rascunhos).
+</Callout>
+
+## Por que adendos, e não edição
+
+Ao assinar, a Clinica exibe o aviso: *"Ao assinar, esta nota se tornará imutável e não poderá mais ser editada ou excluída. Correções posteriores deverão ser feitas por adendo."*
+
+A partir daí:
+
+- A nota assinada **não pode ser editada**. Tentar alterar o texto retorna *"Notas assinadas não podem ser alteradas. Adicione um adendo."*
+- A nota assinada **não pode ser excluída**. A exclusão fica bloqueada com *"Notas assinadas não podem ser excluídas."*
+- A única forma de registrar uma mudança é **adicionar um adendo**, que preserva o histórico completo: o conteúdo original assinado permanece intacto e a correção fica registrada separadamente, com data e autor.
+
+<Callout type="warn">
+O adendo **não apaga nem substitui** o que foi assinado. Ele acrescenta uma anotação datada. O texto original continua visível exatamente como foi assinado.
+</Callout>
+
+## Quem pode adicionar um adendo
+
+<Cards>
+  <Card title="Apenas o autor da nota">
+    Somente o profissional que escreveu e assinou a nota pode adicionar adendos a ela. Outro profissional que tenha acesso de leitura ao prontuário consegue ler a nota e os adendos, mas não consegue adicionar adendos a uma nota de terceiro.
+  </Card>
+  <Card title="Com permissão de escrita no prontuário">
+    Além de ser o autor, você precisa ter acesso de **escrita** ao prontuário. Se o seu acesso for somente leitura, a caixa para escrever o adendo não aparece.
+  </Card>
+</Cards>
+
+Se você tentar adicionar um adendo a uma nota que não é sua, o sistema responde *"Apenas o autor pode adicionar adendos."*
+
+## Como adicionar um adendo
+
+<Steps>
+
+<Step>
+**Abra a nota assinada.** Adendos só existem em notas com status **ASSINADA**. Em um rascunho, você ainda edita o texto diretamente — não há adendos.
+</Step>
+
+<Step>
+**Localize a área "Adendos"**, exibida abaixo do conteúdo da nota. Se ainda não houver nenhum adendo, você verá a mensagem *"Nenhum adendo."*
+</Step>
+
+<Step>
+**Escreva o texto** no campo *"Escreva o adendo..."*. O adendo precisa ter ao menos um caractere e aceita até 10.000 caracteres.
+</Step>
+
+<Step>
+**Clique em "Adicionar adendo".** O botão fica desabilitado enquanto o campo estiver vazio. Ao concluir, aparece a confirmação *"Adendo adicionado."* e o novo adendo é exibido imediatamente na lista.
+</Step>
+
+</Steps>
+
+{/* TODO screenshot: /img/prontuario/adendos-area.png */}
+
+## Como o adendo é registrado
+
+Cada adendo guarda, de forma permanente:
+
+- **O texto** que você escreveu, exibido na íntegra (com quebras de linha preservadas).
+- **O autor** — o nome do profissional que adicionou.
+- **A data e hora** de criação, no formato `DD/MM/AAAA HH:mm`.
+
+Na lista, cada adendo aparece como um bloco com o texto e, logo abaixo, a identificação no padrão **Autor · DD/MM/AAAA HH:mm**. Os adendos ficam em ordem de criação, do mais antigo para o mais recente.
+
+<Callout type="info">
+Adendos são **acrescentados** (append-only): uma vez salvos, eles também não podem ser editados nem excluídos. Por isso, releia o texto antes de clicar em **Adicionar adendo**. Se precisar corrigir um adendo, adicione um novo adendo com o esclarecimento.
+</Callout>
+
+## Onde os adendos aparecem
+
+- **No prontuário do paciente**, junto da nota assinada, na própria área de adendos.
+- **Na exportação em PDF** do prontuário, os adendos acompanham a nota assinada, preservando data e autoria. Veja [Exportar prontuário em PDF](/docs/prontuario/exportar-pdf).
+- **No log de auditoria** da clínica fica registrado que um adendo foi criado, mantendo a rastreabilidade de quem alterou o quê e quando.
+
+## Mensagens que você pode ver
+
+| Situação | Mensagem |
+| --- | --- |
+| Adendo adicionado com sucesso | *Adendo adicionado.* |
+| Falha ao salvar (rede ou erro inesperado) | *Não foi possível adicionar o adendo.* |
+| Tentou adicionar adendo em nota de outro profissional | *Apenas o autor pode adicionar adendos.* |
+| Tentou adicionar adendo a uma nota ainda em rascunho | *Adendos só podem ser adicionados a notas assinadas.* |
+| Tentou editar uma nota já assinada | *Notas assinadas não podem ser alteradas. Adicione um adendo.* |
+
+## Perguntas frequentes
+
+**Posso desfazer a assinatura para corrigir a nota?**
+Não. A assinatura é definitiva e a nota se torna imutável. Toda correção posterior é feita por adendo.
+
+**Outro profissional vê meus adendos?**
+Quem tem acesso de leitura ao prontuário consegue ler a nota e seus adendos, mas só você (o autor) pode adicionar novos adendos àquela nota.
+
+**Tem limite de adendos?**
+Não há limite de quantidade. Cada adendo individual aceita até 10.000 caracteres.

@@ -1,0 +1,239 @@
+---
+title: "Cadastro e gestão de pacientes"
+description: "Criar/editar/visualizar, múltiplos telefones, pagadores habituais e desativação."
+feature: pacientes
+sources:
+  - "src/app/patients/**"
+  - "src/app/api/patients/**"
+  - "src/lib/patients/**"
+  - "src/lib/phone/**"
+lastReviewedCommit: 1d93f26
+audience: recepcao
+status: published
+---
+
+A página **Pacientes** é o cadastro central da clínica. Por aqui você cria novos pacientes, edita os dados, consulta o histórico de cada pessoa e desativa quem não está mais em atendimento. Esta página explica o fluxo de cadastro do dia a dia da recepção.
+
+<Callout type="info" title="Quem pode editar">
+Para **criar, editar ou desativar** pacientes é preciso ter acesso de escrita ao recurso **Pacientes** (perfil ADMIN, por padrão). Quem tem apenas acesso de leitura consegue abrir e visualizar os cadastros, mas não vê os botões de criação e edição.
+</Callout>
+
+## Onde fica e como navegar
+
+Abra **Pacientes** no menu. A página tem três abas no topo:
+
+<Cards>
+  <Card title="Pacientes" description="A lista completa de cadastros, com busca, filtros e ações." />
+  <Card title="Fichas de Cadastro" description="Fichas que os pacientes preencheram pelo portal e aguardam aprovação." />
+  <Card title="Solicitações do Portal" description="Pedidos enviados pelos pacientes pelo portal de autoatendimento." />
+</Cards>
+
+O cadastro e a gestão descritos aqui acontecem na aba **Pacientes**.
+
+<Screenshot src="/img/pacientes/lista-pacientes.png" alt="Lista de pacientes com abas Pacientes, Fichas de Cadastro e Solicitações do Portal" caption="Tela inicial da página Pacientes." />
+
+## Buscar e filtrar pacientes
+
+Na aba **Pacientes** você tem, logo acima da tabela:
+
+- **Campo de busca** — "Buscar por nome, email ou telefone...". A busca por nome ignora acentos (digitar `joao` encontra "João") e também procura nos campos **Nome da Mãe** e **Nome do Pai**.
+- **Filtro de profissional** — "Todos profissionais" ou um profissional específico (filtra pelo **Profissional de Referência** do paciente).
+- **Filtro de status** — "Todos", "Ativos" ou "Inativos".
+
+A lista mostra 15 pacientes por página, em ordem alfabética. Quando há mais de uma página, use os botões de navegação no rodapé da tabela.
+
+Cada linha da tabela exibe nome, telefone, mãe/pai, profissional de referência, última visita e o status (**Ativo** ou **Inativo**). Ao lado do nome aparecem etiquetas **WA** (consentiu WhatsApp) e **Email** (consentiu email) quando os consentimentos estão marcados.
+
+## Criar um paciente
+
+<Steps>
+
+<Step>
+Na aba **Pacientes**, clique em **+ Novo Paciente** (canto superior direito) ou no botão flutuante **+** (com rótulo "Novo paciente") no canto inferior direito da tela. Abre-se um painel deslizante com o formulário.
+</Step>
+
+<Step>
+Preencha pelo menos os campos obrigatórios, marcados com `*`: **Nome** e **Telefone (WhatsApp)**. O nome precisa ter ao menos 2 caracteres.
+</Step>
+
+<Step>
+Complete os demais dados conforme a necessidade (veja os campos abaixo) e clique em **Criar paciente**. Uma mensagem confirma "Paciente criado com sucesso" e o paciente passa a aparecer na lista.
+</Step>
+
+</Steps>
+
+O formulário é dividido em três abas internas: **Cadastro**, **Financeiro** e **NFS-e**.
+
+### Aba Cadastro
+
+| Campo | Observações |
+| --- | --- |
+| **Nome** `*` | Obrigatório, mínimo de 2 caracteres. |
+| **Email** | Opcional; precisa ser um email válido. |
+| **Data de Nascimento** | Formato DD/MM/AAAA. |
+| **Telefone (WhatsApp)** `*` | Obrigatório. Aceita número brasileiro ou internacional (veja abaixo). |
+| **CPF do Paciente** | Opcional. Não pode repetir um CPF já cadastrado na clínica. |
+| **Telefones adicionais** | Até 4 contatos extras (veja a seção "Vários telefones"). |
+| **Nome do Pai** / **Nome da Mãe** | Usados também na busca. |
+| **Nome da Escola** | Útil para atendimento infantil. |
+| **Como conheceu a clínica?** | Indicação, Instagram, Google, Site, Convênio ou Outro. Ao escolher **Indicação** ou **Outro** aparece o campo **Detalhe** (ex.: quem indicou). |
+| **Profissional de Referência** | Profissional responsável pelo paciente; também usado no filtro da lista. |
+| **Data Primeiro Atendimento** | Formato DD/MM/AAAA. |
+| **Projeto Terapêutico** | Texto livre. |
+| **Observações** | Anotações internas sobre o paciente. |
+| **Consentimentos LGPD** | Autorização de WhatsApp, de email e a opção "Não enviar cobranças automáticas". |
+
+<Callout type="info" title="Consentimentos LGPD">
+As três caixas de consentimento (WhatsApp, email e cobranças automáticas) ficam no fim da aba Cadastro. A data em que cada consentimento foi marcado é registrada automaticamente. Esse tema é detalhado na página **Consentimentos e LGPD**.
+</Callout>
+
+### Abas Financeiro e NFS-e
+
+As abas **Financeiro** (valor da sessão, dia de vencimento, agrupamento de faturas, faturamento separado por profissional) e **NFS-e** (CPF e responsável para a nota, endereço do tomador, descrição personalizada) tratam de cobrança e emissão de notas. Para a recepção, normalmente basta a aba **Cadastro**. Os detalhes financeiros estão documentados na seção **Financeiro**.
+
+<Callout type="info" title="Pagadores usuais aparecem só na edição">
+A lista de **Pagadores usuais** (na aba Financeiro) só é exibida ao **editar** um paciente já existente — nunca no cadastro inicial. Veja a seção "Pagadores usuais" mais abaixo.
+</Callout>
+
+## Vários telefones
+
+Cada paciente tem **um telefone principal (WhatsApp)** obrigatório e pode ter **até 4 telefones adicionais** (mãe, pai, responsável, trabalho, etc.).
+
+Na aba **Cadastro**, no bloco **Telefones adicionais**:
+
+<Steps>
+
+<Step>
+Clique em **+ Adicionar telefone**. Surge uma linha com **Rótulo** (ex.: "Mãe", "Trabalho", máximo de 30 caracteres) e o **número**.
+</Step>
+
+<Step>
+Use o ícone de **sino** ao lado da linha para ativar ou desativar notificações naquele número. Sino aceso = "Recebe notificações"; sino cortado = "Não recebe notificações".
+</Step>
+
+<Step>
+Para remover um telefone adicional, clique no **×** ao final da linha.
+</Step>
+
+</Steps>
+
+Ao atingir 4 telefones adicionais, o botão de adicionar é desabilitado e a mensagem "Máximo de 4 telefones adicionais atingido" é exibida.
+
+<Callout type="warn" title="Sem números repetidos">
+Nenhum número pode se repetir — nem entre os telefones adicionais, nem em relação ao telefone principal. Se houver duplicidade, o sistema recusa o salvamento com "Números de telefone duplicados não são permitidos".
+</Callout>
+
+### Formatos de telefone aceitos
+
+O campo de telefone é tolerante a máscaras: você pode digitar com parênteses, espaços e traços que o sistema limpa a formatação ao salvar.
+
+<Tabs items={['Brasil', 'Internacional']}>
+  <Tab value="Brasil">
+    Digite apenas o número nacional, com DDD. Exemplos válidos:
+
+    - `(11) 99999-9999`
+    - `11999999999`
+
+    São aceitos números com 10 ou 11 dígitos (com ou sem o 9), com ou sem o código do país `55`.
+  </Tab>
+  <Tab value="Internacional">
+    Comece com **`+`** seguido do código do país e do número, no padrão E.164 (8 a 15 dígitos). Exemplo:
+
+    - `+351912345678` (Portugal)
+    - `+4791234567` (Noruega)
+  </Tab>
+</Tabs>
+
+Se o formato não for reconhecido, o sistema mostra: *"Telefone inválido. Use (11) 99999-9999 ou formato internacional com + (ex: +351912345678)"*.
+
+## Visualizar um paciente
+
+Clique no **nome do paciente** na lista, ou no ícone de **olho** (Ver detalhes) na coluna **Ações**. O painel de detalhes abre na aba **Dados**, mostrando:
+
+- Profissional de Referência
+- Telefone, email e telefones adicionais (cada um com seu rótulo; quem não recebe notificações ganha a etiqueta "Sem notificação")
+- Data de nascimento e data do primeiro atendimento
+- Nome do pai, da mãe e escola
+- Valor da sessão e último reajuste
+- Projeto terapêutico e observações
+- Consentimentos LGPD, com a data de cada autorização
+
+O painel ainda traz outras abas (Histórico, Financeiro, Prontuário, Documentos, Anexos, Formulários, Escalas) conforme suas permissões — detalhadas na página **Abas e deep-links do paciente**.
+
+{/* TODO screenshot: /img/pacientes/detalhes-paciente.png */}
+
+## Editar um paciente
+
+<Steps>
+
+<Step>
+Na lista, clique no ícone de **lápis** (Editar) na coluna **Ações**; ou, dentro do painel de detalhes, clique em **Editar**.
+</Step>
+
+<Step>
+Ajuste os campos necessários nas abas Cadastro, Financeiro e NFS-e.
+</Step>
+
+<Step>
+Clique em **Salvar alterações**. A confirmação "Paciente atualizado com sucesso" aparece.
+</Step>
+
+</Steps>
+
+Alguns comportamentos automáticos ao editar:
+
+- Ao **alterar o valor da sessão**, o campo **Data Último Reajuste** é atualizado automaticamente para o dia 1º do mês seguinte.
+- Trocar o telefone principal ou o CPF para um valor já usado por **outro** paciente é bloqueado ("Já existe um paciente com este telefone" / "Já existe um paciente com este CPF").
+- Toda criação e edição relevante é registrada no histórico (log de auditoria) do paciente.
+
+## Pagadores usuais
+
+Quando uma fatura é quitada via **conciliação bancária**, o sistema **aprende automaticamente** o nome de quem pagou e o associa àquele paciente. Esses nomes ficam guardados como **pagadores usuais** e ajudam a casar pagamentos futuros — útil quando quem paga (um responsável, por exemplo) tem nome diferente do paciente.
+
+Para consultar ou ajustar:
+
+<Steps>
+
+<Step>
+Abra o paciente em modo de **edição** e vá até a aba **Financeiro**.
+</Step>
+
+<Step>
+No bloco **Pagadores usuais**, veja os nomes aprendidos pela conciliação, exibidos como etiquetas.
+</Step>
+
+<Step>
+Se um nome estiver incorreto, clique no **×** da etiqueta para removê-lo. A mensagem "Pagador usual removido" confirma a ação.
+</Step>
+
+</Steps>
+
+<Callout type="info" title="Você não digita pagadores usuais">
+Não há campo para adicionar um pagador usual manualmente — eles surgem apenas a partir da conciliação bancária. Aqui você só **remove** entradas incorretas. O bloco só aparece quando o paciente já tem ao menos um pagador usual registrado.
+</Callout>
+
+## Desativar e reativar
+
+Pacientes **não são apagados** — eles são **desativados** (exclusão lógica). Isso preserva o histórico de atendimentos, faturas e notas. Um paciente desativado fica com status **Inativo** e some das listas filtradas por "Ativos".
+
+### Desativar
+
+<Steps>
+
+<Step>
+Na lista, na coluna **Ações** de um paciente ativo, clique no ícone de **proibido** (Desativar).
+</Step>
+
+<Step>
+Confirme na pergunta "Deseja realmente desativar [nome]?". Ao confirmar, aparece "Paciente desativado com sucesso" e o status muda para **Inativo**.
+</Step>
+
+</Steps>
+
+### Reativar
+
+Para ver pacientes desativados, mude o filtro de status para **Inativos** (ou **Todos**). Na linha do paciente inativo, clique no ícone de **recarregar** (Reativar) na coluna **Ações**. A confirmação "Paciente reativado com sucesso" aparece e o status volta para **Ativo**.
+
+<Callout type="info" title="O histórico continua intacto">
+Desativar não remove consultas, faturas, documentos nem o prontuário. Use a desativação para pacientes que encerraram o acompanhamento, mantendo o registro disponível caso retornem.
+</Callout>

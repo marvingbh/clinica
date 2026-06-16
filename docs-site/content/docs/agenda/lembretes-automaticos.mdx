@@ -1,0 +1,154 @@
+---
+title: "Lembretes automáticos de sessão"
+description: "Lembretes em horários configuráveis com links HMAC de confirmar/cancelar."
+feature: agendamento
+sources:
+  - "src/lib/jobs/send-reminders.ts"
+  - "src/lib/appointments/appointment-links.ts"
+lastReviewedCommit: 1d93f26
+audience: recepcao
+status: published
+isNew: true
+---
+
+A Clinica envia lembretes de consulta sozinha, sem que ninguém da recepção precise lembrar de avisar cada paciente. Você define quantas horas antes da consulta o aviso deve sair, e o sistema dispara a mensagem por WhatsApp e/ou e-mail no horário certo, já com botões para o paciente **confirmar** ou **cancelar** o agendamento.
+
+<Callout type="info" title="Funcionalidade recente">
+  Os lembretes automáticos com links de confirmar/cancelar foram lançados há
+  pouco. Se a sua clínica usava o envio manual de avisos, vale revisar os
+  horários de lembrete em **Configurações &rarr; Agenda** para garantir que
+  estão como você espera.
+</Callout>
+
+## Como funciona, em resumo
+
+<Steps>
+<Step>
+Uma vez por dia, a Clinica verifica automaticamente quais consultas estão se aproximando do horário de lembrete que você configurou.
+</Step>
+<Step>
+Para cada consulta encontrada, o sistema monta a mensagem com o nome do paciente, o profissional, a data e o horário, e dois botões: **confirmar** e **cancelar**.
+</Step>
+<Step>
+A mensagem é enviada pelos canais que o paciente autorizou (WhatsApp e/ou e-mail).
+</Step>
+<Step>
+O paciente toca em um dos botões. A consulta passa para **CONFIRMADO** (se confirmar) ou para cancelada (se cancelar) — e isso aparece na sua agenda automaticamente.
+</Step>
+</Steps>
+
+## Quais consultas recebem lembrete
+
+Nem todo agendamento gera lembrete. O envio acontece apenas quando **todas** estas condições são atendidas:
+
+- O agendamento é do tipo **Consulta** (tarefas, lembretes internos, notas e reuniões não enviam lembrete ao paciente).
+- O status é **AGENDADO** ou **CONFIRMADO**. Consultas já canceladas ou finalizadas são ignoradas.
+- O paciente deu consentimento para receber mensagens:
+  - **WhatsApp**: o paciente precisa ter autorizado WhatsApp **e** ter um telefone cadastrado.
+  - **E-mail**: o paciente precisa ter autorizado e-mail **e** ter um e-mail cadastrado.
+- Ainda não foi enviado um lembrete recente para aquela consulta (veja [Por que um paciente pode não receber o lembrete](#por-que-um-paciente-pode-nao-receber-o-lembrete)).
+
+<Callout type="warn" title="Sem consentimento, sem lembrete">
+  Se o paciente não autorizou nenhum canal (ou não tem telefone/e-mail
+  cadastrado), nenhum lembrete é enviado para ele. Isso atende à LGPD. Confira o
+  cadastro do paciente caso ele reclame que não recebeu o aviso.
+</Callout>
+
+## Configurar os horários de lembrete
+
+Os horários são definidos por clínica e valem para todos os agendamentos. Você informa **quantas horas antes da consulta** cada lembrete deve sair.
+
+<Steps>
+<Step>
+Acesse **Configurações** e abra a aba **Agenda**.
+</Step>
+<Step>
+No campo **Horários de Lembrete (horas antes)**, digite os valores separados por vírgula. Por exemplo, `24, 2` envia um lembrete 24 horas antes e outro 2 horas antes da consulta.
+</Step>
+<Step>
+Clique em **Salvar**.
+</Step>
+</Steps>
+
+Regras do campo:
+
+- Cada valor é o número de **horas antes** da consulta — não é um horário do dia.
+- Você pode informar vários horários separados por vírgula. Cada um gera um lembrete próprio.
+- Os valores aceitos vão de **0 a 168 horas** (168 horas = 7 dias).
+- É obrigatório informar pelo menos um horário válido — o sistema não salva o campo vazio.
+- Se a clínica nunca configurou esse campo, a Clinica usa **48 horas e 2 horas antes** como padrão.
+
+{/* TODO screenshot: /img/agenda/lembretes-configuracao.png */}
+
+## O que o paciente recebe
+
+A mensagem de lembrete inclui:
+
+- O nome do paciente e do profissional.
+- A **data** por extenso (ex.: "segunda-feira, 16/06/2026") e o **horário** no formato 24h (ex.: 14:30).
+- A **modalidade** da consulta: **Presencial** ou **Online**.
+- O nome da clínica.
+- Dois links: **confirmar** e **cancelar**.
+
+Se a clínica usa teleconsulta e a consulta é online, o link da sala de vídeo também entra na mensagem. Se o portal do paciente estiver ativo, um link para o portal pode ser incluído.
+
+## Os links de confirmar e cancelar
+
+Cada lembrete traz dois links exclusivos daquela consulta. Eles são assinados digitalmente (HMAC), o que significa que **não dá para adivinhar nem reaproveitar o link de outro agendamento** — cada link só funciona para a consulta a que pertence.
+
+<Callout type="info" title="Os links têm prazo de validade">
+  Cada link vale até **24 horas depois do horário da consulta**. Passado esse
+  prazo, ao abrir o link o paciente vê a mensagem: "Este link expirou. Entre em
+  contato com a clínica para um novo link." Nesse caso, a recepção pode confirmar
+  ou cancelar a consulta manualmente pela agenda.
+</Callout>
+
+### Quando o paciente confirma
+
+Ao tocar em **confirmar**, o paciente abre uma página que mostra os dados da consulta (profissional, data, horário e modalidade) e um botão **Confirmar**. Ao clicar:
+
+- A consulta passa para o status **CONFIRMADO** na sua agenda.
+- O paciente vê a tela "Agendamento confirmado!".
+- Se a consulta já estava confirmada, ele vê "Agendamento já confirmado" — sem erro e sem duplicar nada.
+
+### Quando o paciente cancela
+
+Ao tocar em **cancelar** e confirmar a ação:
+
+- A consulta é marcada como cancelada (cancelamento acordado, iniciado pelo paciente), com o motivo "Cancelado pelo paciente via link".
+- O horário fica livre na agenda. Se a clínica usa **lista de espera**, os pacientes da fila são avisados de que abriu um horário.
+- O cancelamento fica registrado no histórico (log de auditoria), com data e hora.
+- Se a consulta já estava cancelada, ele vê "Agendamento já cancelado".
+
+<Callout type="info" title="Acompanhe na agenda">
+  Você não precisa fazer nada quando o paciente confirma ou cancela: a mudança
+  de status aparece sozinha na agenda. Use isso para enxergar rapidamente quais
+  consultas do dia já foram confirmadas pelos pacientes.
+</Callout>
+
+## Por que um paciente pode não receber o lembrete
+
+Se um paciente disser que não recebeu o aviso, verifique nesta ordem:
+
+- **Tipo do agendamento**: só consultas geram lembrete. Tarefas, reuniões, lembretes internos e notas não enviam.
+- **Status**: a consulta precisa estar **AGENDADO** ou **CONFIRMADO**.
+- **Consentimento e contato**: o paciente precisa ter autorizado o canal **e** ter o telefone (WhatsApp) ou o e-mail cadastrado.
+- **Lembrete já enviado**: a Clinica evita mandar o mesmo lembrete duas vezes. Se um lembrete daquela consulta já foi gerado nas últimas 12 horas, um novo envio é ignorado — isso é esperado e não é erro.
+- **Horários configurados**: confira em **Configurações &rarr; Agenda** se os horários de lembrete estão preenchidos como você espera.
+
+## Perguntas frequentes
+
+<Cards>
+<Card title="Posso enviar mais de um lembrete por consulta?">
+Sim. Basta informar vários horários no campo **Horários de Lembrete**, separados por vírgula (ex.: `48, 24, 2`). Cada valor gera um lembrete naquela antecedência.
+</Card>
+<Card title="O lembrete vai por WhatsApp ou e-mail?">
+Pelos canais que o paciente autorizou e tem cadastrados. Se ele autorizou os dois, recebe pelos dois.
+</Card>
+<Card title="O link parou de funcionar. E agora?">
+Os links expiram 24 horas após o horário da consulta. Depois disso, confirme ou cancele a consulta manualmente pela agenda.
+</Card>
+<Card title="O paciente confirmou — preciso atualizar a agenda?">
+Não. O status muda para CONFIRMADO automaticamente assim que o paciente confirma pelo link.
+</Card>
+</Cards>

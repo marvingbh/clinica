@@ -1,0 +1,280 @@
+---
+title: "Status e pendências"
+description: "Workflow AGENDADO→CONFIRMADO→FINALIZADO, cancelamentos e ações em massa."
+feature: agendamento
+sources:
+  - "src/lib/appointments/status-transitions.ts"
+  - "src/app/agenda/pendencias/**"
+  - "src/app/agenda/components/CancelConfirmDialog.tsx"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+---
+
+Cada agendamento de consulta tem um **status** que registra em que ponto do
+atendimento ele está: do momento em que foi marcado até a conclusão (ou o
+cancelamento). Manter o status em dia é o que alimenta o faturamento, os
+créditos de sessão e a data da última visita do paciente — por isso vale a
+pena fechar os agendamentos passados em vez de deixá-los em aberto.
+
+Esta página explica o fluxo de status, como cancelar uma sessão (e o impacto de
+cada tipo de cancelamento na cobrança) e como usar a tela de **Pendências** para
+limpar de uma vez vários agendamentos esquecidos.
+
+## Os seis status
+
+| Status | Aparece como | O que significa |
+| --- | --- | --- |
+| `AGENDADO` | **Agendado** | Sessão marcada, ainda não confirmada |
+| `CONFIRMADO` | **Confirmado** | Paciente confirmou presença |
+| `FINALIZADO` | **Finalizado** | Sessão aconteceu e foi concluída |
+| `CANCELADO_ACORDADO` | **Desmarcou** | Paciente desmarcou — gera crédito |
+| `CANCELADO_FALTA` | **Cancelado (Falta)** | Paciente não compareceu — é cobrado |
+| `CANCELADO_PROFISSIONAL` | **Cancelado (sem cobrança)** | Cancelado sem nenhuma cobrança |
+
+<Callout type="info">
+  Apenas agendamentos do tipo **Consulta**, **Tarefa** e **Reunião** têm fluxo
+  de status. Lembretes e notas não bloqueiam horário nem entram nesse fluxo.
+</Callout>
+
+## O fluxo principal: Agendado → Confirmado → Finalizado
+
+O caminho normal de uma sessão segue três passos:
+
+<Steps>
+<Step>
+### Agendado
+Toda sessão nasce como **Agendado** assim que você a cria na agenda.
+</Step>
+<Step>
+### Confirmado
+Quando o paciente confirma presença, mude para **Confirmado**. O sistema
+registra o horário da confirmação. (Confirmações feitas pelo próprio paciente,
+pelo link enviado nos lembretes, também marcam este status automaticamente.)
+</Step>
+<Step>
+### Finalizado
+Depois que a sessão acontece, marque como **Finalizado**. Isso atualiza a
+**data da última visita** do paciente para a data daquela sessão e libera o
+faturamento da consulta.
+</Step>
+</Steps>
+
+Você não precisa passar por **Confirmado** antes de finalizar: de **Agendado**
+é possível ir direto para **Finalizado**, para qualquer cancelamento, ou para
+**Confirmado**. De **Confirmado** você vai para **Finalizado** ou para qualquer
+cancelamento.
+
+### Alterar o status na agenda
+
+Abra o agendamento e clique no **selo de status** (a etiqueta colorida com a
+seta para baixo) no topo do editor. Um menu lista todas as opções:
+
+- Agendado
+- Confirmado
+- Finalizado
+- Cancelado (Falta)
+- Desmarcou
+- Cancelado (sem cobrança)
+
+Escolher **Finalizado** ou **Confirmado** aplica a mudança na hora. Escolher
+qualquer uma das três opções de cancelamento abre antes uma janela de
+confirmação (veja [Cancelamentos](#cancelamentos), abaixo).
+
+<Callout type="info" title="Quem pode mudar status">
+  Você precisa de acesso de **escrita à agenda**. Profissionais alteram apenas
+  agendamentos próprios (ou em que participam); administradores alteram os de
+  qualquer profissional da clínica.
+</Callout>
+
+{/* TODO screenshot: /img/agenda/status-e-pendencias-selo.png */}
+
+### Voltar atrás (reverter status)
+
+Marcou errado? Os status finais não são becos sem saída:
+
+- **Finalizado** pode voltar para **Agendado** ou **Confirmado**.
+- Qualquer cancelamento (**Desmarcou**, **Cancelado (Falta)**, **Cancelado (sem
+  cobrança)**) pode ser trocado entre si ou voltar para **Agendado**.
+
+Ao reverter para **Agendado**, os horários de confirmação e de cancelamento são
+limpos, e o agendamento volta a contar como pendente.
+
+<Callout type="warn" title="Crédito já usado em fatura trava a reversão">
+  Quando uma sessão **Desmarcou** ou **Finalizado** já gerou um crédito que foi
+  aplicado em uma fatura, o sistema bloqueia a reversão e mostra o aviso
+  *"Crédito já foi utilizado em uma fatura. Não é possível reverter o status."*.
+  Nesse caso, ajuste a fatura primeiro.
+</Callout>
+
+## Cancelamentos
+
+Existem **três tipos de cancelamento**, e a diferença entre eles é só uma: o que
+acontece com a cobrança. Ao escolher um deles no selo de status, abre uma janela
+de confirmação que deixa esse impacto explícito.
+
+<Tabs items={["Faltou", "Desmarcou", "Sem cobrança"]}>
+<Tab value="Faltou">
+**Marcar como Falta** — *"O paciente não compareceu a esta sessão."*
+
+> Sessão será cobrada normalmente na fatura.
+
+Use quando o paciente simplesmente não apareceu. A sessão segue valendo para o
+faturamento, como uma consulta realizada. Botão: **Confirmar Falta**.
+</Tab>
+<Tab value="Desmarcou">
+**Marcar como Desmarcou** — *"O paciente desmarcou a sessão."*
+
+> Sessão gera crédito para desconto em fatura futura.
+
+Use quando o paciente avisou e desmarcou. Em vez de cobrar, o sistema cria um
+**crédito de sessão** vinculado ao paciente, que pode abater uma fatura futura.
+Botão: **Confirmar Desmarcou**.
+</Tab>
+<Tab value="Sem cobrança">
+**Cancelar sem Cobrança** — *"A sessão será cancelada sem nenhuma cobrança."*
+
+> Sessão não será cobrada e não aparecerá na fatura.
+
+Use quando o cancelamento parte da clínica/profissional ou não deve gerar
+nenhuma movimentação financeira. A sessão não é cobrada nem gera crédito. Botão:
+**Confirmar Cancelamento**.
+</Tab>
+</Tabs>
+
+Em todos os casos há um campo **Motivo (opcional)** para registrar o porquê do
+cancelamento, e um botão **Voltar** para desistir sem aplicar nada.
+
+{/* TODO screenshot: /img/agenda/status-e-pendencias-cancelar.png */}
+
+### Efeito no faturamento (cobrança por sessão)
+
+Para pacientes/clínicas com faturamento **por sessão (PER_SESSION)**, qualquer
+um dos três cancelamentos — inclusive **Cancelado (Falta)** — cancela
+automaticamente a fatura avulsa correspondente quando ela ainda está em aberto
+(situação **Pendente** ou **Enviada**). Faturas já pagas ou parciais não são
+mexidas. Já trocar **Desmarcou** por **Cancelado (sem cobrança)** remove o
+crédito — e, se ele já tiver entrado em uma fatura, o item de crédito é retirado
+e o total recalculado.
+
+<Callout type="warn" title="Trocar Desmarcou por Falta">
+  Você pode trocar **Desmarcou** por **Cancelado (Falta)**, mas só enquanto o
+  crédito gerado ainda **não** tiver sido usado em uma fatura. Se já tiver sido
+  usado, o sistema bloqueia a troca com o aviso *"Crédito já foi utilizado em
+  uma fatura. Não é possível alterar para Falta."*.
+</Callout>
+
+## Tela de Pendências
+
+Com o tempo, sessões passadas acabam ficando esquecidas em **Agendado** ou
+**Confirmado** — nunca foram finalizadas nem canceladas. A tela de **Pendências**
+reúne todos esses agendamentos em aberto num só lugar para você fechá-los em
+lote.
+
+> *Agendamentos passados ainda em aberto. Marque como concluídos, faltas ou
+> cancelados.*
+
+### Indicadores no topo
+
+Três cartões resumem o tamanho da fila:
+
+<Cards>
+<Card title="Pendentes">
+Total de agendamentos passados ainda em **Agendado** ou **Confirmado**,
+aguardando finalização.
+</Card>
+<Card title="Mais de 7 dias">
+Quantos estão em aberto **entre 7 e 29 dias** — começando a acumular. (Os de 30
+dias ou mais contam só no cartão ao lado.)
+</Card>
+<Card title="Mais de 30 dias">
+Quantos estão em aberto há **30 dias ou mais** — urgente revisar.
+</Card>
+</Cards>
+
+Na tabela, cada linha também mostra **há quantos dias** a sessão aconteceu, com
+destaque em amarelo a partir de 7 dias e em vermelho a partir de 30.
+
+### Filtros
+
+A barra de filtros ajuda a recortar a lista:
+
+- **Buscar por paciente** — filtra pelo nome do paciente.
+- **Status** — *Pendentes (padrão)* mostra só Agendado + Confirmado; *Apenas
+  agendado*; *Apenas confirmado*; ou *Todas (inclui canceladas/finalizadas)*.
+- **Profissional** — disponível só para administradores; profissionais veem
+  apenas as próprias pendências.
+- **De** / **Até** — janela de datas. O padrão são os **últimos 90 dias** até
+  hoje.
+
+<Callout type="info">
+  A tela nunca lista sessões **futuras**: mesmo dentro do intervalo escolhido, o
+  limite superior é o momento atual. Pendência é sempre sobre o passado.
+</Callout>
+
+### Fechar uma pendência (uma linha)
+
+Cada linha tem três botões de ação:
+
+- **Finalizar** — marca como Finalizado.
+- **Faltou** — marca como Cancelado (Falta).
+- **Cancelar** — marca como Cancelado (sem cobrança); pede uma confirmação
+  rápida antes de aplicar.
+
+Ao usar o filtro padrão *Pendentes*, a linha some da lista assim que você a
+fecha. Você pode ordenar a tabela clicando nos títulos das colunas **Data /
+hora**, **Paciente**, **Profissional** ou **Status**.
+
+### Ações em massa
+
+Para fechar várias de uma vez:
+
+<Steps>
+<Step>
+### Selecione os agendamentos
+Marque as caixas à esquerda de cada linha. A caixa do cabeçalho seleciona (ou
+desmarca) todos os agendamentos visíveis na página.
+</Step>
+<Step>
+### Escolha a ação na barra
+Ao selecionar pelo menos um, surge uma barra escura no topo da tabela mostrando
+*"N selecionadas"* e três botões: **Finalizar**, **Faltou** e **Cancelar**
+(este último marca como *Cancelado (sem cobrança)*). Use **limpar** para zerar a
+seleção.
+</Step>
+<Step>
+### Confirme o resultado
+A ação é aplicada a cada agendamento selecionado. Ao final, um aviso resume o
+que aconteceu — por exemplo *"5 atualizadas"*, *"3 atualizadas, 1 falharam"* ou
+*"Falha em todas as 2"* — e a lista é recarregada.
+</Step>
+</Steps>
+
+<Callout type="warn" title="Cancelamento em massa não pede motivo">
+  As ações em massa **Faltou** e **Cancelar** aplicam o status diretamente, sem
+  abrir a janela de confirmação com o campo de motivo. Use a ação por linha (ou
+  o editor do agendamento na agenda) quando quiser registrar o motivo do
+  cancelamento.
+</Callout>
+
+A lista pagina de **50 em 50** agendamentos. A seleção e as ações sempre se
+referem à página visível no momento.
+
+{/* TODO screenshot: /img/agenda/status-e-pendencias-massa.png */}
+
+## Resumo rápido
+
+<Cards>
+<Card title="Sessão aconteceu">
+Marque **Finalizado** — atualiza a última visita e libera a cobrança.
+</Card>
+<Card title="Paciente não veio">
+Marque **Faltou** — a sessão é cobrada normalmente.
+</Card>
+<Card title="Paciente desmarcou">
+Marque **Desmarcou** — gera crédito para a próxima fatura.
+</Card>
+<Card title="Cancelar sem cobrar">
+Marque **Cancelar sem Cobrança** — não cobra nem gera crédito.
+</Card>
+</Cards>

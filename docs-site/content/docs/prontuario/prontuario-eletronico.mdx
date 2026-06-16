@@ -1,0 +1,159 @@
+---
+title: "Prontuário eletrônico"
+description: "Registrar evolução (SOAP/DAP/Livre), autosave, assinar e tornar imutável."
+feature: prontuario
+sources:
+  - "src/lib/prontuario/**"
+  - "src/app/prontuario/[id]/**"
+  - "src/app/api/prontuario/notes/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+isNew: true
+---
+
+O prontuário eletrônico permite que você registre a evolução clínica de cada paciente, escolha um formato de anotação (SOAP, DAP ou Livre) e, ao final, **assine** a nota para torná-la imutável. Enquanto você escreve, o conteúdo é salvo automaticamente.
+
+<Callout type="info" title="Funcionalidade recente">
+  O prontuário eletrônico é uma adição recente ao Clínica. Caso não veja as ações descritas aqui, confirme com a administração da clínica se você tem a permissão **Prontuário** com nível de acesso de escrita (WRITE).
+</Callout>
+
+## Quem pode usar
+
+O acesso é controlado pela permissão **Prontuário**:
+
+- **Escrita (WRITE)** — profissionais podem criar, editar, assinar e excluir os próprios registros. Cada profissional vê e edita apenas as anotações que ele mesmo criou.
+- **Leitura (READ)** — perfis de direção clínica (e administradores sem perfil profissional) podem **ler** os registros da clínica, mas não editar. Cada leitura de uma nota de outro profissional fica registrada na auditoria.
+- **Sem acesso (NONE)** — o conteúdo clínico não é exibido.
+
+## Como abrir um registro
+
+Há três caminhos para iniciar ou abrir uma evolução. Em todos eles, você precisa do nível de escrita.
+
+<Cards>
+  <Card title="A partir da agenda" description="Abra os detalhes de uma sessão do tipo Consulta e clique em 'Registrar evolução'. A nota já nasce vinculada àquela sessão." />
+  <Card title="Pela ficha do paciente" description="Na aba 'Prontuário' do paciente, clique em 'Nova anotação'. Use quando o registro não estiver ligado a uma sessão específica." />
+  <Card title="Pela lista de pendências" description="Na página 'Prontuário', as consultas ainda sem evolução aparecem como pendentes — clique em 'Registrar evolução' ao lado do paciente." />
+</Cards>
+
+<Callout type="info">
+  A ação **Registrar evolução** só aparece em sessões do tipo **Consulta**. Se já existir um registro para aquela sessão, o sistema abre o registro existente em vez de criar um novo (cada profissional só pode ter uma evolução por sessão).
+</Callout>
+
+## Registrar a evolução
+
+<Steps>
+
+<Step>
+### Escolha o tipo de registro
+
+No topo do editor, em **Tipo de registro**, selecione uma das opções: **Evolução**, **Avaliação**, **Encerramento** ou **Outro**. O padrão é **Evolução**.
+</Step>
+
+<Step>
+### Escolha o modelo (formato)
+
+Enquanto a nota ainda estiver vazia, o seletor **Modelo** mostra os formatos disponíveis. Cada cartão traz um "?" explicando o formato:
+
+- **SOAP** — Subjetivo, Objetivo, Avaliação e Plano. Registro estruturado em quatro seções (padrão internacional).
+- **DAP** — Dados, Avaliação e Plano. Versão enxuta do SOAP, em três seções.
+- **Livre** — texto livre, evolução em formato narrativo, sem seções predefinidas (uma única seção: Registro).
+
+<Callout type="warn" title="Defina o formato antes de escrever">
+  O modelo só pode ser trocado **enquanto a nota está vazia**. Depois que você digita em qualquer seção, o seletor de modelo desaparece e o formato fica fixo. Escolha o formato antes de começar a escrever.
+</Callout>
+</Step>
+
+<Step>
+### Preencha as seções
+
+Cada formato exibe seus campos de texto, com uma breve orientação abaixo do título de cada seção:
+
+<Tabs items={["SOAP", "DAP", "Livre"]}>
+  <Tab value="SOAP">
+    - **Subjetivo** — relato do paciente, queixas e percepções.
+    - **Objetivo** — observações e dados objetivos da sessão.
+    - **Avaliação** — análise clínica e hipóteses.
+    - **Plano** — condutas e próximos passos.
+  </Tab>
+  <Tab value="DAP">
+    - **Dados** — dados subjetivos e objetivos da sessão.
+    - **Avaliação** — análise clínica e hipóteses.
+    - **Plano** — condutas e próximos passos.
+  </Tab>
+  <Tab value="Livre">
+    - **Registro** — registro livre da sessão.
+  </Tab>
+</Tabs>
+
+Cada seção aceita até 20.000 caracteres.
+</Step>
+
+</Steps>
+
+{/* TODO screenshot: /img/prontuario/prontuario-eletronico-editor.png */}
+
+## Autosave
+
+Você não precisa de um botão "Salvar". Conforme você digita, o editor salva o conteúdo automaticamente após uma pequena pausa (cerca de 1,5 segundo sem digitar). O indicador ao lado do status mostra o que está acontecendo:
+
+| Indicador | Significado |
+| --- | --- |
+| **Salvando...** | A alteração está sendo enviada. |
+| **Salvo às HH:mm** | A última alteração foi gravada com sucesso, no horário indicado. |
+| **Edição bloqueada** | O salvamento foi bloqueado (veja abaixo). |
+
+<Callout type="warn" title="Aberto em duas abas ou dispositivos">
+  Para proteger o conteúdo, o editor detecta quando a mesma nota foi alterada em outra aba ou dispositivo. Nesse caso, a edição é bloqueada com a mensagem "Esta nota foi alterada em outra aba ou dispositivo. Recarregue a página para continuar." e o botão **Assinar** é substituído por **Recarregar**. Clique em **Recarregar** para trazer a versão mais recente antes de continuar — assim nada do que você escreveu se perde por sobreposição.
+</Callout>
+
+## Assinar e tornar imutável
+
+Quando a evolução estiver pronta, **assine** para fechá-la.
+
+<Steps>
+
+<Step>
+### Clique em "Assinar"
+
+O botão **Assinar** fica no rodapé do editor. Ele só fica habilitado quando pelo menos uma seção tem conteúdo — não é possível assinar uma nota vazia.
+</Step>
+
+<Step>
+### Confirme
+
+Aparece o aviso **Assinar nota**:
+
+> Ao assinar, esta nota se tornará imutável e não poderá mais ser editada ou excluída. Correções posteriores deverão ser feitas por adendo. Deseja assinar?
+
+Clique em **Assinar nota** para confirmar ou **Cancelar** para voltar ao rascunho.
+</Step>
+
+<Step>
+### Pronto
+
+O status muda de **Rascunho** para **Assinada** e o cabeçalho passa a exibir uma faixa verde: "Assinada por _[seu nome]_ em DD/MM/AAAA HH:mm". Somente o **autor** da nota pode assiná-la.
+</Step>
+
+</Steps>
+
+<Callout type="warn" title="A assinatura é definitiva">
+  Depois de assinada, a nota **não pode mais ser editada nem excluída**. No momento da assinatura, o sistema calcula uma impressão digital (hash) do conteúdo, garantindo que ele não foi alterado depois. Qualquer correção ou complemento deve ser feito por **adendo** (consulte a página [Adendos](/docs/prontuario/adendos)).
+</Callout>
+
+Se você tentar salvar uma nota que já foi assinada (por exemplo, com a página aberta de antes), verá a mensagem "Notas assinadas não podem ser alteradas. Adicione um adendo."
+
+## Excluir um rascunho
+
+Enquanto a nota for um **rascunho**, você pode descartá-la pelo botão **Excluir rascunho**, no rodapé do editor. O sistema pede uma confirmação ("Excluir este rascunho? Esta ação não pode ser desfeita.") antes de remover. Notas **assinadas** não podem ser excluídas.
+
+## Perguntas frequentes
+
+<Cards>
+  <Card title="Posso corrigir uma nota assinada?" description="Não diretamente — a assinatura a torna imutável. Use um adendo para acrescentar correções ou complementos." />
+  <Card title="Perco texto se fechar a aba?" description="Não. O autosave grava o conteúdo enquanto você escreve; o indicador 'Salvo às HH:mm' confirma a última gravação." />
+  <Card title="Consigo trocar de SOAP para DAP depois?" description="Apenas enquanto a nota estiver vazia. Após digitar em qualquer seção, o formato fica fixo." />
+  <Card title="Outra pessoa pode assinar minha nota?" description="Não. Somente o profissional autor do registro pode assiná-lo." />
+</Cards>
+
+{/* OUTLINE (do sitemap): Registrar evolução (SOAP/DAP/Livre), autosave, assinar e tornar imutável. — COBERTO */}

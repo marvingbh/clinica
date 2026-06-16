@@ -1,0 +1,191 @@
+---
+title: "Lista de espera e ofertas automáticas"
+description: "Entradas, modo triagem/automático, estratégia, ofertas por link e aceite/recusa."
+feature: lista-espera
+sources:
+  - "src/lib/waitlist/**"
+  - "src/app/espera/**"
+  - "src/app/oferta/**"
+  - "src/app/api/public/waitlist/**"
+  - "src/app/admin/settings/components/WaitlistTab.tsx"
+lastReviewedCommit: 1d93f26
+audience: recepcao
+status: published
+isNew: true
+---
+
+A lista de espera registra pacientes (e interessados que ainda não são pacientes) que querem uma vaga. Quando uma sessão futura é cancelada, o sistema cruza o horário vago com quem está esperando e, conforme a configuração da clínica, ou cria uma tarefa para a equipe ofertar manualmente, ou envia uma oferta de horário por link diretamente ao melhor candidato.
+
+<Callout type="info" title="Funcionalidade recente">
+A lista de espera com ofertas automáticas foi adicionada recentemente. As ofertas automáticas dependem das notificações de agendamento estarem ativas — sem elas, a lista funciona apenas em modo triagem (tarefas para a equipe).
+</Callout>
+
+## A página Lista de espera
+
+Na **Agenda**, clique no botão **Espera** (no cabeçalho, com a contagem de quem está aguardando) para abrir o painel lateral com as entradas ativas e, em seguida, em **Ver tudo** para abrir a página completa. No topo da página você vê cinco indicadores: **Aguardando**, **Tempo médio de espera**, **Ofertas enviadas (30 dias)**, **Taxa de conversão** e **Receita recuperada (est.)**.
+
+Abaixo, as entradas ficam organizadas em quatro abas por situação:
+
+| Aba | O que mostra |
+| --- | --- |
+| **Ativas** | Quem está esperando uma vaga. É a única aba reordenável. |
+| **Ofertadas** | Entradas com uma oferta de horário em aberto, aguardando resposta. |
+| **Convertidas** | Entradas que aceitaram uma oferta e viraram agendamento. |
+| **Removidas** | Entradas retiradas da lista (com o motivo registrado). |
+
+## Entradas: adicionar à lista
+
+Clique em **Adicionar** (canto superior direito) para abrir o painel **Adicionar à lista de espera**. Cada entrada pode ser de um paciente existente ou de um **lead** (alguém que ainda não é paciente).
+
+<Steps>
+
+<Step>
+**Escolha o tipo de entrada.** Por padrão você busca um paciente existente. Marque **Ainda não é paciente (lead)** para cadastrar um interessado que ainda não tem ficha — nesse caso, informe **Nome** e **Telefone** (obrigatórios) e, se quiser, **E-mail**.
+</Step>
+
+<Step>
+**Selecione o profissional.** Escolha um profissional específico ou deixe em **Qualquer profissional**. Quem cita um profissional específico tem prioridade sobre quem aceita qualquer profissional, quando os dois servem para a mesma vaga.
+</Step>
+
+<Step>
+**Defina as preferências.** Marque os **Dias da semana**, adicione **Faixas de horário** (no formato HH:mm, ex.: 18:00–21:00) e escolha a **Modalidade** (Online, Presencial ou Qualquer). Qualquer campo deixado em branco significa "aceita qualquer um".
+</Step>
+
+<Step>
+**Registre uma nota de prioridade (opcional).** Use o campo **Nota de prioridade** para anotações livres, como "prefere manhã", "urgente" ou "indicação".
+</Step>
+
+<Step>
+Clique em **Adicionar**. A entrada entra na aba **Ativas**.
+</Step>
+
+</Steps>
+
+<Callout type="info" title="Como as preferências filtram a vaga">
+Uma vaga só é oferecida a uma entrada quando atende às preferências dela: o dia da semana precisa estar entre os escolhidos (se houver), o horário da vaga precisa caber inteiramente em uma das faixas (se houver) e a modalidade precisa bater. Campos vazios não restringem nada.
+</Callout>
+
+### Reordenar prioridade
+
+Na aba **Ativas**, use as setas para cima e para baixo ao lado de cada entrada para ajustar a ordem. O número à esquerda mostra a posição. Essa ordem manual é respeitada quando o sistema escolhe quem recebe a oferta primeiro.
+
+### Editar ou remover
+
+No menu de ações (ícone de três pontos) de uma entrada Ativa ou Ofertada você encontra:
+
+- **Editar** — altera profissional, preferências e nota de prioridade.
+- **Enviar oferta manual** — disponível apenas para pacientes (não para leads) em entradas Ativas. A oferta manual é feita pela agenda, escolhendo o horário.
+- **Remover** — abre o diálogo **Remover da lista de espera**, que exige um **Motivo da remoção** (ex.: "já agendado", "desistiu", "contato perdido"). A entrada vai para a aba **Removidas** com o motivo registrado.
+
+## Configurar o comportamento: modo e estratégia
+
+A reação automática a vagas é configurada em **Configurações → Lista de espera** (aba **Lista de espera**). Lá você define o modo de operação, a estratégia de oferta e duas janelas de tempo.
+
+<Screenshot src="/img/portal/lista-de-espera-config.png" alt="Aba de configurações da lista de espera com modo de operação, estratégia e janelas de tempo" caption="Configurações → Lista de espera" />
+
+### Modo de operação
+
+<Tabs items={["Triagem manual", "Oferta automática"]}>
+
+<Tab value="Triagem manual">
+
+**Triagem manual** é o padrão. Quando uma sessão é cancelada, o sistema **não envia mensagens automáticas**: ele cria uma **tarefa** para a equipe (do profissional dono do horário) listando os candidatos da lista de espera. A equipe decide a quem oferecer.
+
+A tarefa traz no título o horário vago e quantas pessoas estão na lista para ele (ex.: "Horário vago 17/06 14:00 — 3 na lista de espera") e, nas notas, os três principais candidatos com nome e telefone.
+
+</Tab>
+
+<Tab value="Oferta automática">
+
+**Oferta automática** envia a oferta de horário ao melhor candidato (ou a vários, conforme a estratégia) automaticamente, por link.
+
+<Callout type="warn" title="Pré-requisito">
+A oferta automática só fica disponível quando as **notificações de agendamento estiverem ativas**. Enquanto elas estiverem desligadas, a opção aparece desabilitada e a clínica permanece em triagem manual.
+</Callout>
+
+</Tab>
+
+</Tabs>
+
+### Estratégia de oferta
+
+A estratégia define a quantas pessoas a vaga é oferecida de cada vez (vale para o modo automático):
+
+- **Sequencial (um por vez)** — oferta ao melhor candidato e aguarda. Se ele recusar ou a oferta expirar, o sistema avança automaticamente para o próximo candidato.
+- **Todos de uma vez (primeiro que aceitar leva)** — oferta a vários candidatos ao mesmo tempo; quem aceitar primeiro fica com a vaga e as demais ofertas daquele horário são encerradas.
+
+### Janelas de tempo
+
+| Campo | O que faz | Limites |
+| --- | --- | --- |
+| **Janela de exclusividade (horas)** | Por quanto tempo a oferta fica reservada a quem a recebeu (no modo sequencial). A oferta nunca expira depois do início da sessão — vale o que vier primeiro. | 1 a 72 |
+| **Antecedência mínima (horas)** | Vagas que abrem com menos antecedência do que isso vão **só para a triagem**, sem oferta automática. | 0 a 168 |
+
+## O que acontece quando uma sessão é cancelada
+
+O fluxo abaixo decide o que o sistema faz com cada horário que vaga.
+
+```
+Sessão cancelada / removida / movida
+        │
+        ▼
+É uma CONSULTA futura que bloqueia horário?  ──não──▶  Nada acontece
+        │ sim
+        ▼
+Mais de uma vaga abriu de uma vez?  ──sim──▶  Uma tarefa de triagem em lote
+        │ não
+        ▼
+Modo automático + notificações ativas
++ antecedência suficiente?  ──não──▶  Tarefa de triagem (um horário)
+        │ sim
+        ▼
+Há candidato compatível na lista?  ──não──▶  Nada acontece
+        │ sim
+        ▼
+Envia oferta(s) por link (sequencial ou em massa)
+```
+
+Alguns detalhes importantes:
+
+- Só **consultas futuras que bloqueiam horário** disparam a lista de espera. Lembretes, notas, tarefas e reuniões não recuperam vaga.
+- **Cancelamentos em lote** (uma série inteira ou várias sessões de uma vez) nunca geram ofertas automáticas — geram uma única tarefa de triagem resumindo o período.
+- A ordenação dos candidatos segue: profissional específico antes de "qualquer profissional", depois a prioridade manual da lista, depois quem espera há mais tempo. Quem já tem outra sessão no mesmo dia é empurrado para o fim da fila.
+- **Leads são apenas para triagem**: ofertas automáticas só vão para pacientes (que têm consentimento de contato registrado). Leads aparecem na tarefa de triagem para a equipe contatar manualmente.
+
+## Ofertas por link: aceite e recusa
+
+Quando uma oferta automática é enviada, o paciente recebe uma mensagem (WhatsApp e/ou e-mail, conforme o consentimento dele) com um link. O link abre uma página pública com os detalhes da vaga: **Profissional**, **Data**, **Horário**, **Modalidade** e **Válida até**.
+
+{/* TODO screenshot: /img/portal/lista-de-espera-oferta.png */}
+
+Na página, o paciente tem dois botões:
+
+- **Aceitar horário** — confirma a vaga. O sistema cria o agendamento (CONSULTA, status AGENDADO, com o valor da sessão do paciente), marca a entrada como **Convertida** e encerra as ofertas concorrentes do mesmo horário. O paciente vê "Horário confirmado!" e recebe os detalhes em seguida.
+- **Não tenho interesse** — recusa a oferta. A entrada volta para **Ativas** e o paciente vê "Tudo bem!" com a mensagem de que continua na lista de espera. No modo sequencial, a rotina periódica oferta ao próximo candidato na execução seguinte.
+
+<Callout type="info" title="Quando o link já não vale">
+Se o link expirou ou o horário já foi preenchido por outra pessoa, a página mostra "Oferta indisponível" e a mensagem de que o paciente continua na lista de espera. Nada precisa ser feito pela equipe — a entrada já volta a ficar ativa automaticamente.
+</Callout>
+
+### Expiração e avanço automático
+
+As ofertas em aberto expiram sozinhas ao atingir a janela de exclusividade (ou o início da sessão, o que vier primeiro). Uma rotina periódica:
+
+1. **Expira** as ofertas vencidas e devolve a entrada para **Ativas**. Se o horário já tiver sido preenchido nesse meio-tempo, o paciente recebe um aviso educado de que a vaga foi ocupada e que ele continua na lista.
+2. **Avança a fila** (no modo sequencial): se a vaga ainda estiver livre, oferta ao próximo candidato compatível que ainda não recebeu uma oferta para aquele horário.
+
+Por isso, no modo sequencial você não precisa acompanhar a recusa de cada pessoa: o sistema percorre a fila sozinho até alguém aceitar ou a vaga ser preenchida por outro caminho.
+
+## Resumo rápido
+
+<Cards>
+
+<Card title="Triagem manual" description="Padrão. Gera tarefas para a equipe ofertar; nenhuma mensagem é enviada automaticamente." />
+
+<Card title="Oferta automática" description="Envia a oferta por link ao melhor candidato. Exige notificações de agendamento ativas." />
+
+<Card title="Sequencial vs. em massa" description="Sequencial oferta um por vez e avança a fila; em massa oferta a vários e o primeiro a aceitar leva." />
+
+<Card title="Aceite e recusa" description="O paciente aceita ou recusa pelo link. Aceitar cria o agendamento; recusar devolve a entrada para Ativas." />
+
+</Cards>

@@ -1,0 +1,140 @@
+---
+title: "Consentimentos e LGPD"
+description: "Status de consentimento WhatsApp/Email com datas, projeto terapêutico, referência."
+feature: pacientes
+sources:
+  - "src/app/patients/components/PatientDetailsView.tsx"
+  - "src/app/patients/components/PatientForm.tsx"
+lastReviewedCommit: 1d93f26
+audience: recepcao
+status: published
+---
+
+Esta página explica como registrar e consultar os consentimentos de comunicação (LGPD) de cada paciente, além de onde ficam o **Projeto Terapêutico** e o **Profissional de Referência** na ficha. Tudo isso é editado na mesma tela de cadastro do paciente.
+
+## O que são os consentimentos LGPD aqui
+
+A clínica só pode enviar lembretes, confirmações e outras comunicações automáticas por um canal quando o paciente autorizou aquele canal. No sistema isso é controlado por dois consentimentos independentes:
+
+- **WhatsApp** — autoriza receber mensagens via WhatsApp (lembretes de consulta, confirmações e comunicações da clínica).
+- **Email** — autoriza receber comunicações por email (lembretes de consulta, confirmações e comunicações da clínica).
+
+Cada consentimento guarda também a **data** em que foi marcado, para você ter um registro de quando o paciente concordou.
+
+<Callout type="info">
+Os consentimentos são por canal. Marcar WhatsApp não marca Email automaticamente — cada caixa é independente e tem a sua própria data.
+</Callout>
+
+## Onde marcar os consentimentos
+
+Os consentimentos ficam na aba **Cadastro** do formulário do paciente, na seção **Consentimentos LGPD** (no final da aba, logo abaixo de Observações).
+
+<Steps>
+
+<Step>
+Abra o paciente e clique em **Editar** (ou crie um **Novo Paciente**). O formulário abre na aba **Cadastro**.
+</Step>
+
+<Step>
+Role até a seção **Consentimentos LGPD**. Você verá três caixas de seleção:
+
+- **Autorizo receber mensagens via WhatsApp**
+- **Autorizo receber comunicações por email**
+- **Não enviar cobranças automáticas**
+</Step>
+
+<Step>
+Marque os canais que o paciente autorizou. Marque **Não enviar cobranças automáticas** apenas se o paciente não deve entrar na régua de cobrança (veja abaixo).
+</Step>
+
+<Step>
+Clique em **Salvar alterações** (ou **Criar paciente**). A data do consentimento é registrada automaticamente no momento em que você salva.
+</Step>
+
+</Steps>
+
+{/* TODO screenshot: /img/pacientes-consentimentos-e-lgpd-1.png */}
+
+### A caixa "Não enviar cobranças automáticas"
+
+Essa terceira opção (campo `dunningOptOut`) **não é um canal de comunicação** — ela exclui o paciente da **régua de cobrança** (os lembretes automáticos de pagamento). A cobrança manual continua disponível normalmente. Use quando o paciente pede para não receber lembretes automáticos de pagamento, mas você ainda quer poder cobrar manualmente.
+
+## Como as datas de consentimento funcionam
+
+A data não é digitada por você — o sistema a define sozinho com base na ação de marcar a caixa:
+
+- Ao **marcar** um consentimento e salvar, o sistema grava a data atual (DD/MM/AAAA) como data daquele consentimento.
+- Ao **desmarcar** e salvar, o consentimento volta a ficar desativado e a data é apagada.
+- Se você salvar o formulário **sem mexer** naquela caixa, a data já existente é **mantida** — ela só muda quando o valor do consentimento muda. Reabrir e salvar o cadastro não "renova" a data.
+
+<Callout type="warn">
+Desmarcar um consentimento apaga a data registrada. Se o paciente reativar o consentimento depois, a nova data será a do dia da reativação, não a original.
+</Callout>
+
+## Como conferir o status na ficha
+
+No painel do paciente, aba **Dados**, há um bloco **Consentimentos LGPD** que mostra o status de cada canal de forma visual:
+
+- Uma **bolinha verde** indica que o canal está autorizado; uma **bolinha cinza** indica que não está.
+- Quando há consentimento, a **data** aparece entre parênteses ao lado do nome do canal — por exemplo, `WhatsApp (15/06/2026)`.
+
+{/* TODO screenshot: /img/pacientes-consentimentos-e-lgpd-2.png */}
+
+<Callout type="info">
+A data só aparece quando o consentimento está ativo. Se o canal está com a bolinha cinza (sem autorização), nenhuma data é exibida.
+</Callout>
+
+### Impacto nos lembretes e nas escalas
+
+O consentimento controla, na prática, se a clínica consegue enviar pelo canal:
+
+- Para **WhatsApp**, além de marcar o consentimento, o paciente precisa ter um **telefone** cadastrado.
+- Para **Email**, além de marcar o consentimento, o paciente precisa ter um **email** cadastrado.
+
+Quando você for enviar uma escala (questionário) pela aba **Escalas**, o canal de WhatsApp só fica disponível se houver consentimento de WhatsApp **e** telefone; o de email só fica disponível se houver consentimento de email **e** email cadastrado. Sem o consentimento (ou sem o contato correspondente), aquele canal de envio não é oferecido.
+
+<Callout type="info">
+Os telefones adicionais (mãe, pai, responsável) têm um controle próprio de notificação: o sino ao lado de cada telefone liga ou desliga as notificações daquele número específico. Isso é separado do consentimento de WhatsApp do paciente.
+</Callout>
+
+## Histórico das alterações de consentimento
+
+Quando você altera um consentimento, a mudança fica registrada no histórico do paciente. Para consultar, abra o paciente e vá até a aba **Historico** (disponível para quem tem permissão de auditoria). Lá você vê o registro de quando cada consentimento foi ativado ou desativado.
+
+## Projeto Terapêutico
+
+O **Projeto Terapêutico** é um campo de texto livre para descrever o plano de acompanhamento do paciente.
+
+- **Onde editar:** aba **Cadastro** do formulário, campo **Projeto Terapêutico** (logo acima de Observações). O texto pode ter várias linhas — descreva o projeto terapêutico do paciente.
+- **Onde ver:** aba **Dados** do painel do paciente, no bloco **Projeto Terapeutico**. O campo só aparece quando há conteúdo preenchido, e as quebras de linha que você digitou são preservadas na exibição.
+
+<Callout type="info">
+Não confunda **Projeto Terapêutico** com **Observações**. Observações são anotações internas gerais sobre o paciente; o Projeto Terapêutico é o plano de acompanhamento. Ambos ficam na aba Cadastro, um abaixo do outro.
+</Callout>
+
+## Profissional de Referência
+
+O **Profissional de Referência** é o profissional responsável por aquele paciente.
+
+<Steps>
+
+<Step>
+Na aba **Cadastro** do formulário, localize o campo **Profissional de Referência**.
+</Step>
+
+<Step>
+Selecione o profissional na lista. A lista mostra os profissionais da clínica que têm perfil profissional. Para deixar sem responsável, escolha **Nenhum selecionado**.
+</Step>
+
+<Step>
+Salve o cadastro.
+</Step>
+
+</Steps>
+
+Quando há um profissional de referência definido, ele aparece em destaque no topo da aba **Dados** do paciente, no bloco **Profissional de Referencia**. Se nenhum profissional estiver selecionado, esse bloco não é exibido.
+
+<Cards>
+  <Card title="Cadastro do paciente" href="/docs/pacientes/cadastro-de-pacientes" />
+  <Card title="Escalas clínicas" href="/docs/prontuario/escalas-clinicas" />
+</Cards>

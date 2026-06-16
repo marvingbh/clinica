@@ -1,0 +1,108 @@
+---
+title: "Meu perfil"
+description: "Editar dados pessoais/profissionais, duração padrão de sessão e opt-out de IA."
+feature: onboarding-contas
+sources:
+  - "src/app/profile/**"
+  - "src/app/api/me/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+---
+
+A página **Meu Perfil** reúne seus dados pessoais, suas informações profissionais e algumas preferências de privacidade. É a partir dela que você ajusta o nome que aparece no sistema, a sua especialidade, a duração padrão das suas sessões e se deseja ou não usar os recursos de inteligência artificial.
+
+## Como abrir
+
+Abra o menu da sua conta (pelo seu nome no canto superior direito, no computador, ou pelo menu de navegação no celular) e clique em **Meu Perfil**. Você também pode usar a URL `/profile`.
+
+<Screenshot src="/img/configuracao/meu-perfil-1.png" alt="Tela Meu Perfil com os campos de dados pessoais e profissionais" caption="A página Meu Perfil concentra dados pessoais, profissionais e preferências de privacidade." />
+
+## Campos que você pode editar
+
+A tela divide as informações em blocos. Nem todos os campos são editáveis: alguns são apenas de consulta.
+
+<Steps>
+
+<Step>
+### Dados pessoais
+
+- **Email** — exibido apenas para conferência. **Não pode ser alterado** (a mensagem "O email não pode ser alterado" aparece abaixo do campo).
+- **Nome** — este é o campo principal e editável. Ele é o nome que aparece para você e nos demais lugares do sistema. Precisa ter pelo menos **2 caracteres** (e no máximo 100).
+- **Clínica** — mostra a clínica à qual você pertence. Também é apenas para consulta.
+</Step>
+
+<Step>
+### Perfil profissional
+
+Este bloco só aparece se a sua conta for de **profissional**. Nele você ajusta:
+
+- **Especialidade** — texto livre (por exemplo, "Psicologia Clínica"). Até 100 caracteres. Pode ficar em branco.
+- **Duração padrão da sessão (minutos)** — veja a seção abaixo.
+- **Registro Profissional** — só é exibido quando já existe um registro cadastrado, e é apenas para consulta nesta tela (não é editável aqui).
+</Step>
+
+<Step>
+### Salvar
+
+Clique em **Salvar alterações**. O botão fica desabilitado enquanto você não muda nada, então ele só "acende" depois de você editar algum campo. Ao salvar com sucesso, aparece a mensagem **"Perfil atualizado com sucesso"**.
+
+Se preferir descartar as mudanças, clique em **Cancelar** (ou no link **← Voltar** no topo) para sair sem salvar.
+</Step>
+
+</Steps>
+
+## Duração padrão da sessão
+
+O campo **Duração padrão da sessão (minutos)** define o tempo usado como padrão para os seus **novos agendamentos**. É um valor em minutos, entre **15 e 180**.
+
+- Se você informar menos de 15, aparece o aviso "Duração mínima é 15 minutos".
+- Se informar mais de 180, aparece "Duração máxima é 180 minutos".
+- O valor é salvo junto com o restante do perfil, ao clicar em **Salvar alterações**.
+
+<Callout type="info">
+Este é apenas o valor **padrão** sugerido ao criar um novo agendamento. Você continua podendo ajustar a duração de cada sessão individualmente na hora de agendar.
+</Callout>
+
+## Privacidade: não usar recursos de IA (opt-out)
+
+No bloco **Privacidade** há a opção **"Não usar recursos de IA"**. Ao marcá-la, você opta por não utilizar o assistente de inteligência artificial:
+
+- O painel **"Gerar com IA"** deixa de ser exibido para você.
+- Nenhum texto seu é enviado ao provedor de IA.
+
+Diferente dos demais campos, essa opção é aplicada **na hora**: basta marcar ou desmarcar a caixa, sem precisar clicar em **Salvar alterações**. Ao alternar, aparece a confirmação **"Preferência de IA atualizada"**.
+
+<Callout type="info">
+Se você optar por não usar a IA e mesmo assim uma geração for solicitada, o sistema bloqueia a operação com a mensagem **"Você optou por não utilizar recursos de IA."** — seu texto é sempre preservado.
+</Callout>
+
+<Callout type="warn">
+Esta é uma preferência **individual** sua. Ela não desliga a IA para a clínica inteira nem para os demais profissionais — cada pessoa controla a própria preferência. A disponibilidade do recurso ainda depende de a clínica ter o assistente de IA habilitado.
+</Callout>
+
+## Sincronização de agenda
+
+Logo abaixo do formulário de perfil, há a seção **Sincronização de Agenda**, que permite ver as suas sessões da clínica no Google Agenda, Apple Calendar ou Outlook. Ela aparece apenas para quem tem perfil profissional, já que são esses usuários que possuem sessões para sincronizar. Os detalhes de configuração (conexão com o Google e feed iCal) estão documentados na própria seção da agenda.
+
+## Perguntas frequentes
+
+<Cards>
+
+<Card title="Por que não consigo alterar meu email?">
+O email é a sua identificação de login e, por isso, não pode ser alterado nesta tela. Se precisar trocá-lo, fale com o administrador da clínica.
+</Card>
+
+<Card title="O botão Salvar está apagado">
+Ele só fica ativo depois que você edita algum campo. Se nada foi alterado, não há o que salvar.
+</Card>
+
+<Card title="Não vejo o bloco Perfil Profissional">
+Esse bloco aparece apenas para contas do tipo profissional. Contas administrativas sem perfil profissional não exibem especialidade nem duração de sessão.
+</Card>
+
+<Card title="Desmarquei a opção de IA e o painel não voltou">
+A preferência é aplicada imediatamente. Atualize a página em que você usa o recurso de geração para que o painel "Gerar com IA" volte a aparecer.
+</Card>
+
+</Cards>

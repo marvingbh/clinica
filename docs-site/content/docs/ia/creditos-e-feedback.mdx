@@ -1,0 +1,102 @@
+---
+title: "Créditos, feedback e revisão de IA"
+description: "Contador mensal de créditos, feedback 👍/👎 e banners de revisão CFP 11/2018."
+feature: ia
+sources:
+  - "src/app/prontuario/components/ai/AiCreditsBadge.tsx"
+  - "src/app/prontuario/components/ai/AiFeedbackButtons.tsx"
+  - "src/app/prontuario/components/ai/AiReviewBanner.tsx"
+  - "src/app/api/ai/usage/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+isNew: true
+---
+
+Quando você usa o assistente de IA para gerar rascunhos de evolução (no painel **Gerar com IA**, dentro do editor de notas do prontuário), três recursos acompanham cada geração: o **contador mensal de créditos**, os botões de **feedback** (👍/👎) e o **banner de revisão** exigido pela Resolução CFP nº 11/2018. Esta página explica o que cada um significa e como você interage com eles no dia a dia.
+
+<Callout type="info" title="Funcionalidade nova">
+  Os créditos de IA, o feedback por geração e o banner de revisão CFP fazem parte do recurso de assistente de IA, lançado recentemente. Eles só aparecem quando a sua clínica tem o assistente de IA habilitado e o plano inclui créditos. Veja [Configuração de IA](/docs/ia/configuracao-de-ia) e [Assistente de evoluções](/docs/ia/assistente-de-evolucoes).
+</Callout>
+
+## Contador mensal de créditos
+
+Cada **geração de rascunho bem-sucedida consome 1 crédito**. Os créditos são contados **por clínica**, dentro do **mês corrente** (mês de calendário em horário UTC), e **não acumulam** de um mês para o outro — ao virar o mês, o contador volta ao valor cheio do plano.
+
+O contador fica visível à direita do cabeçalho do painel **Gerar com IA** (o próprio cabeçalho é o botão que abre e fecha o painel). Ele mostra uma das seguintes mensagens:
+
+| Situação | O que aparece |
+| --- | --- |
+| Plano com limite mensal e créditos disponíveis | `12 gerações restantes neste mês` (ou `1 geração restante neste mês` no singular) |
+| Plano com gerações ilimitadas | `Gerações ilimitadas` |
+
+{/* TODO screenshot: /img/ia-creditos-e-feedback-1.png */}
+
+O número exibido é o de **gerações restantes**, calculado a partir do limite do plano menos o que já foi consumido pela clínica no mês. A cada rascunho gerado com sucesso, o contador é atualizado na hora.
+
+<Callout type="info">
+  O contador é compartilhado por toda a clínica. Se outros profissionais também usam o assistente, o saldo restante reflete o consumo de todos no mesmo mês.
+</Callout>
+
+### Quando o limite do mês é atingido
+
+Se a clínica esgotar os créditos do mês, o painel **Gerar com IA** deixa de oferecer o campo de geração e exibe, ao abrir, a mensagem:
+
+> Você atingiu o limite de N gerações deste mês. Faça upgrade do plano para continuar gerando rascunhos com IA.
+
+Nesse caso, você continua editando e assinando notas normalmente — apenas a geração por IA fica indisponível até o próximo mês ou até a clínica fazer upgrade do plano. O ajuste de limites e a contratação de mais créditos são tratados pela administração da clínica (veja [Configuração de IA](/docs/ia/configuracao-de-ia)).
+
+<Callout type="warn">
+  O painel **Gerar com IA** não aparece de jeito nenhum quando: o assistente de IA está desligado para a clínica, o plano não inclui créditos de IA, ou você optou por não usar IA (opt-out). Se você não vê o painel, esse é o motivo mais provável — confirme a configuração com a administração.
+</Callout>
+
+## Feedback positivo e negativo
+
+Depois de gerar um rascunho, dois botões de feedback aparecem no rodapé do painel, à esquerda do botão **Gerar rascunho**. Eles servem para você sinalizar se aquele rascunho foi útil:
+
+<Cards>
+  <Card title="👍 Útil" description="Marca a geração como positiva. O botão fica destacado após o clique." />
+  <Card title="👎 Não útil" description="Marca a geração como negativa. O botão fica destacado após o clique." />
+</Cards>
+
+Passar o mouse sobre os botões mostra a dica **"Este rascunho foi útil?"**.
+
+<Steps>
+  <Step>
+    Gere um rascunho com o botão **Gerar rascunho**. Os botões 👍 e 👎 passam a aparecer no rodapé do painel.
+  </Step>
+  <Step>
+    Clique em **Útil** (👍) ou **Não útil** (👎) conforme a sua avaliação do rascunho.
+  </Step>
+  <Step>
+    Ao registrar, aparece a confirmação **"Obrigado pelo feedback!"**. Os dois botões ficam desabilitados — o feedback é registrado **uma vez por geração** e não pode ser alterado depois.
+  </Step>
+</Steps>
+
+<Callout type="info">
+  Só o autor da geração (você, dentro da sua clínica) pode avaliar aquele rascunho. O feedback é opcional: ele não interfere no conteúdo gerado nem no consumo de créditos — serve para acompanharmos a qualidade do assistente. Se algo der errado ao enviar, aparece a mensagem **"Não foi possível registrar o feedback."** e você pode tentar de novo.
+</Callout>
+
+O feedback é vinculado àquela geração específica. Ao gerar um **novo** rascunho, os botões voltam a ficar disponíveis para avaliar a nova geração.
+
+## Banner de revisão (Res. CFP nº 11/2018)
+
+Sempre que um rascunho de IA preenche seções da nota, um **banner âmbar de revisão** aparece logo abaixo do painel **Gerar com IA**, com o texto:
+
+> Conteúdo gerado por IA — revise antes de assinar. O profissional é responsável pelo conteúdo do registro (Res. CFP nº 11/2018).
+
+{/* TODO screenshot: /img/ia-creditos-e-feedback-2.png */}
+
+O banner é um lembrete de conformidade: o conteúdo produzido pelo assistente é um **rascunho** e a responsabilidade pelo registro continua sendo sua, conforme a Resolução CFP nº 11/2018. As seções preenchidas pela IA também ficam marcadas individualmente no editor, para você identificar facilmente o que precisa revisar.
+
+<Callout type="warn">
+  Revise e ajuste todo o texto gerado pela IA **antes de assinar a nota**. Ao assinar, você assume integralmente o conteúdo do registro. O banner permanece visível enquanto houver seções preenchidas por IA naquela nota.
+</Callout>
+
+## Resumo
+
+<Cards>
+  <Card title="Créditos" description="1 crédito por geração bem-sucedida; contagem por clínica, por mês UTC, sem acúmulo. Mostrado no cabeçalho do painel." />
+  <Card title="Feedback" description="👍/👎 uma vez por geração, só pelo autor. Confirmação por toast; não altera o conteúdo nem o saldo." />
+  <Card title="Revisão CFP" description="Banner âmbar enquanto houver seções de IA na nota. Revise tudo antes de assinar (Res. CFP nº 11/2018)." />
+</Cards>

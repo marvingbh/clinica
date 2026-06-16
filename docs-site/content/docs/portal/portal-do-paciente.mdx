@@ -1,0 +1,240 @@
+---
+title: "Portal do paciente (área do paciente)"
+description: "Login OTP, próximas sessões, histórico, faturas/recibos, dados e consentimentos."
+feature: portal-paciente
+sources:
+  - "src/lib/patient-portal/**"
+  - "src/app/paciente/**"
+  - "src/app/api/public/portal/**"
+lastReviewedCommit: 1d93f26
+audience: paciente
+status: published
+isNew: true
+---
+
+O portal do paciente é a área onde a pessoa atendida acessa, pelo celular ou
+computador, suas próximas sessões, o histórico de atendimentos, as faturas e
+recibos, e os próprios dados cadastrais — sem precisar de senha. O acesso é
+feito por **código de uso único (OTP)** enviado por e-mail ou WhatsApp.
+
+<Callout type="info" title="Funcionalidade recém-lançada">
+  O portal do paciente foi adicionado recentemente. Algumas telas (como
+  Documentos) começam cobrindo os recibos de faturas pagas e serão ampliadas em
+  versões futuras.
+</Callout>
+
+O endereço do portal é sempre `/paciente/<identificador-da-clinica>` — por
+exemplo, `https://app.suaclinica.com.br/paciente/clinica-bem-estar`. É esse o
+link que você compartilha com seus pacientes.
+
+## Como o paciente entra (login por código)
+
+O portal não usa senha. A pessoa informa o **telefone ou e-mail cadastrado na
+clínica** e recebe um código de 6 dígitos para confirmar.
+
+<Steps>
+  <Step>
+    **Informar telefone ou e-mail.** Na tela inicial do portal, o paciente
+    digita o telefone ou o e-mail que está no cadastro da clínica e toca em
+    **Receber código**.
+  </Step>
+  <Step>
+    **Receber o código.** O sistema envia um código de 6 dígitos. A mensagem
+    de confirmação na tela é sempre a mesma — "Se houver cadastro, você
+    receberá um código em instantes." — por segurança, para não revelar quem
+    tem ou não cadastro.
+  </Step>
+  <Step>
+    **Digitar o código.** O paciente informa os 6 dígitos no campo e toca em
+    **Entrar**. Se errar ou demorar, pode usar **Reenviar código** (liberado
+    após 60 segundos).
+  </Step>
+</Steps>
+
+{/* TODO screenshot: /img/portal/portal-login-otp.png */}
+
+### Para onde vai o código
+
+O canal de envio depende de qual contato o paciente usou para entrar e dos
+**consentimentos** registrados no cadastro:
+
+- **Login por e-mail:** o código vai por e-mail, desde que o paciente tenha
+  aceitado receber e-mails.
+- **Login por telefone:** o sistema prioriza o e-mail (quando há um e-mail com
+  consentimento no cadastro) e, caso contrário, envia por WhatsApp — desde que
+  o consentimento de WhatsApp esteja marcado.
+
+Se nenhum consentimento estiver marcado, o código não é enviado. Por isso, vale
+confirmar com o paciente as **Preferências de contato** (veja [Dados e
+consentimentos](#dados-e-consentimentos)).
+
+<Callout type="warn" title="Validade e limites do código">
+  O código vale por **10 minutos** e permite até **5 tentativas** de
+  digitação. Por questão de segurança contra abuso, são aceitos no máximo **3
+  pedidos de código a cada 15 minutos** para o mesmo contato. Esgotado o
+  tempo ou as tentativas, basta pedir um novo código.
+</Callout>
+
+### Link direto dos lembretes (acesso rápido)
+
+Os lembretes de sessão podem trazer um **link direto** para o portal. Ao tocar
+nesse link, o paciente entra automaticamente, sem digitar código — mas em um
+acesso **reduzido e temporário**:
+
+- vale por **24 horas** e dá acesso **apenas às sessões** daquele paciente;
+- as áreas **Financeiro**, **Documentos** e **Dados** não aparecem nesse modo.
+
+Para usar essas áreas, o paciente faz o login completo por código. Se o link
+do lembrete estiver expirado, o portal mostra "Link expirado — entre com seu
+telefone ou e-mail" e oferece o botão para ir ao login.
+
+## Navegação e perfis
+
+Depois de entrar, o paciente vê uma barra de navegação (no topo, no
+computador; na base da tela, no celular) com as seções **Sessões**,
+**Histórico**, **Financeiro**, **Documentos** e **Dados**. O botão **Sair**
+encerra a sessão.
+
+Quando o contato usado no login é **responsável por mais de uma pessoa** (por
+exemplo, um pai cadastrado para acompanhar dois filhos), aparece um seletor de
+perfil. Pacientes menores de 18 anos aparecem como **"Responsável por
+\{nome\}"**, deixando claro que quem acessa é o responsável. Trocar de perfil
+recarrega as sessões, faturas e dados daquela pessoa.
+
+## Próximas sessões
+
+A tela inicial, **Próximas sessões**, lista os atendimentos futuros. Cada
+sessão mostra a modalidade (**Online** ou **Presencial**), o status, a data
+(DD/MM/AAAA) e o horário (HH:mm) e o nome do profissional.
+
+Conforme o status, o paciente pode agir sobre a sessão:
+
+- **Confirmar presença** — disponível quando a sessão está `AGENDADO`. Após
+  confirmar, o status passa a `CONFIRMADO`.
+- **Cancelar** — disponível para sessões `AGENDADO` ou `CONFIRMADO`, dentro da
+  janela permitida pela clínica. A clínica é avisada do cancelamento.
+- **Solicitar reagendamento** — abre um campo onde o paciente escreve a
+  preferência de dia e horário; a clínica recebe a solicitação e entra em
+  contato. **Reagendar não move a sessão sozinho** — é um pedido para a
+  equipe.
+
+<Callout type="info" title="Janela de cancelamento">
+  O cancelamento pelo portal só é permitido até um número mínimo de horas antes
+  da sessão, definido pela clínica. Fora dessa janela, o paciente vê: "Cancelamento
+  disponível até \{N\}h antes da sessão. Fale com a clínica ou solicite
+  reagendamento." Essa quantidade de horas é configurável por clínica.
+</Callout>
+
+{/* TODO screenshot: /img/portal/portal-proximas-sessoes.png */}
+
+## Histórico
+
+A seção **Histórico de sessões** mostra os atendimentos passados, no mesmo
+formato dos cartões de próximas sessões. Aqui o status aparece com os rótulos
+finais — por exemplo, **Finalizado**, **Cancelado** ou **Falta**. Não há
+botões de ação no histórico: ele serve para consulta.
+
+## Faturas e recibos
+
+### Minhas faturas (Financeiro)
+
+A seção **Financeiro** lista as faturas do paciente. Cada fatura mostra o
+mês/ano de referência, o status (**Pendente**, **Enviada**, **Parcial**,
+**Paga** ou **Cancelada**), o valor total em R$ e a data de vencimento
+(DD/MM/AAAA).
+
+Em cada fatura, o paciente pode:
+
+- **Baixar fatura (PDF)** — gera o PDF da fatura.
+- **Baixar NFS-e** — aparece somente quando há uma nota fiscal eletrônica
+  emitida para aquela fatura (o documento fiscal DANFSE em PDF).
+
+{/* TODO screenshot: /img/portal/portal-financeiro.png */}
+
+### Documentos (recibos)
+
+A seção **Documentos** reúne, nesta versão, os **recibos das faturas pagas**.
+Para cada fatura com status **Paga**, o paciente vê um item "Recibo
+\{mês\}/\{ano\}" com a opção **Baixar**. Faturas ainda não quitadas não aparecem
+aqui — elas ficam na seção Financeiro.
+
+<Callout type="info" title="Em evolução">
+  Hoje Documentos cobre os recibos de faturas pagas. Formulários e assinaturas
+  são planejados para versões futuras.
+</Callout>
+
+## Dados e consentimentos
+
+A seção **Meus dados** mostra o cadastro do paciente — nome, telefone, e-mail e
+endereço — e concentra as ações sobre dados pessoais.
+
+### Solicitar alteração de dados
+
+O paciente **não edita o cadastro diretamente**. Ao tocar em **Solicitar
+alteração**, ele preenche os campos (nome, telefone, e-mail e endereço
+completo) e envia. A mudança vai **para aprovação da clínica** — a equipe
+revisa e aplica. Isso evita alterações indevidas em dados sensíveis.
+
+### Preferências de contato
+
+Em **Preferências de contato**, o paciente liga ou desliga, por conta própria:
+
+- **Aceito receber mensagens por WhatsApp**
+- **Aceito receber e-mails**
+
+Essas preferências afetam, inclusive, o canal pelo qual o código de login é
+enviado — desligar os dois pode impedir o recebimento do código.
+
+### Solicitar meus dados (LGPD)
+
+O botão **Solicitar meus dados (LGPD)** registra um pedido de exportação dos
+dados pessoais. A clínica responde pelos contatos cadastrados do paciente. O
+pedido fica registrado para fins de conformidade.
+
+{/* TODO screenshot: /img/portal/portal-dados.png */}
+
+## Modo somente leitura
+
+Quando a assinatura da clínica está com alguma pendência (por exemplo, período
+de teste expirado ou pagamento em aberto), o portal pode entrar em **modo
+somente leitura**. Nesse caso aparece um aviso no topo — "O portal está
+temporariamente em modo somente leitura. Entre em contato com a clínica." — e
+as ações que alteram dados ficam bloqueadas:
+
+- confirmar, cancelar e solicitar reagendamento de sessões;
+- solicitar alteração de dados e exportação LGPD;
+- alterar as preferências de contato.
+
+A consulta de sessões, histórico e faturas continua disponível. Quando a
+situação da assinatura é regularizada, o modo somente leitura é desfeito
+automaticamente.
+
+<Callout type="warn" title="Privacidade e segurança">
+  O portal nunca confirma se um contato tem cadastro: a mensagem após pedir o
+  código é sempre a mesma. Os códigos têm validade curta e a sessão é
+  protegida por cookie próprio de cada clínica. O acesso por link de lembrete é
+  intencionalmente limitado às sessões e expira em 24 horas.
+</Callout>
+
+## Perguntas frequentes
+
+<Cards>
+  <Card title="O paciente não recebeu o código">
+    Confira se o telefone/e-mail está correto no cadastro e se há consentimento
+    de WhatsApp ou e-mail marcado. Sem nenhum consentimento, o código não é
+    enviado. O código também pode ter expirado (10 minutos) — peça um novo.
+  </Card>
+  <Card title="Não consigo cancelar a sessão">
+    O cancelamento pelo portal só vale dentro da janela de horas definida pela
+    clínica antes da sessão. Fora dela, use **Solicitar reagendamento** ou fale
+    direto com a equipe.
+  </Card>
+  <Card title="A NFS-e não aparece na fatura">
+    O botão **Baixar NFS-e** só surge quando a nota fiscal já foi emitida para
+    aquela fatura. Enquanto isso, o paciente pode baixar a fatura em PDF.
+  </Card>
+  <Card title="Entrei pelo link mas faltam seções">
+    O link do lembrete dá acesso rápido só às sessões, por 24 horas. Para
+    Financeiro, Documentos e Dados, faça o login completo por código.
+  </Card>
+</Cards>

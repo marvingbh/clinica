@@ -1,0 +1,116 @@
+---
+title: "Créditos de sessão"
+description: "Créditos de cancelamentos acordados, disponibilidade e consumo em faturas."
+feature: financeiro
+sources:
+  - "src/app/financeiro/creditos/**"
+  - "src/lib/financeiro/credit-eligibility.ts"
+  - "src/app/api/financeiro/creditos/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+Quando um paciente **desmarca** uma sessão de forma acordada, a Clinica não cobra aquela sessão como falta — ela gera um **crédito**. Esse crédito fica disponível para abater automaticamente o valor de uma fatura futura do mesmo paciente. A aba **Créditos** do Financeiro mostra todos esses créditos, indicando quais ainda estão disponíveis e quais já foram utilizados em faturas.
+
+<Callout type="info" title="Funcionalidade recente">
+  A aba **Créditos** e o consumo automático de créditos em faturas foram adicionados recentemente. Se você não vê a aba em **Financeiro**, confirme com o administrador da clínica que sua versão está atualizada.
+</Callout>
+
+## Como um crédito é gerado
+
+Créditos não são criados manualmente nesta tela. Eles nascem na **Agenda**, no momento em que você marca uma sessão como **Desmarcou**.
+
+<Steps>
+
+<Step>
+Abra a consulta na Agenda e use a ação de cancelamento **Desmarcou**.
+</Step>
+
+<Step>
+No diálogo **Marcar como Desmarcou**, a Clinica avisa: *"Sessão gera crédito para desconto em fatura futura."* Confirme em **Confirmar Desmarcou**.
+</Step>
+
+<Step>
+A sessão passa para o status **Desmarcou** e um crédito é gerado para aquele paciente, com o motivo preenchido automaticamente como `Desmarcou - DD/MM/AAAA` (a data da sessão desmarcada).
+</Step>
+
+</Steps>
+
+<Callout type="info" title="Desmarcou x Falta x sem cobrança">
+  Os três tipos de cancelamento têm efeitos financeiros diferentes:
+  - **Desmarcou** (acordado): **gera crédito** para abater uma fatura futura.
+  - **Falta**: a sessão é **cobrada normalmente** na fatura, sem crédito.
+  - **Cancelar sem cobrança**: a sessão **não é cobrada** e **não gera crédito** — não aparece na fatura.
+</Callout>
+
+Cada sessão só pode gerar um crédito. Se você reverter o status (por exemplo, voltar de **Desmarcou** para **Agendado**) e o crédito ainda **não** tiver sido usado em nenhuma fatura, ele é removido automaticamente. Se você alternar de **Falta** ou **sem cobrança** para **Desmarcou**, o crédito é gerado naquele momento.
+
+## A aba Créditos
+
+Acesse **Financeiro → Créditos**. A tabela lista um crédito por linha, ordenada do mais recente para o mais antigo.
+
+<Screenshot src="/img/financeiro-creditos-de-sessao-1.png" alt="Aba Créditos do Financeiro mostrando a tabela de créditos com colunas Paciente, Motivo, Data, Status e Fatura" />
+
+As colunas são:
+
+| Coluna | O que mostra |
+| --- | --- |
+| **Paciente** | Nome do paciente que desmarcou a sessão. |
+| **Motivo** | O motivo registrado no crédito — normalmente `Desmarcou - DD/MM/AAAA`. |
+| **Data** | A data em que o crédito foi gerado. |
+| **Status** | **Disponível** (etiqueta verde) se ainda não foi usado, ou **Utilizado** (etiqueta cinza) se já abateu uma fatura. |
+| **Fatura** | Se o crédito já foi consumido, mostra um link para a fatura no formato **MM/AAAA**. Caso contrário, exibe um traço (—). |
+
+### Filtrar a lista
+
+No topo da aba há três filtros por status:
+
+- **Todos** — exibe todos os créditos.
+- **Disponíveis** — apenas os que ainda não foram usados.
+- **Utilizados** — apenas os que já abateram alguma fatura.
+
+A barra de período (setas de ano e botões de mês, com a opção **Ano todo**) também filtra a lista. Para créditos **utilizados**, o período corresponde ao **mês/ano da fatura** que os consumiu; para créditos **disponíveis**, corresponde ao mês/ano em que o crédito foi **gerado**.
+
+<Callout type="info" title="O que cada pessoa vê">
+  Quem é **administrador** vê os créditos de toda a clínica. Profissionais com acesso financeiro veem apenas os créditos das sessões que atenderam (seus próprios pacientes).
+</Callout>
+
+## Disponibilidade: quando um crédito pode ser usado
+
+Um crédito só pode ser consumido por uma fatura cujo **mês de referência seja posterior** ao mês da sessão que originou o crédito. Em outras palavras: o crédito vale para faturas dos **meses seguintes**, nunca para a fatura do próprio mês em que a sessão foi desmarcada.
+
+<Callout type="info" title="Exemplo">
+  Uma sessão desmarcada em **abril/2026** gera um crédito que pode entrar em faturas de **maio/2026 em diante**. A fatura de **abril/2026** não consome esse crédito, porque ele pertence ao mesmo mês.
+</Callout>
+
+Isso evita que uma sessão desmarcada no fim do mês abata indevidamente a própria fatura daquele mês. A regra vale tanto para faturamento por sessão quanto para o modelo de mensalidade fixa.
+
+## Consumo em faturas
+
+O abatimento é **automático**. Ao gerar (ou regerar) a fatura mensal de um paciente, a Clinica busca os créditos **disponíveis** e **elegíveis** daquele paciente (os mais antigos primeiro) e os aplica como desconto.
+
+Cada crédito aplicado entra na fatura como uma linha de desconto:
+
+- **Descrição:** `Crédito: Desmarcou - DD/MM/AAAA`
+- **Valor:** negativo, igual ao valor da sessão (por exemplo, **−R$ 200,00**), reduzindo o total da fatura.
+
+Quando um crédito é aplicado, ele passa para o status **Utilizado** e a coluna **Fatura** na aba Créditos passa a apontar para a fatura correspondente.
+
+<Callout type="warn" title="Regerar uma fatura libera e reaplica créditos">
+  Se você **regerar** uma fatura, os créditos que ela tinha consumido são **liberados** (voltam a ficar disponíveis) e, em seguida, os créditos elegíveis são reaplicados de acordo com a regra de disponibilidade. Faturas canceladas também liberam seus créditos para reuso.
+</Callout>
+
+## Reversões e travas
+
+Como o crédito pode já ter virado desconto numa fatura, algumas mudanças de status na Agenda ficam bloqueadas para proteger o financeiro:
+
+- **Voltar de Desmarcou para Falta**, **para Agendado** ou **reverter uma sessão finalizada**: só é permitido se o crédito **ainda não** tiver sido usado. Se ele já abateu uma fatura, a Clinica exibe *"Crédito já foi utilizado em uma fatura. Não é possível alterar..."* — nesse caso, ajuste a fatura antes.
+- **Mudar de Desmarcou para "sem cobrança"**: é permitido mesmo com o crédito já consumido. A Clinica remove a linha de crédito da fatura, recalcula o total e exclui o crédito.
+
+<Callout type="info" title="Acompanhe os créditos pendentes no Dashboard">
+  O **Dashboard financeiro** resume os créditos em **Créditos Disponíveis** (não consumidos) e mostra o **Aging de Créditos** (há quanto tempo estão pendentes), úteis para revisar créditos que ainda não foram aproveitados.
+</Callout>
+
+{/* OUTLINE coberto: créditos de cancelamentos acordados (geração via Desmarcou), disponibilidade (regra de mês posterior em credit-eligibility) e consumo em faturas (linha CREDITO negativa, status Utilizado, link para fatura). */}

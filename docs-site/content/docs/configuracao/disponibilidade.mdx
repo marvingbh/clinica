@@ -1,0 +1,168 @@
+---
+title: "Disponibilidade do profissional"
+description: "Regras semanais + exceções (férias/folgas) que alimentam slots de agendamento."
+feature: agendamento
+sources:
+  - "src/app/agenda/lib/computeAvailableSlots.ts"
+  - "src/app/api/availability/route.ts"
+  - "src/app/api/availability/exceptions/route.ts"
+  - "src/app/settings/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+---
+
+A tela **Disponibilidade** define quando você atende. Ela tem duas partes que trabalham juntas:
+
+- **Regras semanais** — os dias e horários fixos em que você atende toda semana (ex: segunda a sexta, das 08:00 às 18:00).
+- **Bloqueios e exceções** — datas específicas que fogem da rotina (férias, feriados, folgas) ou horários extras pontuais.
+
+A agenda usa essas duas informações para montar os **horários disponíveis** (os slots livres) na hora de criar um agendamento. Sem regra semanal cadastrada, um dia não gera horários para marcar.
+
+## Como abrir a tela
+
+<Steps>
+
+<Step>
+Abra o menu do seu usuário (canto da tela, junto de **Meu perfil**).
+</Step>
+
+<Step>
+Clique em **Disponibilidade**.
+</Step>
+
+</Steps>
+
+{/* TODO screenshot: /img/configuracao/disponibilidade-1.png */}
+
+## Regras semanais
+
+A parte de cima da tela mostra os sete dias da semana — **Segunda, Terça, Quarta, Quinta, Sexta, Sábado** e **Domingo**. Cada dia tem um botão de ligar/desligar.
+
+<Steps>
+
+<Step>
+**Ative o dia** que você atende usando o interruptor ao lado do nome. Ao ligar um dia pela primeira vez, ele já entra com um horário padrão de **08:00** às **18:00**.
+</Step>
+
+<Step>
+**Ajuste o horário** nos campos de início e término. Eles usam o formato 24 horas (HH:mm) — por exemplo, `08:00` e `18:00`.
+</Step>
+
+<Step>
+**Adicione mais de um intervalo no mesmo dia** clicando em **Adicionar horário**. Isso é útil quando você tem uma pausa no meio do dia — por exemplo, `08:00`–`12:00` e `14:00`–`18:00`.
+</Step>
+
+<Step>
+Para remover um intervalo, use o ícone de lixeira ao lado dele. Se você remover o último intervalo de um dia, esse dia volta a ficar desativado.
+</Step>
+
+<Step>
+Clique em **Salvar** (canto superior direito) para gravar as regras. Aparece a confirmação **"Disponibilidade salva com sucesso"**.
+</Step>
+
+</Steps>
+
+Logo acima dos dias, um resumo mostra quantos dias estão ativos e quantos horários você tem no total — por exemplo, *"5 dias ativos · 5 horário(s)"*.
+
+<Callout type="warn" title="O horário de início precisa ser anterior ao de término">
+Ao salvar, cada intervalo é validado: se o início for igual ou posterior ao término, o sistema recusa a gravação. Confira os horários antes de salvar.
+</Callout>
+
+<Callout type="info" title="Salvar substitui as regras anteriores">
+Ao clicar em **Salvar**, todas as suas regras semanais são regravadas a partir do que está na tela. Mantenha ativos todos os dias e horários que deseja preservar.
+</Callout>
+
+## Bloqueios e exceções (férias, folgas, feriados)
+
+Abaixo das regras semanais fica a seção **Bloqueios e Exceções**. Use-a para tratar datas que fogem da rotina, sem precisar mexer nas regras semanais.
+
+Existem dois tipos de exceção:
+
+| Tipo | Para que serve |
+| --- | --- |
+| **Bloqueio** | Fecha um período em que você normalmente atenderia — férias, folga, feriado, compromisso pessoal. Os horários afetados deixam de aparecer como disponíveis. |
+| **Extra** | Marca um período como disponível fora da rotina semanal. |
+
+### Criar um bloqueio
+
+<Steps>
+
+<Step>
+Na seção **Bloqueios e Exceções**, clique em **+ Adicionar**. A janela **Nova Exceção** abre por baixo.
+</Step>
+
+<Step>
+Em **Tipo**, deixe **Bloqueio** selecionado (é o padrão).
+</Step>
+
+<Step>
+Preencha a **Data** no formato **DD/MM/AAAA** (por padrão vem o dia seguinte preenchido).
+</Step>
+
+<Step>
+Deixe **Dia inteiro** ligado para bloquear o dia todo. Para bloquear apenas um trecho — por exemplo, uma tarde —, desligue **Dia inteiro** e informe o horário de início e término.
+</Step>
+
+<Step>
+Opcionalmente, escreva um **Motivo** (ex: *Férias*, *Feriado*). O motivo aparece na lista e na agenda, então ajuda quem estiver consultando.
+</Step>
+
+<Step>
+Clique em **Salvar**. A exceção entra na lista, ordenada por data.
+</Step>
+
+</Steps>
+
+{/* TODO screenshot: /img/configuracao/disponibilidade-2.png */}
+
+Para criar um período de férias, o caminho mais simples é cadastrar **um bloqueio de dia inteiro para cada dia** do período. Cada bloqueio fecha a agenda daquele dia.
+
+### Remover uma exceção
+
+Na lista de **Bloqueios e Exceções**, clique no ícone de lixeira ao lado do item. A confirmação **"Exceção removida"** aparece e o dia volta a seguir a regra semanal normal.
+
+<Callout type="warn" title="Não dá para cadastrar dois bloqueios sobrepostos na mesma data">
+Se já existe um bloqueio na data e você tenta criar outro que se sobrepõe (ou um de dia inteiro por cima de qualquer horário), o sistema avisa que há conflito e não grava. Remova o bloqueio anterior ou ajuste os horários.
+</Callout>
+
+## Como isso vira horários na agenda
+
+Quando você abre a agenda de um dia, o sistema combina três coisas para decidir quais horários ficam livres:
+
+<Steps>
+
+<Step>
+**Pega a regra semanal do dia.** Se não houver nenhum intervalo ativo para aquele dia da semana, o dia não gera horários para marcar.
+</Step>
+
+<Step>
+**Divide cada intervalo em slots** do tamanho da duração padrão de atendimento configurada. Um intervalo de `08:00` às `12:00` com sessões de 60 minutos, por exemplo, vira os horários `08:00`, `09:00`, `10:00` e `11:00`.
+</Step>
+
+<Step>
+**Aplica os bloqueios.** Um bloqueio de **dia inteiro** zera os horários daquele dia e mostra o motivo na agenda. Um bloqueio **por horário** marca apenas os slots dentro daquele intervalo como indisponíveis.
+</Step>
+
+<Step>
+**Remove os horários já ocupados** por agendamentos que reservam tempo e por sessões de grupo. Agendamentos cancelados não bloqueiam o horário.
+</Step>
+
+</Steps>
+
+<Callout type="info" title="Quem só atende em horários fixos não precisa de exceções">
+As exceções existem para o que foge da rotina. No dia a dia, as regras semanais já são suficientes — você só recorre aos bloqueios em férias, feriados e folgas.
+</Callout>
+
+## Para administradores: disponibilidade de outros profissionais e da clínica
+
+Quem tem permissão para gerenciar a disponibilidade de outros profissionais vê recursos adicionais nesta mesma tela:
+
+- **Seletor de profissional** no topo. Escolha um profissional na lista para ver e editar as regras e exceções dele. Enquanto nenhum profissional estiver selecionado, a tela pede *"Selecione um profissional para gerenciar a disponibilidade."*
+- **Bloqueio para toda a clínica.** Na janela de exceção, o campo **Aplicar a** permite escolher entre **Clínica** e **Profissional**. Um bloqueio de **Clínica** vale para todos os profissionais ao mesmo tempo — ideal para feriados e fechamentos coletivos. Esses bloqueios aparecem na agenda marcados como **"Toda a clínica"**.
+
+<Callout type="info" title="Profissionais editam apenas a própria agenda">
+Sem a permissão de gerenciar outros, você edita somente a sua disponibilidade e cria exceções apenas para você. O seletor de profissional e a opção de bloqueio para toda a clínica não aparecem.
+</Callout>
+
+{/* OUTLINE coberto: regras semanais (SlotPicker: dias, intervalos, validação início<fim, salvar substitui) + exceções/bloqueios (modal Nova Exceção: Bloqueio/Extra, Dia inteiro, Data DD/MM/AAAA, Motivo, conflito 409, remover) + como alimentam os slots de agendamento (computeSlotsForDay: regra do dia -> slots por duração; bloqueio dia inteiro/horário; ocupação por agendamentos/grupos) + admin (seletor de profissional via availability_others, bloqueio clinic-wide "Toda a clínica"). */}

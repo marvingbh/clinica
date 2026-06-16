@@ -1,0 +1,166 @@
+---
+title: "Cadastro de profissionais"
+description: "Criar perfis, especialidade, registro, buffers, regime fiscal e settings de agendamento."
+feature: onboarding-contas
+sources:
+  - "src/app/professionals/**"
+  - "src/app/admin/settings/agendamento-online/components/ProfessionalBookingTable.tsx"
+  - "src/app/api/professionals/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+---
+
+O cadastro de profissionais é onde você monta a equipe da clínica: cada profissional vira uma conta de acesso ao sistema **e** um perfil que alimenta a agenda, o agendamento online, os repasses e os relatórios fiscais. Esta página é exclusiva para administradores.
+
+<Callout type="info">
+Para abrir a tela, use **Profissionais** no menu de navegação (cabeçalho no desktop, barra inferior no celular). É preciso ter a permissão **Profissionais** com nível de acesso **Leitura** para visualizar e **Escrita** para criar, editar ou desativar.
+</Callout>
+
+## Visão geral da tela
+
+A tela **Profissionais** lista a equipe em cartões, um por profissional. Cada cartão mostra as iniciais, o nome, a especialidade, o número de registro e a duração padrão da sessão. Profissionais com perfil de administrador ganham a etiqueta **Admin**; quem está desativado aparece esmaecido com a etiqueta **Inativo**.
+
+No topo há dois controles:
+
+- **Buscar** — filtra por nome, email ou especialidade.
+- Um seletor de status com as opções **Todos**, **Ativos** e **Inativos**.
+
+Clicar em um cartão abre o painel de detalhes; o botão **Editar** abre o formulário de edição; e os botões **Desativar** / **Reativar** controlam o status da conta.
+
+<Screenshot src="/img/configuracao/profissionais-lista.png" alt="Lista de profissionais em cartões com busca e filtro de status" caption="Tela Profissionais com a equipe da clínica" />
+
+## Criar um profissional
+
+<Steps>
+
+<Step>
+Na tela **Profissionais**, toque no botão **Novo profissional** (o botão flutuante no canto inferior). Se ainda não houver ninguém cadastrado, use **Adicionar profissional** no estado vazio. Um painel deslizante abre com o título **Novo Profissional**.
+</Step>
+
+<Step>
+Preencha os campos de identificação e acesso:
+
+- **Nome** (obrigatório) — mínimo de 2 caracteres.
+- **Email** (obrigatório) — precisa ser único dentro da clínica. Se já existir uma conta com esse email, o sistema avisa e não salva.
+- **Senha** (obrigatório na criação) — mínimo de 6 caracteres. É a senha com que o profissional fará login.
+</Step>
+
+<Step>
+Informe os dados profissionais (opcionais):
+
+- **Especialidade** — texto livre, ex.: `Psicologia Clínica`.
+- **Registro Profissional** — texto livre, ex.: `CRP 06/123456`.
+</Step>
+
+<Step>
+Configure os dados fiscais e as opções de agenda (detalhados nas seções abaixo) e toque em **Criar profissional**. Ao salvar, o sistema cria a conta de usuário com o perfil **Profissional** e o perfil profissional associado de uma só vez.
+</Step>
+
+</Steps>
+
+<Callout type="info">
+Profissionais novos sempre nascem com o perfil **Profissional**. Para conceder acesso administrativo, edite o profissional depois de criá-lo (veja [Perfil e permissões](#perfil-e-permissões)).
+</Callout>
+
+## Especialidade e registro
+
+**Especialidade** e **Registro Profissional** são campos de texto livre, sem validação de formato — você digita exatamente como quer que apareça. Ambos são opcionais, mas valem a pena preencher:
+
+- a especialidade aparece no cartão e é um dos campos pesquisáveis na busca;
+- o número de registro (CRP, CRM, etc.) aparece logo abaixo do nome no cartão e no painel de detalhes.
+
+## Configurações de agenda
+
+Três campos controlam como a agenda gera horários para esse profissional:
+
+| Campo | Faixa permitida | Padrão | O que faz |
+| --- | --- | --- | --- |
+| **Duração padrão da sessão (minutos)** | 15 a 180 | 50 | Tempo padrão sugerido ao criar novos agendamentos desse profissional. |
+| **Intervalo entre sessões (minutos)** | 0 a 60 | 0 | Folga reservada entre uma consulta e a próxima. Use `0` para permitir consultas consecutivas, sem buffer. |
+| **Repasse (%)** | 0 a 100 | 0 | Percentual pago ao profissional (após imposto), usado no cálculo de repasses do financeiro. Aceita casas decimais (ex.: `70.5`). |
+
+<Callout type="info">
+A duração padrão é apenas uma sugestão para acelerar o agendamento — você pode ajustar o horário de fim em cada consulta individualmente. O **intervalo entre sessões** é o "buffer": ele bloqueia o tempo logo após cada atendimento para que dois compromissos não fiquem colados.
+</Callout>
+
+## Regime fiscal (Receita Saúde / DMED)
+
+No bloco **Fiscal (Receita Saúde / DMED)** do formulário você define como esse profissional será tratado nos relatórios fiscais do módulo financeiro.
+
+- **Regime fiscal** — escolha entre:
+  - **— não configurado —** (padrão);
+  - **Pessoa Física (Receita Saúde)**;
+  - **Pessoa Jurídica (DMED)**.
+- **CPF do profissional** — no formato `000.000.000-00`. É validado (dígitos verificadores e rejeição de CPFs com todos os dígitos iguais) e é **obrigatório para o regime Pessoa Física (Receita Saúde)**.
+- **Regime vigente desde** — data opcional no formato `DD/MM/AAAA`. Use quando o profissional trocar de regime no meio do ano: a data marca a partir de quando o novo regime passa a valer, e os relatórios fiscais separam os atendimentos pelo regime vigente em cada período.
+
+<Callout type="warn">
+Se você selecionar **Pessoa Física (Receita Saúde)** sem informar um CPF válido, as emissões fiscais desse profissional ficarão bloqueadas. Preencha o CPF para liberar os recibos. Deixe **Regime vigente desde** em branco se o regime nunca mudou.
+</Callout>
+
+## Perfil e permissões
+
+Ao **editar** um profissional existente, aparece a opção **Administrador** — uma chave que, quando ligada, concede acesso administrativo completo à clínica. Quando desligada, a conta volta ao perfil **Profissional** (acesso aos próprios recursos).
+
+<Callout type="info">
+A chave **Administrador** só está disponível na edição, não na criação. Todo profissional novo começa como **Profissional**; promova a administrador depois, se necessário.
+</Callout>
+
+## Visualizar, editar e alterar a senha
+
+Toque em um cartão para abrir o painel de detalhes, que mostra email, status (**Ativo**/**Inativo**), perfil (**Administrador**/**Profissional**), especialidade, registro, bio e o resumo das **Configurações de Agenda** (duração da sessão, intervalo entre sessões, repasse, agendamento online e agendamento antecipado em dias).
+
+Para alterar dados, use **Editar**. Na edição, o campo de senha vem com o rótulo **Senha (deixe vazio para manter)**: deixe-o em branco para conservar a senha atual, ou digite uma nova (mínimo 6 caracteres) para redefini-la. Confirme em **Salvar alterações**.
+
+## Desativar e reativar
+
+A exclusão de profissionais é **lógica** (soft delete): a conta nunca é apagada, apenas inativada, preservando o histórico de agendamentos e financeiro.
+
+<Steps>
+
+<Step>
+No cartão (ou no painel), toque em **Desativar**. Uma confirmação pergunta `Deseja realmente desativar [nome]?`. Ao confirmar, a conta deixa de poder fazer login e some das listas de profissionais ativos.
+</Step>
+
+<Step>
+Para trazer de volta, filtre por **Inativos**, abra o profissional e toque em **Reativar**.
+</Step>
+
+</Steps>
+
+<Callout type="warn">
+Você não pode desativar a própria conta — o sistema bloqueia essa ação. Peça a outro administrador para fazê-lo, se necessário.
+</Callout>
+
+## Agendamento online por profissional
+
+A duração, o repasse e os dados fiscais ficam no cadastro do profissional. Já a **exposição no agendamento online** (deixar o profissional visível para pacientes agendarem sozinhos) é configurada em outra tela: **Configurações → Agendamento Online**, na seção **Profissionais**.
+
+Para cada profissional dessa lista você controla:
+
+- **Listado** — a caixa de seleção que liga/desliga o agendamento online daquele profissional (`allowOnlineBooking`).
+- **Link público** — o trecho de URL (slug) que identifica o profissional no link de agendamento. Digite o slug (ex.: `ana-silva`) e toque em **Salvar**.
+
+Quando o link público está definido, o sistema monta e exibe o link profundo no formato `/agendar/{slug-da-clínica}/{slug-do-profissional}`, com um botão para **copiar** o endereço e enviar aos pacientes.
+
+<Callout type="info">
+**Regras do link público:** entre 2 e 60 caracteres, apenas letras minúsculas, números e hífens simples (sem hífen no início/fim e sem hífens duplos). O link precisa ser único dentro da clínica — se já estiver em uso, o sistema avisa. Exemplo válido: `ana-muller`.
+</Callout>
+
+<Callout type="warn">
+Se um profissional listado aparecer com o aviso **Sem disponibilidade cadastrada**, os pacientes não encontrarão horários para marcar. Toque no aviso para ir à tela de **Disponibilidade** e cadastrar os horários de atendimento desse profissional.
+</Callout>
+
+## Integração com a agenda do Google
+
+Quando um profissional tem a sincronização de calendário do Google configurada, o cartão exibe uma etiqueta de status da integração (visível apenas para administradores), indicando se a sincronização está ativa. A configuração da integração em si é feita pelo próprio profissional.
+
+## Perguntas frequentes
+
+<Cards>
+  <Card title="Não consigo desativar minha conta" description="O sistema impede a autodesativação. Peça a outro administrador da clínica." />
+  <Card title="O email já existe" description="Cada email é único por clínica. Use outro endereço ou reative o profissional inativo que já usa esse email." />
+  <Card title="O profissional não aparece no agendamento online" description="Verifique se ele está 'Listado' em Agendamento Online e se tem disponibilidade cadastrada." />
+  <Card title="Repasse com valor menor que o esperado" description="O repasse é por sessão atendida. Cada profissional recebe apenas pelas sessões que ele realizou." />
+</Cards>

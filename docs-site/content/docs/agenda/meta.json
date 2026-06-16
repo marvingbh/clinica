@@ -1,0 +1,15 @@
+{
+  "title": "Agenda e agendamentos",
+  "pages": [
+    "visao-geral-agenda",
+    "criar-e-editar-agendamento",
+    "status-e-pendencias",
+    "recorrencias",
+    "conflitos-e-arrastar-soltar",
+    "tarefas",
+    "imprimir-agenda",
+    "disponibilidade",
+    "lembretes-automaticos",
+    "sincronizacao-google-ical"
+  ]
+}

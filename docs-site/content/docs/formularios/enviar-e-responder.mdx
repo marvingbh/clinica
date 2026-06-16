@@ -1,0 +1,211 @@
+---
+title: "Enviar e responder formulários"
+description: "Enviar por canal, preenchimento público com progresso, status e visualização/PDF."
+feature: formularios
+sources:
+  - "src/app/formularios/components/SendFormDialog.tsx"
+  - "src/app/f/**"
+  - "src/app/api/forms/responses/**"
+  - "src/app/api/public/forms/**"
+  - "src/lib/forms/completion.ts"
+lastReviewedCommit: 1d93f26
+audience: recepcao
+status: published
+isNew: true
+---
+
+Depois que um formulário é publicado, você pode **enviá-lo a um paciente** para
+que ele responda pelo próprio celular. O paciente abre um link, preenche uma
+tela única com barra de progresso e envia as respostas. Você acompanha o
+andamento pelo **status** na ficha do paciente e, quando o formulário é
+concluído, pode **visualizar as respostas e baixar o PDF**.
+
+<Callout type="info" title="Funcionalidade recente">
+  O envio de formulários a pacientes foi adicionado recentemente. As ações de
+  envio e acompanhamento ficam na seção **Formulários** dentro da ficha do
+  paciente. Se você não vê essa seção ou o botão **Enviar formulário**, fale com
+  o administrador sobre suas permissões (veja [Quem pode enviar e
+  ver](#quem-pode-enviar-e-ver)).
+</Callout>
+
+## Onde encontrar
+
+Abra a ficha de um paciente e localize a seção **Formulários**. Ela reúne:
+
+- o botão **Enviar formulário** (no canto superior direito da seção);
+- a **lista de formulários já enviados** a esse paciente, do mais recente para o
+  mais antigo, cada um com o nome do modelo, a versão (`v1`, `v2`...), a data de
+  envio, o **status** e os botões de ação.
+
+{/* TODO screenshot: /img/formularios-enviar-e-responder-1.png */}
+
+Quando ainda não há nada enviado, a lista mostra **"Nenhum formulário
+enviado."**.
+
+## Enviar um formulário
+
+<Steps>
+
+<Step>
+Na seção **Formulários** da ficha do paciente, clique em **Enviar formulário**.
+A janela **Enviar formulário** é aberta.
+</Step>
+
+<Step>
+Em **Modelo**, escolha o formulário a enviar. A lista mostra apenas os modelos
+**ativos e já publicados**.
+
+<Callout type="warn" title="Nenhum modelo disponível?">
+  Se aparecer **"Nenhum modelo publicado disponível. Publique um formulário
+  primeiro."**, é porque o modelo ainda não foi publicado. Publique-o em
+  **Formulários** antes de enviar.
+</Callout>
+</Step>
+
+<Step>
+Em **Canal**, escolha como o link chega ao paciente:
+
+- **WhatsApp** — envia o link por WhatsApp para o telefone cadastrado do paciente.
+- **E-mail** — envia o link por e-mail para o e-mail cadastrado do paciente.
+- **Copiar link** — não envia nada automaticamente; gera o link para você copiar
+  e repassar como preferir.
+</Step>
+
+<Step>
+Em **Validade**, escolha por quantos dias o link fica válido: **7, 14 ou 30
+dias**. O padrão é **14 dias**. Depois desse prazo, o link expira e o paciente
+precisa de um novo.
+</Step>
+
+<Step>
+Clique em **Enviar** (ou em **Gerar link**, se você escolheu **Copiar link**).
+</Step>
+
+</Steps>
+
+Ao confirmar:
+
+- com **WhatsApp** ou **E-mail**, aparece a mensagem **"Formulário enviado para
+  [nome do paciente]"** e a notificação com o link sai pelo canal escolhido;
+- com **Copiar link**, aparece **"Link gerado"** e a janela exibe o endereço do
+  formulário com um botão **Copiar**. Use-o para enviar o link ao paciente da
+  forma que preferir.
+
+<Callout type="info" title="O link sempre funciona, mesmo sem WhatsApp/e-mail">
+  Se o paciente não tiver telefone ou e-mail cadastrado, ou se a notificação
+  falhar, o formulário ainda é criado normalmente — basta usar **Copiar link**
+  para obter o endereço e repassá-lo manualmente.
+</Callout>
+
+<Callout type="info" title="Reenviar substitui envios anteriores">
+  Ao enviar um mesmo modelo a um paciente, qualquer envio anterior **ainda
+  pendente** (Enviado ou Em preenchimento) desse mesmo modelo é
+  automaticamente **expirado**. Assim, vale sempre o link mais recente — não há
+  risco de o paciente preencher uma versão antiga.
+</Callout>
+
+## Como o paciente preenche
+
+O paciente abre o link no celular e vê uma tela única, com o **nome da clínica**
+e o **nome do formulário** no topo.
+
+- **Barra de progresso** — uma barra no topo mostra quanto do formulário já foi
+  preenchido. Ela considera os campos de resposta atualmente visíveis
+  (obrigatórios e opcionais); os títulos de seção não contam.
+- **Aviso de privacidade** — abaixo do título, o paciente vê o aviso de que as
+  respostas contêm dados sensíveis de saúde e ficarão visíveis ao profissional
+  responsável pelo atendimento.
+- **Campos por tipo** — texto curto, texto longo, data (`DD/MM/AAAA`), sim/não,
+  escala de 0 a 10, escolha única, múltipla escolha, lista suspensa e termos de
+  consentimento ("Li e aceito"). Campos obrigatórios são marcados com asterisco
+  (**\***).
+- **Salvamento automático** — conforme o paciente responde, as respostas são
+  salvas sozinhas. Se ele fechar e reabrir o link (antes de expirar), continua de
+  onde parou.
+
+Ao final, o paciente toca em **Enviar respostas**. Se faltar algum campo
+obrigatório, aparece **"Há campos pendentes. Verifique os destacados."** e os
+campos com problema ficam realçados. Quando dá tudo certo, ele vê a tela
+**"Respostas enviadas. Obrigado!"** e pode fechar a página.
+
+{/* TODO screenshot: /img/formularios-enviar-e-responder-2.png */}
+
+<Callout type="info" title="Quando o link já não funciona">
+  Se o link tiver expirado, o paciente vê **"Este link expirou"** com a
+  orientação de pedir um novo à clínica. Se o formulário já tiver sido enviado,
+  uma nova abertura informa que ele já foi concluído. Em ambos os casos, nenhum
+  dado do paciente é exibido.
+</Callout>
+
+## Acompanhar pelo status
+
+Cada formulário na lista exibe um **status** (em forma de etiqueta colorida) que
+reflete o andamento:
+
+| Status | O que significa |
+| --- | --- |
+| **Enviado** | O link foi gerado/enviado e o paciente ainda não começou. |
+| **Em preenchimento** | O paciente abriu o link e começou a responder. |
+| **Concluído** | O paciente enviou as respostas. |
+| **Expirado** | A validade do link passou (ou o envio foi cancelado). |
+
+A linha mostra também **"Enviado em DD/MM/AAAA"** e, quando concluído,
+**"Concluído em DD/MM/AAAA"**.
+
+<Callout type="info">
+  O status **Expirado** aparece automaticamente assim que a validade do link
+  passa — não é preciso fazer nada nem esperar nenhuma rotina diária.
+</Callout>
+
+### Ações disponíveis por status
+
+Os botões à direita de cada formulário mudam conforme o status:
+
+- **Concluído** → **Ver** (abre as respostas; veja a seção abaixo).
+- **Enviado** ou **Em preenchimento** → **Reenviar** e **Cancelar**.
+- **Expirado** → **Reenviar** (não há mais o que cancelar).
+
+**Reenviar** gera um link novo, renova o prazo de validade e volta o status para
+**Enviado** — o link antigo deixa de funcionar. Aparece a mensagem **"Link
+reenviado"**.
+
+**Cancelar** revoga um envio que ainda está pendente: o status passa para
+**Expirado** e o link para de funcionar. Aparece **"Envio cancelado"**. Um
+formulário já **Concluído** não pode ser cancelado.
+
+## Visualizar respostas e baixar o PDF
+
+Quando um formulário está **Concluído**, clique em **Ver** para abrir a página
+de respostas. Nela você encontra:
+
+- o **nome do modelo**, o paciente e a **versão** respondida, com a etiqueta de
+  status;
+- cada **pergunta com a respectiva resposta**, na ordem do formulário (perguntas
+  sem resposta aparecem como **"(sem resposta)"**);
+- o botão **Baixar PDF**, que gera um arquivo com o cabeçalho da clínica e o
+  conjunto pergunta/resposta — útil para anexar ao prontuário ou imprimir.
+
+{/* TODO screenshot: /img/formularios-enviar-e-responder-3.png */}
+
+<Callout type="info" title="Arquivo também na biblioteca de documentos">
+  Ao ser concluído, o formulário é arquivado automaticamente como **PDF nos
+  documentos do paciente** (origem "Formulário"). Além disso, o profissional
+  responsável recebe uma tarefa e uma notificação por e-mail informando que o
+  formulário foi respondido.
+</Callout>
+
+## Quem pode enviar e ver
+
+- **Enviar, reenviar e cancelar** exige permissão de **escrita** em
+  Formulários. Sem ela, você vê a lista, mas não os botões de ação.
+- **Ver a lista e os status** exige permissão de **leitura** em Formulários.
+- **Ver o conteúdo das respostas (e o PDF)** é mais restrito: além de um
+  administrador, só pode ver quem é o **profissional de referência** do
+  paciente, o **profissional vinculado ao envio** ou **quem enviou** o
+  formulário. Para os demais, aparece **"Sem permissão para ver o conteúdo desta
+  resposta."**.
+
+<Cards>
+  <Card title="Construtor de formulários" href="/docs/formularios/construtor-de-formularios" />
+  <Card title="Fichas de cadastro (intake público)" href="/docs/formularios/fichas-de-cadastro" />
+</Cards>

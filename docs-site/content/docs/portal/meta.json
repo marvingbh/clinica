@@ -1,0 +1,10 @@
+{
+  "title": "Portal do paciente e agendamento online",
+  "pages": [
+    "agendamento-online",
+    "configurar-agendamento-online",
+    "portal-do-paciente",
+    "solicitacoes-de-agendamento",
+    "lista-de-espera"
+  ]
+}

@@ -1,0 +1,177 @@
+---
+title: "Disponibilidade que alimenta a agenda"
+description: "Como regras e exceções definem os slots livres na agenda e no agendamento online."
+feature: agendamento
+sources:
+  - "src/lib/booking/slot-engine.ts"
+  - "src/app/settings/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+---
+
+A sua **Disponibilidade** é a base de tudo que aparece como horário livre na agenda e no agendamento online. Em vez de marcar manualmente quando você está livre, você define duas coisas e o sistema calcula o resto:
+
+- **Regras semanais** — os horários em que você normalmente atende, dia a dia da semana.
+- **Exceções** — folgas, feriados, férias ou horários extras pontuais que fogem da rotina.
+
+A partir disso, o sistema gera automaticamente os slots disponíveis, descontando os agendamentos já existentes. Esta página mostra como configurar cada parte e como elas se combinam.
+
+## Como chegar lá
+
+No menu, abra **Disponibilidade** (`/settings/availability`). A página tem duas seções: o editor de **regras semanais** no topo e a lista de **Bloqueios e Exceções** logo abaixo.
+
+<Callout type="info" title="Quem edita o quê">
+Se você é **profissional**, a página já abre com a sua própria disponibilidade. Se você é **administrador** (com permissão para ver a agenda de outros), aparece primeiro um seletor "Selecione um profissional" no topo — escolha de quem você quer editar a disponibilidade antes de continuar.
+</Callout>
+
+## Parte 1 — Regras semanais (a rotina)
+
+As regras semanais descrevem o seu padrão fixo: "atendo de segunda a sexta, das 08:00 às 12:00 e das 14:00 às 18:00", por exemplo. Cada dia da semana tem um interruptor:
+
+<Steps>
+
+<Step>
+**Ative o dia.** Toque no interruptor ao lado de **Segunda**, **Terça**, ..., **Domingo**. Ao ativar um dia pela primeira vez, ele já entra com um horário padrão de **08:00–18:00**.
+</Step>
+
+<Step>
+**Ajuste os horários.** Em cada dia ativo você define o **início** e o **término** de cada bloco usando os campos de hora (formato 24h, `HH:mm`).
+</Step>
+
+<Step>
+**Adicione mais blocos no mesmo dia.** Precisa de um intervalo de almoço? Toque em **Adicionar horário** e crie um segundo bloco. Assim você pode ter, por exemplo, `08:00–12:00` e `14:00–18:00` numa mesma terça-feira, deixando o meio do dia fora da disponibilidade.
+</Step>
+
+<Step>
+**Remova o que não usa.** O ícone de lixeira ao lado de um bloco o remove. Se você apagar o último bloco de um dia, o dia volta a ficar inativo.
+</Step>
+
+<Step>
+**Salve.** Toque em **Salvar** no topo da página. Você verá a confirmação "Disponibilidade salva com sucesso".
+</Step>
+
+</Steps>
+
+Acima do editor, um resumo mostra quantos **dias ativos** e quantos **horários** você configurou no total — útil para conferir rapidamente se não esqueceu nenhum dia.
+
+{/* TODO screenshot: /img/agenda/disponibilidade-regras-semanais.png */}
+
+<Callout type="warn" title="O início precisa vir antes do término">
+Ao salvar, o sistema valida cada bloco: o horário de início tem que ser anterior ao de término. Se você inverter (por exemplo, `18:00–08:00`), o salvamento é recusado com uma mensagem de erro.
+</Callout>
+
+## Parte 2 — Bloqueios e exceções (o que foge da rotina)
+
+As regras semanais cobrem o padrão, mas a vida real tem feriados, férias, congressos e encaixes. É para isso que servem as **exceções**, listadas na seção **Bloqueios e Exceções**. Existem dois tipos:
+
+<Cards>
+
+<Card title="Bloqueio">
+**Remove** disponibilidade de uma data específica. Use para feriados, férias, ou para fechar parte de um dia. Mesmo que a regra semanal diga que você atende, um bloqueio cancela aquela janela.
+</Card>
+
+<Card title="Extra">
+**Adiciona** disponibilidade fora da sua rotina. Use para um encaixe num sábado em que normalmente você não atende, ou para estender o expediente num dia pontual.
+</Card>
+
+</Cards>
+
+### Criar uma exceção
+
+<Steps>
+
+<Step>
+Na seção **Bloqueios e Exceções**, toque em **+ Adicionar**. Abre o painel **Nova Exceção**.
+</Step>
+
+<Step>
+**Escolha o tipo:** **Bloqueio** (vermelho, para remover horário) ou **Extra** (verde, para adicionar horário).
+</Step>
+
+<Step>
+**Defina a data** no campo **Data**, no formato `DD/MM/AAAA` (por exemplo `25/12/2026`).
+</Step>
+
+<Step>
+**Decida a abrangência do tempo.** Deixe **Dia inteiro** ligado para afetar o dia todo, ou desligue para informar um intervalo de **início** e **término** (em `HH:mm`) — por exemplo, bloquear só a tarde.
+</Step>
+
+<Step>
+**(Opcional) Informe o motivo.** O campo **Motivo** aceita um texto livre como "Férias" ou "Feriado". Ele aparece na lista e ajuda a equipe a entender o porquê do bloqueio.
+</Step>
+
+<Step>
+**Salve.** Você verá "Bloqueio adicionado" ou "Disponibilidade extra adicionada", conforme o tipo escolhido.
+</Step>
+
+</Steps>
+
+{/* TODO screenshot: /img/agenda/disponibilidade-nova-excecao.png */}
+
+A lista de exceções mostra cada item com a data, o intervalo (ou "Dia inteiro"), e um selo indicando se é da clínica inteira ou de um profissional. Bloqueios aparecem em vermelho e horários extras em verde. Para excluir uma exceção, toque no ícone de lixeira — a confirmação "Exceção removida" aparece em seguida.
+
+### Exceções para toda a clínica (administradores)
+
+Se você é administrador, o painel de exceção mostra também o campo **Aplicar a**, com duas opções:
+
+- **Clínica** — a exceção vale para **todos os profissionais** (ideal para feriados nacionais ou recesso da clínica). Na lista, ela aparece com o selo roxo **Toda a clínica**.
+- **Profissional** — a exceção vale só para o profissional selecionado.
+
+<Callout type="info" title="Bloqueio da clínica em primeiro lugar">
+Um bloqueio de dia inteiro para toda a clínica fecha a agenda de todo mundo naquela data, independentemente das regras semanais de cada profissional. Só administradores podem criar exceções para a clínica inteira.
+</Callout>
+
+## Como tudo isso vira slots livres
+
+Quando a agenda ou o agendamento online precisam saber quando você está livre num dia, o sistema combina as peças nesta ordem:
+
+<Steps>
+
+<Step>
+**Começa pelas regras semanais** ativas daquele dia da semana, somando todos os blocos.
+</Step>
+
+<Step>
+**Soma as exceções do tipo Extra** (disponibilidade adicional) que caem naquela data.
+</Step>
+
+<Step>
+**Subtrai os bloqueios** — exceções do tipo Bloqueio da data, bloqueios recorrentes do dia da semana e bloqueios de toda a clínica. Um bloqueio parcial recorta apenas o intervalo bloqueado; um bloqueio de dia inteiro fecha o dia todo.
+</Step>
+
+<Step>
+**Desconta os agendamentos já existentes.** Compromissos que ocupam tempo (e que não foram cancelados) removem os slots que se sobrepõem a eles.
+</Step>
+
+</Steps>
+
+O resultado são as janelas realmente livres do dia. Na agenda, elas viram os horários onde você pode encaixar um novo atendimento; no agendamento online, viram os horários que o paciente pode escolher.
+
+<Callout type="info" title="Horários em fuso de São Paulo">
+Os horários das regras e exceções são interpretados no fuso de São Paulo (`America/Sao_Paulo`). Você sempre digita e lê os horários no horário local da clínica.
+</Callout>
+
+## O que muda no agendamento online
+
+No **agendamento online**, além da sua disponibilidade, entram em cena algumas configurações que controlam quais slots o paciente vê:
+
+- **Duração da sessão e intervalo entre slots** — definidos por profissional (a duração do profissional prevalece sobre o padrão da clínica). A grade de horários avança em passos de *duração + intervalo*.
+- **Antecedência mínima** — slots cedo demais (antes do mínimo de horas de antecedência da clínica) não são oferecidos.
+- **Horizonte de agendamento** — slots muito distantes não aparecem. Vale o menor valor entre o horizonte da clínica e o limite de dias do profissional.
+
+<Callout type="warn" title="Agendamento online precisa estar habilitado">
+Os slots só aparecem publicamente para profissionais com o **agendamento online ativado** e um link público configurado. A disponibilidade que você define aqui alimenta tanto a agenda interna quanto a página pública — mas a página pública só existe para quem tem o agendamento online ligado.
+</Callout>
+
+## Resumo
+
+| Você quer... | Use |
+| --- | --- |
+| Definir sua rotina semanal de atendimento | **Regras semanais** (interruptor por dia + blocos de horário) |
+| Tirar férias ou marcar um feriado | Exceção do tipo **Bloqueio**, dia inteiro |
+| Fechar só uma parte de um dia | Exceção do tipo **Bloqueio**, com intervalo `HH:mm` |
+| Abrir um horário extra fora da rotina | Exceção do tipo **Extra** |
+| Fechar a clínica inteira numa data (admin) | Exceção com **Aplicar a → Clínica** |
+
+Mantenha as regras semanais como a sua base estável e use exceções apenas para o que foge dela. Assim a agenda e o agendamento online refletem sempre a sua disponibilidade real, sem retrabalho.

@@ -1,0 +1,76 @@
+---
+title: "Configurações de e-mail"
+description: "Remetente, endereço de envio (Resend), BCC e acesso aos templates."
+feature: notificacoes
+sources:
+  - "src/app/admin/settings/components/EmailTab.tsx"
+  - "src/lib/notifications/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+---
+
+Os e-mails que a clínica envia (confirmações, lembretes, NFS-e, documentos para assinatura, avisos de agendamento online) saem com um remetente. Nesta tela você define **quem aparece como remetente**, **de qual endereço o e-mail sai** e **um endereço em cópia oculta** para arquivar tudo o que é enviado.
+
+<Callout type="info">
+A entrega de e-mails é feita pelo provedor **Resend**. O endereço de envio só funciona se o domínio dele estiver verificado no Resend (veja [Endereço de envio](#endereço-de-envio-resend) abaixo).
+</Callout>
+
+## Onde encontrar
+
+<Steps>
+<Step>
+Abra **Configurações da Clínica**.
+</Step>
+<Step>
+Clique na aba **E-mail** (ícone de envelope).
+</Step>
+<Step>
+Preencha os campos e clique em **Salvar**. Ao salvar, aparece a mensagem "Configurações de e-mail salvas".
+</Step>
+</Steps>
+
+<Screenshot src="/img/configuracao/configuracoes-de-email-1.png" alt="Aba E-mail das configurações da clínica com os campos Nome do remetente, Endereço de envio e BCC" />
+
+## Nome do remetente
+
+É o nome que o paciente vê como remetente na caixa de entrada (por exemplo, "Clínica Bem-Estar").
+
+- O campo é **opcional**. Se você deixar em branco, o sistema usa o **nome da clínica** automaticamente.
+- O texto de exemplo do campo mostra o nome atual da clínica, justamente para indicar o que será usado caso você não preencha.
+
+## Endereço de envio (Resend)
+
+É o e-mail que aparece no campo "De" das mensagens — por exemplo, `naoresponda@seudominio.com.br`.
+
+<Callout type="warn">
+O domínio desse endereço **precisa estar verificado no Resend**. Se você informar um endereço cujo domínio não foi verificado, a entrega falha. Use sempre um endereço de um domínio que a clínica já validou no Resend.
+</Callout>
+
+- O campo é **opcional**, mas recomendado. Sem um endereço próprio verificado, o sistema recorre ao remetente padrão da plataforma, que pode não ter o domínio da sua clínica.
+- O valor passa por validação de formato de e-mail ao salvar; um endereço inválido é recusado.
+- O **e-mail de cadastro da clínica** (definido na aba **Clínica**) é usado automaticamente como endereço de **resposta** (*reply-to*). Assim, quando o paciente responde a uma notificação, a resposta chega no e-mail da clínica, e não no endereço de envio.
+
+<Callout type="info">
+Esse mesmo endereço de envio e nome do remetente são reaproveitados por outros fluxos de e-mail: envio de **NFS-e** ao paciente, envio de **documentos para assinatura** e os avisos de **agendamento online**. Configurar aqui uma única vez já cobre todos eles.
+</Callout>
+
+## E-mail em cópia oculta (BCC)
+
+Informe um endereço para receber uma **cópia dos e-mails enviados** pela clínica (por exemplo, `arquivo@seudominio.com.br`). Útil para manter um arquivo do que sai.
+
+- O campo é **opcional**. Deixe em branco se não quiser cópias.
+- O valor também passa por validação de formato de e-mail ao salvar.
+- A cópia é aplicada no **envio de NFS-e** ao paciente (como cópia oculta de fato) e nos avisos internos de **agendamento online recebido** e **ficha de pré-cadastro enviada** (onde o endereço recebe uma cópia do e-mail enviado à equipe).
+- As **notificações enviadas ao paciente** (confirmações, lembretes) e os **documentos para assinatura** **não** recebem essa cópia.
+
+## Templates: o conteúdo das mensagens
+
+Esta tela cuida apenas de **quem envia** e **de onde**. O **texto** de cada mensagem (assunto e corpo) é gerenciado em outro lugar.
+
+No final da aba E-mail há o cartão **Templates de Notificação**, com o botão **Gerenciar**, que leva à tela de personalização das mensagens de WhatsApp e e-mail enviadas aos pacientes.
+
+<Cards>
+<Card title="Templates de notificação" href="/docs/configuracao/templates-de-notificacao" description="Personalize assunto e texto das mensagens, com variáveis como nome do paciente, data e horário." />
+<Card title="Notificações e lembretes" href="/docs/notificacoes/notificacoes-e-lembretes" description="Como funcionam os disparos de confirmação, lembrete e reenvio." />
+</Cards>

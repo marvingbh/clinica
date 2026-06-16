@@ -1,0 +1,164 @@
+---
+title: "Configuração fiscal (NFS-e e DMED)"
+description: "Certificado A1, dados municipais, regime tributário, ISS e dados DMED/CNPJ."
+feature: fiscal
+sources:
+  - "src/app/admin/settings/components/NfseConfigForm.tsx"
+  - "src/app/admin/settings/components/NfseConfigFields.tsx"
+  - "src/app/admin/settings/components/FiscalConfigTab.tsx"
+  - "src/lib/nfse/validation.ts"
+  - "src/app/api/admin/settings/nfse/**"
+  - "src/app/api/financeiro/fiscal/config/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+A configuração fiscal reúne os dados que a Clinica usa para emitir notas fiscais de serviço (NFS-e) e para gerar a declaração anual de serviços médicos e de saúde (DMED). Você faz tudo em **Configurações da Clínica**, em duas abas separadas: **NFS-e** e **Fiscal**.
+
+<Callout type="info" title="Restrito a administradores">
+  Estas configurações são da clínica inteira e só ficam disponíveis para usuários com perfil **ADMIN**. Profissionais não veem nem editam estes dados.
+</Callout>
+
+## Onde encontrar
+
+<Steps>
+<Step>
+Abra **Configurações da Clínica** (`/admin/settings`).
+</Step>
+<Step>
+Na barra de abas, use **NFS-e** para os dados de emissão de nota e **Fiscal** para o DMED. As duas abas são independentes e salvas separadamente.
+</Step>
+</Steps>
+
+<Screenshot src="/img/fiscal-configuracao-fiscal-1.png" alt="Abas NFS-e e Fiscal na página de Configurações da Clínica" caption="As abas NFS-e e Fiscal ficam lado a lado em Configurações da Clínica." />
+
+---
+
+## Aba NFS-e
+
+A aba **NFS-e** controla a emissão automática de nota fiscal de serviço pelo sistema nacional (gov.br). Enquanto nada estiver configurado, você vê apenas a mensagem "Configure a emissão automática de NFS-e via sistema nacional (gov.br)" e o botão **Configurar NFS-e**. Depois de salvo, a aba passa a mostrar um resumo com os principais dados e os botões **Editar** e **Remover**.
+
+### Certificado digital A1
+
+A NFS-e é assinada com o **certificado digital A1** da clínica. No primeiro cadastro o envio do certificado é obrigatório — se você tentar salvar sem ele, a Clinica avisa "Certificado digital A1 obrigatório na primeira configuração".
+
+<Steps>
+<Step>
+Na seção **Certificado Digital A1**, clique em **Selecionar arquivo (.pfx/.p12)** e escolha o arquivo do seu certificado. Só são aceitos arquivos `.pfx` ou `.p12`.
+</Step>
+<Step>
+Preencha a **Senha do Certificado**. Ela é obrigatória sempre que um certificado é enviado.
+</Step>
+<Step>
+Salve. A Clinica lê o certificado e a chave privada de dentro do arquivo e os guarda de forma criptografada — a senha e o conteúdo do certificado nunca são exibidos de volta.
+</Step>
+</Steps>
+
+Quando já existe um certificado instalado, a seção mostra o selo verde **Certificado A1 instalado** e o botão muda para **Substituir certificado**. Nesse caso você pode salvar outras alterações sem reenviar o certificado; só envie um arquivo novo quando precisar trocá-lo (por exemplo, na renovação anual).
+
+<Callout type="warn" title="Arquivo ou senha inválidos">
+  Se o arquivo não for um PFX válido ou a senha estiver errada, o salvamento falha com uma mensagem do tipo "Falha ao extrair certificado…" (por exemplo, "Certificado não encontrado no arquivo PFX" ou "Chave privada não encontrada no arquivo PFX"). Confira se exportou o A1 completo, com chave privada, e se a senha está correta.
+</Callout>
+
+### Dados fiscais e municipais
+
+Os campos marcados com asterisco (`*`) são obrigatórios:
+
+| Campo | O que informar |
+| --- | --- |
+| **CNPJ** `*` | CNPJ da clínica. É validado (dígitos verificadores); se estiver incorreto, aparece "CNPJ inválido". |
+| **Inscrição Municipal** `*` | Inscrição da clínica na prefeitura. |
+| **Código Município (IBGE)** `*` | Código IBGE do município, com exatamente **7 dígitos**. |
+
+No resumo da aba, o CNPJ aparece mascarado (ex.: `12.***.***/****-00`) por segurança.
+
+### Regime tributário
+
+Dois campos definem o enquadramento tributário:
+
+- **Regime Tributário** `*` — escolha entre **MEI**, **Simples Nacional**, **Lucro Presumido** ou **Lucro Real**.
+- **Optante Simples Nacional (ADN)** — indica como a clínica é tratada no Ambiente de Dados Nacional: **Não Optante (Lucro Presumido / Lucro Real)**, **MEI** ou **ME/EPP (Simples Nacional)**.
+
+<Callout type="info" title="Se o ADN rejeitar a nota">
+  O campo **Optante Simples Nacional (ADN)** deve corresponder ao cadastro da clínica na Receita Federal. Se o sistema nacional rejeitar a emissão por divergência de enquadramento, ajuste este campo para refletir o cadastro real.
+</Callout>
+
+### Serviço padrão e ISS
+
+A seção **Serviço Padrão** define o que será preenchido por padrão em cada nota:
+
+| Campo | O que informar |
+| --- | --- |
+| **Código Nacional (cTribNac)** `*` | Código nacional do serviço, com 6 dígitos (ex.: `041601` = Psicologia). |
+| **Código Municipal (cTribMun)** | Código do serviço na prefeitura, até 3 dígitos. Obrigatório em alguns municípios, como Belo Horizonte. |
+| **Alíquota ISS (%)** `*` | Percentual de ISS do município (de 0 a 100). |
+| **CNAE** | Código CNAE da atividade. |
+| **Serviço NBS** | Lista pronta de serviços de saúde (psicologia, serviços médicos especializados etc.). Ao escolher, os campos **Código NBS** e **CClass NBS** são preenchidos automaticamente. |
+| **Código NBS / CClass NBS** | Podem ser preenchidos manualmente caso o serviço não esteja na lista. |
+| **CRP do Profissional** | Registro profissional (ex.: `CRP04/23853`). |
+| **Percentual Total de Impostos (%)** | Carga tributária total estimada (Lei 12.741/2012). Aparece na descrição da NFS-e. |
+
+#### Modelo de descrição da NFS-e
+
+O campo **Modelo de Descrição da NFS-e** define o texto que vai na nota. Deixe vazio para usar o padrão do sistema, ou monte o seu usando as variáveis disponíveis:
+
+`{{paciente}}`, `{{relacao}}`, `{{profissional}}`, `{{registro}}`, `{{dias_completo}}` (datas com mês/ano), `{{dias}}` (só os números), `{{mes}}`, `{{ano}}`, `{{valor_sessao}}`, `{{sessoes}}`, `{{impostos}}`, `{{consulta_label}}` (consulta/consultas), `{{dia_preposicao}}` (no dia/nos dias) e `{{valor_label}}` (Valor/Cada sessão com valor unitário).
+
+### Ambiente de teste (sandbox)
+
+A opção **Usar ambiente de teste (sandbox)** vem marcada por padrão. Use-a para validar a configuração sem efeito legal.
+
+<Callout type="warn" title="Sandbox não tem validade fiscal">
+  Notas emitidas no sandbox **não têm validade fiscal**. Quando estiver tudo certo, desmarque a opção e salve para passar a emitir em produção. No resumo da aba, um selo amarelo **Sandbox** ou verde **Produção** indica o ambiente ativo.
+</Callout>
+
+### Salvar e remover
+
+- **Salvar Configuração** grava os dados. O botão **Cancelar** descarta as alterações em edição.
+- **Remover** apaga toda a configuração de NFS-e da clínica. A ação pede confirmação ("Tem certeza que deseja remover a configuração NFS-e? Essa ação não pode ser desfeita.") e não pode ser desfeita.
+
+---
+
+## Aba Fiscal (DMED e CNPJ)
+
+A aba **Fiscal** guarda os dados usados para gerar a **DMED** (Declaração de Serviços Médicos e de Saúde), entregue anualmente quando a clínica atua como pessoa jurídica.
+
+<Steps>
+<Step>
+Marque **Gerar DMED para esta clínica** para habilitar a geração da declaração.
+</Step>
+<Step>
+Preencha o **CNPJ** e o **Nome empresarial** da clínica. O CNPJ também é validado aqui. Se você já cadastrou o CNPJ na aba NFS-e, a Clinica avisa "CNPJ da NFS-e disponível: …" e sugere reaproveitá-lo, evitando digitar de novo.
+</Step>
+<Step>
+No bloco **Responsável pela DMED**, informe **CPF** (validado), **Nome**, **DDD** e **Telefone** da pessoa responsável pela declaração.
+</Step>
+<Step>
+Clique em **Salvar**.
+</Step>
+</Steps>
+
+<Callout type="info" title="NFS-e e DMED são complementares">
+  A aba **NFS-e** cuida da emissão de notas no dia a dia; a aba **Fiscal** prepara a declaração anual da DMED. As duas compartilham o CNPJ da clínica, mas são salvas separadamente — preencher uma não preenche a outra automaticamente (apenas a sugestão de CNPJ é compartilhada).
+</Callout>
+
+---
+
+## Perguntas frequentes
+
+<Cards>
+  <Card title="Posso configurar a NFS-e sem o certificado A1?">
+    Não. O certificado A1 é obrigatório no primeiro cadastro, porque é ele que assina as notas. Depois de instalado, você pode editar os demais dados sem reenviá-lo.
+  </Card>
+  <Card title="Como troco o certificado quando vence?">
+    Na aba NFS-e, clique em **Editar** e use **Substituir certificado** para enviar o novo arquivo `.pfx`/`.p12` e a senha. Salve em seguida.
+  </Card>
+  <Card title="Por que o ADN rejeitou minha nota?">
+    Geralmente o campo **Optante Simples Nacional (ADN)** está diferente do cadastro na Receita Federal. Ajuste-o para refletir o enquadramento real da clínica.
+  </Card>
+  <Card title="Preciso preencher o CNPJ duas vezes?">
+    Não necessariamente. Se já houver CNPJ na aba NFS-e, a aba Fiscal mostra esse valor como sugestão para você reutilizar.
+  </Card>
+</Cards>

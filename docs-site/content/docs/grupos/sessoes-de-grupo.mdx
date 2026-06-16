@@ -1,0 +1,183 @@
+---
+title: "Sessões de grupo na agenda"
+description: "Gerar/reagendar sessões, status por participante, evolução em massa e faturas agrupadas."
+feature: grupos
+sources:
+  - "src/app/agenda/components/group-session/**"
+  - "src/app/agenda/components/GroupSessionSheet.tsx"
+  - "src/app/agenda/components/CreateGroupSessionSheet.tsx"
+  - "src/app/api/group-sessions/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+---
+
+Uma sessão em grupo reúne **vários pacientes no mesmo horário** com o mesmo profissional. Por trás disso, a Clinica cria **um agendamento por participante** — assim cada pessoa tem seu próprio status, sua própria evolução no prontuário e seu próprio item na fatura, mas você gerencia todos juntos a partir de um único painel.
+
+Esta página explica como criar e reagendar sessões, marcar presença por participante, registrar evoluções em massa e como os atendimentos viram itens nas faturas dos pacientes.
+
+<Callout type="info" title="Dois tipos de sessão em grupo">
+  - **Sessão única**: um encontro avulso, em uma data específica (ex.: um workshop ou um grupo pontual).
+  - **Grupo recorrente**: uma série que se repete (semanal, quinzenal ou mensal) e gera sessões automaticamente para os próximos 6 meses. Só grupos recorrentes têm a aba **Recorrência**.
+</Callout>
+
+## Criar uma sessão em grupo
+
+Na agenda, abra o painel **Nova Sessão em Grupo**. O formulário tem uma pré-visualização ao lado que vai sendo atualizada conforme você preenche os campos.
+
+<Steps>
+
+<Step>
+**Selecione os pacientes.** Use a busca de pacientes para adicionar quem vai participar. É obrigatório selecionar **pelo menos 2 pacientes** — o botão de criar só libera a partir daí.
+</Step>
+
+<Step>
+**Dê um título ao grupo.** Por exemplo, `Grupo de ansiedade`. O título identifica a sessão na agenda e aparece nas faturas.
+</Step>
+
+<Step>
+**Defina data, início e duração.** A data usa o formato DD/MM/AAAA e o horário usa HH:mm (24 horas). A duração é em minutos; o campo **Fim** mostra automaticamente o horário de término.
+</Step>
+
+<Step>
+**Escolha a modalidade.** **Presencial** ou **Online**. Em sessões **Online**, o grupo compartilha uma única sala de teleconsulta — todos os participantes entram na mesma sala.
+</Step>
+
+<Step>
+**Marque a recorrência (opcional).** Marque **Grupo recorrente — cria sessões para 6 meses** e escolha a frequência: **Semanal**, **Quinzenal** ou **Mensal**. A pré-visualização mostra uma estimativa de quantas sessões serão criadas (cerca de 26 para semanal, 13 para quinzenal e 6 para mensal).
+</Step>
+
+<Step>
+**Adicione equipe e observações (opcional).** Se houver outros profissionais disponíveis, você pode marcá-los como **Equipe adicional**. O campo **Observações** aceita anotações livres.
+</Step>
+
+<Step>
+**Crie.** O botão final é **Criar sessão** (sessão única) ou **Criar grupo** (recorrente). Ao concluir, você verá uma confirmação com o número de pacientes ou de sessões geradas.
+</Step>
+
+</Steps>
+
+<Callout type="warn" title="Conflito de horário">
+  Se o horário escolhido colidir com outro evento na agenda do profissional, o sistema avisa antes de criar. Você pode revisar o horário ou, se for proposital, usar **Agendar mesmo assim** para seguir mesmo com a sobreposição.
+</Callout>
+
+{/* TODO screenshot: /img/grupos/criar-sessao-grupo.png */}
+
+## Gerenciar uma sessão existente
+
+Ao clicar em uma sessão em grupo na agenda, abre o painel da sessão com o nome do grupo no topo e três abas (a aba **Recorrência** só aparece em grupos recorrentes):
+
+- **Sessão** — presença e status de cada participante.
+- **Membros** — adicionar/remover pacientes e ajustar profissionais.
+- **Recorrência** — frequência, dia, horário e encerramento da série (só em grupos recorrentes).
+
+O cabeçalho mostra a data, o intervalo de horário, a duração, o número de participantes e o profissional responsável. Quando todos os participantes estão no mesmo status, aparece um único selo; quando estão em status diferentes, aparece a contagem por status (ex.: "3 Compareceu", "1 Faltou").
+
+### Reagendar a sessão
+
+No cabeçalho, ao lado do horário, há um lápis de **Reagendar**. Toque nele para editar a **data** e o **horário** da sessão e confirme em **Salvar**. Todos os agendamentos dos participantes daquele dia são movidos juntos para o novo horário.
+
+<Callout type="info" title="Sessão única x grupo recorrente">
+  Em uma **sessão única** o reagendamento pelo cabeçalho move apenas aquele encontro. Em um **grupo recorrente**, para mudar o padrão da série inteira (dia, horário, frequência) use a aba **Recorrência** — ela pergunta se a mudança vale só para aquela data ou para todas as sessões futuras.
+</Callout>
+
+### Editar o título e excluir
+
+- O lápis ao lado do nome permite **editar o título** do grupo.
+- O ícone de lixeira **exclui a sessão** daquela data. Como isso remove os agendamentos de todos os participantes, há uma confirmação antes. Sessões já vinculadas a uma fatura emitida não podem ser excluídas — desfaça o vínculo na fatura primeiro.
+
+## Status por participante
+
+A aba **Sessão** lista todos os participantes. Cada linha mostra o nome e o status atual; toque na linha para expandir e ver as ações.
+
+Os status seguem o mesmo fluxo dos atendimentos individuais:
+
+| Status no painel | Significado |
+| --- | --- |
+| **Agendado** | Sessão marcada, ainda não confirmada (AGENDADO). |
+| **Confirmado** | Presença confirmada (CONFIRMADO). |
+| **Compareceu** | Paciente participou (FINALIZADO). |
+| **Desmarcou** | Cancelamento combinado com o paciente. |
+| **Faltou** | Paciente não compareceu sem aviso. |
+| **Sem cobrança** | Cancelado pelo profissional, sem cobrança. |
+
+Para um participante ainda ativo, as ações disponíveis são **Compareceu**, **Desmarcou**, **Faltou** e **S/ cobr.** (sem cobrança); o botão **Confirmar** aparece apenas enquanto o participante ainda está em **Agendado**. Ao escolher **Desmarcou**, **Faltou** ou **Sem cobrança**, abre uma confirmação de cancelamento.
+
+Para um participante que foi cancelado (**Desmarcou**, **Faltou** ou **Sem cobrança**), aparece a opção **Alterar:** com o botão **Reagendar**, que devolve o participante para o status **Agendado**, além de poder trocar entre os tipos de cancelamento.
+
+<Callout type="info" title="Desmarcou gera crédito de sessão">
+  Quando um participante é marcado como **Desmarcou** (cancelamento combinado), a Clinica registra automaticamente um **crédito de sessão** para esse paciente. Se você reverter o status depois, o crédito ainda não utilizado é removido.
+</Callout>
+
+### Marcar todos de uma vez
+
+No cabeçalho há o botão **Marcar todos**, que abre um menu com ações em massa para a sessão inteira:
+
+- **Confirmar todos**
+- **Todos compareceram**
+- **Desmarcou**
+- **Faltou**
+- **Sem cobrança**
+
+Ao confirmar, todos os participantes da sessão são atualizados juntos e você vê quantos foram alterados. As ações de cancelamento em massa abrem uma confirmação antes de aplicar.
+
+<Callout type="warn" title="A ação em massa sobrescreve todos">
+  **Marcar todos** aplica o status a **todos os participantes** daquela data, inclusive os que já estavam em um status final. Participantes que já estão no status escolhido são ignorados (não há alteração duplicada).
+</Callout>
+
+{/* TODO screenshot: /img/grupos/status-participantes.png */}
+
+## Membros do grupo
+
+A aba **Membros** lista os participantes ativos e permite **Adicionar** ou remover pacientes.
+
+- Em uma **sessão única**, adicionar ou remover afeta **somente aquela data**.
+- Em um **grupo recorrente**, ao adicionar ou remover você escolhe o alcance:
+  - **Apenas esta sessão** — entra/sai só naquela data.
+  - **Esta e todas as futuras** — vira (ou deixa de ser) membro permanente do grupo, e as sessões futuras são regeradas para refletir a mudança.
+
+Administradores com mais de um profissional na clínica também veem **Profissionais adicionais** na aba Membros, para incluir colegas como equipe de apoio daquela sessão.
+
+## Evolução em massa
+
+Na aba **Sessão**, abaixo da lista de participantes, há o botão **Registrar evoluções do grupo**. Ele cria de uma vez **um rascunho de evolução no prontuário para cada participante**, pulando quem já tiver uma evolução naquela sessão.
+
+Depois você abre o prontuário de cada paciente para completar a evolução individualmente. A confirmação informa quantos rascunhos foram criados e quantos já existiam.
+
+<Callout type="info">
+  O botão **Registrar evoluções do grupo** só aparece se você tiver permissão de escrita no prontuário.
+</Callout>
+
+## Faturas agrupadas
+
+Cada participante tem seu próprio agendamento, então a cobrança é **por paciente** — não há uma fatura única para o grupo inteiro. O que acontece é:
+
+- Cada atendimento de grupo entra como um **item na fatura do respectivo paciente**, com a descrição **"Psicoterapia em grupo — \{nome do grupo\}"**.
+- Os itens de grupo se somam aos demais atendimentos do paciente (sessões individuais, extras etc.) na mesma fatura do período, conforme o modo de cobrança da clínica.
+- O status de presença influencia a cobrança: por exemplo, **Sem cobrança** não gera item cobrável, e **Desmarcou** gera um crédito de sessão para o paciente.
+
+<Callout type="info" title="Quando o status muda depois da fatura">
+  Se você corrigir a presença de participantes de uma sessão em grupo depois que a fatura já foi gerada, use o recálculo da fatura no módulo **Financeiro** para refletir as mudanças. Atendimentos de grupo criados depois de a fatura do mês já ter sido emitida aparecem como pendentes para inclusão na próxima geração.
+</Callout>
+
+## Perguntas frequentes
+
+<Cards>
+
+<Card title="Por que preciso de 2 pacientes?">
+  Uma sessão em grupo só faz sentido com mais de uma pessoa. O formulário exige pelo menos 2 pacientes antes de liberar a criação.
+</Card>
+
+<Card title="Como mudo o dia/horário de toda a série?">
+  Abra o grupo recorrente, vá na aba **Recorrência**, ajuste frequência, dia e horário e salve escolhendo **Esta e todas as futuras**.
+</Card>
+
+<Card title="Como encerro um grupo recorrente?">
+  Na aba **Recorrência**, abra **Encerrar grupo**, informe a data final e confirme. As sessões passadas são mantidas, as futuras são removidas e o grupo é desativado.
+</Card>
+
+<Card title="Removi um participante por engano">
+  Em grupos recorrentes, basta adicioná-lo de novo pela aba **Membros** com o alcance **Esta e todas as futuras** para reativar a participação.
+</Card>
+
+</Cards>

@@ -1,0 +1,114 @@
+---
+title: "Buscar e navegar o prontuário"
+description: "Filtrar por Pendentes/Rascunhos/Assinadas, buscar por nome e paginar."
+feature: prontuario
+sources:
+  - "src/app/prontuario/page.tsx"
+  - "src/app/prontuario/components/ProntuarioBrowser.tsx"
+  - "src/app/api/prontuario/notes/**"
+  - "src/app/api/prontuario/pending/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+isNew: true
+---
+
+A página **Prontuário** reúne, num só lugar, todos os registros clínicos aos quais você tem acesso. A partir dela você localiza uma evolução por nome do paciente, alterna entre evoluções **pendentes**, **rascunhos** e **notas assinadas**, e percorre listas longas com paginação.
+
+<Callout type="info" title="Funcionalidade recente">
+O navegador de prontuário entre pacientes — com filtros de Pendentes/Rascunhos/Assinadas e busca por nome — foi adicionado recentemente. Se você não o encontra no menu, peça ao administrador da clínica para confirmar que você tem acesso ao recurso **Prontuário**.
+</Callout>
+
+## Como abrir
+
+Acesse a página **Prontuário** pelo menu. No topo você verá o título **Prontuário** e a descrição "Busque registros clínicos por paciente ou veja as evoluções pendentes". Logo abaixo ficam o campo de busca, os três filtros e a lista de registros.
+
+<Screenshot src="/img/prontuario/busca-e-navegacao-1.png" alt="Página Prontuário com campo de busca, filtros Pendentes/Rascunhos/Assinadas e a lista de registros" />
+
+<Callout type="info" title="Quem vê o quê">
+Como profissional que registra evoluções, você vê apenas as suas próprias notas e pendências. Um perfil com acesso somente de leitura (por exemplo, uma direção clínica) ou um administrador sem perfil profissional consegue navegar pelas notas de todos os profissionais da clínica. Em qualquer caso, os registros sempre ficam restritos à sua clínica.
+</Callout>
+
+## Os três filtros
+
+Os botões logo abaixo da busca alternam entre três listas. Ao trocar de filtro, a busca por nome é mantida e a paginação volta para a primeira página.
+
+<Tabs items={["Pendentes", "Rascunhos", "Assinadas"]}>
+<Tab value="Pendentes">
+
+**Pendentes** mostra as consultas que você atendeu e que ainda não têm evolução registrada. Uma consulta entra nesta lista quando:
+
+- é do tipo **Consulta** e está com status **Finalizado**;
+- tem paciente vinculado;
+- a sessão terminou há mais de 24 horas;
+- aconteceu nos **últimos 30 dias**;
+- ainda **não** existe nenhuma nota ligada a ela; e
+- foi você quem atendeu (o profissional que efetivamente conduziu a sessão, mesmo que o agendamento estivesse no nome de outra pessoa).
+
+Cada item exibe o nome do paciente e a data e hora da sessão (no formato DD/MM/AAAA HH:mm). Use o botão **Registrar evolução** para criar e abrir a nota daquela sessão. Se já houver um registro para aquela consulta, você é levado direto para a nota existente.
+
+Quando não há nada pendente, a lista mostra "Nenhuma evolução pendente".
+
+<Callout type="info" title="É esta a lista que alimenta o aviso na agenda">
+A mesma regra de pendências é usada pelo contador exibido na agenda. Registrar a evolução aqui faz a consulta sair tanto desta lista quanto daquele aviso.
+</Callout>
+
+</Tab>
+<Tab value="Rascunhos">
+
+**Rascunhos** lista as notas que já foram criadas mas ainda **não foram assinadas** (status **Rascunho**). São as evoluções em andamento, que você ainda pode editar livremente.
+
+Cada linha mostra o nome do paciente, um selo cinza **Rascunho**, o tipo da nota (Evolução, Avaliação, Encerramento ou Outro), o formato (SOAP, DAP ou Livre), a quantidade de adendos (quando houver) e a data da sessão. Clique em qualquer linha para abrir a nota.
+
+</Tab>
+<Tab value="Assinadas">
+
+**Assinadas** lista as notas já finalizadas e assinadas (status **Assinada**, com selo verde). Uma nota assinada não pode mais ser editada diretamente — correções são feitas por meio de adendos.
+
+A apresentação de cada linha é igual à de rascunhos (paciente, selo de status, tipo, formato, adendos e data da sessão). Clique para abrir a nota e consultar o conteúdo.
+
+</Tab>
+</Tabs>
+
+As notas (rascunhos e assinadas) aparecem ordenadas da sessão mais recente para a mais antiga. Quando um filtro não encontra nenhuma nota, a lista mostra "Nenhum registro encontrado".
+
+## Buscar por nome
+
+<Steps>
+
+<Step>
+Digite parte do nome do paciente no campo **Buscar por nome do paciente**, no topo da página.
+</Step>
+
+<Step>
+A lista é atualizada automaticamente cerca de 0,3 segundo depois que você para de digitar — não é preciso apertar Enter.
+</Step>
+
+<Step>
+A busca não diferencia maiúsculas de minúsculas e procura qualquer trecho do nome, então "ana" encontra tanto "Ana" quanto "Mariana".
+</Step>
+
+</Steps>
+
+A busca vale para o filtro ativo: em **Pendentes** ela filtra as consultas a registrar; em **Rascunhos** e **Assinadas**, as notas correspondentes. Limpar o campo volta a mostrar a lista completa.
+
+## Percorrer a lista (paginação)
+
+Cada página mostra até **20 itens**. Quando há mais do que isso, aparece um rodapé de paginação com:
+
+- a contagem **Mostrando X–Y de N**, indicando quais registros estão visíveis e o total encontrado;
+- a indicação da página atual no formato **página / total**; e
+- as setas **Página anterior** e **Próxima página**.
+
+Se o total de registros couber em uma única página (20 ou menos), o rodapé de paginação não é exibido. Trocar de filtro ou alterar a busca sempre reposiciona a lista na primeira página.
+
+<Callout type="info" title="Dica">
+Para encontrar uma nota antiga rapidamente, combine a busca por nome com o filtro **Assinadas** e use a paginação apenas se ainda restarem muitos resultados.
+</Callout>
+
+## Veja também
+
+<Cards>
+<Card title="Prontuário eletrônico" href="/docs/prontuario/prontuario-eletronico" description="Como registrar, estruturar e assinar uma evolução." />
+<Card title="Adendos" href="/docs/prontuario/adendos" description="Corrigir uma nota já assinada sem apagar o original." />
+</Cards>

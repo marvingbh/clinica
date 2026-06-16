@@ -1,0 +1,237 @@
+---
+title: "Criar e editar agendamentos"
+description: "Criar por paciente/tipo/modalidade; editar horário, notas, preço; histórico."
+feature: agendamento
+sources:
+  - "src/app/agenda/components/CreateAppointmentSheet.tsx"
+  - "src/app/agenda/components/AppointmentEditor.tsx"
+  - "src/app/api/appointments/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+---
+
+Este guia mostra como criar uma consulta na agenda e como editá-la depois: mudar
+horário, observações, valor, atendente, e acompanhar o que foi alterado no
+histórico.
+
+## Criar um agendamento
+
+Ao abrir o formulário de criação, você verá o painel **Novo Agendamento**. Ele é
+dividido em duas partes: à esquerda os campos e à direita uma **pré-visualização**
+que se atualiza enquanto você preenche.
+
+<Steps>
+
+<Step>
+### Escolha o paciente
+
+No topo, use a busca de paciente para localizar e selecionar a pessoa que será
+atendida. Toda consulta exige um paciente — o botão de salvar permanece
+desabilitado enquanto nenhum paciente estiver selecionado.
+</Step>
+
+<Step>
+### Defina o horário
+
+Na seção **Horário**, preencha:
+
+- **Data** (obrigatória) — formato `DD/MM/AAAA`.
+- **Início** (obrigatório) — formato `HH:mm` (24 horas).
+- **Duração** — opcional. Se deixar em branco, é usada a duração padrão do
+  profissional. Abaixo do campo aparece o horário de término calculado e a
+  duração padrão, por exemplo *"Fim 15:50 · padrão 50 min"*.
+
+A duração aceita valores entre 15 e 480 minutos.
+</Step>
+
+<Step>
+### Selecione a modalidade
+
+Em **Tipo de atendimento**, escolha a modalidade no seletor:
+
+- **Presencial**
+- **Online**
+
+Quando a clínica oferece teleconsulta, escolher **Online** faz com que o link de
+vídeo seja incluído na confirmação enviada ao paciente.
+
+<Callout type="info" title="Profissional (apenas administradores)">
+Se você é administrador, aparece também o campo **Profissional**, onde escolhe
+para quem é o agendamento. Quem atende apenas a própria agenda já tem o
+profissional preenchido automaticamente e não vê esse campo.
+</Callout>
+</Step>
+
+<Step>
+### Configure a recorrência (opcional)
+
+Na seção **Recorrência**, a frequência inicial é **Única**. Para criar uma série,
+escolha **Semanal**, **Quinzenal** ou **Mensal**. Ao escolher uma frequência
+recorrente, aparece o campo **Terminar**, com três formas de definir o fim da
+série:
+
+- **Nº de sessões** — quantidade fixa de sessões (máximo de 52).
+- **Até uma data** — informe a **Data final** e o sistema cria as sessões até lá.
+- **Sem fim** — as sessões são criadas automaticamente para os próximos 6 meses
+  e estendidas semanalmente. Você pode finalizar a série a qualquer momento.
+
+A pré-visualização mostra um resumo como *"Semanal · 12 sessões"* e você pode
+expandir a lista para ver cada data projetada.
+</Step>
+
+<Step>
+### Adicione equipe e observações (opcional)
+
+- **Equipe adicional** — marque outros profissionais que participam do
+  atendimento (a seção só aparece quando há outros profissionais disponíveis).
+- **Observações** — texto livre sobre a consulta (até 2000 caracteres).
+</Step>
+
+<Step>
+### Confira a pré-visualização e agende
+
+O painel à direita resume paciente, profissional, modalidade, duração e
+recorrência, e indica em **Disponibilidade** se o horário está livre. Quando
+estiver tudo certo, clique em **Agendar consulta**.
+</Step>
+
+</Steps>
+
+{/* TODO screenshot: /img/agenda/criar-agendamento.png */}
+
+### Quando o horário está fora da disponibilidade
+
+Se a data/horário cair fora dos horários de atendimento do profissional, ou em
+cima de um bloqueio, a criação é interrompida com um aviso. Você pode confirmar
+mesmo assim clicando em **Criar mesmo assim**, ou ajustar a data e o horário.
+
+<Callout type="warn" title="Conflito de horário">
+Se já houver outro evento que ocupa o mesmo horário do profissional, o sistema
+bloqueia a criação para evitar sobreposição. Escolha outro horário ou remaneje o
+evento conflitante.
+</Callout>
+
+### Confirmação para o paciente
+
+Ao criar uma consulta com data futura, o paciente recebe automaticamente uma
+mensagem de confirmação por **WhatsApp** e/ou **e-mail**, conforme o consentimento
+registrado no cadastro. A mensagem traz data, horário, profissional, modalidade e
+os links para confirmar ou cancelar. Agendamentos com data no passado (registro
+retroativo) não disparam notificação.
+
+## Editar um agendamento
+
+Abra o agendamento na agenda para ver o painel **Editar Agendamento**. O cabeçalho
+mostra o paciente, contato, data/horário/duração, profissional, modalidade, o
+status atual, a situação da fatura (quando existir, ex.: *Pendente · Jun/26*) e a
+faixa de recorrência. Logo abaixo há abas de contexto:
+
+- **Esta consulta** — edita os dados desta ocorrência.
+- **Recorrência** — gerencia a série inteira (aparece só em agendamentos
+  recorrentes ativos).
+- **Histórico** — registro de alterações (quando você tem permissão de auditoria).
+- **Pular** — marca/desmarca esta data como exceção da série (também só em
+  agendamentos recorrentes ativos). Quando esta data já está pulada, a aba
+  aparece como **Pulada**.
+
+### Editar horário, modalidade, valor e notas
+
+Na aba **Esta consulta**, você pode alterar:
+
+| Campo | Observação |
+| --- | --- |
+| **Título** | Opcional na consulta (usa o nome do paciente quando vazio). |
+| **Data / Início / Duração** | Mesmas regras da criação; o término é recalculado automaticamente. |
+| **Modalidade** | Presencial ou Online. |
+| **Link externo (Zoom/Meet)** | Aparece quando a modalidade é Online; opcional. Há também o botão **Copiar link do paciente** para a sala de teleconsulta. |
+| **Valor (R$)** | Preço cobrado por esta sessão. |
+| **Atendente** | Quem de fato atendeu, quando diferente do titular (aparece com mais de um profissional na clínica). |
+| **Equipe adicional** | Outros profissionais participantes. |
+| **Observações** | Notas sobre esta consulta. |
+
+Quando terminar, clique em **Salvar alterações**.
+
+<Callout type="info" title="O paciente não pode ser trocado">
+Não é possível mudar o paciente de um agendamento existente. Para isso, cancele o
+agendamento e crie um novo com o paciente correto.
+</Callout>
+
+<Callout type="warn" title="Edição em séries recorrentes">
+Em um agendamento recorrente, as alterações feitas na aba **Esta consulta**
+aplicam-se **apenas a esta data**. Para mudar a série inteira, use a aba
+**Recorrência**.
+</Callout>
+
+### Remarcar (mudar data/horário)
+
+Só é possível remarcar agendamentos com status **Agendado** ou **Confirmado**.
+Agendamentos finalizados ou cancelados não podem ser remarcados — primeiro
+reagende-os pelo status. Sessões que fazem parte de uma sessão de grupo devem ser
+movidas pela própria sessão de grupo, não por aqui.
+
+Ao mover um agendamento para outro horário, o horário antigo é liberado e a lista
+de espera é notificada, se houver candidatos.
+
+### Mudar o status
+
+O status segue o fluxo **Agendado → Confirmado → Finalizado**. Você altera o status
+de duas formas: pela etiqueta de status no cabeçalho (menu suspenso) ou pelos
+botões de ação na própria aba:
+
+<Tabs items={["Agendado", "Confirmado", "Cancelamentos"]}>
+
+<Tab value="Agendado">
+Quando a consulta está **Agendada**, aparecem dois botões:
+
+- **Confirmar paciente** — passa para *Confirmado*.
+- **Marcar como atendido** — passa direto para *Finalizado*.
+</Tab>
+
+<Tab value="Confirmado">
+Quando a consulta está **Confirmada**, o botão **Marcar como atendido** finaliza a
+sessão.
+</Tab>
+
+<Tab value="Cancelamentos">
+No cartão **Cancelamento / ausência** há três opções, cada uma com efeito diferente
+na cobrança:
+
+- **Faltou** — o paciente não compareceu; a sessão é cobrada normalmente na fatura.
+- **Desmarcou** — o paciente desmarcou; gera um **crédito** para desconto em fatura
+  futura.
+- **Sem cobrança** — a sessão é cancelada e não aparece na fatura.
+
+Ao escolher qualquer uma delas, abre-se uma janela para você informar um **motivo
+(opcional)** antes de confirmar.
+</Tab>
+
+</Tabs>
+
+<Callout type="info" title="Reenviar confirmação">
+Enquanto a consulta não estiver finalizada nem cancelada, você pode usar
+**Reenviar links de confirmação** para mandar de novo a mensagem de WhatsApp e/ou
+e-mail ao paciente (conforme o consentimento dele).
+</Callout>
+
+### Excluir um agendamento
+
+Na parte inferior da aba há **Excluir permanentemente**. A exclusão é definitiva e
+exige confirmação. Agendamentos já vinculados a uma fatura (não cancelada) não
+podem ser excluídos — isso protege o registro financeiro.
+
+## Histórico de alterações
+
+A aba **Histórico** mostra uma linha do tempo de tudo que aconteceu com o
+agendamento: quem criou, quem editou, mudanças de status e cancelamentos. Cada
+entrada traz o nome de quem fez a ação, a data e o horário (`DD/MM/AAAA HH:mm`), e —
+para edições — o valor anterior e o novo, lado a lado.
+
+Ações registradas incluem, por exemplo, *"criou o agendamento"*, *"editou o
+agendamento"*, *"alterou o status"* e *"cancelou o agendamento"*. Quando há muitos
+registros, use **Carregar mais** para ver os mais antigos.
+
+<Callout type="info">
+A aba **Histórico** só aparece para quem tem permissão de leitura dos registros de
+auditoria.
+</Callout>

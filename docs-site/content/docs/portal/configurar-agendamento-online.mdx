@@ -1,0 +1,159 @@
+---
+title: "Configurar agendamento online"
+description: "Modo de confirmação, duração, antecedência, modalidades, slugs e bloqueio de telefones."
+feature: portal-paciente
+sources:
+  - "src/app/admin/settings/agendamento-online/**"
+  - "src/app/api/clinic/booking-settings/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+O **agendamento online** permite que pacientes escolham um horário livre e enviem uma solicitação diretamente pela sua página pública, sem precisar telefonar para a clínica. Como administrador, você controla quando essas solicitações são confirmadas automaticamente, quais horários ficam disponíveis e quem pode usar o canal.
+
+Esta página explica cada opção da tela de configuração e como ela afeta o que o paciente vê.
+
+<Callout type="info" title="Funcionalidade recém-lançada">
+  O agendamento online é uma adição recente. Revise as configurações com calma antes de habilitar e divulgar o link público.
+</Callout>
+
+## Onde configurar
+
+As opções ficam na área administrativa, na página **Agendamento Online**. A tela é dividida em dois blocos:
+
+- **Agendamento online** — as regras gerais da clínica (modo, duração, janelas, modalidades e telefones bloqueados).
+- **Profissionais** — uma lista onde você define, por profissional, quem aparece na página pública e qual é o link individual.
+
+<Callout type="info">
+  É necessário ter ao menos permissão de **leitura** em **Configurações da clínica** (`clinic_settings`) para abrir a página — sem ela o acesso é negado e você é redirecionado para a página inicial. Para **salvar** as regras gerais é preciso permissão de escrita nessa mesma área. Já as ações da lista de profissionais (listar e definir o link) exigem permissão de escrita em **Profissionais** (`professionals`).
+</Callout>
+
+## Habilitar o agendamento online
+
+No topo do bloco **Agendamento online** existe a opção **Habilitar agendamento online**. Enquanto ela estiver desmarcada, a página pública permanece fechada para visitantes — nenhuma solicitação é aceita.
+
+Quando o identificador (slug) da clínica já está definido nas configurações gerais, o link público aparece logo abaixo da opção, no formato:
+
+```
+https://suaclinica.com.br/agendar/clinica-exemplo
+```
+
+Use o botão de copiar ao lado do link para compartilhá-lo (site, redes sociais, mensagens).
+
+<Screenshot src="/img/portal/configurar-agendamento-online-geral.png" alt="Bloco de configurações gerais do agendamento online com a opção de habilitar e o link público" caption="Configurações gerais e link público da clínica." />
+
+## Modo de confirmação
+
+O **modo de confirmação** define o que acontece quando o paciente envia uma solicitação:
+
+<Tabs items={["Aprovação manual", "Confirmação automática"]}>
+
+<Tab value="Aprovação manual">
+
+**Aprovação manual (recomendado)** — toda solicitação chega como **pendente** e fica aguardando revisão da equipe. Nenhum compromisso é criado na agenda até alguém aprovar. É a opção padrão e a mais segura: você confere o paciente, o horário e a modalidade antes de confirmar.
+
+As solicitações pendentes aparecem em **Solicitações de agendamento**, onde a equipe aprova ou recusa.
+
+</Tab>
+
+<Tab value="Confirmação automática">
+
+**Confirmação automática** — a solicitação vira um compromisso na agenda na hora, com status `AGENDADO`, **sem passar pela revisão da equipe**.
+
+A confirmação automática só acontece quando o telefone informado corresponde a **exatamente um** paciente já cadastrado na clínica. Nesses casos:
+
+- o compromisso é criado automaticamente como `CONSULTA`;
+- o valor da sessão do paciente é aplicado, quando houver;
+- consentimentos de WhatsApp e e-mail que ainda não existiam são ativados.
+
+Se o telefone **não pertence a nenhum paciente** ou corresponde a **mais de um** (por exemplo, um responsável que cadastrou dois filhos com o mesmo número), a solicitação cai automaticamente em **pendente** para revisão manual — mesmo com a confirmação automática ligada. Isso evita criar um compromisso para o paciente errado.
+
+</Tab>
+
+</Tabs>
+
+<Callout type="warn" title="Comece pela aprovação manual">
+  A confirmação automática agiliza o atendimento de pacientes recorrentes, mas cria compromissos sem revisão. Se a sua clínica recebe muitos pacientes novos, mantenha **Aprovação manual** para conferir cada solicitação.
+</Callout>
+
+## Duração, antecedência e horizonte
+
+Estes quatro campos controlam quais horários a página pública oferece. Cada um aceita uma faixa de valores:
+
+| Campo | O que define | Faixa permitida | Padrão |
+| --- | --- | --- | --- |
+| **Duração padrão (min)** | Tamanho de cada horário ofertado, em minutos | 10 a 480 | 50 |
+| **Antecedência mínima (h)** | Quantas horas, no mínimo, antes do início o paciente pode marcar | 0 a 168 | 12 |
+| **Horizonte (dias)** | Até quantos dias no futuro a agenda fica aberta | 1 a 90 | 30 |
+| **Máx. em aberto / telefone** | Quantas solicitações em aberto cada telefone pode ter ao mesmo tempo | 1 a 20 | 2 |
+
+Como isso funciona na prática:
+
+- **Janela de horários:** um horário só aparece para o paciente se começar **depois de** "agora + antecedência mínima" e **antes de** "agora + horizonte". Por exemplo, com antecedência de 12 horas e horizonte de 30 dias, o paciente vê horários a partir de daqui a 12 horas até 30 dias à frente.
+- **Duração padrão:** é um valor de referência da clínica. **A duração definida no próprio profissional sempre prevalece** — se um profissional tiver duração própria configurada, ela é usada no lugar da duração padrão da clínica.
+- **Horizonte por profissional:** o horizonte efetivo de cada profissional é o **menor** entre o horizonte da clínica e o limite de antecedência máxima do próprio profissional. Ou seja, aumentar o horizonte da clínica nunca abre mais dias do que o profissional permite.
+- **Máximo em aberto por telefone:** quando um telefone atinge esse número de solicitações em aberto, novas tentativas são recusadas até que alguma seja resolvida. Serve para evitar que um mesmo contato encha a agenda de solicitações.
+
+<Callout type="info">
+  Os horários ofertados também dependem da disponibilidade cadastrada de cada profissional. Sem disponibilidade ativa, o profissional não tem horários para mostrar — veja o aviso na lista de profissionais.
+</Callout>
+
+## Modalidades permitidas
+
+Em **Modalidades permitidas** você escolhe quais tipos de atendimento o paciente pode selecionar:
+
+- **Online**
+- **Presencial**
+
+Marque uma ou ambas. **É obrigatório manter pelo menos uma modalidade marcada** — a tela não permite ficar sem nenhuma. Se o paciente tentar enviar uma modalidade que não está liberada, a solicitação é recusada.
+
+## Telefones bloqueados
+
+O campo **Telefones bloqueados (um por linha)** permite bloquear números específicos. Digite **um telefone por linha** na caixa de texto.
+
+Ao salvar, os números são normalizados e as duplicatas e linhas em branco são descartadas automaticamente.
+
+Quando um telefone bloqueado envia uma solicitação, ele recebe uma mensagem de sucesso comum, mas **nada é registrado** — a solicitação é silenciosamente descartada. O visitante não percebe que foi bloqueado.
+
+<Callout type="info">
+  O bloqueio age sobre o número de telefone, não sobre o paciente. Use-o para conter abuso ou contatos indesejados repetidos.
+</Callout>
+
+Clique em **Salvar** para aplicar todas as configurações gerais de uma vez.
+
+## Profissionais e links (slugs)
+
+O bloco **Profissionais** lista os profissionais ativos da clínica. Para cada um:
+
+<Steps>
+
+<Step>
+**Listado** — marque para que o profissional apareça na página pública de agendamento. Desmarcado, ele não recebe solicitações online, mesmo com o agendamento habilitado. A alteração é salva ao marcar ou desmarcar.
+</Step>
+
+<Step>
+**Link público** — defina o identificador individual (slug) do profissional no campo de texto (ex.: `ana-silva`) e clique em **Salvar** ao lado. O slug deve ter de 2 a 60 caracteres, usar apenas letras minúsculas e números separados por hífen simples (sem hífen no início, no fim ou duplicado). O nome precisa ser exclusivo dentro da clínica.
+</Step>
+
+<Step>
+Depois de salvar o slug, aparece o **link direto** do profissional, no formato `…/agendar/clinica-exemplo/ana-silva`. Use o botão de copiar para divulgar o link de agendamento daquele profissional especificamente.
+</Step>
+
+</Steps>
+
+Se um profissional aparecer com o aviso **Sem disponibilidade cadastrada**, ele não terá horários para oferecer na página pública. Cadastre a disponibilidade dele antes de listá-lo.
+
+{/* TODO screenshot: /img/portal/configurar-agendamento-online-profissionais.png */}
+
+<Callout type="warn" title="Confira antes de divulgar">
+  Antes de compartilhar o link público, confirme que: o agendamento online está habilitado, ao menos uma modalidade está marcada, os profissionais que devem aparecer estão **Listados** e têm disponibilidade cadastrada.
+</Callout>
+
+## Próximos passos
+
+<Cards>
+  <Card title="Solicitações de agendamento" href="/docs/portal/solicitacoes-de-agendamento" description="Aprove ou recuse as solicitações pendentes vindas da página pública." />
+  <Card title="Agendamento online (paciente)" href="/docs/portal/agendamento-online" description="Veja como o paciente usa a página pública para marcar um horário." />
+</Cards>

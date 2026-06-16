@@ -1,0 +1,150 @@
+---
+title: "Notificações e lembretes"
+description: "Canais (Resend/WhatsApp mock), tipos de notificação, retry, LGPD e gate por clínica."
+feature: notificacoes
+sources:
+  - "src/lib/notifications/**"
+  - "src/app/api/jobs/send-reminders/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+---
+
+O Clinica envia mensagens automáticas aos pacientes — confirmações de agendamento, lembretes de consulta e outras comunicações — por **WhatsApp** e **E-mail**. Esta página explica como os canais funcionam, quais tipos de mensagem existem, como o sistema tenta reenviar mensagens que falham, como o consentimento LGPD é respeitado e como você liga as confirmações/lembretes para a sua clínica.
+
+## Canais de envio
+
+Cada notificação sai por um de dois canais. O canal é escolhido automaticamente conforme o consentimento do paciente (veja [LGPD](#lgpd-e-consentimento-do-paciente)).
+
+<Cards>
+  <Card title="WhatsApp" description="Provedor de desenvolvimento (mock). Hoje registra a mensagem no log do servidor e marca como enviada imediatamente — não há entrega real até um provedor de WhatsApp ser conectado." />
+  <Card title="E-mail (Resend)" description="Entrega real via API do Resend. Usa o remetente verificado configurado pela clínica, com resposta (reply-to) para o e-mail da clínica." />
+</Cards>
+
+<Callout type="warn" title="WhatsApp ainda é simulado">
+O provedor de WhatsApp atual é o `whatsapp-mock`: ele apenas escreve a mensagem no log do servidor e devolve sucesso. Cada notificação de WhatsApp é gravada já com status **Enviada**, então ela não fica presa na fila de reenvio. Nenhuma mensagem chega de fato ao celular do paciente enquanto um provedor real de WhatsApp não estiver conectado. O canal de **e-mail** é o que realmente entrega mensagens hoje.
+</Callout>
+
+### Como o e-mail é enviado
+
+O canal de e-mail usa o **Resend**. Para que os e-mails saiam de um endereço da sua clínica (e não de um remetente padrão e não verificado), configure o remetente em **Configurações → E-mail**:
+
+<Steps>
+  <Step>
+    **Nome do remetente** — nome que aparece como remetente. Se ficar em branco, o sistema usa o nome da clínica.
+  </Step>
+  <Step>
+    **Endereço de envio** — e-mail usado como remetente. O domínio precisa estar **verificado no Resend**.
+  </Step>
+  <Step>
+    **E-mail em cópia oculta (BCC)** — opcional; todos os e-mails também são copiados para esse endereço.
+  </Step>
+</Steps>
+
+O e-mail da clínica é usado automaticamente como endereço de **resposta (reply-to)**. Se o endereço de envio não estiver configurado, o sistema recorre a um remetente padrão — que pode estar em um domínio não verificado e ter a entrega recusada.
+
+<Callout type="info" title="Personalizando o texto das mensagens">
+O conteúdo de cada mensagem (WhatsApp e e-mail) vem de modelos editáveis. Acesse-os por **Configurações → E-mail → Templates de Notificação → Gerenciar**, ou diretamente em **/admin/settings/notifications**. Veja a página [Templates de notificação](/docs/configuracao/templates-de-notificacao) para detalhes sobre variáveis como `{{patientName}}`, `{{date}}` e `{{confirmLink}}`.
+</Callout>
+
+## Tipos de notificação
+
+Cada notificação tem um **tipo**. Os tipos voltados ao paciente que aparecem em modelos editáveis incluem:
+
+| Tipo | Quando ocorre |
+| --- | --- |
+| Confirmação de Agendamento | Ao criar uma consulta |
+| Lembrete de Consulta | Antes da consulta, pelo job automático |
+| Cancelamento de Consulta | Ao cancelar uma consulta |
+| Reagendamento de Consulta | Ao remarcar uma consulta |
+
+Além desses, o sistema dispara mensagens transacionais e internas em outros fluxos — por exemplo: código de acesso do Portal do Paciente, avisos de agendamento online, links e lembretes de cobrança, pedidos de assinatura de documentos, envio de formulários/anamneses e convites de escalas clínicas. Esses tipos não são confirmações nem lembretes de agenda e, por isso, não dependem do "gate" descrito abaixo — eles são acionados por uma ação explícita (do paciente, da equipe ou de outro job).
+
+## Reenvio automático (retry)
+
+Mensagens de **e-mail** entram na fila como **Pendentes** e são entregues pelo serviço de notificações. Se uma entrega falha (por exemplo, o Resend retorna erro), o sistema tenta de novo com **backoff exponencial**:
+
+- **Até 3 tentativas** por mensagem.
+- Intervalos crescentes entre as tentativas: cerca de **1 minuto**, depois **2 minutos**, depois **4 minutos** (limitado a no máximo 1 hora).
+- Se a última tentativa também falhar, a mensagem fica com status **Falhou** e o motivo do erro é registrado.
+
+Cada notificação passa pelos três status:
+
+**Pendente → Enviada** (sucesso) ou **Pendente → Falhou** (esgotou as tentativas).
+
+<Callout type="info" title="WhatsApp não entra na fila de reenvio">
+Como o provedor de WhatsApp atual é simulado, essas mensagens já nascem com status **Enviada** e não passam pelo ciclo de reenvio. O retry vale para o canal de **e-mail**.
+</Callout>
+
+O job de lembretes processa um lote de notificações pendentes a cada execução. Tentativas que ainda não venceram o intervalo de backoff ficam aguardando e são retomadas na próxima execução.
+
+## Lembretes automáticos de consulta
+
+O lembrete de consulta é enviado por um **job agendado** (`/api/jobs/send-reminders`), executado **diariamente às 10:00 (UTC)**. A cada execução, ele:
+
+<Steps>
+  <Step>
+    Percorre todas as clínicas **ativas**.
+  </Step>
+  <Step>
+    Para cada janela de antecedência configurada (campo **Horários de Lembrete**), procura consultas que acontecerão dentro daquela janela.
+  </Step>
+  <Step>
+    Considera apenas consultas do tipo **CONSULTA** com status **AGENDADO** ou **CONFIRMADO**.
+  </Step>
+  <Step>
+    Verifica o **consentimento** do paciente em cada canal e dispara a mensagem nos canais autorizados.
+  </Step>
+</Steps>
+
+### Configurar os horários de lembrete
+
+Em **Configurações → Agenda**, o campo **Horários de Lembrete (horas antes)** define com quanta antecedência os lembretes saem. Informe as horas separadas por vírgula — por exemplo `24, 2` envia um lembrete 24 horas antes e outro 2 horas antes da consulta. O padrão é **24 e 2 horas** antes.
+
+<Callout type="info" title="Proteção contra lembretes duplicados">
+O job é **idempotente**: antes de criar um lembrete, ele verifica se já existe um lembrete recente para a mesma consulta (janela de **12 horas**). Isso evita mensagens repetidas caso o job rode mais de uma vez para o mesmo horário.
+</Callout>
+
+Quando um paciente tem números de telefone adicionais marcados para notificação, o lembrete de WhatsApp é criado para **cada** número autorizado.
+
+## LGPD e consentimento do paciente
+
+Nenhuma mensagem é enviada a um paciente sem consentimento. No cadastro do paciente (**Pacientes → editar paciente**), na seção **Consentimentos LGPD**, há duas autorizações:
+
+- **Autorizo receber mensagens via WhatsApp** — "Lembretes de consulta, confirmações e comunicações da clínica".
+- **Autorizo receber comunicações por email** — "Lembretes de consulta, confirmações e comunicações da clínica".
+
+O job de lembretes só envia por um canal quando **as duas condições** são verdadeiras:
+
+| Canal | Condição para enviar |
+| --- | --- |
+| WhatsApp | Consentimento de WhatsApp marcado **e** o paciente tem telefone cadastrado |
+| E-mail | Consentimento de e-mail marcado **e** o paciente tem e-mail cadastrado |
+
+Se o paciente não autorizou nenhum dos dois canais, a consulta é **ignorada** (contabilizada como "pulada por falta de consentimento") e nenhuma mensagem é criada.
+
+## Gate de notificações por clínica
+
+Confirmações e lembretes de agenda são controlados por um **interruptor por clínica** (`appointmentNotificationsEnabled`), que vem **desligado por padrão**. Ele protege contra envios indevidos enquanto a clínica ainda não foi preparada para mandar mensagens automáticas a pacientes.
+
+Enquanto o gate está desligado, os tipos de e-mail abaixo **não são entregues** — a notificação é gravada já como **Falhou**, com o motivo "Notification type currently disabled":
+
+- Confirmação de Agendamento
+- Lembrete de Consulta
+- Oferta de lista de espera (e expiração da oferta)
+
+<Callout type="warn" title="Ativação do gate">
+O interruptor de confirmações/lembretes por clínica não é exposto na tela de configurações: ele é ligado durante o **onboarding** da clínica. Se a sua clínica precisa começar a enviar confirmações e lembretes automáticos por e-mail e eles aparecem como "Falhou — tipo desativado", fale com o suporte para habilitar o recurso.
+</Callout>
+
+Os demais tipos (código do Portal, avisos internos de agendamento online, links/lembretes de cobrança, assinatura de documentos, formulários, escalas, etc.) **não dependem** desse interruptor — eles são sempre permitidos porque são transacionais ou disparados por uma ação explícita, e cada um tem o próprio controle no seu fluxo.
+
+<Callout type="info" title="Defesa em camadas">
+O gate é checado tanto na criação quanto no envio da notificação. Se uma mensagem antiga ficou pendente de antes do gate existir, ou se o interruptor da clínica foi desligado no intervalo, o envio é bloqueado e a mensagem é marcada como **Falhou** em vez de ser entregue.
+</Callout>
+
+{/* Screenshots sugeridas (arquivos ainda não existem):
+  - /img/notificacoes/configuracoes-email-remetente.png — aba E-mail das Configurações (remetente verificado)
+  - /img/notificacoes/horarios-de-lembrete.png — campo "Horários de Lembrete" na aba Agenda
+  - /img/notificacoes/consentimentos-lgpd.png — seção Consentimentos LGPD no cadastro do paciente
+*/}

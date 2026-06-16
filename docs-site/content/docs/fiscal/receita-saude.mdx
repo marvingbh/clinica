@@ -1,0 +1,158 @@
+---
+title: "Receita Saúde (recibos PF)"
+description: "Lote TXT por profissional PF, bloqueadores com \"Corrigir cadastro\" e upload de retorno."
+feature: fiscal
+sources:
+  - "src/lib/fiscal/recibo-validation.ts"
+  - "src/lib/fiscal/recibo-file-builder.ts"
+  - "src/lib/fiscal/recibo-result-parser.ts"
+  - "src/app/financeiro/receita-saude/**"
+  - "src/app/api/financeiro/fiscal/receita-saude/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+A tela **Receita Saúde** transforma os pagamentos já recebidos em recibos para profissionais **Pessoa Física (PF)**. Você seleciona os pagamentos, gera um **arquivo de lote (.txt)** por profissional, envia esse arquivo no app/portal da Receita e, ao final, faz o **upload do arquivo de retorno** para registrar quais recibos foram emitidos.
+
+<Callout type="info" title="Como abrir a tela">
+Vá em **Financeiro → Receita Saúde**. Quando houver pagamentos pendentes de recibo, aparece também um atalho azul **"N recibos pendentes"** no topo do Financeiro que leva direto para esta tela.
+</Callout>
+
+## O que aparece na lista
+
+A tabela **Recibos Receita Saúde** mostra os *pagamentos recebidos sem recibo emitido* no período do **ano corrente** (de 01/01 a 31/12). Cada linha é um pagamento — uma fatura `PAGO` ou uma conciliação de uma fatura `PARCIAL` — e gera **um recibo**.
+
+A tela é exclusiva para profissionais **PF**: pagamentos de profissionais Pessoa Jurídica (que vão para a DMED) e de profissionais sem regime fiscal configurado não aparecem na tabela.
+
+| Coluna | O que mostra |
+| --- | --- |
+| (seleção) | Caixa para incluir o pagamento no lote. Fica desabilitada em linhas bloqueadas ou já emitidas. |
+| **Data** | Data do pagamento (DD/MM/AAAA). Aparece em vermelho quando não há data registrada. |
+| **Beneficiário** | Quem recebeu o atendimento (o paciente). Abaixo, o CPF — ou os avisos de bloqueio. |
+| **Pagador** | Quem pagou. É o paciente, ou o responsável financeiro quando há **CPF para Nota Fiscal** preenchido no cadastro do paciente. |
+| **Valor** | Valor do pagamento (R$). |
+| **Profissional** | Profissional PF dono do recibo. |
+| **Status** | `Pendente`, `Exportado`, `Emitido`, `Erro` ou `Cancelado`. |
+
+Use o seletor **"Todos os profissionais"** no topo para filtrar a lista por um profissional específico. A lista é paginada (50 por página).
+
+<Screenshot src="/img/fiscal/receita-saude-lista.png" alt="Lista de pagamentos pendentes de recibo na tela Receita Saúde" caption="Cada linha é um pagamento; linhas bloqueadas aparecem destacadas em vermelho." />
+
+### Estornos
+
+- **Estorno total:** o pagamento é **excluído** automaticamente do lote (não pode virar recibo) e não fica selecionável.
+- **Estorno parcial:** a linha continua na lista, mas exibe o aviso **"Estorno vinculado — confira antes de emitir"** no status. Confira o valor antes de incluir no lote.
+
+## Bloqueadores e "Corrigir cadastro"
+
+Antes de gerar o lote, cada pagamento passa por uma validação. Se faltar algum dado obrigatório, a linha fica **destacada em vermelho** e mostra uma etiqueta de bloqueio. Pagamentos bloqueados **não podem ser selecionados** nem incluídos no arquivo.
+
+Os bloqueios possíveis são:
+
+| Bloqueio | Significado | Onde corrigir |
+| --- | --- | --- |
+| **Beneficiário sem CPF** | O paciente não tem CPF válido (e não há um responsável financeiro com CPF cobrindo o pagamento). | Cadastro do paciente |
+| **Beneficiário sem data de nascimento** | Falta a **Data de Nascimento** do paciente. | Cadastro do paciente |
+| **Pagador sem CPF** | Quem pagou não tem CPF válido. | Cadastro do paciente |
+| **Profissional sem CPF** | O profissional PF está sem **CPF do profissional** válido. | Cadastro do profissional |
+| **Profissional sem CRP** | O profissional está sem o **Registro Profissional** (CRP). | Cadastro do profissional |
+| **Pagamento sem data** | A fatura está paga, mas sem data de pagamento. | Financeiro / conciliação |
+| **Valor inválido** | O valor do pagamento não é maior que zero. | Financeiro |
+
+<Callout type="info" title="Menor de idade sem CPF próprio">
+Quando o paciente é dependente de um **responsável financeiro** (com **CPF para Nota Fiscal** preenchido), o CPF do beneficiário deixa de ser obrigatório: o recibo é informado pelo nome e data de nascimento do beneficiário sob o CPF do responsável. A **data de nascimento** continua obrigatória.
+</Callout>
+
+Cada linha bloqueada traz o link **"Corrigir cadastro →"** que leva direto ao lugar certo:
+
+- **Bloqueios do paciente** (CPF, data de nascimento, pagador) abrem a ficha do paciente em modo de edição.
+- **Bloqueios do profissional** (CPF, CRP) abrem a tela de **Profissionais**.
+
+<Steps>
+<Step>Clique em **"Corrigir cadastro →"** na linha bloqueada.</Step>
+<Step>Preencha o campo que falta: **CPF do Paciente** / **Data de Nascimento** (ou **CPF para Nota Fiscal** e **Nome do Responsável Financeiro** quando for um dependente), ou o **CPF do profissional** / **Registro Profissional** no cadastro do profissional.</Step>
+<Step>Salve e volte para **Receita Saúde**. A linha deixa de estar bloqueada e fica selecionável.</Step>
+</Steps>
+
+## Configurar o profissional como PF
+
+Para um profissional aparecer aqui, configure o regime fiscal no cadastro dele (**Profissionais → editar**), na seção **Fiscal (Receita Saúde / DMED)**:
+
+- **Regime fiscal:** selecione **Pessoa Física (Receita Saúde)**.
+- **CPF do profissional:** obrigatório para PF.
+- **Registro Profissional:** o CRP (ex.: `CRP 06/123456`).
+- **Regime vigente desde:** opcional — use só quando o profissional trocou de regime no meio do ano.
+
+<Callout type="warn" title="Sem profissional PF configurado">
+Se nenhum profissional tiver regime fiscal configurado, a tela mostra o aviso *"Nenhum profissional com regime fiscal configurado. Configure em Profissionais."* — comece por aí.
+</Callout>
+
+## Gerar o lote TXT (um por profissional)
+
+Cada arquivo de lote contém os recibos de **um único profissional PF** (um CPF emissor por arquivo).
+
+<Steps>
+<Step>Marque as caixas dos pagamentos que quer incluir. Selecione recibos de **um só profissional** — se você misturar profissionais, ao gerar aparece o aviso *"Selecione recibos de um único profissional por lote."*</Step>
+<Step>Clique em **"Gerar arquivo de lote"**. O sistema revalida os pagamentos no servidor; se algum estiver bloqueado, retorna o aviso *"Há pagamentos bloqueados na seleção."* e nada é gerado.</Step>
+<Step>O arquivo `.txt` é baixado automaticamente (nome `recibos-saude_<cpf>_<AAAAMMDD-HHmm>.txt`) e aparece um aviso com a quantidade de recibos e o total, ex.: *"Arquivo de lote gerado: 8 recibos, R$ 2.400,00"*.</Step>
+<Step>Os pagamentos incluídos passam para o status **Exportado** e o lote passa a aparecer em **"Lotes gerados"**.</Step>
+</Steps>
+
+Envie esse arquivo no app/portal da Receita Federal seguindo o fluxo oficial de importação em lote.
+
+<Callout type="warn" title="Formato do arquivo em validação">
+O layout do arquivo de lote e do retorno (`RS-2025.11-v1`) ainda segue a especificação de referência do sistema, pois o layout oficial da Receita para o fluxo de lote ainda não foi confirmado. Quando a especificação oficial for publicada, o formato será ajustado. Use o arquivo conforme as orientações vigentes da Receita.
+</Callout>
+
+## Lotes gerados e upload do retorno
+
+A seção **"Lotes gerados"** lista os arquivos já criados, com **Gerado em**, **Profissional**, **Recibos**, **Total** e **Status**:
+
+- **Aguardando resultado** — lote gerado, retorno ainda não enviado.
+- **Processado** — retorno enviado, todos os recibos emitidos.
+- **Com erros** — retorno enviado, mas há recibos com erro.
+
+Cada lote tem três ações:
+
+<Cards>
+<Card title="Baixar" description="Baixa novamente o mesmo arquivo .txt do lote, sem regerar nada." />
+<Card title="Enviar resultado" description="Abre o diálogo para subir o arquivo de retorno da Receita." />
+<Card title="Desfazer" description="Remove o lote e devolve os pagamentos para a lista de pendentes." />
+</Cards>
+
+### Enviar o arquivo de retorno
+
+Depois que a Receita processar o lote, ela devolve um arquivo de resultado. Suba esse arquivo para registrar quais recibos foram **emitidos** (com número) e quais deram **erro**.
+
+<Steps>
+<Step>No lote correspondente, clique em **"Enviar resultado"**.</Step>
+<Step>No diálogo **"Enviar arquivo de resultado"**, escolha o arquivo `.txt` de retorno e clique em **"Enviar"**.</Step>
+<Step>O sistema lê o arquivo e atualiza cada recibo: os emitidos ganham o status **Emitido** (e o número do recibo); os recusados ficam **Erro** com a mensagem da Receita. Aparece um resumo, ex.: *"Resultado processado: 7 emitidos, 1 com erro"*.</Step>
+</Steps>
+
+<Callout type="info" title="Reenvio é seguro">
+O upload do retorno é **idempotente**: reenviar o mesmo arquivo converge para o mesmo resultado, sem duplicar emissões. Se o arquivo não puder ser interpretado, aparece *"Não foi possível interpretar o arquivo de resultado"* e nada é alterado.
+</Callout>
+
+### Desfazer um lote
+
+Use **"Desfazer"** para cancelar um lote antes da emissão (por exemplo, se você incluiu o pagamento errado). Os recibos voltam para a lista como pendentes.
+
+<Callout type="warn" title="Lote com recibos emitidos">
+Se algum recibo do lote já estiver **Emitido**, o sistema bloqueia: *"Lote possui recibos já emitidos — não pode ser desfeito."* Nesse caso, o cancelamento de um recibo já emitido é feito no próprio app/portal da Receita.
+</Callout>
+
+## Recebimentos sem origem
+
+Abaixo da lista pode aparecer o cartão recolhível **"Recebimentos sem origem (não conciliados)"**. São valores recebidos que ainda **não viraram recibo** porque não estão ligados a uma fatura:
+
+- **Crédito não conciliado:** um recebimento no banco sem fatura vinculada. Use o link **"Conciliar →"** para resolver na tela de Conciliação.
+- **Fatura parcial sem detalhe:** uma fatura `PARCIAL` sem o recebimento conciliado. Use **"Abrir fatura →"** para acertar.
+
+Depois de conciliados, esses valores passam a aparecer normalmente na lista de pagamentos e podem ser incluídos em um lote.
+
+## Permissões
+
+A tela e todas as ações exigem o recurso **Fiscal** (`fiscal`). Para gerar lote, enviar retorno ou desfazer é preciso acesso de **escrita**. Profissionais (perfil PROFESSIONAL) só veem e exportam **os próprios recibos e lotes**; administradores veem toda a clínica.

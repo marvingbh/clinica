@@ -1,0 +1,170 @@
+---
+title: "Dashboard financeiro"
+description: "Resumo, cobrança, atendimento e análise; filtros por período."
+feature: financeiro
+sources:
+  - "src/app/financeiro/page.tsx"
+  - "src/app/financeiro/components/**"
+  - "src/lib/financeiro/dashboard-aggregation.ts"
+  - "src/app/api/financeiro/dashboard/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+O **Dashboard financeiro** é a primeira aba do módulo **Financeiro** (acessível em `/financeiro` &rarr; **Dashboard**). Ele reúne, em uma única tela, todo o panorama de faturamento da clínica: quanto foi faturado, quanto já entrou no caixa, quanto ainda está a receber e indicadores de cobrança, atendimento e análise — tudo filtrável por período.
+
+<Callout type="info" title="Funcionalidade recente">
+O Dashboard financeiro com as abas **Cobrança**, **Atendimento** e **Análise** foi adicionado recentemente. Se você ainda não vê os indicadores descritos aqui, confirme que está usando a versão mais recente do sistema.
+</Callout>
+
+## O que você precisa saber antes
+
+- O dashboard está disponível para perfis com permissão de **Finanças** (`finances`) em nível de leitura.
+- **Administradores** veem os números de toda a clínica. **Profissionais** veem apenas as próprias faturas, sessões e créditos — todos os indicadores ficam automaticamente restritos ao seu escopo.
+- Todos os valores são exibidos em **R$** (real brasileiro) e as datas no formato **DD/MM/AAAA**.
+
+<Screenshot src="/img/financeiro-dashboard-financeiro-1.png" alt="Visão geral do dashboard financeiro com cartões de resumo e gráficos" caption="O dashboard abre na aba Resumo com os cartões de faturamento e os gráficos do período." />
+
+## Filtros por período
+
+No topo do módulo Financeiro fica a **barra de filtros**, que controla o período de **todas** as abas do dashboard ao mesmo tempo.
+
+<Steps>
+
+<Step>
+**Escolha o ano.** Use as setas **&larr;** e **&rarr;** ao redor do ano para navegar entre anos. O ano selecionado aparece em destaque entre as setas.
+</Step>
+
+<Step>
+**Escolha o mês — ou o ano inteiro.** Ao lado do ano há os botões **Ano todo** e os doze meses (**Jan**, **Fev**, ... **Dez**).
+
+- Clique em **Ano todo** para ver o **consolidado anual**.
+- Clique em um mês para focar somente naquele mês.
+
+O botão ativo fica destacado.
+</Step>
+
+<Step>
+**Confira o cabeçalho.** Logo acima das abas, o dashboard mostra o período ativo: por exemplo, **"Junho 2026"** quando um mês está selecionado, ou **"Consolidado 2026"** quando você escolhe **Ano todo**.
+</Step>
+
+</Steps>
+
+<Callout type="info">
+Quando você abre o dashboard, o filtro já vem preenchido com o **mês atual**. A escolha de período vale igualmente para as abas Resumo, Cobrança, Atendimento e Análise — basta trocar de aba que os números acompanham o mesmo período.
+</Callout>
+
+Alguns gráficos só fazem sentido em um recorte específico, por isso a tela se adapta ao filtro:
+
+- **Ano todo:** aparecem os gráficos anuais — Faturamento Mensal, Status das Faturas, Sessões por Mês — e a tabela **Detalhes por Mês**.
+- **Mês específico:** aparecem os gráficos de pizza **Recebido vs Total** e **Recebido por Profissional**, além do gráfico **Recebimentos por Dia** (na aba Cobrança).
+
+## As quatro abas do dashboard
+
+Dentro do dashboard há quatro abas: **Resumo**, **Cobrança**, **Atendimento** e **Análise**. A aba **Resumo** carrega imediatamente; as outras três carregam os indicadores na primeira vez que você as abre (e recarregam quando você muda o período).
+
+<Cards>
+  <Card title="Resumo" description="Faturado, a receber, recebido, créditos e os gráficos de faturamento do período." />
+  <Card title="Cobrança" description="Inadimplência, atraso, tempo de recebimento e comparativo com o período anterior." />
+  <Card title="Atendimento" description="Ticket médio, taxa de cancelamento, faltas e sessões por dia da semana." />
+  <Card title="Análise" description="Concentração de receita nos maiores pagantes e aging de créditos." />
+</Cards>
+
+### Resumo
+
+A aba **Resumo** abre com quatro cartões principais:
+
+| Cartão | O que mostra |
+| --- | --- |
+| **Total Faturado** | Soma de todas as faturas do período, com a quantidade de faturas. |
+| **A Receber** | Tudo que ainda não foi pago (faturas com status **Pendente**, **Enviado** ou **Parcial**). |
+| **Recebido** | Total já pago, com o percentual em relação ao faturado. |
+| **Créditos Disponíveis** | Créditos de sessão ainda não consumidos. |
+
+Logo abaixo, três contadores complementam o quadro: **Sessões**, **Créditos Aplicados** e **Sessões Extras**.
+
+Quando há faturas em atraso, aparece no topo um **alerta de faturas vencidas** (ex.: *"3 faturas vencidas · R$ 1.200,00 em aberto"*). Clicar nele leva direto para a lista de **Faturas** já filtrada pelas vencidas. Se houver recibos da **Receita Saúde** pendentes, um chip ao lado do título do período mostra a contagem e leva para a tela de Receita Saúde.
+
+<Callout type="info">
+Uma fatura é considerada **vencida** quando a data de vencimento já passou e ela ainda está em **Pendente**, **Enviado** ou **Parcial**. O alerta reflete o estado atual, independentemente do período filtrado.
+</Callout>
+
+Os gráficos do Resumo dependem do filtro:
+
+- **No consolidado anual (Ano todo):**
+  - **Faturamento Mensal** — barras empilhadas de **Recebido** + **A receber** por mês.
+  - **Status das Faturas** — pizza com a divisão entre recebidas e a receber.
+  - **Sessões por Mês** — linhas de Sessões, Créditos e Extras ao longo do ano.
+  - **Detalhes por Mês** — tabela com faturas, sessões, faturado, a receber e recebido por mês. **Clicar em uma linha** abre aquele mês (equivale a selecionar o mês na barra de filtros).
+- **Em um mês específico:**
+  - **Recebido vs Total** — pizza do quanto já entrou frente ao total faturado.
+  - **Recebido por Profissional** — pizza por profissional (quando há mais de um).
+
+Em ambos os recortes, quando há mais de um profissional, aparecem o gráfico **Faturamento por Profissional** e a tabela **Detalhes por Profissional** (pacientes, sessões, faturado, a receber, recebido e % recebido). Uma barra **Recebido vs Faturado** mostra o percentual recebido do período.
+
+### Cobrança
+
+A aba **Cobrança** foca na saúde do recebimento. Os indicadores comparam o período atual com o **período anterior** equivalente.
+
+- **Recebimentos por Dia** *(apenas com um mês selecionado)* — gráfico de barras + área com o valor recebido em cada dia e o acumulado do mês.
+- **Inadimplência no Período:**
+  - **Faturas Não Pagas** — percentual de faturas em aberto. Acima de **20%** o sistema sinaliza *"Acima do ideal"*; abaixo disso, *"Dentro do esperado"*.
+  - **Valor em Aberto** — total não recebido no período.
+  - **Pagamento em Atraso** — percentual e quantidade de faturas pagas **após o vencimento**, com a média de dias de atraso.
+- **Tempo Médio de Recebimento** — média de dias entre a criação e o pagamento da fatura, no período atual e no anterior, com a variação.
+- **Comparativo com Período Anterior** — Faturado, Recebido e Sessões do período anterior, cada um com o indicador de variação (&uarr; aumento, &darr; queda).
+
+<Callout type="info">
+As setas de variação são contextuais: subir o **faturamento** aparece em verde, mas subir o **tempo de recebimento** ou o **atraso** aparece em vermelho — afinal, demorar mais para receber é um sinal de alerta.
+</Callout>
+
+### Atendimento
+
+A aba **Atendimento** cruza o financeiro com a operação da agenda:
+
+- **Ticket Médio por Sessão** — valor médio cobrado por sessão no período.
+- **Taxa de Cancelamento** — percentual de consultas canceladas sobre o total. Acima de **15%** é sinalizada como *"Acima do ideal"*.
+- **Faltas** — quantidade de faltas (não comparecimentos) no período.
+- **Ticket Médio por Profissional** — tabela comparando o ticket de cada profissional com a média da clínica (quando há mais de um).
+- **Sessões por Dia da Semana** — gráfico de barras de Dom a Sáb mostrando em quais dias há mais atendimentos.
+
+### Análise
+
+A aba **Análise** ajuda a entender a dependência da receita e o uso de créditos:
+
+- **Concentração Top 3 Pacientes** — percentual da receita concentrado nos três maiores pagantes. Acima de **50%** o sistema alerta *"Alta concentração — risco de dependência"*.
+- **Créditos Pendentes** — total de sessões pagas que ainda não foram consumidas.
+- **Maiores Pagantes** — tabela com os pacientes que mais geraram receita e o percentual de cada um sobre o total.
+- **Aging de Créditos** — distribuição dos créditos pendentes por faixa de idade: **0–30 dias**, **31–60 dias**, **61–90 dias** e **90+ dias**, com uma barra visual proporcional.
+
+<Callout type="info">
+Os créditos que aparecem nas faixas mais antigas (61–90 e 90+ dias) merecem atenção: são sessões já pagas pelo paciente que ainda não foram realizadas. Acompanhe-os para evitar saldos acumulados há muito tempo.
+</Callout>
+
+## Como ler os números no dia a dia
+
+<Steps>
+
+<Step>
+**Comece pelo Resumo no mês atual** para ver rapidamente quanto faturou, quanto já recebeu e quanto falta receber.
+</Step>
+
+<Step>
+**Use o alerta de faturas vencidas** para agir na cobrança: clique nele para abrir a lista filtrada e dar sequência aos recebimentos atrasados.
+</Step>
+
+<Step>
+**Abra a aba Cobrança** para entender se o ritmo de recebimento está melhorando ou piorando em relação ao período anterior.
+</Step>
+
+<Step>
+**Mude para Ano todo** quando quiser enxergar tendências e comparar a evolução mês a mês na tabela e nos gráficos anuais.
+</Step>
+
+</Steps>
+
+<Callout type="info" title="Dica">
+Como cada profissional vê apenas os próprios números, peça que um administrador acesse o dashboard quando precisar de uma visão consolidada da clínica inteira.
+</Callout>

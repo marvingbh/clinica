@@ -1,0 +1,178 @@
+---
+title: "Visão geral do painel e navegação"
+description: "Tour do menu lateral/bottom nav, dashboard inicial e como abrir Configurações."
+feature: onboarding-contas
+sources:
+  - "src/app/agenda/**"
+  - "src/app/hooks/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+---
+
+Quando você entra no Clínica, a primeira tela é o **Dashboard** (a rota inicial, `/`). A partir dele você chega a tudo: agenda, pacientes, prontuário, financeiro e configurações. Esta página mostra como o painel está organizado no computador e no celular, o que cada bloco do Dashboard significa e onde abrir as Configurações.
+
+<Callout type="info" title="O que você vê depende das suas permissões">
+  Os itens de menu e os blocos do Dashboard mudam conforme o seu perfil. Quem
+  não tem acesso ao **Financeiro**, por exemplo, não vê os cartões de receita
+  nem o atalho de Faturas — vê uma versão do Dashboard focada na agenda. Se
+  faltar algum item descrito aqui, fale com o administrador da sua clínica.
+</Callout>
+
+## Tour da navegação
+
+A navegação tem dois formatos, que mudam automaticamente conforme o tamanho da tela.
+
+<Tabs items={["Computador (menu lateral)", "Celular (barra inferior)"]}>
+
+<Tab value="Computador (menu lateral)">
+
+No computador, o menu fica fixo na **lateral esquerda**. No topo aparece a marca **Clínica** e, logo abaixo, o seu primeiro nome; ao lado há um botão de seta (`‹` / `›`) para **recolher** ou **expandir** o menu — útil para ganhar espaço na tela. Quando recolhido, o menu mostra apenas os ícones (passe o mouse para ver o nome de cada item).
+
+Os itens são organizados em dois grupos:
+
+**Principal**
+
+<Cards>
+  <Card title="Dashboard" description="Tela inicial com seus indicadores e a agenda de hoje." />
+  <Card title="Agenda" description="Sua agenda de horários. Abre direto na visão semanal." />
+  <Card title="Recorrências" description="Atendimentos que se repetem (semanal, quinzenal, mensal)." />
+  <Card title="Tarefas" description="Lista de tarefas e lembretes da clínica." />
+  <Card title="Pendências" description="Pontos da agenda que precisam de atenção." />
+  <Card title="Solicitações" description="Pedidos de agendamento online aguardando resposta." />
+  <Card title="Prontuário" description="Registros clínicos dos pacientes." />
+  <Card title="Pacientes" description="Cadastro e ficha dos pacientes." />
+  <Card title="Formulários" description="Formulários e questionários da clínica." />
+  <Card title="Profissionais" description="Equipe de profissionais." />
+  <Card title="Grupos" description="Grupos de terapia e suas sessões." />
+  <Card title="Relatórios" description="Relatórios e indicadores da clínica." />
+</Cards>
+
+**Financeiro** (visível para quem tem acesso a finanças)
+
+Reúne **Dashboard** (financeiro), **Faturas**, **Despesas**, **Fluxo de caixa**, **Créditos**, **Preços**, **Repasse** e **Conciliação**.
+
+O item da página em que você está fica destacado em azul. Alguns itens mostram um **selo numérico** quando há algo aguardando você:
+
+- **Pacientes** destaca quantas fichas de pré-cadastro (intake) estão pendentes de aprovação.
+- **Solicitações** destaca quantos pedidos de agendamento online ainda não foram respondidos.
+
+No rodapé do menu aparece o seu **avatar com as iniciais**, o seu nome e o seu perfil (**Administrador** ou **Profissional**). Clique nele para abrir o menu do usuário — é por ali que se chega a Perfil, Disponibilidade, Configurações e ao botão **Sair**.
+
+</Tab>
+
+<Tab value="Celular (barra inferior)">
+
+No celular, a navegação aparece como uma **barra fixa na parte de baixo da tela**, com os atalhos mais usados:
+
+- **Home** — o Dashboard
+- **Agenda**
+- **Tarefas**
+- **Profissionais**
+- **Grupos**
+- **Prontuário**
+- **Financeiro**
+- **Perfil**
+
+Assim como no computador, os itens só aparecem se você tiver acesso a eles. O ícone da página atual fica destacado e levemente ampliado. Um **pontinho** sobre o ícone de **Agenda** sinaliza que há solicitações de agendamento online pendentes.
+
+O atalho **Perfil** leva à sua página de perfil, onde você edita seu nome, especialidade, duração padrão da sessão e a preferência de uso de IA. As Configurações da clínica, as Permissões e a Disponibilidade ficam no menu do usuário, disponível no menu lateral do computador (veja a seção [Como abrir as Configurações](#como-abrir-as-configurações)).
+
+</Tab>
+
+</Tabs>
+
+{/* TODO screenshot: /img/primeiros-passos-visao-geral-do-painel-1.png */}
+
+## O Dashboard inicial
+
+O Dashboard é a tela inicial (rota `/`). No topo, você recebe uma saudação que muda conforme o horário (**Bom dia**, **Boa tarde** ou **Boa noite**), seguida do seu primeiro nome e da data de hoje. Logo abaixo, um resumo rápido mostra, por exemplo, quantos compromissos você tem hoje e quantas faturas estão em aberto.
+
+Ainda no topo ficam dois atalhos:
+
+- **Buscar pacientes ou faturas** — um campo de busca que pesquisa enquanto você digita (a partir de 2 caracteres) e mostra resultados separados em **Pacientes** e **Faturas**. Clicar em um resultado abre direto a ficha do paciente ou a fatura.
+- **Novo** — botão que leva à Agenda para criar um novo compromisso.
+
+### Indicadores (KPIs)
+
+Abaixo do cabeçalho, uma faixa de quatro indicadores resume o momento da clínica. **O conjunto exibido depende do seu acesso ao Financeiro:**
+
+<Tabs items={["Com acesso ao Financeiro", "Sem acesso ao Financeiro"]}>
+
+<Tab value="Com acesso ao Financeiro">
+
+- **Receita · mês** — receita do mês, com a variação percentual em relação ao mês anterior.
+- **Consultas · semana** — total de consultas da semana, com destaque para quantas são hoje.
+- **Em aberto** — valor total a receber e quantas faturas estão pendentes.
+- **Taxa de falta** — percentual de faltas nos últimos 30 dias.
+
+</Tab>
+
+<Tab value="Sem acesso ao Financeiro">
+
+- **Hoje** — compromissos de hoje, com destaque para quantos aguardam confirmação.
+- **Semana** — total de compromissos da semana.
+- **Pacientes ativos** — pacientes ativos, com os novos cadastrados no mês.
+- **Taxa de comparecimento** — percentual de comparecimento, com a taxa de faltas dos últimos 30 dias.
+
+</Tab>
+
+</Tabs>
+
+### Painéis abaixo dos indicadores
+
+<Cards>
+  <Card title="Receita" description="Gráfico de receita com botões para alternar entre Dia (últimos 30 dias), Semana (últimas 12 semanas) e Mês (últimos 12 meses). Aparece só para quem tem acesso ao Financeiro." />
+  <Card title="Agenda de hoje" description="Lista dos compromissos do dia — horário, duração, paciente, profissional, modalidade (Online/Presencial) e status. O link “Ver agenda completa →” abre a Agenda." />
+  <Card title="Pagamentos recentes" description="Tabela das faturas mais recentes com as colunas Fatura, Paciente, Profissional, Referência, Valor e Status. Há também o atalho “Abrir financeiro →”. Visível apenas com acesso ao Financeiro." />
+</Cards>
+
+Na **Agenda de hoje**, cada compromisso traz um selo de status com as cores do fluxo de trabalho — por exemplo **Agendado**, **Confirmado** e **Finalizado** (o ciclo padrão é AGENDADO → CONFIRMADO → FINALIZADO), além de **Faltou**, **Remarcar** e **Cancelado**. Quando não há nada marcado, o painel mostra "Sem compromissos hoje".
+
+<Callout type="info" title="O Dashboard se atualiza sozinho">
+  Os dados do painel são recarregados automaticamente a cada 5 minutos, então
+  os números acompanham o andamento do dia sem precisar recarregar a página.
+</Callout>
+
+## Como abrir as Configurações
+
+As Configurações, as Permissões e a Disponibilidade ficam no **menu do usuário**, no rodapé do menu lateral — disponível **no computador**.
+
+<Steps>
+
+<Step>
+No **rodapé do menu lateral**, clique no seu avatar (as iniciais do seu nome) e no seu nome.
+</Step>
+
+<Step>
+Um menu se abre com as opções **Meu perfil**, **Disponibilidade** e, no fim, **Sair**.
+</Step>
+
+<Step>
+Se você puder gerenciar usuários (normalmente o perfil **Administrador**), o menu também mostra **Configurações** e **Permissões**. Clique em **Configurações** para abrir as configurações da clínica.
+</Step>
+
+</Steps>
+
+<Callout type="info" title="No celular">
+  A barra inferior do celular não tem o menu do usuário. O atalho **Perfil**
+  abre apenas a sua página de perfil (nome, especialidade, duração da sessão e
+  preferência de IA). Para abrir as Configurações da clínica, as Permissões ou a
+  Disponibilidade, use o menu lateral em um computador.
+</Callout>
+
+<Callout type="warn" title="Configurações e Permissões são para administradores">
+  Os atalhos **Configurações** e **Permissões** só aparecem para quem tem
+  permissão de gerenciar usuários — normalmente o perfil **Administrador**. Se
+  você não os vê, é porque seu perfil não tem esse acesso. Já **Meu perfil** e
+  **Disponibilidade** estão disponíveis para todos.
+</Callout>
+
+A opção **Disponibilidade**, no mesmo menu, é onde cada profissional define seus horários de atendimento — vale conferir logo no início para que a agenda funcione corretamente.
+
+## Próximos passos
+
+<Cards>
+  <Card title="Sua agenda" href="/docs/agenda/visao-geral-agenda" description="Conheça as visões diária e semanal e como criar compromissos." />
+  <Card title="Disponibilidade" href="/docs/agenda/disponibilidade" description="Defina seus horários de atendimento." />
+</Cards>

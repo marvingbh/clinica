@@ -1,0 +1,42 @@
+/* Tema do site de documentação — alinhado à identidade visual do produto Clinica:
+   azul de marca (#2563EB) sobre neutros slate, igual ao app principal.
+   Sobrescreve as variáveis do Fumadocs UI. IMPORTANTE: este arquivo é importado
+   DEPOIS de `fumadocs-ui/style.css` no layout, para que estas regras vençam. */
+
+:root {
+  --color-fd-background: #f7f9fc;
+  --color-fd-foreground: #1e293b;
+  --color-fd-muted: #eef2f7;
+  --color-fd-muted-foreground: #64748b;
+  --color-fd-popover: #ffffff;
+  --color-fd-popover-foreground: #1e293b;
+  --color-fd-card: #ffffff;
+  --color-fd-card-foreground: #1e293b;
+  --color-fd-border: #e2e8f0;
+  --color-fd-primary: #2563eb;
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-secondary: #eef2f7;
+  --color-fd-secondary-foreground: #1e293b;
+  --color-fd-accent: #eff5fc;
+  --color-fd-accent-foreground: #1a3f99;
+  --color-fd-ring: #2563eb;
+}
+
+.dark {
+  --color-fd-background: #0f172a;
+  --color-fd-foreground: #eef2f7;
+  --color-fd-muted: #1e293b;
+  --color-fd-muted-foreground: #94a3b8;
+  --color-fd-popover: #1e293b;
+  --color-fd-popover-foreground: #eef2f7;
+  --color-fd-card: #1e293b;
+  --color-fd-card-foreground: #eef2f7;
+  --color-fd-border: #334155;
+  --color-fd-primary: #5c92d4;
+  --color-fd-primary-foreground: #0f172a;
+  --color-fd-secondary: #1e293b;
+  --color-fd-secondary-foreground: #eef2f7;
+  --color-fd-accent: #16316f;
+  --color-fd-accent-foreground: #dce8f7;
+  --color-fd-ring: #5c92d4;
+}

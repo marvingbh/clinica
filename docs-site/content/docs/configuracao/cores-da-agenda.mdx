@@ -1,0 +1,127 @@
+---
+title: "Cores da agenda"
+description: "Personalizar cores por tipo de evento; paletas e restaurar padrão."
+feature: configuracao-clinica
+sources:
+  - "src/app/admin/settings/components/AgendaColorsTab.tsx"
+  - "src/lib/clinic/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+---
+
+As cores da agenda definem como cada tipo de evento aparece visualmente no
+calendário da clínica: a cor do fundo, da faixa lateral e do texto de cada
+bloco. Você ajusta tudo na tela de configurações, escolhendo uma paleta para
+cada tipo de evento.
+
+<Callout type="info">
+  Essas cores valem quando você visualiza **um profissional específico** na
+  agenda. Ao selecionar a visão **Todos**, cada profissional recebe
+  automaticamente uma cor única — as paletas configuradas aqui não se aplicam
+  nessa visão de conjunto.
+</Callout>
+
+## Onde encontrar
+
+A configuração fica em **Configurações da clínica**, na aba **Cores** (ícone de
+paleta). Apenas administradores têm acesso a essa tela.
+
+<Steps>
+  <Step>
+    Abra **Configurações da clínica** no menu de administração.
+  </Step>
+  <Step>
+    Na barra de abas, clique em **Cores**.
+  </Step>
+  <Step>
+    Ajuste as paletas dos tipos de evento (veja abaixo) e clique em
+    **Salvar cores**.
+  </Step>
+</Steps>
+
+<Screenshot src="/img/configuracao/cores-da-agenda-1.png" alt="Aba Cores nas configurações da clínica, com um cartão por tipo de evento e a grade de paletas" caption="Cada tipo de evento tem seu próprio cartão com a grade de cores disponíveis." />
+
+## Personalizar cores por tipo de evento
+
+A aba mostra um cartão para cada tipo de evento, na ordem abaixo. Em cada
+cartão você vê o nome do evento, a paleta atualmente selecionada, uma breve
+descrição e uma grade de bolinhas coloridas (as paletas). Logo abaixo da grade
+há uma **Pré-visualização** mostrando como um bloco daquele tipo ficaria com a
+cor escolhida.
+
+| Tipo de evento | O que ele colore |
+| --- | --- |
+| **Consulta** | Cor das consultas individuais na agenda |
+| **Reunião** | Cor das reuniões e supervisões |
+| **Lembrete** | Cor dos blocos de lembrete |
+| **Sessão em grupo** | Cor das sessões em grupo (KEEP, MERCÚRIO etc.) |
+| **Disponível** | Cor dos horários disponíveis para agendamento |
+| **Tarefa** | Cor da faixa lateral nos cartões de tarefas (Tarefas) da agenda |
+
+Para mudar a cor de um tipo de evento, clique na bolinha da paleta desejada
+dentro do cartão correspondente. A bolinha selecionada fica marcada com um
+ícone de confirmação, e o rótulo no topo do cartão e a pré-visualização são
+atualizados na hora.
+
+<Callout type="info">
+  As alterações ficam apenas no rascunho até você salvar. O botão **Salvar
+  cores** só fica disponível quando há mudanças pendentes.
+</Callout>
+
+### Salvar ou descartar
+
+Depois de ajustar uma ou mais cores:
+
+- **Salvar cores** — grava as alterações. Aparece a mensagem
+  *"Cores da agenda salvas"* e a agenda passa a usar as novas cores.
+- **Restaurar** — descarta as mudanças que você ainda não salvou e volta às
+  cores que estavam gravadas. Esse botão **não** retorna às cores de fábrica;
+  ele apenas desfaz a edição em andamento.
+
+<Callout type="warn">
+  O botão **Restaurar** desfaz somente o que você ainda não salvou. Para voltar
+  às cores originais do sistema depois de salvar, reposicione manualmente cada
+  paleta nos valores padrão listados abaixo e salve novamente.
+</Callout>
+
+## Paletas disponíveis
+
+Há 19 paletas para escolher. As 17 primeiras são tons sólidos; as duas últimas
+são especiais.
+
+<Cards>
+  <Card title="Tons sólidos" description="Vermelho, Laranja, Âmbar, Amarelo, Lima, Verde, Esmeralda, Turquesa, Azul claro, Azul, Índigo, Violeta, Roxo, Fúcsia, Rosa, Rosé e Cinza." />
+  <Card title="Branco" description="Fundo branco com texto preto — o visual clássico de consulta, agora configurável." />
+  <Card title="Branco + Azul" description="Fundo branco com faixa azul. É o visual original dos blocos de tarefa." />
+</Cards>
+
+Cada paleta define automaticamente fundo, faixa lateral, borda, cor do texto e
+o ponto de destaque do bloco, sempre mantendo bom contraste de leitura. A
+paleta **Branco + Azul** aparece na grade como uma bolinha dividida em
+metade branca e metade azul.
+
+## Cores padrão (de fábrica)
+
+Quando uma clínica nunca personalizou as cores, o sistema usa estas paletas:
+
+| Tipo de evento | Paleta padrão |
+| --- | --- |
+| Consulta | Vermelho |
+| Reunião | Azul |
+| Lembrete | Amarelo |
+| Sessão em grupo | Violeta |
+| Disponível | Verde |
+| Tarefa | Branco + Azul |
+
+Para voltar a uma dessas cores, basta selecionar a paleta correspondente no
+cartão do tipo de evento e clicar em **Salvar cores**. Você pode redefinir um
+único tipo de evento por vez — não é preciso mexer nos demais.
+
+<Callout type="info">
+  Os blocos de tipos antigos de evento que não podem mais ser criados pela
+  interface continuam aparecendo com suas cores originais e **não** são
+  afetados pelas paletas configuradas aqui. (O cartão **Tarefa** desta aba
+  controla os cartões de tarefas — o módulo de Tarefas — e não esses blocos
+  antigos.)
+</Callout>

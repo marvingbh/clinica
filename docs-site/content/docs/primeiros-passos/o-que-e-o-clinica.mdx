@@ -1,0 +1,101 @@
+---
+title: "O que é o Clinica"
+description: "Visão geral do produto, módulos, modelo multi-tenant e para quem serve."
+feature: onboarding-contas
+sources:
+  - "src/app/landing/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+---
+
+O **Clinica** é um sistema de gestão de clínicas pensado para o dia a dia de quem atende pacientes no Brasil. Ele reúne **agenda, pacientes, prontuário, notificações, financeiro e relatórios** em um só lugar, para que a equipe gaste menos tempo com o administrativo e mais tempo no atendimento.
+
+É 100% web: você acessa de qualquer computador, tablet ou celular, sem instalar nada. A interface também funciona como aplicativo (PWA), com navegação por menu no desktop e barra inferior no celular.
+
+## Visão geral do produto
+
+A ideia central do Clinica é que as três áreas mais pesadas da rotina de uma clínica — **agendar, atender e cobrar** — conversem entre si. Uma sessão marcada na agenda já carrega o paciente, alimenta o prontuário e gera a cobrança no financeiro, sem retrabalho ou planilha paralela.
+
+<Cards>
+  <Card title="Agenda" href="/docs/agenda/visao-geral-agenda">
+    Marque consultas, tarefas, lembretes e reuniões. Crie sessões recorrentes (semanal, quinzenal ou mensal) e visualize por dia, semana ou profissional.
+  </Card>
+  <Card title="Pacientes e prontuário" href="/docs/pacientes/cadastro-de-pacientes">
+    Cadastro completo, histórico unificado, evolução clínica, documentos e consentimentos de LGPD por paciente.
+  </Card>
+  <Card title="Financeiro" href="/docs/financeiro/dashboard-financeiro">
+    Cobranças, faturas, repasse por profissional, fluxo de caixa e relatórios por período.
+  </Card>
+</Cards>
+
+<Callout type="info" title="Conformidade com a LGPD">
+  O cadastro de cada paciente registra os consentimentos e o controle de acesso é por profissional. Isso ajuda a clínica a manter o tratamento de dados em conformidade com a LGPD.
+</Callout>
+
+## Os módulos
+
+O Clinica é organizado em módulos que aparecem no menu lateral. Cada um cobre uma parte da operação da clínica:
+
+| Módulo | Para que serve |
+| --- | --- |
+| **Agenda** | Marcação de consultas e blocos de horário, com recorrência, status (AGENDADO → CONFIRMADO → FINALIZADO) e atendimento online. |
+| **Pacientes** | Ficha cadastral, histórico clínico e financeiro, valor de sessão e profissional de referência. |
+| **Prontuário** | Anamnese, evolução de sessões e anotações clínicas de cada paciente. |
+| **Financeiro** | Faturas, itens de cobrança, créditos de sessão, repasse por profissional e fluxo de caixa. |
+| **Fiscal** | Emissão de notas (NFS-e) a partir do que foi cobrado. |
+| **Notificações** | Lembretes e confirmações de consulta por WhatsApp e e-mail. |
+| **Formulários** | Formulários de intake e questionários enviados ao paciente antes do atendimento. |
+| **Grupos** | Sessões de terapia em grupo, com controle de quem participa. |
+| **Teleconsulta** | Atendimento online integrado à agenda. |
+| **Portal do paciente** | Área onde o paciente acompanha consultas, documentos e cobranças. |
+| **Relatórios** | Indicadores de atendimento e financeiro por período. |
+
+<Callout type="info">
+  Quais módulos a sua clínica vê depende do plano contratado e das permissões de cada usuário. Se algum item não aparecer no seu menu, fale com o administrador da conta.
+</Callout>
+
+## Modelo multi-tenant
+
+O Clinica é um sistema **multi-tenant** (multi-clínica). Na prática, isso significa que **cada clínica é um espaço isolado**: os dados de uma clínica nunca se misturam com os de outra.
+
+- Toda informação — pacientes, agenda, faturas, prontuários — pertence a **uma única clínica**.
+- Cada usuário pertence a uma clínica e só enxerga os dados dela.
+- Esse isolamento é garantido no nível do banco de dados, e não apenas na tela.
+
+Dentro da sua clínica, o acesso é controlado por **papéis e permissões**:
+
+<Cards>
+  <Card title="ADMIN" href="/docs/primeiros-passos/papeis-e-permissoes">
+    Acesso amplo à clínica: configura a conta, gerencia usuários e vê todos os módulos.
+  </Card>
+  <Card title="PROFISSIONAL" href="/docs/primeiros-passos/papeis-e-permissoes">
+    Acesso voltado aos próprios atendimentos e pacientes, conforme as permissões definidas.
+  </Card>
+</Cards>
+
+O administrador pode ajustar as permissões por usuário, liberando ou restringindo cada módulo individualmente. Os detalhes estão em [Papéis e permissões](/docs/primeiros-passos/papeis-e-permissoes).
+
+## Para quem serve
+
+O Clinica foi feito para clínicas e consultórios de saúde no Brasil — de profissionais autônomos a clínicas com várias pessoas atendendo. Ele atende bem:
+
+- **Profissionais autônomos** que querem organizar agenda, cobrança e prontuário em um só lugar.
+- **Clínicas com vários profissionais**, em que o administrador organiza a conta e cada profissional cuida dos próprios atendimentos.
+- **Recepção e equipe administrativa**, que usa a agenda, as notificações e o financeiro no dia a dia.
+
+A cobrança da clínica pode seguir dois modelos: **por sessão** (PER_SESSION) ou **mensalidade fixa** (MONTHLY_FIXED), escolhidos na configuração da conta.
+
+## Próximos passos
+
+<Cards>
+  <Card title="Criar a conta da clínica" href="/docs/primeiros-passos/criar-conta-da-clinica">
+    Cadastre sua clínica e faça a configuração inicial.
+  </Card>
+  <Card title="Entrar e acessar o sistema" href="/docs/primeiros-passos/login-e-conta">
+    Faça login e acesse sua conta.
+  </Card>
+  <Card title="Visão geral do painel" href="/docs/primeiros-passos/visao-geral-do-painel">
+    Conheça a navegação e onde fica cada módulo.
+  </Card>
+</Cards>

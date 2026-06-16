@@ -1,0 +1,236 @@
+---
+title: "Cobrança integrada (Stripe)"
+description: "Links Pix/cartão via Stripe Connect, régua de dunning e histórico de cobrança."
+feature: financeiro
+sources:
+  - "src/lib/cobranca/**"
+  - "src/app/financeiro/faturas/components/CobrarModal.tsx"
+  - "src/app/financeiro/faturas/components/ChargeHistory.tsx"
+  - "src/app/api/financeiro/faturas/[id]/cobranca/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+A cobrança integrada conecta a sua clínica ao Stripe e permite gerar **links de pagamento por Pix ou cartão** direto da fatura. O paciente abre o link, paga, e a fatura é baixada automaticamente — sem você lançar nada à mão. Você também pode deixar uma **régua de cobrança** enviando os lembretes sozinha e acompanhar tudo pelo **histórico de cobranças** de cada fatura.
+
+<Callout type="info" title="Funcionalidade recente">
+A cobrança integrada com Stripe é uma adição recente ao módulo financeiro. Antes de cobrar qualquer fatura você precisa conectar a clínica ao Stripe uma única vez (passo abaixo). Pagamentos, taxas e repasses são processados pela sua própria conta Stripe — a clínica recebe direto, sem intermediação.
+</Callout>
+
+## Como funciona
+
+O fluxo tem três partes, e esta página cobre as três:
+
+<Cards>
+  <Card title="1. Conectar ao Stripe" href="#conectar-a-clinica-ao-stripe">
+    Onboarding único em Configurações → Pagamentos. Habilita a geração de links.
+  </Card>
+  <Card title="2. Cobrar a fatura" href="#cobrar-uma-fatura">
+    Gere um link Pix/cartão manualmente, em lote, ou deixe a régua fazer por você.
+  </Card>
+  <Card title="3. Acompanhar e reembolsar" href="#historico-de-cobrancas">
+    Veja o status de cada link, cancele cobranças abertas e faça reembolsos.
+  </Card>
+</Cards>
+
+## Conectar a clínica ao Stripe
+
+A conexão é feita uma única vez por um administrador.
+
+<Steps>
+
+<Step>
+### Abra Configurações → Pagamentos
+
+No menu, vá em **Configurações** e selecione a aba **Pagamentos**. Você verá o cartão **"Receba por Pix e cartão"**.
+</Step>
+
+<Step>
+### Clique em "Conectar com Stripe"
+
+O botão **Conectar com Stripe** leva você ao cadastro (onboarding) do Stripe, onde a conta da sua clínica é criada e os dados bancários são informados. Conclua o cadastro no site do Stripe e volte para a clínica.
+
+Enquanto o cadastro estiver incompleto, o cartão mostra o status **Onboarding pendente** e exibe o botão **Completar cadastro** para você retomar de onde parou.
+</Step>
+
+<Step>
+### Confira o status
+
+O selo ao lado de "Receba por Pix e cartão" indica em que ponto está a conexão:
+
+| Selo | O que significa |
+| --- | --- |
+| **Desconectado** | Nenhuma conta conectada. Use **Conectar com Stripe**. |
+| **Onboarding pendente** | Cadastro iniciado, mas ainda não finalizado. Use **Completar cadastro**. |
+| **Ativo** | Tudo pronto. A clínica já pode gerar links de cobrança. |
+| **Restrito** | O Stripe pediu informações adicionais. Use **Completar cadastro** para regularizar. |
+
+Só com o status **Ativo** é possível gerar cobranças. Tentar cobrar antes disso retorna o aviso *"Conecte a clínica ao Stripe para cobrar"*.
+</Step>
+
+</Steps>
+
+<Callout type="info" title="Desconectar não apaga o histórico">
+O botão **Desconectar** desativa novas cobranças, mas mantém a conta e todo o histórico de pagamentos. Você pode reconectar depois sem perder nada.
+</Callout>
+
+{/* TODO screenshot: /img/financeiro/cobranca-stripe-conexao.png */}
+
+## Cobrar uma fatura
+
+Com o Stripe **Ativo**, você cobra de três formas.
+
+### Cobrança individual
+
+1. Abra a fatura (clique nela na lista de faturas).
+2. Na seção **Cobranças**, clique em **Cobrar**.
+3. No modal **Cobrar fatura**, confira o **Valor** — ele já vem preenchido com o valor da fatura e o campo mostra o saldo em aberto entre parênteses (ex.: *Valor (saldo em aberto: R$ 200,00)*). Você pode reduzir o valor para fazer uma cobrança parcial, mas não pode ultrapassar o saldo em aberto (o sistema rejeita valores acima dele).
+4. Marque por onde enviar o link: **WhatsApp** e/ou **E-mail**. Se desmarcar os dois, o link é apenas gerado para você copiar e enviar como quiser.
+5. Clique em **Gerar link de cobrança**.
+
+Depois de gerado, o modal mostra o **link de pagamento** com um botão **Copiar**. O paciente abre esse link e escolhe pagar por **Pix** ou **cartão**.
+
+<Callout type="info" title="Pix e cartão na mesma tela">
+O link de pagamento sempre oferece as duas opções — Pix e cartão de crédito — na tela de checkout do Stripe. Você não precisa escolher o meio de pagamento ao gerar a cobrança; quem decide é o paciente.
+</Callout>
+
+{/* TODO screenshot: /img/financeiro/cobranca-stripe-cobrar-modal.png */}
+
+### Cobrança em lote
+
+Na lista de faturas, selecione várias faturas usando as caixas de seleção. Uma barra flutuante aparece com **"X selecionadas"** e o botão **Cobrar selecionadas** — ele gera um link para cada fatura selecionada e envia por **WhatsApp**.
+
+Faturas **sem saldo em aberto** ou de clínicas com o **Stripe inativo** são ignoradas automaticamente; ao final você recebe um aviso informando quantas foram criadas e quantas foram ignoradas.
+
+### O que acontece quando o paciente paga
+
+- A fatura é baixada conforme o valor recebido (quitação total ou parcial — o status passa a **PAGO** quando o saldo zera).
+- O pagamento entra na **conciliação** como um lançamento de origem **Stripe**, sem digitação manual.
+- Se a clínica usa **NFS-e** com emissão automática ao receber, a nota é colocada na fila assim que a fatura é quitada.
+
+<Callout type="warn" title="O valor que cai na conta tem desconto da taxa do Stripe">
+O Stripe cobra uma taxa por transação. No histórico, cada cobrança paga mostra a **taxa** descontada e o sistema guarda o **valor líquido** — útil para conferir o repasse (payout) que cai na conta bancária da clínica.
+</Callout>
+
+## Régua de cobrança (dunning)
+
+A régua de cobrança envia lembretes de pagamento automaticamente, em datas relativas ao **vencimento** da fatura. Ela roda uma vez por dia e reaproveita (ou cria) o link de pagamento de cada fatura pendente.
+
+### Configurar a régua
+
+Em **Configurações → Pagamentos**, no bloco **Régua de cobrança**:
+
+<Steps>
+
+<Step>
+### Ative a régua
+
+Marque **Ativar régua de cobrança automática**. Sem isso, nenhum lembrete é enviado.
+</Step>
+
+<Step>
+### Defina os dias de envio
+
+No campo **Dias de envio (relativos ao vencimento)**, informe os dias separados por vírgula — por exemplo `-3, 0, 3, 7`:
+
+- **Negativo** = antes do vencimento (ex.: `-3` envia 3 dias antes).
+- **0** = no dia do vencimento.
+- **Positivo** = depois do vencimento (ex.: `7` envia 7 dias após).
+
+São aceitos até **8 valores**.
+</Step>
+
+<Step>
+### Escolha os canais e os limites
+
+- **Enviar por WhatsApp** e/ou **Enviar por e-mail**.
+- **Máx. de tentativas por fatura**: quantos lembretes uma mesma fatura pode receber no total (de 1 a 12).
+- **Validade do link (dias)**: por quanto tempo o link de pagamento fica válido antes de expirar (de 1 a 30 dias).
+</Step>
+
+<Step>
+### (Cobrança mensal fixa) Cobrar ao criar a fatura
+
+Clínicas no modo de **cobrança mensal fixa** veem a opção **Gerar cobrança automaticamente ao criar fatura mensal**, que dispara o link assim que a fatura é emitida.
+</Step>
+
+<Step>
+### Salve
+
+Clique em **Salvar configurações**.
+</Step>
+
+</Steps>
+
+{/* TODO screenshot: /img/financeiro/cobranca-stripe-regua.png */}
+
+### Quando um lembrete é (ou não) enviado
+
+A régua só envia um lembrete para uma fatura quando **todas** as condições abaixo são verdadeiras:
+
+- A régua está ativada e o Stripe da clínica está **Ativo**.
+- A fatura está **PENDENTE**, **ENVIADO** ou **PARCIAL** e ainda tem **saldo em aberto**.
+- Hoje é uma das datas calculadas a partir do **vencimento + dia de envio** configurado.
+- A fatura ainda não atingiu o **máximo de tentativas**.
+- O paciente **não optou por não receber cobranças** (opt-out) e **deu consentimento** para o canal.
+- O paciente tem o **contato disponível** no canal escolhido (telefone para WhatsApp, e-mail para e-mail).
+
+<Callout type="info" title="No máximo um lembrete por fatura por dia">
+Mesmo que várias regras coincidam no mesmo dia, a régua envia **um único** lembrete por fatura por dia. Faturas pagas ou canceladas nunca entram na régua.
+</Callout>
+
+## Histórico de cobranças
+
+Dentro da fatura, a seção **Cobranças** lista todas as cobranças geradas — manuais ou pela régua — da mais recente para a mais antiga. Cada item mostra um **selo de status**, o valor, a data de criação e detalhes como *"via régua"*, *"paga em DD/MM/AAAA"* e a *taxa* do Stripe.
+
+Quando ainda não houve nenhuma cobrança, aparece *"Nenhuma cobrança gerada para esta fatura."*
+
+### Selos de status
+
+| Selo | Significado |
+| --- | --- |
+| **Link ativo** | Link gerado e válido, ainda não aberto pelo paciente. |
+| **Link visualizado** | O paciente já abriu o link, mas ainda não pagou. |
+| **Pago via Pix** | Cobrança paga por Pix. |
+| **Pago via cartão** | Cobrança paga por cartão. |
+| **Link expirado** | Passou a validade configurada sem pagamento. |
+| **Link cancelado** | Cobrança cancelada (manualmente ou substituída por uma nova). |
+| **Reembolsada** | Cobrança paga que foi reembolsada. |
+
+### Ações por cobrança
+
+- **Cobranças com status "Link ativo"** (abertas): você pode **Copiar link** para reenviar ao paciente, ou **Cancelar cobrança**.
+- **Cobranças pagas**: aparece o botão **Reembolsar**. O reembolso é processado pelo Stripe e, quando confirmado, a fatura é reaberta (total ou parcialmente, conforme o valor reembolsado).
+
+<Callout type="warn" title="Gerar uma nova cobrança cancela a anterior">
+Ao gerar uma nova cobrança para uma fatura que já tinha um link aberto, o link anterior é **cancelado** automaticamente. Sempre use o link mais recente do histórico.
+</Callout>
+
+{/* TODO screenshot: /img/financeiro/cobranca-stripe-historico.png */}
+
+## O link de pagamento do paciente
+
+O link enviado ao paciente é **estável**: ele continua funcionando mesmo que a sessão de pagamento do Stripe precise ser renovada (o sistema faz isso sozinho, já que as sessões do Stripe duram no máximo 24 horas). Ao abrir o link, o paciente vai direto para o checkout do Stripe para pagar por Pix ou cartão.
+
+Se o paciente abrir um link que não está mais disponível, ele vê uma mensagem explicando o motivo:
+
+- **Inválido** — link adulterado, inexistente ou já reembolsado.
+- **Pago** — a cobrança já foi paga.
+- **Expirado** — o link passou da validade ou a cobrança foi cancelada.
+
+<Callout type="info" title="Pix recusado não derruba o link">
+Se um pagamento Pix for recusado, a cobrança continua **aberta** e o paciente pode tentar de novo pelo mesmo link — o motivo da falha fica registrado no histórico.
+</Callout>
+
+## Perguntas frequentes
+
+**Quem recebe o dinheiro?**
+A própria clínica, na conta Stripe que você conectou. A plataforma pode aplicar uma taxa de serviço conforme o seu plano; o valor líquido de cada cobrança fica registrado no histórico.
+
+**Preciso conferir os repasses do Stripe?**
+Os repasses (payouts) que caem na conta bancária da clínica aparecem na **conciliação bancária** e podem ser conferidos contra os valores líquidos das cobranças pagas no período.
+
+**Quais permissões são necessárias?**
+Gerar, cancelar e reembolsar cobranças exige acesso de **escrita** ao módulo financeiro. Conectar/desconectar o Stripe exige acesso de escrita às configurações da clínica (perfil de administrador).

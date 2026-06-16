@@ -1,0 +1,179 @@
+---
+title: "Configurar IA na clínica e opt-out"
+description: "Habilitar IA, aceitar termos LGPD, contexto histórico e opt-out individual."
+feature: ia
+sources:
+  - "src/app/admin/settings/components/AiSettingsTab.tsx"
+  - "src/app/admin/settings/components/AiDisclosureDialog.tsx"
+  - "src/app/profile/page.tsx"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+O assistente de IA ajuda os profissionais a transformar anotações soltas de uma
+sessão em um rascunho de evolução estruturado, dentro do prontuário. Ele vem
+**desligado por padrão** e só passa a funcionar depois que um administrador o
+habilita e aceita os termos de uso (LGPD). Cada profissional ainda pode se
+excluir individualmente.
+
+<Callout type="info" title="Funcionalidade recente">
+  Os recursos de IA são uma adição recente ao Clinica. Se você não encontra a
+  aba **IA** nas configurações, confirme com a administração da clínica que a
+  sua versão está atualizada.
+</Callout>
+
+## Quem pode habilitar
+
+A configuração da IA fica na tela **Configurações da Clínica** e exige acesso de
+administrador (permissão de configurações da clínica com nível de escrita). Um
+profissional comum não vê nem altera essas opções — ele apenas decide o seu
+próprio opt-out no perfil (veja [Opt-out individual](#opt-out-individual-do-profissional)).
+
+## Habilitar o assistente de IA
+
+<Steps>
+
+<Step>
+### Abra as configurações da clínica
+
+Acesse **Configurações da Clínica** e selecione a aba **IA** (ícone de brilho).
+As abas ficam no topo da página, em formato de pílulas que quebram em várias
+linhas.
+</Step>
+
+<Step>
+### Marque "Habilitar assistente de IA para evoluções"
+
+No painel **Inteligência Artificial**, marque a caixa **Habilitar assistente de
+IA para evoluções**. Ao marcar, o sistema **não** ativa de imediato: ele abre
+antes a janela de **Termos de uso do assistente de IA**.
+</Step>
+
+<Step>
+### Leia e aceite os termos (LGPD)
+
+A janela exibe o aviso de privacidade exigido pela LGPD. Leia com atenção e
+clique em **Aceitar e habilitar** para confirmar, ou em **Cancelar** para
+desistir sem ativar nada. Enquanto a operação é processada, o botão mostra
+"Habilitando...".
+</Step>
+
+<Step>
+### Confirme que ficou habilitado
+
+Após aceitar, a IA é ativada e aparece a linha **Habilitado em DD/MM/AAAA, HH:mm**
+logo abaixo do título da opção, registrando data e hora da ativação. O sistema
+também guarda **qual usuário** aceitou os termos e gera um registro no log de
+auditoria da clínica.
+</Step>
+
+</Steps>
+
+<Screenshot src="/img/ia/configuracao-de-ia-1.png" alt="Aba IA das configurações da clínica com a opção de habilitar o assistente" caption="Configurações da Clínica → aba IA" />
+
+### O que dizem os termos LGPD
+
+A janela de termos é o ponto em que a clínica, como controladora dos dados,
+assume formalmente o uso da IA. O texto apresentado é exatamente este:
+
+<Callout type="warn" title="Termos de uso do assistente de IA">
+  Ao habilitar, trechos digitados pelos profissionais serão enviados de forma
+  **pseudonimizada** (sem nome, CPF, telefone ou e-mail do paciente) a um
+  provedor de IA (Anthropic) **exclusivamente para gerar o rascunho**, em
+  conformidade com a LGPD (art. 7º, V — execução de contrato; operador sob
+  instrução do controlador). O conteúdo **não é armazenado** por nós nem
+  utilizado para treinar modelos. Cada uso é registrado em **log de auditoria,
+  sem conteúdo clínico**. O profissional permanece **integralmente responsável**
+  pelo registro (CFP). Cada profissional pode se excluir individualmente nas
+  configurações de perfil.
+</Callout>
+
+Em termos práticos, ao aceitar você confirma que entendeu que:
+
+- os dados que identificam o paciente são removidos antes do envio;
+- o texto serve apenas para gerar o rascunho e não fica guardado no provedor nem
+  alimenta treinamento de modelos;
+- o log de auditoria registra **que** houve uma geração (modelo usado, contagem
+  de tokens), mas **nunca** o conteúdo clínico em si;
+- a responsabilidade pelo registro final continua sendo do profissional (CFP).
+
+## Incluir contexto histórico nas gerações
+
+Depois que a IA está habilitada, surge uma segunda opção no mesmo painel:
+**Incluir contexto histórico nas gerações**.
+
+Quando ligada, ela envia resumos **pseudonimizados das últimas 3 notas
+assinadas** do paciente junto com a anotação atual, para que o rascunho fique
+mais coerente com o histórico. Esta opção vem **desligada por padrão** — ligue-a
+apenas se a clínica considerar adequado compartilhar esse contexto adicional.
+
+<Callout type="info">
+  O contexto histórico só é usado quando **duas** condições são atendidas: a
+  clínica ligou esta opção **e** o profissional marcou "Incluir contexto das
+  últimas notas assinadas" no painel **Gerar com IA**, dentro do prontuário. Se
+  qualquer uma estiver desligada, nenhuma nota anterior é enviada. São
+  consideradas apenas notas com status **ASSINADA**.
+</Callout>
+
+## Desativar a IA
+
+Para desligar, basta **desmarcar** a opção **Habilitar assistente de IA para
+evoluções**. A desativação é imediata (não há janela de confirmação) e também
+gera um registro no log de auditoria. Com a IA desligada, o painel **Gerar com
+IA** deixa de aparecer no prontuário para todos os profissionais da clínica.
+
+## Opt-out individual do profissional
+
+Mesmo com a IA habilitada para a clínica, cada profissional pode optar por **não
+usar** os recursos de IA. Essa escolha é pessoal e fica no perfil de cada
+usuário — não depende do administrador.
+
+<Steps>
+
+<Step>
+### Abra o perfil
+
+No menu, acesse **Meu Perfil**.
+</Step>
+
+<Step>
+### Vá até a seção "Privacidade"
+
+Role até o bloco **Privacidade** e marque a opção **Não usar recursos de IA**.
+A preferência é salva na hora (aparece a confirmação "Preferência de IA
+atualizada"); não é preciso clicar em "Salvar alterações".
+</Step>
+
+</Steps>
+
+{/* TODO screenshot: /img/ia/configuracao-de-ia-2.png */}
+
+Com o opt-out ativo, conforme descrito na própria opção: o painel **"Gerar com
+IA" não será exibido** para esse profissional e **nenhum texto dele será enviado**
+ao provedor de IA. Para voltar a usar, basta desmarcar a opção.
+
+## Quando o painel "Gerar com IA" não aparece
+
+O painel **Gerar com IA**, dentro do prontuário, fica oculto sempre que pelo
+menos uma destas situações ocorre:
+
+<Cards>
+  <Card title="IA desligada na clínica">
+    O administrador não habilitou o assistente na aba IA.
+  </Card>
+  <Card title="Profissional com opt-out">
+    O usuário marcou "Não usar recursos de IA" no próprio perfil.
+  </Card>
+  <Card title="Sem créditos no plano">
+    O plano da clínica não inclui créditos mensais de IA.
+  </Card>
+</Cards>
+
+<Callout type="info">
+  Se a IA está habilitada e mesmo assim o painel não aparece para você,
+  verifique primeiro o seu opt-out em **Meu Perfil → Privacidade** e, em
+  seguida, com a administração, se o plano contempla créditos de IA. Para
+  entender o consumo de créditos, veja a página **Créditos e feedback**.
+</Callout>

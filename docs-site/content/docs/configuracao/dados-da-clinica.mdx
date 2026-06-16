@@ -1,0 +1,142 @@
+---
+title: "Dados gerais da clínica"
+description: "Nome, slug, contato, endereço, fuso horário e logo; link da ficha de cadastro."
+feature: configuracao-clinica
+sources:
+  - "src/app/admin/settings/components/GeneralTab.tsx"
+  - "src/lib/clinic/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+---
+
+Os dados gerais identificam sua clínica em todo o sistema: aparecem no cabeçalho dos PDFs de fatura, definem o endereço da ficha de cadastro pública e determinam o fuso horário usado na agenda. Esta página explica como preencher e atualizar cada campo.
+
+<Callout type="info">
+  Esta seção exige permissão de **administrador** (acesso de escrita às configurações da clínica). Profissionais sem essa permissão não conseguem abrir a página de configurações.
+</Callout>
+
+## Onde encontrar
+
+<Steps>
+  <Step>
+    Acesse **Configurações** no menu (a página abre com o título **Configurações da Clínica**).
+  </Step>
+  <Step>
+    Na barra de abas, selecione a aba **Clinica** (é a aba aberta por padrão).
+  </Step>
+</Steps>
+
+A aba reúne dois blocos: um formulário com os dados gerais (nome, slug, contato, endereço e fuso horário) e um bloco separado para o **Logo da Fatura**.
+
+<Screenshot src="/img/configuracao/dados-da-clinica-aba-clinica.png" alt="Aba Clínica das configurações com o formulário de dados gerais" />
+
+## Nome da clínica
+
+O campo **Nome da Clínica** é obrigatório. É o nome usado para identificar sua clínica no sistema e no cabeçalho dos documentos.
+
+- O nome não pode ficar em branco.
+- Aceita até 200 caracteres.
+
+## Slug (identificador na URL)
+
+O **Slug (identificador na URL)** é o identificador curto da sua clínica usado em endereços públicos — principalmente na URL da ficha de cadastro. Ele também é obrigatório.
+
+Regras de preenchimento:
+
+- Mínimo de 2 caracteres, máximo de 100.
+- Apenas **letras minúsculas, números e hífens** (por exemplo, `minha-clinica`).
+- Não pode começar ou terminar com hífen, nem usar espaços ou acentos.
+
+<Callout type="warn">
+  O slug precisa ser único entre todas as clínicas. Se você tentar salvar um slug já utilizado por outra clínica, o sistema rejeita a alteração com a mensagem **"Este slug já está em uso por outra clínica"**. Nesse caso, escolha outro identificador.
+</Callout>
+
+<Callout type="warn">
+  Alterar o slug muda o endereço da ficha de cadastro. Links antigos com o slug anterior deixam de funcionar — atualize qualquer link compartilhado depois de mudar o slug.
+</Callout>
+
+## Link da ficha de cadastro
+
+Logo abaixo do campo de slug, o sistema mostra o **Link da Ficha de Cadastro**: o endereço público que os responsáveis usam para preencher o cadastro do paciente. O link é montado automaticamente a partir do slug, no formato:
+
+```
+https://seu-dominio/intake/<slug>
+```
+
+Para compartilhar:
+
+<Steps>
+  <Step>
+    Clique em **Copiar** ao lado do endereço. O botão muda para **Copiado!** por alguns segundos confirmando que o link foi para a área de transferência.
+  </Step>
+  <Step>
+    Envie o link aos responsáveis (por WhatsApp, e-mail ou onde preferir) para que preencham a ficha de cadastro.
+  </Step>
+</Steps>
+
+<Callout type="info">
+  O link reflete o slug atual. Se você mudar o slug e salvar, o endereço mostrado aqui é atualizado — copie a versão nova antes de redistribuir.
+</Callout>
+
+## Contato e endereço
+
+Os campos de **Telefone**, **Email** e **Endereço** são opcionais. Quando preenchidos, eles aparecem no **cabeçalho do PDF da fatura**, então vale a pena mantê-los corretos para que os documentos cobrados pareçam profissionais.
+
+| Campo | Obrigatório | Observações |
+| --- | --- | --- |
+| Telefone | Não | Até 20 caracteres. Ex.: `(11) 99999-9999` |
+| Email | Não | Precisa ser um e-mail válido. Ex.: `contato@clinica.com` |
+| Endereço | Não | Até 500 caracteres. Ex.: `Rua Example, 123 - São Paulo, SP` |
+
+<Callout type="info">
+  Para limpar um desses campos, basta apagar o conteúdo e salvar — campos em branco são gravados como vazios.
+</Callout>
+
+## Fuso horário
+
+O **Fuso Horário** é obrigatório e define a referência de horário usada pela clínica. As opções disponíveis são:
+
+| Opção | Fuso |
+| --- | --- |
+| Brasília (GMT-3) | `America/Sao_Paulo` |
+| Manaus (GMT-4) | `America/Manaus` |
+| Rio Branco (GMT-5) | `America/Rio_Branco` |
+| Fernando de Noronha (GMT-2) | `America/Noronha` |
+
+Selecione o fuso correspondente à localização da sua clínica para que os horários da agenda fiquem coerentes.
+
+## Salvar as alterações
+
+O botão **Salvar** (no canto inferior do formulário) só fica ativo quando há mudanças não salvas. Ao salvar:
+
+- Os campos obrigatórios (nome, slug e fuso horário) são validados antes do envio.
+- Se tudo estiver correto, aparece a confirmação **"Configurações salvas"**.
+- Se algo estiver inválido (slug fora do padrão, e-mail malformado, slug duplicado), o sistema exibe a mensagem de erro correspondente e nada é gravado.
+
+## Logo da fatura
+
+O bloco **Logo da Fatura** controla a imagem exibida no cabeçalho do PDF da fatura. Ele é independente do formulário acima — o envio e a remoção do logo são aplicados na hora, sem depender do botão **Salvar**.
+
+Requisitos do arquivo:
+
+- Formato **PNG ou JPG**.
+- Tamanho máximo de **512 KB**.
+
+<Steps>
+  <Step>
+    Clique em **Enviar logo** (ou **Trocar logo**, se já houver um logo configurado) e escolha o arquivo de imagem.
+  </Step>
+  <Step>
+    Aguarde a confirmação **"Logo salvo"**. A pré-visualização aparece no bloco assim que o envio termina.
+  </Step>
+  <Step>
+    Para tirar a imagem, clique em **Remover** ao lado da pré-visualização. O sistema confirma com **"Logo removido"**.
+  </Step>
+</Steps>
+
+<Callout type="warn">
+  Se o arquivo não for PNG/JPG ou ultrapassar 512 KB, o envio é recusado com a mensagem **"Formato inválido. Use PNG ou JPG."** ou **"Arquivo muito grande. Máximo 512KB."**. Reduza o tamanho ou converta a imagem e tente novamente.
+</Callout>
+
+{/* TODO screenshot: /img/configuracao/dados-da-clinica-logo.png */}

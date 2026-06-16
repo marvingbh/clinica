@@ -1,0 +1,198 @@
+---
+title: "Templates de documentos"
+description: "Duplicar modelos do sistema, editar placeholders e restringir docs clínicos."
+feature: documentos
+sources:
+  - "src/app/admin/settings/components/DocumentTemplatesSection.tsx"
+  - "src/app/admin/settings/components/TemplateEditorSheet.tsx"
+  - "src/lib/documents/seed-templates.ts"
+  - "src/app/api/documents/templates/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+Os **templates de documentos** definem o texto-base de cada documento que a clínica
+emite (declaração de comparecimento, atestado, relatório, recibo para reembolso e
+outros). A Clinica já traz modelos prontos, alinhados às normas do CFP, e você pode
+**duplicar** qualquer um deles para criar uma versão própria da sua clínica.
+
+<Callout type="info" title="Funcionalidade recém-lançada">
+Os modelos personalizados por clínica são uma adição recente. Os modelos do sistema
+continuam disponíveis por padrão mesmo que você ainda não tenha criado nenhum modelo
+próprio — então a geração de documentos funciona desde o primeiro dia.
+</Callout>
+
+## Onde fica
+
+Como administrador, abra **Configurações** e selecione a aba **Documentos**. A tela
+está dividida em três partes:
+
+1. A opção **Restringir documentos clínicos a profissionais** (no topo).
+2. A lista **Modelos do sistema** — os modelos prontos, somente leitura.
+3. A lista **Modelos da clínica** — os modelos que você duplicou e ajustou.
+
+<Screenshot src="/img/documentos-templates-de-documentos-1.png" alt="Aba Documentos das Configurações com a opção de restrição, os modelos do sistema e os modelos da clínica" />
+
+## Modelos do sistema
+
+Os modelos do sistema são padrões fixos, mantidos pela Clinica e **não podem ser
+editados nem excluídos** — eles aparecem com o rótulo "Padrão do sistema". Cada um
+deles tem um único botão: **Duplicar e editar**.
+
+Os modelos disponíveis cobrem os documentos psicológicos mais usados, entre eles:
+
+<Cards>
+  <Card title="Declaração de comparecimento" description="Confirma a presença do paciente no atendimento, sem conteúdo clínico." />
+  <Card title="Atestado psicológico" description="Atesta o acompanhamento para determinada finalidade." />
+  <Card title="Relatório / Laudo / Parecer psicológico" description="Documentos clínicos com identificação, demanda, procedimento, análise e conclusão." />
+  <Card title="Encaminhamento" description="Encaminha o paciente a outro profissional ou serviço." />
+  <Card title="Contrato terapêutico" description="Termos do acompanhamento, com paciente e responsável." />
+  <Card title="Recibo para reembolso" description="Lista de sessões pagas, valor total e código TUSS para o convênio." />
+</Cards>
+
+Há ainda os termos de consentimento (TCLE, consentimento para atendimento de menor,
+uso de imagem, gravação de sessão e termo de proteção de dados — LGPD).
+
+## Duplicar um modelo do sistema
+
+Para criar uma versão própria da sua clínica a partir de um modelo pronto:
+
+<Steps>
+<Step>
+Em **Modelos do sistema**, encontre o modelo que deseja usar como base e clique em
+**Duplicar e editar**.
+</Step>
+<Step>
+Abre-se o editor **Novo modelo**. O campo **Nome do modelo** já vem preenchido com o
+nome original seguido de "(clínica)" — por exemplo, *Atestado psicológico (clínica)*.
+Ajuste o nome se quiser.
+</Step>
+<Step>
+Edite o **Corpo** do documento livremente. O texto do modelo original já vem copiado
+para você partir dele.
+</Step>
+<Step>
+Clique em **Salvar**. O novo modelo passa a aparecer na lista **Modelos da clínica** e
+fica disponível na hora de gerar esse tipo de documento.
+</Step>
+</Steps>
+
+<Callout type="info">
+Duplicar **não** altera o modelo do sistema: ele continua intacto. Você está criando
+um modelo separado, exclusivo da sua clínica, para aquele tipo de documento.
+</Callout>
+
+## Editar placeholders
+
+No corpo do documento você usa **placeholders** — trechos entre chaves duplas, como
+`{{patientName}}` — que são substituídos pelos dados reais no momento da geração.
+
+Acima da caixa de texto há uma faixa de **chips** com todos os placeholders
+disponíveis. Posicione o cursor no ponto desejado do corpo e **clique no chip** para
+inserir o token correspondente naquele ponto. Você também pode digitar o placeholder
+à mão, no formato `{{chave}}`.
+
+{/* TODO screenshot: /img/documentos-templates-de-documentos-2.png */}
+
+Os placeholders se dividem em dois grupos:
+
+<Tabs items={["Preenchidos automaticamente", "Preenchidos na hora"]}>
+<Tab value="Preenchidos automaticamente">
+
+Resolvidos a partir do cadastro no momento da geração:
+
+| Placeholder | Substituído por |
+| --- | --- |
+| `{{patientName}}` | Nome do paciente |
+| `{{patientCpf}}` | CPF do paciente |
+| `{{guardianName}}` | Responsável (responsável financeiro, mãe ou pai) |
+| `{{patientBirthDate}}` | Data de nascimento do paciente |
+| `{{appointmentDate}}` | Data do atendimento (DD/MM/AAAA) |
+| `{{appointmentStartTime}}` / `{{appointmentEndTime}}` | Horário de início/término (HH:mm) |
+| `{{professionalName}}` | Nome do profissional |
+| `{{crp}}` | CRP do profissional |
+| `{{professionalCpfCnpj}}` | CPF do profissional ou CNPJ da clínica |
+| `{{clinicName}}` / `{{clinicAddress}}` | Nome / endereço da clínica |
+| `{{sessionList}}` / `{{totalValue}}` | Lista de sessões pagas e valor total (recibo) |
+| `{{currentDate}}` | Data atual (DD/MM/AAAA) |
+
+</Tab>
+<Tab value="Preenchidos na hora">
+
+Campos de texto que quem gera o documento digita no momento da emissão:
+
+| Placeholder | Conteúdo |
+| --- | --- |
+| `{{finalidade}}` | Finalidade do atestado |
+| `{{periodoAfastamento}}` | Período de afastamento |
+| `{{identificacao}}` | Identificação (relatório/laudo/parecer) |
+| `{{demanda}}` | Demanda |
+| `{{procedimento}}` | Procedimento |
+| `{{analise}}` | Análise |
+| `{{conclusao}}` | Conclusão |
+| `{{exposicaoMotivos}}` | Exposição de motivos (parecer) |
+| `{{destinatario}}` | Destinatário (encaminhamento) |
+| `{{motivoEncaminhamento}}` | Motivo do encaminhamento |
+| `{{tussCode}}` | Código TUSS (recibo) |
+
+</Tab>
+</Tabs>
+
+<Callout type="warn" title="Não existe placeholder de diagnóstico">
+Por design, não há placeholder de diagnóstico, CID ou conteúdo clínico para
+declarações. Ao editar uma **Declaração de comparecimento**, o editor exibe um aviso
+em destaque: por norma do CFP, esse documento não pode conter diagnóstico nem qualquer
+conteúdo clínico.
+</Callout>
+
+### Placeholders desconhecidos
+
+Ao salvar, o sistema valida todos os placeholders do corpo. Se você digitar uma chave
+que não existe (um erro de digitação, por exemplo), o salvamento é bloqueado e aparece
+a mensagem **"Placeholders desconhecidos: ..."** listando as chaves inválidas. Corrija
+ou remova o placeholder e salve novamente.
+
+O botão **Salvar** também fica desabilitado enquanto o nome ou o corpo estiverem
+vazios. Não é possível ter dois modelos com o mesmo nome para o mesmo tipo de
+documento.
+
+## Gerenciar os modelos da clínica
+
+Na lista **Modelos da clínica**, cada modelo que você criou oferece duas ações:
+
+- **Editar** — reabre o editor para ajustar o nome ou o corpo.
+- **Desativar** — remove o modelo do uso. A desativação é reversível no sentido de que
+  o registro é apenas marcado como inativo (não há exclusão definitiva); o modelo
+  passa a aparecer esmaecido, com a marcação "· desativado", e deixa de ser oferecido
+  na geração de documentos.
+
+Enquanto você não tiver nenhum modelo próprio, a lista mostra apenas a mensagem
+*"Nenhum modelo personalizado."* — e a clínica continua usando os modelos do sistema.
+
+## Restringir documentos clínicos a profissionais
+
+No topo da aba há a opção **Restringir documentos clínicos a profissionais**. Quando
+marcada, **laudo, relatório, parecer e atestado** psicológicos só podem ser gerados por
+usuários que tenham um perfil profissional — recepção e demais perfis administrativos
+ficam impedidos de emitir esses documentos.
+
+<Steps>
+<Step>
+Marque (ou desmarque) a caixa **Restringir documentos clínicos a profissionais**.
+</Step>
+<Step>
+A alteração é salva automaticamente e aparece a confirmação **"Configuração salva"**.
+Se houver falha, a caixa volta ao estado anterior e é exibido um aviso de erro.
+</Step>
+</Steps>
+
+<Callout type="info">
+Essa restrição vale para a **geração** desses documentos, independentemente de você
+estar usando o modelo do sistema ou um modelo próprio da clínica. Os demais tipos
+(declaração de comparecimento, encaminhamento, contrato, recibo e termos de
+consentimento) continuam liberados para todos os perfis com acesso.
+</Callout>
+
+{/* OUTLINE coberto: duplicar modelos do sistema, editar placeholders, restringir docs clínicos. */}

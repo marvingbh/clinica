@@ -1,0 +1,272 @@
+---
+title: "Tarefas (TODOs do profissional)"
+description: "Tarefas datadas sem paciente, recorrência e geração a partir de notas pendentes."
+feature: agendamento
+sources:
+  - "src/lib/todos/**"
+  - "src/app/agenda/components/todos/**"
+  - "src/app/tarefas/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+isNew: true
+---
+
+As **Tarefas** são lembretes de trabalho do dia a dia — coisas que você precisa
+fazer, mas que não são uma consulta com paciente: "Ligar para o convênio",
+"Comprar materiais", "Registrar evolução da sessão de ontem". Cada tarefa tem
+uma **data**, um **responsável** e, opcionalmente, **notas**. Diferente de um
+agendamento, uma tarefa **não tem paciente nem horário** e **não bloqueia** a
+sua agenda.
+
+<Callout type="info" title="Funcionalidade recente">
+As Tarefas foram adicionadas há pouco tempo. Se você ainda não vê a faixa de
+tarefas no topo da agenda ou o item **Tarefas** no menu, confirme com o
+administrador da clínica que seu perfil tem permissão para o recurso de
+tarefas.
+</Callout>
+
+## Onde encontrar as tarefas
+
+Há dois lugares para trabalhar com tarefas, e os dois mostram exatamente os
+mesmos dados:
+
+<Cards>
+  <Card title="Faixa de tarefas na agenda" href="/docs/agenda/visao-geral-agenda">
+    Uma faixa fina no topo da agenda, alinhada aos dias visíveis. Ideal para um
+    olhar rápido sobre o que fazer hoje (ou na semana) sem sair do calendário.
+  </Card>
+  <Card title="Página Tarefas">
+    Em **Tarefas** no menu lateral (ou na barra inferior, no celular). Uma tela
+    completa, em formato de tabela, com busca, filtros, ordenação e ações em
+    lote — melhor para organizar muitas tarefas de uma vez.
+  </Card>
+</Cards>
+
+Na faixa da agenda, o comportamento muda conforme a visão:
+
+- **Visão diária:** uma única coluna de tarefas do dia selecionado.
+- **Visão semanal:** uma coluna por dia. Aqui você pode **arrastar e soltar**
+  uma tarefa de um dia para outro para reagendá-la.
+
+Você pode **recolher** a faixa clicando na seta ao lado do rótulo "Tarefas". Ela
+fica lembrada na próxima vez que abrir a agenda, e mostra um contador com quantas
+tarefas estão pendentes (e quantas já foram concluídas).
+
+{/* TODO screenshot: /img/agenda/tarefas-faixa-agenda.png */}
+
+## Quem vê o quê
+
+- **Profissional:** vê e cria apenas as **suas próprias** tarefas. Você só pode
+  atribuir tarefas a si mesmo.
+- **Administrador:** vê as tarefas de **toda a clínica** e pode escolher o
+  responsável ao criar, além de filtrar por responsável.
+
+## Criar uma tarefa rápida (na agenda)
+
+A forma mais rápida de anotar algo é pela própria faixa da agenda:
+
+<Steps>
+<Step>
+No dia desejado, clique no campo **"Adicionar tarefa…"**.
+</Step>
+<Step>
+Digite o título e pressione **Enter** — pronto, a tarefa é criada para aquele dia.
+</Step>
+<Step>
+Ao focar o campo, ele se expande e mostra campos extras opcionais: **Notas**, o
+**responsável** (apenas para administradores quando nenhum profissional está
+selecionado na agenda) e a **recorrência**. Preencha o que quiser e clique em
+**Adicionar**.
+</Step>
+</Steps>
+
+<Callout type="info">
+Quando você define uma recorrência pela faixa rápida (Semanal, Quinzenal ou
+Mensal), a série é criada **sem data de fim** — ela continua se repetindo
+indefinidamente. Para limitar o número de repetições ou definir uma data final,
+use o formulário completo (veja abaixo).
+</Callout>
+
+## Criar e editar pelo formulário completo
+
+Na página **Tarefas**, clique em **Nova tarefa** (ou no título de uma tarefa na
+tabela). Na faixa da agenda, abra o menu da tarefa (ícone **…**) e clique em
+**Editar**. Os dois caminhos abrem o mesmo formulário. Os campos são:
+
+| Campo | Descrição |
+| --- | --- |
+| **Título** | O que precisa ser feito. Obrigatório. |
+| **Data** | O dia da tarefa (seletor de data). |
+| **Responsável** | O profissional dono da tarefa. Profissionais só veem a si mesmos; administradores escolhem na lista. |
+| **Status** | **A fazer** ou **Concluída**. |
+| **Recorrência** | Sem recorrência, Semanal, Quinzenal ou Mensal (veja a seção abaixo). |
+| **Notas** | Detalhes opcionais — aparecem abaixo do título na tabela e nos cartões. |
+
+Para salvar, use o botão **Salvar** (ou **Ctrl/Cmd + Enter** no campo do
+título). O botão fica desabilitado enquanto o título estiver vazio.
+
+{/* TODO screenshot: /img/agenda/tarefas-formulario.png */}
+
+## Recorrência: tarefas que se repetem
+
+Tarefas recorrentes economizam o trabalho de recriar a mesma coisa toda semana
+ou todo mês. Ao escolher um tipo de recorrência no formulário, você define
+**quando ela termina**:
+
+<Tabs items={["Tipo de repetição", "Quando termina"]}>
+<Tab value="Tipo de repetição">
+
+- **Semanal** — repete a cada 7 dias.
+- **Quinzenal** — repete a cada 14 dias.
+- **Mensal** — repete no mesmo dia de cada mês. Se o dia não existir no mês
+  seguinte (por exemplo, dia 31), a tarefa é ajustada para o **último dia** do
+  mês.
+
+</Tab>
+<Tab value="Quando termina">
+
+- **Sem fim** — continua se repetindo indefinidamente. O sistema gera as
+  próximas ocorrências aos poucos, automaticamente (veja "Como a recorrência é
+  gerada").
+- **Após N vezes** — gera um número fixo de ocorrências (de 1 até no máximo
+  **52**).
+- **Em uma data** — gera ocorrências até a data final que você informar.
+
+</Tab>
+</Tabs>
+
+As tarefas recorrentes aparecem com uma etiqueta roxa (por exemplo, "Semanal -
+8 ocorrências" ou "Mensal - sem data de fim") tanto na tabela quanto nos cartões
+da agenda. Você também pode **filtrar** por tipo de recorrência na página
+Tarefas.
+
+### Editar uma série recorrente
+
+Ao editar uma tarefa que faz parte de uma série, se você mudar o **título** ou as
+**notas**, o sistema pergunta o **alcance** da alteração:
+
+- **Apenas esta tarefa** — as outras ocorrências permanecem como estão.
+- **Esta e todas as futuras** — atualiza o título/notas nas ocorrências futuras
+  ainda **não concluídas**. Ocorrências passadas e já concluídas não são tocadas.
+
+<Callout type="warn" title="Mudar o padrão de repetição">
+O **tipo** e o fim da recorrência não podem ser alterados depois que a série
+existe. Para mudar de Semanal para Mensal, por exemplo, exclua a série e crie
+uma nova. (Em uma tarefa de série, o formulário mostra esse aviso e oculta os
+campos de recorrência.)
+</Callout>
+
+### Excluir uma série recorrente
+
+Ao excluir uma tarefa recorrente, você escolhe:
+
+- **Apenas esta tarefa** — remove só aquela ocorrência; o resto da série
+  permanece.
+- **Esta e todas as futuras** — encerra a série e remove as ocorrências
+  **futuras não concluídas**. As ocorrências passadas e concluídas ficam como
+  registro histórico.
+
+### Como a recorrência "sem fim" é gerada
+
+Quando a série é criada, o sistema já materializa um primeiro bloco de
+ocorrências. Para séries **sem data de fim**, uma rotina automática roda toda
+semana (segundas-feiras de madrugada) e estende a série, criando as próximas
+ocorrências sempre que o fim do bloco gerado se aproxima. Você não precisa fazer
+nada — as tarefas futuras vão aparecendo sozinhas na agenda.
+
+## Geração automática a partir de notas pendentes
+
+Além das tarefas que você cria, o sistema gera automaticamente uma tarefa quando
+uma sessão é finalizada mas a **evolução (nota de prontuário) ainda não foi
+registrada**. É uma forma de não deixar nenhum atendimento sem documentação.
+
+Uma rotina diária (todas as manhãs) procura consultas que atendam a **todos**
+estes critérios e cria uma tarefa para o profissional responsável:
+
+<Steps>
+<Step>
+A consulta é do tipo **CONSULTA** (com paciente) e está com status **FINALIZADO**.
+</Step>
+<Step>
+A sessão terminou há **mais de 24 horas** e ocorreu nos **últimos 14 dias**.
+</Step>
+<Step>
+Ainda **não existe** uma nota de prontuário vinculada àquela consulta.
+</Step>
+</Steps>
+
+A tarefa criada tem o título **"Registrar evolução — &lt;nome do paciente&gt;"**,
+é datada para o dia em que foi gerada e fica atribuída ao profissional que
+atendeu (quando há um profissional que executou a sessão, é ele; caso contrário,
+o profissional dono do agendamento).
+
+<Callout type="info">
+A geração é **idempotente**: cada consulta gera no máximo uma tarefa de
+"Registrar evolução". Assim que você registra a evolução no prontuário, novas
+execuções da rotina deixam de gerar a tarefa para aquela sessão. Basta concluir
+a tarefa quando terminar de documentar.
+</Callout>
+
+## Acompanhar e concluir tarefas
+
+### Concluir, reabrir e o status "Atrasada"
+
+Clique na caixinha à esquerda do título para **concluir** uma tarefa (e clique
+de novo para **reabrir**). Na tabela, o status aparece como:
+
+- **A fazer** — pendente, ainda dentro do prazo.
+- **Atrasada** — pendente e com data **anterior a hoje**. Aparece em vermelho,
+  tanto na tabela quanto com uma borda destacada no cartão da agenda.
+- **Concluída** — marcada como feita.
+
+Na página Tarefas, os cartões no topo resumem o total, quantas estão **A fazer**,
+quantas **Concluídas** (com o percentual) e quantas **Atrasadas**.
+
+### Mover (reagendar) uma tarefa
+
+Pelo menu de uma tarefa na agenda (ícone **…**), em **Mover para**, você reagenda
+rapidamente para:
+
+- **Hoje**
+- **Amanhã**
+- **+1 dia** (um dia depois da data atual da tarefa)
+- **Próxima semana** (exatamente 7 dias depois)
+
+Na visão semanal da agenda, também é possível **arrastar e soltar** a tarefa
+para outro dia.
+
+### Duplicar
+
+Use **Duplicar** (no menu da agenda ou no botão de copiar da tabela) para criar
+uma cópia independente da tarefa, com o título seguido de **"(cópia)"**. A cópia
+nasce **A fazer** e **não** herda o vínculo de recorrência — é uma tarefa avulsa.
+
+## Buscar, filtrar e ações em lote (página Tarefas)
+
+A página **Tarefas** oferece organização para volumes maiores:
+
+- **Buscar** por título ou notas.
+- **Filtrar** por **Status** (Todas, A fazer, Concluídas, Atrasadas),
+  **Recorrência** (Todas, Sem recorrência, Semanal, Quinzenal, Mensal) e —
+  apenas para administradores — por **Responsável**.
+- **Ordenar** clicando nos cabeçalhos **Tarefa**, **Data**, **Responsável** ou
+  **Status**.
+- **Selecionar** várias tarefas (caixas à esquerda) para aplicar **ações em
+  lote**: **Concluir**, **Reabrir** ou **Excluir** todas de uma vez.
+
+<Screenshot src="/img/agenda/tarefas-pagina-lista.png" alt="Página Tarefas em formato de tabela, com cartões de resumo, filtros e ações em lote" caption="A tela completa de Tarefas, com filtros, ordenação e seleção em lote." />
+
+## Perguntas frequentes
+
+**Uma tarefa precisa de paciente?**
+Não. Tarefas nunca têm paciente nem horário — são lembretes datados. Para algo
+ligado a um paciente em um horário, use um **agendamento**.
+
+**A tarefa some da agenda?**
+Não. Tarefas não bloqueiam horário e ficam na faixa de tarefas, separadas da
+grade de consultas.
+
+**Por que apareceu uma tarefa "Registrar evolução" que eu não criei?**
+Ela foi gerada automaticamente porque há uma sessão finalizada sem nota de
+prontuário. Registre a evolução do paciente e conclua a tarefa.

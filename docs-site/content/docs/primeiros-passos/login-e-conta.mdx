@@ -1,0 +1,130 @@
+---
+title: "Entrar e acessar o sistema"
+description: "Login por credenciais, sessão multi-tenant, recuperação de acesso, logout."
+feature: onboarding-contas
+sources:
+  - "src/app/login/**"
+  - "src/lib/auth.ts"
+  - "src/app/api/auth/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+---
+
+O acesso ao Clinica é feito por **email e senha**. Cada conta pertence a uma única clínica, e é essa clínica que define quais dados você enxerga depois de entrar. Esta página mostra como fazer login, como funciona a sessão, o que fazer quando alguém perde o acesso e como sair com segurança.
+
+## Login por credenciais
+
+A tela de login fica em `/login`. Ela tem apenas dois campos — **Email** e **Senha** — e o botão **Entrar**.
+
+<Steps>
+<Step>
+Acesse o endereço do Clinica. Se você ainda não estiver autenticado, qualquer página protegida redireciona automaticamente para `/login`.
+</Step>
+<Step>
+Digite seu **Email** (o mesmo cadastrado na clínica) e sua **Senha**.
+</Step>
+<Step>
+Clique em **Entrar**. Enquanto o sistema valida, o botão mostra **Entrando...**.
+</Step>
+<Step>
+Ao validar com sucesso, você é levado para o painel inicial (ou para a página que tentava acessar antes de cair no login).
+</Step>
+</Steps>
+
+{/* TODO screenshot: /img/primeiros-passos-login-e-conta-1.png */}
+
+Se as credenciais estiverem erradas, aparece a mensagem **Email ou senha incorretos** no topo do formulário, acima dos campos. A mesma mensagem é exibida tanto quando o email não existe quanto quando a senha está errada — por segurança, o sistema não revela qual dos dois falhou.
+
+<Callout type="info" title="Ainda não tem conta?">
+Abaixo do botão há o link **Criar conta gratuitamente**, que leva ao cadastro de uma nova clínica (`/signup`). Use-o apenas para criar uma clínica nova. Contas de profissionais e recepção dentro de uma clínica existente são criadas por um administrador na área de **Usuários**, não por aqui.
+</Callout>
+
+### O que impede o login
+
+Mesmo com email e senha corretos, o acesso é negado nestes casos:
+
+- **Conta inativa**: usuários desativados (`isActive` desligado) não conseguem entrar. Veja [Recuperação de acesso](#recuperacao-de-acesso) para reativar.
+- **Senha incorreta**: a senha é comparada com o hash armazenado; qualquer divergência resulta em **Email ou senha incorretos**.
+
+As tentativas de entrada de contas existentes são registradas no log de auditoria da clínica — tanto os logins bem-sucedidos quanto as falhas por senha incorreta. Isso permite ao administrador acompanhar acessos suspeitos.
+
+## Sessão multi-tenant
+
+Cada usuário pertence a **uma clínica**. No momento do login, o Clinica grava na sua sessão a clínica (`clinicId`), o papel (**ADMIN** ou **PROFESSIONAL**) e suas permissões. A partir daí, **tudo o que você vê é automaticamente filtrado por essa clínica** — não é possível enxergar pacientes, agendas ou faturas de outra clínica.
+
+<Callout type="info" title="Como a sessão é mantida">
+A sessão usa um token (JWT) guardado no navegador, sem necessidade de consultar o banco a cada página. Esse token carrega seu papel e suas permissões, então mudanças de permissão feitas por um administrador passam a valer plenamente após você **sair e entrar de novo**.
+</Callout>
+
+Alguns comportamentos úteis da sessão:
+
+- **Já logado?** Se você abrir `/login` estando autenticado, o sistema te redireciona direto para o painel inicial — não há tela de login dupla.
+- **Voltar de onde parou**: ao ser redirecionado para o login a partir de uma página protegida, depois de entrar você é levado de volta para aquela mesma página.
+- **Páginas públicas**: telas voltadas ao paciente (agendamento online, confirmação, intake, pagamento, teleconsulta etc.) não exigem login e não interferem na sua sessão de equipe.
+
+<Callout type="warn" title="Uma conta por clínica">
+Se você atua em mais de uma clínica, cada uma tem o seu próprio acesso (email/senha daquela clínica). Não existe troca de clínica dentro de uma mesma sessão: para mudar de clínica, saia e entre com a conta correspondente.
+</Callout>
+
+## Recuperação de acesso
+
+O Clinica **não possui** um fluxo de "esqueci minha senha" com envio de link por email. A redefinição de senha e a reativação de contas são feitas por um **administrador** da clínica, na área de **Usuários**.
+
+<Tabs items={["Esqueci a senha", "Conta desativada", "Trocar meu email"]}>
+<Tab value="Esqueci a senha">
+
+Se um membro da equipe esqueceu a senha, um administrador deve:
+
+<Steps>
+<Step>Abrir a área de **Usuários** (disponível para quem tem permissão de gestão de usuários).</Step>
+<Step>Localizar a conta e editá-la, definindo uma **nova senha**.</Step>
+<Step>Informar a nova senha ao usuário por um canal seguro. Ele já pode entrar imediatamente com ela.</Step>
+</Steps>
+
+<Callout type="info">
+Recomende que a pessoa troque a senha definida pelo administrador assim que possível, escolhendo uma senha que só ela conheça.
+</Callout>
+
+</Tab>
+<Tab value="Conta desativada">
+
+Contas desativadas não conseguem entrar (a mensagem exibida será **Email ou senha incorretos**, mesmo com a senha certa). Para reativar, o administrador edita o usuário na área de **Usuários** e marca a conta como ativa novamente.
+
+<Callout type="warn">
+Um administrador não consegue desativar a própria conta — essa proteção evita que alguém perca o acesso por engano.
+</Callout>
+
+</Tab>
+<Tab value="Trocar meu email">
+
+O email **não pode ser alterado** na tela **Meu Perfil** — o campo aparece bloqueado, com o aviso "O email não pode ser alterado". A troca de email de uma conta é feita por um administrador na área de **Usuários**.
+
+</Tab>
+</Tabs>
+
+<Callout type="info" title="O que você ajusta no Meu Perfil">
+Na tela **Meu Perfil** (acessível pelo menu da sua conta) você atualiza seu **nome**, seus dados profissionais (especialidade e duração padrão da sessão, se for profissional) e a preferência de **não usar recursos de IA**. Senha e email ficam fora desta tela.
+</Callout>
+
+## Logout
+
+Para sair, abra o menu da sua conta (seu nome/iniciais no canto da tela) e clique em **Sair**.
+
+<Steps>
+<Step>Clique no seu nome (cabeçalho no desktop) ou no menu da conta (navegação lateral/inferior).</Step>
+<Step>No menu aberto, clique em **Sair**.</Step>
+<Step>A sessão é encerrada e você volta para a tela de login (`/login`).</Step>
+</Steps>
+
+<Callout type="warn" title="Sempre saia em computadores compartilhados">
+Como a sessão fica guardada no navegador, em um computador da recepção ou compartilhado finalize sempre com **Sair**. Fechar apenas a aba não encerra a sessão de imediato.
+</Callout>
+
+## Próximos passos
+
+<Cards>
+<Card title="Visão geral do painel" href="/docs/primeiros-passos/visao-geral-do-painel" description="Entenda o que aparece na tela inicial depois de entrar." />
+<Card title="Papéis e permissões" href="/docs/primeiros-passos/papeis-e-permissoes" description="Veja a diferença entre ADMIN e PROFESSIONAL e o que cada um acessa." />
+<Card title="Criar conta da clínica" href="/docs/primeiros-passos/criar-conta-da-clinica" description="Cadastre uma nova clínica e o primeiro administrador." />
+</Cards>

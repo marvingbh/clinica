@@ -1,0 +1,129 @@
+---
+title: "Armazenamento e cotas"
+description: "Monitorar uso/lixeira; restringir exames a profissionais; cota por plano."
+feature: anexos
+sources:
+  - "src/app/admin/settings/components/StorageUsageCard.tsx"
+  - "src/lib/storage/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+A área de **Armazenamento** mostra quanto espaço os documentos anexados aos prontuários dos pacientes já consomem, deixa você reservar a categoria **Exame** apenas para profissionais e indica quando o limite do seu plano está próximo. Tudo fica em um único cartão dentro das configurações da clínica.
+
+<Callout type="info" title="Funcionalidade recém-lançada">
+  O painel de armazenamento, a cota por plano e a opção de restringir exames são novidades. Se você acompanha a Clinica há mais tempo, é a primeira vez que esses controles aparecem nas configurações.
+</Callout>
+
+## Onde encontrar
+
+<Steps>
+  <Step>
+    No menu principal, abra **Configurações da Clínica**.
+  </Step>
+  <Step>
+    Na barra de abas, clique em **Armazenamento** (ícone de disco).
+  </Step>
+  <Step>
+    O cartão **Armazenamento** carrega o consumo atual e a opção de restrição de exames.
+  </Step>
+</Steps>
+
+<Screenshot src="/img/configuracao/armazenamento-1.png" alt="Cartão de armazenamento nas configurações da clínica mostrando o consumo e a barra de uso" caption="Aba Armazenamento dentro de Configurações da Clínica." />
+
+<Callout type="info">
+  A aba **Armazenamento** exige acesso de administrador. Quem tem o perfil profissional ou de recepção não vê esta seção.
+</Callout>
+
+## Monitorar o uso
+
+O cartão exibe o total já ocupado e o limite do plano no formato **"X de Y"** — por exemplo, `1,4 GB de 10 GB`. Quando o plano não tem limite, o segundo valor aparece como **"ilimitado"** e a barra de progresso é omitida.
+
+A barra abaixo do texto muda de cor conforme o consumo se aproxima do limite:
+
+| Cor da barra | Consumo do plano |
+| --- | --- |
+| Azul | Abaixo de 80% |
+| Âmbar | A partir de 80% |
+| Vermelho | A partir de 95% |
+
+Use essas cores como alerta visual: quando a barra fica âmbar ou vermelha, vale revisar a lixeira ou avaliar um plano maior antes que novos anexos sejam bloqueados.
+
+<Callout type="info">
+  O total exibido **inclui os documentos que estão na lixeira** — o arquivo continua ocupando espaço até ser excluído definitivamente. Por isso esvaziar a lixeira (ou esperar a exclusão automática) é uma forma direta de liberar espaço.
+</Callout>
+
+### A lixeira no consumo
+
+Quando há documentos na lixeira, o cartão acrescenta uma linha do tipo **"dos quais 320 MB na lixeira"**, separando do total a parcela que está apenas aguardando exclusão. Se nada estiver na lixeira, essa linha não aparece.
+
+Como funciona o ciclo de vida de um documento removido:
+
+- Ao remover um anexo no prontuário do paciente, ele **vai para a lixeira por 30 dias** e só depois é excluído definitivamente (apaga o arquivo e o registro).
+- Durante esses 30 dias o documento pode ser **restaurado** e continua somando ao consumo.
+- A exclusão definitiva acontece automaticamente — não há um botão de "esvaziar lixeira" no painel de armazenamento.
+
+Para ver, restaurar ou conferir o prazo de exclusão de um documento removido, abra o prontuário do paciente, vá até a aba de documentos e marque **Mostrar lixeira**. Cada item na lixeira mostra a data em que será excluído definitivamente.
+
+<Callout type="info" title="Onde fica a lixeira">
+  A lixeira é por paciente: ela vive na aba de documentos de cada prontuário, não no painel de configurações. O painel de armazenamento apenas **soma** o espaço ocupado por tudo o que está na lixeira de todos os pacientes.
+</Callout>
+
+## Restringir exames a profissionais
+
+Documentos anexados podem ser classificados em categorias, e a categoria **Exame** costuma conter informação clínica sensível. O cartão de armazenamento traz uma opção para limitar quem vê esses documentos.
+
+Logo abaixo do consumo, ative a caixa **Restringir exames a profissionais**. A descrição na tela resume o efeito:
+
+> Documentos da categoria Exame ficam visíveis apenas a usuários com perfil profissional.
+
+Quando a opção está ligada:
+
+- Usuários **com perfil profissional** continuam vendo e baixando os documentos de Exame normalmente.
+- Usuários **sem perfil profissional** (por exemplo, a recepção) deixam de ver os documentos da categoria Exame — eles não aparecem na lista nem podem ser abertos.
+- As demais categorias de documento continuam visíveis para todos com acesso ao prontuário.
+
+A mudança é salva imediatamente ao marcar ou desmarcar a caixa: aparece a confirmação **"Configuração salva"**. Se algo falhar, a caixa volta ao estado anterior e uma mensagem de erro é exibida.
+
+<Callout type="warn" title="Esta opção não substitui as permissões de prontuário">
+  A restrição de exames atua **sobre** o acesso a prontuários. Quem já não tem permissão para ver documentos do paciente continua sem acesso; quem tem acesso, mas não é profissional, passa a não enxergar apenas a categoria Exame.
+</Callout>
+
+## Cota por plano
+
+O limite de armazenamento vem do **plano de assinatura** da clínica, definido na plataforma. Cada plano carrega um valor de espaço (em MB); a clínica usa esse valor como teto para todos os anexos.
+
+- Se o plano define um limite, o cartão mostra **"X de Y"** com a barra de progresso.
+- Se o plano é **ilimitado**, o cartão mostra apenas o total usado, sem barra.
+- Clínicas em período de avaliação, sem plano definido, recebem uma cota padrão de **1 GB** (1024 MB).
+
+### O que acontece ao atingir o limite
+
+Quando um novo anexo faria o total ultrapassar a cota, o **envio é bloqueado** no momento do upload. A pessoa que tentou anexar vê uma mensagem como:
+
+> Limite de armazenamento do seu plano atingido (9,8 GB de 10 GB). Faça upgrade para anexar mais documentos.
+
+Junto da mensagem há o atalho **"Ver plano e armazenamento"**, que leva às configurações da clínica. Documentos já anexados continuam acessíveis — apenas novos envios ficam impedidos até que haja espaço.
+
+<Callout type="info" title="Como liberar espaço">
+  Para voltar a anexar quando a cota estiver cheia, você pode: remover documentos desnecessários (lembrando que eles ainda ocupam espaço por 30 dias na lixeira), aguardar a exclusão definitiva dos itens já na lixeira, ou avaliar um plano com mais armazenamento. O limite por plano é ajustado pela equipe da plataforma.
+</Callout>
+
+## Resumo
+
+<Cards>
+  <Card title="Monitorar uso">
+    Acompanhe "usado de total" e a barra azul/âmbar/vermelha na aba Armazenamento.
+  </Card>
+  <Card title="Lixeira">
+    Documentos removidos ficam 30 dias na lixeira do paciente e ainda contam no consumo.
+  </Card>
+  <Card title="Restringir exames">
+    Limite os documentos de Exame a quem tem perfil profissional.
+  </Card>
+  <Card title="Cota por plano">
+    O limite vem do plano; ao atingi-lo, novos uploads são bloqueados.
+  </Card>
+</Cards>

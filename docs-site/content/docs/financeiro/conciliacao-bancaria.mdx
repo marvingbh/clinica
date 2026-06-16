@@ -1,0 +1,228 @@
+---
+title: "Conciliação bancária e integração Inter"
+description: "Importar transações do Inter, conciliar recebimentos com faturas, reembolsos e despesas."
+feature: financeiro
+sources:
+  - "src/lib/bank-reconciliation/**"
+  - "src/lib/expense-matcher/**"
+  - "src/lib/bank-statement-parser/**"
+  - "src/app/financeiro/conciliacao/**"
+  - "src/app/financeiro/despesas/inter/**"
+  - "src/app/api/financeiro/conciliacao/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+A conciliação bancária conecta sua clínica direto ao **Banco Inter**, importa o extrato da conta e sugere automaticamente com qual fatura cada recebimento corresponde. Você confirma os encontros com um clique, registra devoluções (PIX de volta) e ainda transforma débitos em despesas — tudo sem digitar valores à mão.
+
+<Callout type="info" title="Disponível para perfis administradores">
+  Esta área exige permissão de escrita em **Finanças** (`finances`). Os profissionais sem esse acesso não veem a aba de conciliação. O fluxo descrito aqui usa a integração com o Banco Inter via API oficial (certificado + chave privada).
+</Callout>
+
+## Onde encontrar
+
+<Cards>
+  <Card title="Conciliação (recebimentos)" href="/financeiro/conciliacao">
+    Em **Financeiro → Conciliação**. É aqui que você importa o extrato e concilia os créditos (PIX, TED, boletos recebidos) com as faturas em aberto.
+  </Card>
+  <Card title="Importar do Inter (despesas)" href="/financeiro/despesas/inter">
+    Em **Financeiro → Despesas**, botão **Importar do Inter**. Traz os débitos da conta para virarem despesas.
+  </Card>
+</Cards>
+
+## Antes de começar: conectar o Banco Inter
+
+A integração usa as credenciais de **API do Internet Banking do Inter** (aplicação com escopos `extrato.read` e `pagamento.read`). Você precisa de quatro itens, gerados no painel do Inter para desenvolvedores:
+
+- **Client ID**
+- **Client Secret**
+- **Certificado** (arquivo `.crt` ou `.pem`)
+- **Chave Privada** (arquivo `.key`)
+
+<Steps>
+  <Step>
+    Acesse **Financeiro → Conciliação**. Na primeira vez, a tela mostra o formulário **Configurar Banco Inter** diretamente.
+  </Step>
+  <Step>
+    Preencha **Client ID** e **Client Secret**. O campo do segredo fica mascarado; use o ícone de olho para conferir o que digitou.
+  </Step>
+  <Step>
+    Em **Certificado (.crt / .pem)** e **Chave Privada (.key)**, clique em **Importar arquivo** para selecionar o arquivo do seu computador (ele será lido e colado no campo automaticamente) — ou cole o conteúdo manualmente.
+  </Step>
+  <Step>
+    Opcionalmente informe o **Número da Conta**. Clique em **Salvar**.
+  </Step>
+</Steps>
+
+<Callout type="info">
+  O segredo, o certificado e a chave privada são **criptografados** antes de serem gravados no banco de dados. Depois de salvar, o cartão de configuração some e dá lugar a um link discreto **Configuração** — clique nele para reabrir o formulário e atualizar credenciais quando precisar. Ao reabrir, deixe os campos de segredo/certificado em branco para manter o que já estava salvo.
+</Callout>
+
+## Importar transações
+
+Com a conexão ativa, o topo da tela mostra a faixa **"Conexão bancária ativa. Escolha o período e sincronize o extrato."** e quatro cartões de resumo: **Pendentes**, **Match forte**, **Sugeridos** e **Sem relação**.
+
+<Steps>
+  <Step>
+    Escolha o **período** nos dois campos de data da faixa (data inicial → data final). O padrão é do dia 1º do mês corrente até hoje.
+  </Step>
+  <Step>
+    Clique em **Sincronizar**. O sistema busca o extrato no Inter e importa os recebimentos do período.
+  </Step>
+  <Step>
+    Ao terminar, aparece o aviso `N nova(s) transação(ões) importada(s)` e a faixa passa a mostrar a última importação (quantos recebimentos vieram e quantos eram novos).
+  </Step>
+</Steps>
+
+<Callout type="warn" title="Janela de no máximo 90 dias">
+  A API do Inter limita cada consulta a um intervalo de **90 dias**. Períodos maiores são recusados com a mensagem "Período máximo de 90 dias". Para meses anteriores, sincronize em blocos.
+</Callout>
+
+Detalhes de como a importação trata os dados:
+
+- **Recebimentos (créditos)** ainda não conciliados são reimportados a cada sincronização — o extrato sempre reflete o que o Inter retorna. Transações já conciliadas e as descartadas são preservadas.
+- **Débitos** nunca são apagados: ficam disponíveis para virar despesas na tela **Importar do Inter**.
+- Cada transação ganha um identificador estável baseado no conteúdo (data + valor + descrição), então sincronizar o mesmo período duas vezes **não duplica** lançamentos.
+- O **saldo atual** da conta também é buscado e guardado a cada sincronização (esforço melhor — se falhar, a importação continua normalmente).
+
+### Quem é o pagador?
+
+Para recebimentos via PIX, o sistema extrai o nome do pagador da descrição do Inter (ex.: `PIX RECEBIDO - Cp :00000000-ADRIANA MC SIQUEIRA` → "ADRIANA MC SIQUEIRA"). Esse nome é o que alimenta o casamento com a fatura. Quando não dá para identificar, a transação aparece como **"Pagador não identificado"** e você concilia manualmente.
+
+## Conciliar recebimentos com faturas (matching)
+
+A tela é dividida em duas colunas: à esquerda, a **caixa de entrada** com os recebimentos pendentes; à direita, o **espaço de trabalho** com os candidatos do recebimento selecionado. Clique em um pagamento na lista e a coluna direita mostra a recomendação.
+
+O cabeçalho do espaço de trabalho traz um aviso colorido que resume a situação:
+
+| Aviso | O que significa |
+| --- | --- |
+| **Match forte detectado** | Existe fatura em aberto com o mesmo valor e responsável financeiro vinculado. Confira e confirme. |
+| **Match sugerido** | O valor bate, mas o nome do pagador não está vinculado como responsável. Verifique antes de conciliar. |
+| **Sem candidatos** | Nenhuma fatura em aberto corresponde ao valor ou ao pagador. Busque manualmente, crie uma fatura ou descarte. |
+
+Cada fatura candidata recebe uma etiqueta de confiança:
+
+- **Pagador usual** — esse pagador já foi associado a este paciente antes (sinal mais forte).
+- **Responsável bate** — o nome do pagador casa com a mãe, o pai ou o paciente da fatura.
+- **Parcial** — o sobrenome do paciente aparece no nome do pagador, mas sem casamento completo.
+- **Só valor** — apenas o valor coincide; nenhum nome bate.
+
+<Callout type="info" title="O sistema aprende com você">
+  Ao conciliar, a clínica memoriza a combinação **pagador → paciente**. Na próxima vez que o mesmo PIX chegar, a fatura desse paciente aparece marcada como **"Pagador usual"** e o casamento fica praticamente automático.
+</Callout>
+
+### Conciliar uma fatura
+
+<Steps>
+  <Step>
+    Selecione o recebimento na caixa de entrada.
+  </Step>
+  <Step>
+    Confira o candidato no topo da lista (o mais provável fica destacado). Use o ícone de olho para **Ver fatura** em outra aba, se precisar.
+  </Step>
+  <Step>
+    Clique em **Conciliar** na linha da fatura correta. Aparece a confirmação e o recebimento sai da lista de pendentes.
+  </Step>
+</Steps>
+
+### Quando não há candidato certo
+
+No espaço de trabalho você também pode:
+
+- **Buscar outra fatura** — abre uma busca para localizar manualmente uma fatura e adicioná-la à lista de candidatos (sem conciliar automaticamente). A fatura encontrada aparece em "Adicionadas manualmente".
+- **Criar fatura** — abre o painel de criação de fatura já com o valor e a data do recebimento preenchidos; ao salvar, a fatura é criada e conciliada de uma vez.
+- **Descartar** — marca o recebimento como sem relação com pacientes (ele sai da caixa de entrada e pode ser restaurado depois).
+
+### Pagamentos combinados (vários em um só PIX)
+
+Quando um responsável paga **duas faturas da mesma família** (ou várias sessões do mesmo paciente) em uma única transferência, o sistema detecta a soma e mostra um cartão verde **"Pagamento combinado"** com as faturas listadas e o responsável compartilhado. Clique em **Conciliar todas** e o valor é distribuído automaticamente entre as faturas, cada uma recebendo até o seu próprio saldo.
+
+### Pagamentos parciais e sobras
+
+Se o recebimento for **maior** do que uma única fatura, o sistema concilia o valor da fatura e mantém a **sobra** em aberto. O cabeçalho passa a mostrar `Sobra de R$ X` e, no bloco **Já conciliado**, o quanto já foi alocado (`R$ X de R$ Y`). A partir daí você pode adicionar outra fatura para o restante ou registrar uma devolução (veja abaixo).
+
+### Conferir e desfazer
+
+Abaixo da área principal, a tabela **Conciliadas recentemente** lista os pagamentos já conciliados, com filtro por **pagador/paciente** e por **mês**. Pagamentos divididos em mais de uma fatura aparecem com a etiqueta "N faturas combinadas". Para reverter, clique em **Desfazer** (ou **Desfazer tudo**, no caso de pagamento combinado) — a conciliação inteira é desfeita e o status das faturas é recalculado.
+
+<Callout type="warn">
+  Não é possível **descartar** uma transação já conciliada, nem descartar uma transação que tenha uma devolução vinculada. Desfaça a conciliação ou a devolução primeiro.
+</Callout>
+
+## Reembolsos e devoluções
+
+Quando um valor recebido a mais precisa ser devolvido por PIX/transferência (ou quando você devolveu um pagamento por engano), o sistema pareia o **crédito** que sobrou com o **débito** da devolução, fechando a transação sem deixar saldo solto.
+
+<Steps>
+  <Step>
+    Em um recebimento com **sobra**, clique em **Identificar devolução** no bloco "Já conciliado".
+  </Step>
+  <Step>
+    O sistema sugere transações de débito candidatas, ranqueadas por **proximidade de valor**, **semelhança de nome** e **proximidade de data** (janela padrão de 14 dias). Cada candidato mostra etiquetas como "Valor exato", "Nome similar" ou "Data próxima".
+  </Step>
+  <Step>
+    Selecione o débito correto, ajuste o **Valor** se necessário e clique em **Registrar devolução**. O par fica vinculado e o restante da transação é considerado resolvido.
+  </Step>
+</Steps>
+
+O caminho inverso também existe: na tela **Importar do Inter**, um débito pode ser marcado como **Devolução** ("Este débito é uma devolução de um crédito anterior"), e o sistema busca o crédito de origem correspondente.
+
+## Importar despesas do Inter
+
+A tela **Importar do Inter** (em **Financeiro → Despesas → Importar do Inter**) traz os **débitos** da conta para virarem despesas e tenta reconciliá-los com despesas já cadastradas.
+
+<Steps>
+  <Step>
+    Clique em **Buscar Transações** para importar os débitos recentes do Inter. O sistema já tenta **reconciliar automaticamente** as despesas recorrentes que batem.
+  </Step>
+  <Step>
+    Em **Sugestões de vínculo**, confira os pareamentos propostos entre um débito e uma despesa existente e clique em **Confirmar** para vincular.
+  </Step>
+  <Step>
+    Para os débitos restantes (**Transações de débito não vinculadas**), use:
+    - **Avulsa** — cria uma despesa única, já marcada como paga e vinculada ao débito.
+    - **Recorrente** — cria uma despesa mensal recorrente (os próximos meses são gerados automaticamente).
+    - **Devolução** — marca o débito como devolução de um crédito anterior.
+    - **Ignorar** — descarta o débito (despesa pessoal, fora da clínica).
+  </Step>
+</Steps>
+
+### Categorização automática
+
+Ao importar despesas, o sistema sugere **categoria** e **fornecedor** para cada débito:
+
+- Primeiro compara a descrição com os **padrões já confirmados** antes (quanto mais vezes você confirmou aquele padrão, maior a confiança — **Alta**, **Média** ou **Baixa**).
+- Se nenhum padrão bate com segurança e houver IA configurada, a descrição é classificada por IA contra as categorias da clínica.
+- A sugestão aparece como uma etiqueta colorida no cartão do débito; você sempre tem a palavra final ao criar a despesa.
+
+### Pagamentos agendados
+
+O botão **Agendamentos** busca pagamentos **agendados** (boletos futuros) no Inter. Cada agendamento pode ser importado individualmente (**Criar Despesa**) ou todos de uma vez (**Importar Todos**), virando despesas a vencer.
+
+<Callout type="info">
+  Pagamentos agendados dependem do seu plano no Inter. Se a conta não oferecer esse recurso, aparece o aviso "Pagamentos agendados não disponível para sua conta Inter" — isso não afeta a importação do extrato.
+</Callout>
+
+## Importar extrato por arquivo (OFX/CSV)
+
+Se preferir não usar a API do Inter — ou quiser importar de outro banco — você pode subir um arquivo de extrato em **Financeiro → Despesas → Importar Extrato**. São aceitos arquivos **OFX** e **CSV** (até 4 MB). O sistema lê os lançamentos de **débito**, ignora os que já existem e sugere categorias da mesma forma que a importação do Inter.
+
+## Perguntas frequentes
+
+<Cards>
+  <Card title="Importei o mesmo período duas vezes — vou ter lançamentos repetidos?">
+    Não. Cada transação tem um identificador estável (data + valor + descrição), então a reimportação atualiza em vez de duplicar.
+  </Card>
+  <Card title="O pagador veio como 'não identificado'. E agora?">
+    Concilie manualmente: use **Buscar outra fatura** ou **Criar fatura**. Ao conciliar, o pagador fica memorizado para a próxima vez.
+  </Card>
+  <Card title="Conciliei a fatura errada.">
+    Vá à tabela **Conciliadas recentemente** e clique em **Desfazer**. O status da fatura volta ao que era.
+  </Card>
+  <Card title="Recebi a mais e devolvi por PIX.">
+    Use **Identificar devolução** na sobra do recebimento e pareie com o débito da devolução.
+  </Card>
+</Cards>

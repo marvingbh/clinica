@@ -1,0 +1,164 @@
+---
+title: "Templates de notificação"
+description: "Personalizar mensagens WhatsApp/Email com variáveis, preview e restaurar."
+feature: notificacoes
+sources:
+  - "src/app/admin/settings/notifications/**"
+  - "src/app/api/admin/notification-templates/**"
+  - "src/lib/notifications/templates.ts"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+---
+
+Os **templates de notificação** definem o texto exato das mensagens automáticas que a clínica envia aos pacientes por WhatsApp e Email — confirmações de agendamento, lembretes, cancelamentos, links de pagamento, convites para preencher formulários e muito mais. A clínica já vem com um texto-padrão para cada tipo de mensagem, e você pode personalizá-lo sem mexer em nenhuma configuração técnica.
+
+Nesta página você aprende a editar uma mensagem, usar variáveis que são preenchidas automaticamente, visualizar o resultado antes de salvar e restaurar o texto original quando quiser.
+
+<Callout type="info">
+  A edição de templates está disponível para o perfil **administrador** (permissão **Notificações**). Com acesso somente de leitura você consegue abrir e visualizar os templates, mas o botão **Salvar** e o **Restaurar Padrão** exigem permissão de escrita.
+</Callout>
+
+## Como abrir a tela de templates
+
+<Steps>
+<Step>
+Abra **Configurações**.
+</Step>
+<Step>
+Vá até a aba **E-mail**.
+</Step>
+<Step>
+No bloco **Templates de Notificação**, clique em **Gerenciar**.
+</Step>
+</Steps>
+
+Você chega na tela **Templates de Notificação**, com a frase "Personalize as mensagens enviadas aos pacientes por WhatsApp e Email" e todos os modelos disponíveis agrupados por tipo (Confirmação de Agendamento, Lembrete de Consulta, Cancelamento de Consulta, e assim por diante).
+
+{/* TODO screenshot: /img/configuracao/templates-de-notificacao-lista.png */}
+
+Cada tipo exibe um cartão por canal:
+
+- O cabeçalho do cartão mostra o canal (**WhatsApp** ou **Email**).
+- A etiqueta **Personalizado** aparece quando o texto já foi alterado pela clínica (diferente do padrão).
+- A etiqueta **Inativo** aparece quando o template foi desativado — nesse caso a clínica volta a enviar o texto-padrão original.
+- Abaixo, uma prévia das primeiras linhas do conteúdo.
+
+Clique em qualquer cartão para editar o template daquele tipo e canal.
+
+## Editar uma mensagem
+
+Ao clicar num cartão, abre-se o painel **Editar [nome do template]** com os campos abaixo.
+
+| Campo | Para que serve |
+| --- | --- |
+| **Nome do Template** | Nome interno do modelo (obrigatório). Aparece só para a equipe, não para o paciente. |
+| **Assunto do Email** | Linha de assunto da mensagem. **Só aparece em templates de Email** e é obrigatório nesse canal. |
+| **Variáveis Disponíveis** | Botões que inserem variáveis no texto (veja abaixo). |
+| **Conteúdo** | O corpo da mensagem (obrigatório). |
+| **Template ativo** | Caixa de seleção que liga ou desliga o uso do texto personalizado. |
+
+<Steps>
+<Step>
+Ajuste o **Nome do Template** e, em templates de Email, o **Assunto do Email**.
+</Step>
+<Step>
+Edite o **Conteúdo** livremente. Use as variáveis para que dados como nome do paciente e data sejam preenchidos automaticamente no envio.
+</Step>
+<Step>
+Clique em **Visualizar Preview** para conferir o resultado com dados de exemplo.
+</Step>
+<Step>
+Clique em **Salvar**. Uma confirmação "Template salvo com sucesso" aparece e o cartão passa a exibir a etiqueta **Personalizado**.
+</Step>
+</Steps>
+
+<Callout type="warn">
+  O sistema bloqueia o salvamento se o **Nome** ou o **Conteúdo** estiverem vazios, e se o **Assunto** estiver em branco num template de Email. Preencha esses campos antes de salvar.
+</Callout>
+
+### A caixa "Template ativo"
+
+Quando a caixa **Template ativo** está desmarcada, a clínica ignora o seu texto personalizado e volta a enviar o conteúdo-padrão daquele tipo de mensagem. É uma forma de desligar temporariamente uma personalização sem apagá-la — o cartão correspondente passa a mostrar a etiqueta **Inativo**.
+
+## Usar variáveis
+
+Variáveis são marcadores escritos entre chaves duplas, como `{{patientName}}`, que são substituídos pelos dados reais no momento do envio. Em vez de digitar a chave à mão, clique no botão da variável na seção **Variáveis Disponíveis** — ela é inserida exatamente onde está o cursor no campo **Conteúdo**.
+
+Estas são as variáveis oferecidas pelos botões da tela:
+
+| Variável | Significado | Exemplo |
+| --- | --- | --- |
+| `{{patientName}}` | Nome do Paciente | João Silva |
+| `{{professionalName}}` | Nome do Profissional | Dra. Maria Santos |
+| `{{date}}` | Data da Consulta | 15/02/2026 |
+| `{{time}}` | Horário da Consulta | 14:00 |
+| `{{confirmLink}}` | Link de Confirmação | https://... |
+| `{{cancelLink}}` | Link de Cancelamento | https://... |
+| `{{clinicName}}` | Nome da Clínica | Clínica Exemplo |
+| `{{modality}}` | Modalidade | Presencial |
+| `{{paymentLink}}` | Link de Pagamento | https://... |
+| `{{invoiceAmount}}` | Valor da Fatura | R$ 300,00 |
+| `{{dueDate}}` | Vencimento | 15/06/2026 |
+| `{{referenceMonth}}` | Mês de Referência | 06/2026 |
+| `{{videoLink}}` | Link da Teleconsulta | https://... |
+| `{{formName}}` | Nome do Formulário | Anamnese adulto |
+| `{{formLink}}` | Link do Formulário | https://... |
+| `{{expiryDate}}` | Validade do Link | 26/06/2026 |
+
+<Callout type="info">
+  Use apenas as variáveis que fazem sentido para o tipo de mensagem. Por exemplo, `{{paymentLink}}` e `{{invoiceAmount}}` só têm valor em mensagens de cobrança; `{{confirmLink}}` e `{{cancelLink}}`, em confirmações e lembretes de consulta. Uma variável que não se aplica àquele tipo de envio fica sem valor e pode aparecer em branco na mensagem.
+</Callout>
+
+## Visualizar o preview
+
+Antes de salvar, clique em **Visualizar Preview** para ver como a mensagem ficará para o paciente. O sistema substitui as variáveis por **valores de exemplo fixos** — nenhum dado real de paciente é usado nessa etapa.
+
+O painel **Preview do Template** mostra:
+
+- A lista dos valores de exemplo usados (por exemplo, `{{patientName}}` = João Silva, `{{date}}` = 15/02/2026, `{{time}}` = 14:00).
+- O **Assunto** já preenchido (apenas em templates de Email).
+- O **Conteúdo** final, com as quebras de linha preservadas.
+
+{/* TODO screenshot: /img/configuracao/templates-de-notificacao-preview.png */}
+
+O preview funciona sobre o texto que está na tela naquele momento, então você pode visualizar suas alterações mesmo antes de salvá-las. Clique em **Fechar** para voltar à edição.
+
+## Restaurar o padrão
+
+Se quiser descartar a personalização e voltar ao texto original do sistema, clique em **Restaurar Padrão**.
+
+<Callout type="warn">
+  O botão **Restaurar Padrão** só aparece em templates que já foram personalizados (marcados com a etiqueta **Personalizado**). Ao confirmar a mensagem "Deseja restaurar este template para o padrão? As alterações serão perdidas.", o texto personalizado é **apagado de forma definitiva** e a clínica volta a usar o conteúdo-padrão. Não há como desfazer.
+</Callout>
+
+<Steps>
+<Step>
+Abra o template personalizado que deseja restaurar.
+</Step>
+<Step>
+Clique em **Restaurar Padrão**.
+</Step>
+<Step>
+Confirme na janela que aparece.
+</Step>
+</Steps>
+
+Após a confirmação, surge a mensagem "Template restaurado para o padrão", a etiqueta **Personalizado** some e o cartão volta a exibir o texto original.
+
+## Perguntas frequentes
+
+<Cards>
+<Card title="Editei o texto, mas o paciente recebeu a mensagem antiga">
+  Verifique se a caixa **Template ativo** está marcada. Se ela estiver desmarcada, a clínica volta a enviar o texto-padrão, mesmo com a sua personalização salva.
+</Card>
+<Card title="Uma variável apareceu em branco na mensagem">
+  Isso acontece quando a variável não se aplica àquele tipo de envio (por exemplo, usar `{{paymentLink}}` num lembrete de consulta). Use apenas variáveis compatíveis com o tipo da mensagem.
+</Card>
+<Card title="Por que o template de Email pede um assunto e o de WhatsApp não?">
+  O WhatsApp envia apenas o corpo da mensagem, então não tem assunto. Já o Email exige uma linha de assunto — por isso o campo **Assunto do Email** só aparece, e é obrigatório, nos templates de Email.
+</Card>
+<Card title="Posso usar HTML ou formatação no conteúdo?">
+  Escreva o texto como ele deve chegar ao paciente, com quebras de linha normais. As variáveis entre chaves duplas são o único marcador especial reconhecido.
+</Card>
+</Cards>

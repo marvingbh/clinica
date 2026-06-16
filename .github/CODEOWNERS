@@ -1,0 +1,232 @@
+# CODEOWNERS — GERADO por scripts/docs/gen-codeowners.mjs a partir de
+# docs/feature-manifest.yml (features.*.owner + sources + docs). NAO EDITE A MAO.
+# Regenerar: node scripts/docs/gen-codeowners.mjs
+
+# feature: onboarding-contas — Onboarding, contas e permissões
+/src/app/signup/** @clinica/platform
+/src/app/login/** @clinica/platform
+/src/app/users/** @clinica/platform
+/src/app/profile/** @clinica/platform
+/src/app/professionals/** @clinica/platform
+/src/app/api/auth/** @clinica/platform
+/src/app/api/users/** @clinica/platform
+/src/app/api/me/** @clinica/platform
+/src/lib/auth.ts @clinica/platform
+/src/lib/rbac/** @clinica/platform
+/docs-site/content/docs/primeiros-passos/login-e-conta.mdx @clinica/platform
+/docs-site/content/docs/configuracao/usuarios-e-permissoes.mdx @clinica/platform
+/docs-site/content/docs/configuracao/meu-perfil.mdx @clinica/platform
+/docs-site/content/docs/configuracao/profissionais.mdx @clinica/platform
+
+# feature: configuracao-clinica — Configurações da Clínica
+/src/app/admin/settings/** @clinica/platform
+/src/app/api/admin/settings/** @clinica/platform
+/src/lib/clinic/** @clinica/platform
+/docs-site/content/docs/configuracao/dados-da-clinica.mdx @clinica/platform
+/docs-site/content/docs/configuracao/cores-da-agenda.mdx @clinica/platform
+/docs-site/content/docs/configuracao/configuracoes-financeiras.mdx @clinica/platform
+/docs-site/content/docs/configuracao/configuracoes-de-email.mdx @clinica/platform
+/docs-site/content/docs/configuracao/teleconsulta-config.mdx @clinica/platform
+
+# feature: agendamento — Agenda e agendamentos
+/src/app/agenda/** @clinica/scheduling
+/src/app/api/appointments/** @clinica/scheduling
+/src/lib/appointments/** @clinica/scheduling
+/src/lib/professionals/availability.ts @clinica/scheduling
+/src/lib/jobs/send-reminders.ts @clinica/scheduling
+/src/lib/jobs/extend-recurrences.ts @clinica/scheduling
+/docs-site/content/docs/agenda/visao-geral-agenda.mdx @clinica/scheduling
+/docs-site/content/docs/agenda/criar-e-editar-agendamento.mdx @clinica/scheduling
+/docs-site/content/docs/agenda/status-e-pendencias.mdx @clinica/scheduling
+/docs-site/content/docs/agenda/recorrencias.mdx @clinica/scheduling
+/docs-site/content/docs/agenda/conflitos-e-arrastar-soltar.mdx @clinica/scheduling
+/docs-site/content/docs/agenda/tarefas.mdx @clinica/scheduling
+/docs-site/content/docs/agenda/imprimir-agenda.mdx @clinica/scheduling
+/docs-site/content/docs/agenda/disponibilidade.mdx @clinica/scheduling
+
+# feature: calendar-sync — Sincronização de Agenda (Google/iCal)
+/src/lib/calendar-sync/** @clinica/scheduling
+/src/app/api/calendar-sync/** @clinica/scheduling
+/src/app/profile/components/CalendarSyncSettings.tsx @clinica/scheduling
+/src/app/profile/components/GoogleCalendarCard.tsx @clinica/scheduling
+/src/app/profile/components/IcsFeedCard.tsx @clinica/scheduling
+/docs-site/content/docs/agenda/sincronizacao-google-ical.mdx @clinica/scheduling
+
+# feature: pacientes — Pacientes e cadastros
+/src/app/patients/** @clinica/clinical
+/src/app/api/patients/** @clinica/clinical
+/src/lib/patients/** @clinica/clinical
+/src/lib/phone/** @clinica/clinical
+/docs-site/content/docs/pacientes/cadastro-de-pacientes.mdx @clinica/clinical
+/docs-site/content/docs/pacientes/consentimentos-e-lgpd.mdx @clinica/clinical
+/docs-site/content/docs/pacientes/historico-e-financeiro.mdx @clinica/clinical
+/docs-site/content/docs/pacientes/abas-do-paciente.mdx @clinica/clinical
+
+# feature: prontuario — Prontuário Eletrônico
+/src/lib/prontuario/** @clinica/clinical
+/src/app/prontuario/** @clinica/clinical
+/src/app/api/prontuario/** @clinica/clinical
+/docs-site/content/docs/prontuario/prontuario-eletronico.mdx @clinica/clinical
+/docs-site/content/docs/prontuario/busca-e-navegacao.mdx @clinica/clinical
+/docs-site/content/docs/prontuario/exportar-pdf.mdx @clinica/clinical
+/docs-site/content/docs/prontuario/adendos.mdx @clinica/clinical
+
+# feature: escalas — Escalas Clínicas (PHQ-9/GAD-7)
+/src/lib/scales/** @clinica/clinical
+/src/app/escala/** @clinica/clinical
+/src/app/api/patients/[id]/escalas/** @clinica/clinical
+/src/app/patients/components/escalas/** @clinica/clinical
+/docs-site/content/docs/prontuario/escalas-clinicas.mdx @clinica/clinical
+
+# feature: anexos — Anexos do Paciente
+/src/lib/patient-documents/** @clinica/clinical
+/src/lib/storage/** @clinica/clinical
+/src/app/patients/components/documents/** @clinica/clinical
+/src/app/api/patients/[id]/documents/** @clinica/clinical
+/docs-site/content/docs/pacientes/anexos-do-paciente.mdx @clinica/clinical
+
+# feature: ia — Recursos de IA
+/src/lib/ai/** @clinica/clinical
+/src/app/api/ai/** @clinica/clinical
+/src/app/prontuario/components/ai/** @clinica/clinical
+/src/app/admin/settings/components/AiSettingsTab.tsx @clinica/clinical
+/src/app/admin/settings/components/AiDisclosureDialog.tsx @clinica/clinical
+/docs-site/content/docs/ia/assistente-de-evolucoes.mdx @clinica/clinical
+/docs-site/content/docs/ia/creditos-e-feedback.mdx @clinica/clinical
+/docs-site/content/docs/ia/configuracao-de-ia.mdx @clinica/clinical
+
+# feature: documentos — Documentos CFP
+/src/lib/documents/** @clinica/clinical
+/src/shared/components/documents/** @clinica/clinical
+/src/app/api/documents/** @clinica/clinical
+/src/app/patients/components/DocumentsTab.tsx @clinica/clinical
+/src/app/admin/settings/components/DocumentTemplatesSection.tsx @clinica/clinical
+/src/app/admin/settings/components/TemplateEditorSheet.tsx @clinica/clinical
+/docs-site/content/docs/documentos/gerar-documentos-cfp.mdx @clinica/clinical
+/docs-site/content/docs/documentos/enviar-documentos.mdx @clinica/clinical
+/docs-site/content/docs/documentos/templates-de-documentos.mdx @clinica/clinical
+
+# feature: assinaturas — Assinatura Eletrônica
+/src/lib/assinaturas/** @clinica/clinical
+/src/app/assinar/** @clinica/clinical
+/src/app/verificar/** @clinica/clinical
+/src/app/api/assinaturas/** @clinica/clinical
+/src/app/api/public/assinaturas/** @clinica/clinical
+/src/lib/jobs/signature-reminders.ts @clinica/clinical
+/docs-site/content/docs/documentos/assinatura-eletronica.mdx @clinica/clinical
+/docs-site/content/docs/documentos/verificar-autenticidade.mdx @clinica/clinical
+
+# feature: financeiro — Financeiro e faturamento
+/src/app/financeiro/** @clinica/finance
+/src/app/api/financeiro/** @clinica/finance
+/src/lib/financeiro/** @clinica/finance
+/src/lib/cobranca/** @clinica/finance
+/src/lib/expenses/** @clinica/finance
+/src/lib/cashflow/** @clinica/finance
+/src/lib/expense-matcher/** @clinica/finance
+/src/lib/bank-reconciliation/** @clinica/finance
+/src/lib/bank-statement-parser/** @clinica/finance
+/docs-site/content/docs/financeiro/dashboard-financeiro.mdx @clinica/finance
+/docs-site/content/docs/financeiro/faturas.mdx @clinica/finance
+/docs-site/content/docs/financeiro/creditos-de-sessao.mdx @clinica/finance
+/docs-site/content/docs/financeiro/tabela-de-precos.mdx @clinica/finance
+/docs-site/content/docs/financeiro/repasse.mdx @clinica/finance
+/docs-site/content/docs/financeiro/cobranca-stripe.mdx @clinica/finance
+/docs-site/content/docs/financeiro/fluxo-de-caixa.mdx @clinica/finance
+/docs-site/content/docs/financeiro/despesas.mdx @clinica/finance
+/docs-site/content/docs/financeiro/conciliacao-bancaria.mdx @clinica/finance
+
+# feature: fiscal — Fiscal (NFS-e, Receita Saúde, DMED)
+/src/lib/nfse/** @clinica/finance
+/src/lib/fiscal/** @clinica/finance
+/src/app/financeiro/receita-saude/** @clinica/finance
+/src/app/financeiro/dmed/** @clinica/finance
+/src/app/financeiro/faturas/[id]/Nfse* @clinica/finance
+/src/app/api/financeiro/faturas/[id]/nfse/** @clinica/finance
+/src/app/api/financeiro/fiscal/** @clinica/finance
+/src/app/admin/settings/components/NfseConfig* @clinica/finance
+/src/app/admin/settings/components/FiscalConfigTab.tsx @clinica/finance
+/docs-site/content/docs/fiscal/configuracao-fiscal.mdx @clinica/finance
+/docs-site/content/docs/fiscal/nfse.mdx @clinica/finance
+/docs-site/content/docs/fiscal/receita-saude.mdx @clinica/finance
+/docs-site/content/docs/fiscal/dmed.mdx @clinica/finance
+
+# feature: notificacoes — Notificações e lembretes
+/src/lib/notifications/** @clinica/platform
+/src/app/admin/settings/notifications/** @clinica/platform
+/src/app/api/admin/notification-templates/** @clinica/platform
+/docs-site/content/docs/notificacoes/notificacoes-e-lembretes.mdx @clinica/platform
+/docs-site/content/docs/configuracao/templates-de-notificacao.mdx @clinica/platform
+
+# feature: portal-paciente — Portal do Paciente e agendamento online
+/src/lib/booking/** @clinica/scheduling
+/src/lib/patient-portal/** @clinica/scheduling
+/src/app/agendar/** @clinica/scheduling
+/src/app/paciente/** @clinica/scheduling
+/src/app/api/public/booking/** @clinica/scheduling
+/src/app/api/public/portal/** @clinica/scheduling
+/src/app/admin/settings/agendamento-online/** @clinica/scheduling
+/src/app/admin/settings/components/PortalTab.tsx @clinica/scheduling
+/docs-site/content/docs/portal/agendamento-online.mdx @clinica/scheduling
+/docs-site/content/docs/portal/configurar-agendamento-online.mdx @clinica/scheduling
+/docs-site/content/docs/portal/portal-do-paciente.mdx @clinica/scheduling
+/docs-site/content/docs/portal/solicitacoes-de-agendamento.mdx @clinica/scheduling
+
+# feature: lista-espera — Lista de Espera
+/src/lib/waitlist/** @clinica/scheduling
+/src/app/espera/** @clinica/scheduling
+/src/app/oferta/** @clinica/scheduling
+/src/app/api/waitlist/** @clinica/scheduling
+/src/app/api/public/waitlist/** @clinica/scheduling
+/src/app/admin/settings/components/WaitlistTab.tsx @clinica/scheduling
+/docs-site/content/docs/portal/lista-de-espera.mdx @clinica/scheduling
+
+# feature: formularios — Formulários e intake
+/src/lib/forms/** @clinica/clinical
+/src/lib/intake/** @clinica/clinical
+/src/app/formularios/** @clinica/clinical
+/src/app/f/** @clinica/clinical
+/src/app/intake/** @clinica/clinical
+/src/app/api/forms/** @clinica/clinical
+/src/app/api/intake-submissions/** @clinica/clinical
+/src/app/api/public/intake/** @clinica/clinical
+/src/app/patients/components/IntakeSubmission* @clinica/clinical
+/docs-site/content/docs/formularios/construtor-de-formularios.mdx @clinica/clinical
+/docs-site/content/docs/formularios/enviar-e-responder.mdx @clinica/clinical
+/docs-site/content/docs/formularios/fichas-de-cadastro.mdx @clinica/clinical
+
+# feature: grupos — Grupos terapêuticos
+/src/lib/groups/** @clinica/clinical
+/src/app/groups/** @clinica/clinical
+/src/app/api/groups/** @clinica/clinical
+/src/app/api/group-sessions/** @clinica/clinical
+/src/app/agenda/components/group-session/** @clinica/clinical
+/src/app/agenda/components/CreateGroupSessionSheet.tsx @clinica/clinical
+/src/app/agenda/components/GroupSessionSheet.tsx @clinica/clinical
+/docs-site/content/docs/grupos/grupos-terapeuticos.mdx @clinica/clinical
+/docs-site/content/docs/grupos/sessoes-de-grupo.mdx @clinica/clinical
+
+# feature: teleconsulta — Teleconsulta (telessaúde)
+/src/lib/telehealth/** @clinica/scheduling
+/src/app/teleconsulta/** @clinica/scheduling
+/src/app/api/appointments/[id]/teleconsulta/** @clinica/scheduling
+/src/app/api/public/teleconsulta/** @clinica/scheduling
+/src/shared/components/telehealth/** @clinica/scheduling
+/src/app/agenda/components/Teleconsulta* @clinica/scheduling
+/docs-site/content/docs/teleconsulta/teleconsulta.mdx @clinica/scheduling
+/docs-site/content/docs/teleconsulta/acesso-do-paciente.mdx @clinica/scheduling
+
+# feature: relatorios — Relatórios e dashboard operacional
+/src/lib/analytics/** @clinica/platform
+/src/app/relatorios/** @clinica/platform
+/docs-site/content/docs/financeiro/relatorios-operacionais.mdx @clinica/platform
+
+# feature: superadmin — Superadmin (administração da plataforma)
+/src/app/superadmin/** @clinica/platform
+/src/app/api/superadmin/** @clinica/platform
+/src/lib/superadmin-auth.ts @clinica/platform
+/src/lib/api/with-superadmin.ts @clinica/platform
+/src/lib/subscription/** @clinica/platform
+/docs-site/content/docs/plataforma/superadmin.mdx @clinica/platform
+/docs-site/content/docs/plataforma/planos-e-assinaturas.mdx @clinica/platform
+/docs-site/content/docs/plataforma/monitoramento-de-ia.mdx @clinica/platform

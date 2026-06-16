@@ -1,0 +1,149 @@
+---
+title: "Grupos terapêuticos"
+description: "Criar/editar grupos, membros (entrada/saída), profissionais adicionais, desativar/encerrar."
+feature: grupos
+sources:
+  - "src/lib/groups/**"
+  - "src/app/groups/**"
+  - "src/app/api/groups/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+---
+
+Um **grupo terapêutico** reúne vários pacientes em sessões recorrentes com o mesmo dia, horário e profissional — por exemplo, um grupo de ansiedade toda quinta às 14:00. Nesta página você aprende a criar e editar grupos, gerenciar quem entra e sai, incluir profissionais adicionais e desativar ou encerrar um grupo.
+
+Acesse pelo menu **Grupos**. A tela mostra a lista de **Grupos de Terapia** da sua clínica, cada um com dia, horário, recorrência, profissional responsável e quantidade de membros ativos.
+
+<Callout type="info">
+A lista mostra todos os grupos da clínica para quem tem acesso de leitura ao recurso **Grupos**. As ações de criar, editar, adicionar/remover membros, desativar e reativar exigem permissão de **escrita** no recurso **Grupos**.
+</Callout>
+
+## Criar um grupo
+
+<Steps>
+
+<Step>
+Na tela **Grupos de Terapia**, clique em **+ Novo Grupo** (botão no topo ou o botão flutuante no canto da tela).
+</Step>
+
+<Step>
+Preencha o formulário **Novo Grupo**:
+
+- **Nome do Grupo** (obrigatório) — entre 2 e 200 caracteres. Ex.: `Grupo de Ansiedade - Quinta`.
+- **Profissional** (obrigatório) — quem conduz o grupo. Se houver só um profissional disponível, ele já vem selecionado.
+- **Dia da Semana** (obrigatório) — de Domingo a Sábado.
+- **Horário** (obrigatório) — no formato `HH:mm` (24 horas). Ex.: `14:00`.
+- **Duração (minutos)** (obrigatório) — entre 15 e 480 minutos. O padrão é 90 minutos.
+- **Recorrência** (obrigatório) — **Semanal**, **Quinzenal** ou **Mensal**.
+- **Capacidade** (opcional) — número máximo de participantes (de 1 a 100). É usada apenas no relatório de ocupação; se ficar em branco, consideramos o número de membros ativos.
+</Step>
+
+<Step>
+Clique em **Criar grupo**. Você verá a confirmação "Grupo criado com sucesso" e o grupo aparecerá na lista.
+</Step>
+
+</Steps>
+
+<Callout type="info" title="Recorrência mensal">
+A recorrência **Mensal** repete a cada 4 semanas (28 dias) a partir da primeira sessão — não é a mesma data do mês civil. **Semanal** repete a cada 7 dias e **Quinzenal** a cada 14 dias.
+</Callout>
+
+<Screenshot src="/img/grupos/grupos-terapeuticos-novo-grupo.png" alt="Formulário de criação de um novo grupo terapêutico com campos de nome, profissional, dia, horário, duração, recorrência e capacidade" />
+
+## Editar um grupo
+
+Clique em **Editar** no cartão do grupo (ou abra o grupo e clique em **Editar**). O formulário abre com os dados preenchidos. Altere o que precisar e clique em **Salvar alterações**.
+
+<Callout type="warn" title="Mudar dia, horário, duração ou recorrência não move as sessões já criadas">
+Editar o grupo atualiza apenas o cadastro. As sessões (agendamentos) que já foram geradas continuam no dia e horário antigos. Para reagendar as sessões futuras, use o reagendamento na agenda — veja [Sessões de grupo na agenda](/docs/grupos/sessoes-de-grupo).
+</Callout>
+
+No modo de edição, abaixo do formulário você também encontra a seção **Membros**, onde pode adicionar e remover participantes (veja a seguir).
+
+## Membros: entrada e saída
+
+A gestão de membros fica disponível ao **visualizar** ou **editar** um grupo. Clique no cartão do grupo para abrir os detalhes; a seção **Membros** mostra a contagem de membros ativos e a lista de participantes.
+
+### Adicionar um membro
+
+<Steps>
+
+<Step>
+Com o grupo aberto, clique em **+ Adicionar Membro**.
+</Step>
+
+<Step>
+No campo **Paciente**, digite o nome (pelo menos 2 letras) e selecione o paciente na lista de resultados. Pacientes que já são membros ativos do grupo não aparecem na busca.
+</Step>
+
+<Step>
+Informe a **Data de Entrada** — vem preenchida com a data de hoje, mas você pode ajustá-la.
+</Step>
+
+<Step>
+Clique em **Adicionar**. O paciente aparece na lista com a etiqueta **Ativo** e a data "Desde DD/MM/AAAA".
+</Step>
+
+</Steps>
+
+<Callout type="info">
+A **data de entrada** define a partir de quando o paciente passa a fazer parte das sessões. Ao gerar sessões na agenda, apenas os membros cuja entrada já ocorreu são agendados. Um mesmo paciente não pode ser membro ativo do grupo duas vezes ao mesmo tempo.
+</Callout>
+
+{/* TODO screenshot: /img/grupos/grupos-terapeuticos-adicionar-membro.png */}
+
+### Remover um membro (saída)
+
+Para registrar a saída de um paciente, clique em **Remover** ao lado dele na lista de membros e confirme. A remoção marca a **data de saída** como a data de hoje e o paciente deixa de aparecer na lista de membros do grupo (a lista mostra apenas os membros ativos).
+
+<Callout type="warn" title="Sessões futuras são canceladas">
+Ao remover um membro, **todas as sessões futuras desse paciente neste grupo são canceladas** automaticamente (a partir da data de saída). O sistema avisa quantas sessões foram canceladas. Sessões já **FINALIZADO** não são afetadas.
+</Callout>
+
+<Callout type="error" title="Sessões já faturadas bloqueiam a remoção">
+Se alguma das sessões futuras do paciente já estiver vinculada a uma fatura, a remoção é recusada para não deixar itens de fatura órfãos. Remova o vínculo com a fatura antes de tentar de novo.
+</Callout>
+
+## Profissionais adicionais
+
+Além do profissional responsável, um grupo pode ter **profissionais adicionais** (co-terapeutas). Eles passam a ser incluídos como participantes nas sessões geradas e enxergam o grupo na sua própria lista.
+
+O bloco **Profissionais adicionais** aparece no formulário do grupo **somente quando há mais de um profissional na clínica**. Marque as caixas dos profissionais que devem acompanhar o grupo. Ninguém pode ser responsável e adicional ao mesmo tempo: se você marcar quem já é o responsável, o sistema ignora essa marcação ao salvar.
+
+<Callout type="info">
+Os profissionais adicionais são vinculados às sessões no momento em que elas são geradas. Se você alterar a lista de profissionais adicionais depois, as sessões já existentes não são atualizadas automaticamente — regenere as sessões na agenda para aplicar a mudança às sessões futuras.
+</Callout>
+
+## Desativar e reativar
+
+Quando um grupo deixa de funcionar mas você quer manter o histórico, **desative-o** em vez de excluir.
+
+- **Desativar** — clique em **Desativar** no cartão do grupo e confirme. O grupo passa a aparecer esmaecido, com a etiqueta **Inativo**, e some das opções de gerar novas sessões. Membros e sessões já realizadas continuam registrados. Desativar **não** apaga as sessões futuras já agendadas.
+- **Reativar** — em um grupo inativo, clique em **Reativar** para voltar a usá-lo.
+
+<Callout type="info">
+Em um grupo inativo o botão **+ Adicionar Membro** fica indisponível. Reative o grupo para voltar a incluir participantes.
+</Callout>
+
+## Encerrar um grupo (com data final)
+
+Encerrar é diferente de apenas desativar: além de marcar o grupo como inativo, o encerramento **apaga as sessões futuras** a partir de uma data final que você define. Use quando o ciclo do grupo terminou em uma data específica e você quer limpar a agenda dali para frente.
+
+O encerramento **não** fica na tela **Grupos** — ele é feito a partir de uma **sessão do grupo na agenda**. Abra uma sessão do grupo, expanda **Encerrar grupo** e clique em **Encerrar**. Você informa a **Data final** e confirma em **Encerrar grupo**: todas as sessões agendadas **depois** dessa data são removidas (sessões já **FINALIZADO** são preservadas) e o grupo é desativado. Assim como na remoção de membros, se alguma dessas sessões já estiver em uma fatura, o encerramento é bloqueado até que o vínculo com a fatura seja desfeito.
+
+<Callout type="info">
+Precisa apenas pausar o grupo sem mexer na agenda? Use **Desativar** no cartão do grupo. Precisa cortar a agenda a partir de uma data? Use **Encerrar grupo** a partir de uma sessão na agenda — veja [Sessões de grupo na agenda](/docs/grupos/sessoes-de-grupo).
+</Callout>
+
+## Próximos passos
+
+<Cards>
+
+<Card title="Sessões de grupo na agenda" href="/docs/grupos/sessoes-de-grupo">
+Gerar e reagendar sessões, marcar status por participante e gerar faturas agrupadas.
+</Card>
+
+</Cards>
+
+{/* Coberto: criar/editar grupos, membros (entrada/saída), profissionais adicionais, desativar/reativar/encerrar. Geração de sessões fica em grupos/sessoes-de-grupo. */}

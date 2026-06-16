@@ -1,0 +1,175 @@
+---
+title: "Construtor de formulários"
+description: "Drag-and-drop, 10 tipos de campo, condicionais, validação, versionamento e biblioteca."
+feature: formularios
+sources:
+  - "src/lib/forms/**"
+  - "src/app/formularios/**"
+  - "src/app/api/forms/templates/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+isNew: true
+---
+
+O construtor de formulários permite montar anamneses e questionários para enviar aos pacientes, sem precisar de conhecimento técnico. Você arrasta campos para a ordem desejada, escolhe entre 10 tipos de campo, cria perguntas que aparecem só em determinadas condições e publica versões que ficam congeladas — assim toda resposta sempre reflete exatamente o formulário que o paciente viu.
+
+<Callout type="info" title="Funcionalidade recém-lançada">
+  O construtor de formulários é uma adição recente. Se a opção **Formulários** não aparecer no seu menu, peça a um administrador da clínica para liberar a permissão **Formulários** (acesso de escrita) no seu perfil.
+</Callout>
+
+## Onde encontrar
+
+Acesse **Formulários** no menu. A tela inicial mostra a tabela de modelos da clínica com quatro colunas: **Nome**, **Status** (Ativo / Inativo), **Versão** (ex.: `v2`) e **Respostas** (concluídas / total). Modelos com edições pendentes exibem a etiqueta **Alterações não publicadas**.
+
+No topo, com permissão de escrita, você verá dois botões:
+
+- **Adicionar modelos prontos** — copia a biblioteca de modelos pré-prontos da clínica (veja [Biblioteca de modelos](#biblioteca-de-modelos)).
+- **Novo formulário** — abre o construtor a partir de um modelo em branco.
+
+## Criar um formulário do zero
+
+<Steps>
+
+<Step>
+### Abrir o construtor
+
+Clique em **Novo formulário**. No diálogo, informe o **Nome** (obrigatório) e, opcionalmente, uma **Descrição**. Clique em **Criar**. Você é levado direto para o editor do novo modelo.
+</Step>
+
+<Step>
+### Adicionar campos
+
+Na coluna **Campos**, clique em **+ Adicionar campo** e escolha um dos 10 tipos. O campo é acrescentado ao fim da lista e abre automaticamente para edição. Repita para montar o formulário.
+</Step>
+
+<Step>
+### Editar cada campo
+
+Clique sobre um campo para expandir suas opções. Veja [Editar um campo](#editar-um-campo) para os detalhes de cada propriedade.
+</Step>
+
+<Step>
+### Reordenar com arrastar e soltar
+
+Use o ícone de alça (`⠿`) à esquerda de cada campo para arrastá-lo para cima ou para baixo. A ordem que você define aqui é exatamente a ordem em que o paciente verá as perguntas.
+</Step>
+
+<Step>
+### Conferir na pré-visualização
+
+A coluna **Pré-visualização mobile**, à direita, mostra o formulário como o paciente verá no celular — inclusive a barra de progresso e o comportamento das condições. Ela é interativa: preencha respostas ali para testar quais campos aparecem ou somem.
+</Step>
+
+<Step>
+### Salvar e publicar
+
+Clique em **Salvar rascunho** para guardar sem liberar, ou **Publicar** para gerar uma versão definitiva pronta para envio. Veja [Versionamento](#versionamento).
+</Step>
+
+</Steps>
+
+<Screenshot src="/img/formularios-construtor-de-formularios-1.png" alt="Editor do construtor de formulários com a lista de campos à esquerda e a pré-visualização mobile à direita" caption="Editor: campos à esquerda, pré-visualização mobile à direita." />
+
+## Arrastar e soltar
+
+A lista de campos é totalmente ordenável por arrastar e soltar. Para mover um campo, segure o ícone de alça (`⠿`, rótulo **Reordenar**) à esquerda da linha e arraste-o para a nova posição. A reordenação afeta tanto a sequência das perguntas quanto as **condicionais**: uma condição só pode apontar para um campo que apareça **antes** dela na lista. Se você mover um campo para cima ou para baixo, verifique se as condições que dependiam dele continuam válidas.
+
+## Os 10 tipos de campo
+
+Ao clicar em **+ Adicionar campo**, você escolhe entre estes tipos:
+
+| Tipo | Para que serve |
+| --- | --- |
+| **Seção (cabeçalho)** | Título que organiza o formulário em blocos. Não coleta resposta nem conta no progresso. |
+| **Texto curto** | Resposta de uma linha (até 200 caracteres). |
+| **Texto longo** | Resposta em parágrafo (até 5.000 caracteres). |
+| **Escolha única** | O paciente seleciona **uma** opção de uma lista. |
+| **Múltipla escolha** | O paciente seleciona **uma ou mais** opções. |
+| **Lista suspensa** | Igual à escolha única, mas em um menu suspenso (bom para listas longas). |
+| **Escala 0–10** | Valor inteiro de 0 a 10 (ex.: nível de sofrimento, humor). |
+| **Data** | Data no formato DD/MM/AAAA. |
+| **Sim / Não** | Resposta binária. |
+| **Termo de consentimento** | Texto somente leitura (LGPD / consentimento) com uma confirmação de aceite. |
+
+<Callout type="info">
+  **Escolha única**, **Múltipla escolha** e **Lista suspensa** exigem ao menos uma opção preenchida; o **Termo de consentimento** exige o texto do termo. O formulário não publica enquanto esses campos estiverem incompletos.
+</Callout>
+
+## Editar um campo
+
+Clique em um campo para abrir o editor inline. As propriedades disponíveis variam conforme o tipo:
+
+- **Título** — o texto da pergunta. Não pode ficar vazio.
+- **Descrição (opcional)** — um texto de apoio sob o título (não aparece no termo de consentimento).
+- **Texto do termo** — para o **Termo de consentimento**: o texto que o paciente lê antes de aceitar.
+- **Opções (uma por linha)** — para escolha única, múltipla escolha e lista suspensa: digite cada alternativa em uma linha.
+- **Obrigatório** — marque para exigir resposta (não disponível em seções).
+- **Mostrar somente quando…** — define a condicional (veja abaixo).
+
+Para excluir um campo, clique em **Remover** no canto superior direito do editor.
+
+## Condicionais (mostrar somente quando…)
+
+Você pode esconder um campo até que uma resposta anterior tenha um valor específico. No editor de um campo, marque **Mostrar somente quando…** e escolha:
+
+1. O **campo de referência** — qualquer campo anterior pode ser usado como gatilho, exceto seções e termos de consentimento.
+2. O valor após **for igual a** — em campos de escolha, a lista traz as próprias opções; em Sim / Não, escolhe-se **Sim** ou **Não**; nos demais tipos (texto, escala, data), você digita o valor exato em um campo livre.
+
+<Callout type="info">
+  As condições são encadeadas: um campo condicional só aparece quando a condição dele é verdadeira **e** o campo do qual ele depende também está visível. Como a condição só pode apontar para um campo anterior, basta ler o formulário de cima para baixo para prever o que aparece.
+</Callout>
+
+Exemplo (do modelo **Anamnese adulto**): o campo "Quais medicações e dosagens?" só aparece quando "Faz uso de medicação atualmente?" for respondido com **Sim**.
+
+Campos escondidos por uma condição **não bloqueiam o envio** — mesmo que estejam marcados como obrigatórios, o paciente só precisa responder o que estiver visível.
+
+## Validação
+
+O formulário valida cada resposta no padrão brasileiro e exibe mensagens em português ao paciente:
+
+- **Campo obrigatório** — quando um campo obrigatório visível fica vazio.
+- **Data inválida (use DD/MM/AAAA)** — datas precisam ser válidas no calendário (ex.: `31/02/2025` é recusada).
+- **Selecione uma opção** — quando a opção enviada não está na lista.
+- **Escolha um valor entre 0 e 10** — para a escala.
+- **É necessário aceitar para continuar** — para um termo de consentimento obrigatório.
+- **Texto muito longo** — texto curto acima de 200 caracteres ou texto longo acima de 5.000.
+
+Só os campos **visíveis e respondíveis** entram na validação. A barra de progresso na pré-visualização reflete quantos desses campos já têm uma resposta válida.
+
+## Versionamento
+
+Cada modelo guarda um **rascunho** editável e um histórico de **versões publicadas** imutáveis.
+
+- **Salvar rascunho** guarda suas edições sem liberar nada para os pacientes.
+- **Publicar** tira uma "fotografia" do rascunho atual e cria uma nova versão (`v1`, `v2`, `v3`…). Versões publicadas nunca mudam: toda resposta fica vinculada à versão que o paciente preencheu, então o conjunto de perguntas registrado é fiel ao momento da resposta.
+
+Na barra do editor você acompanha o estado:
+
+- **Última versão: v\{n\}** ou **Sem versão publicada**.
+- A etiqueta âmbar **Alterações não publicadas** aparece quando o rascunho difere da última versão publicada — sinal de que há edições aguardando um novo **Publicar**.
+
+<Callout type="warn">
+  Só é possível publicar um formulário que tenha **ao menos um campo respondível** (uma seção sozinha não basta). Se faltar, você verá a mensagem "Adicione ao menos um campo antes de publicar" ou "O formulário precisa de ao menos um campo respondível".
+</Callout>
+
+### Envio automático no cadastro
+
+No editor há a opção **Enviar automaticamente ao aprovar ficha de cadastro**. Marque-a para que este formulário seja enviado ao paciente assim que a ficha de cadastro dele for aprovada, sem precisar enviar manualmente.
+
+## Biblioteca de modelos
+
+Para começar mais rápido, clique em **Adicionar modelos prontos** na tela inicial. A clínica recebe, como rascunhos, os seguintes modelos em português — prontos para você revisar, ajustar e publicar:
+
+<Cards>
+  <Card title="Anamnese adulto" description="Anamnese inicial para pacientes adultos: identificação, queixa, histórico de saúde, sono e escala de sofrimento." />
+  <Card title="Anamnese infantil" description="Preenchida pelo responsável: gestação, desenvolvimento, escola, rotina e histórico médico da criança." />
+  <Card title="Termo de consentimento (LGPD)" description="Termo de consentimento para tratamento de dados sensíveis de saúde, com confirmação de nome e data." />
+  <Card title="Check-in pré-sessão" description="Questionário rápido enviado antes da sessão: humor, novidades e mudanças na medicação." />
+</Cards>
+
+Os modelos chegam como **rascunhos** — eles não ficam ativos para envio até você revisar e clicar em **Publicar**. Modelos com nome já existente na clínica são ignorados, então clicar mais de uma vez não cria duplicados.
+
+<Callout type="info">
+  Quer um modelo personalizado a partir de um pronto? Adicione a biblioteca, abra o modelo desejado, ajuste os campos e publique. Como nada fica ativo antes de publicar, você pode editar à vontade.
+</Callout>

@@ -1,0 +1,163 @@
+---
+title: "Solicitações do portal do paciente"
+description: "Tratar pedidos de reagendamento, alteração de dados e export LGPD do portal."
+feature: portal-paciente
+sources:
+  - "src/lib/patient-portal/**"
+  - "src/app/patients/components/PortalRequestsTable.tsx"
+  - "src/app/api/public/portal/**"
+lastReviewedCommit: 1d93f26
+audience: recepcao
+status: published
+isNew: true
+---
+
+Quando um paciente usa o portal, ele pode enviar três tipos de pedido para a clínica: **reagendar uma sessão**, **atualizar seus dados cadastrais** e **solicitar uma cópia dos seus dados (LGPD)**. Esses pedidos não alteram nada automaticamente — eles caem em uma fila para a recepção tratar. Esta página mostra como acompanhar e resolver essa fila.
+
+<Callout type="info" title="Funcionalidade recente">
+  As Solicitações do portal foram lançadas recentemente, junto com o portal do
+  paciente. A aba **Solicitações do Portal** aparece para todo perfil que
+  acessa a tela de Pacientes. Se você não a vê, confirme que o seu perfil tem
+  acesso a **Pacientes**.
+</Callout>
+
+## Onde encontrar a fila
+
+As solicitações ficam dentro da tela de **Pacientes**, em uma aba própria.
+
+<Steps>
+  <Step>
+    Abra **Pacientes** no menu.
+  </Step>
+  <Step>
+    Na barra de abas no topo da tela (**Pacientes** · **Fichas de Cadastro** ·
+    **Solicitações do Portal**), clique em **Solicitações do Portal**.
+  </Step>
+  <Step>
+    A fila abre já filtrada pelas solicitações **pendentes**. Cada card mostra o
+    nome do paciente, o tipo do pedido, o status, um resumo do que foi pedido e a
+    data de criação no formato DD/MM/AAAA.
+  </Step>
+</Steps>
+
+{/* TODO screenshot: /img/pacientes-solicitacoes-do-portal-1.png */}
+
+Se não houver nada para tratar, a tela mostra **Nenhuma solicitação pendente.**
+
+<Callout type="info" title="Quem vê o quê">
+  Administradores veem todas as solicitações da clínica. Profissionais veem
+  apenas as solicitações de pacientes que são de sua referência ou com quem têm
+  (ou tiveram) sessões. Os botões de ação só aparecem para quem tem permissão de
+  **edição** em Pacientes — quem tem apenas leitura consegue ver a fila, mas não
+  agir sobre ela.
+</Callout>
+
+## Os três tipos de solicitação
+
+| Tipo no card | O que o paciente pediu | Ação esperada da recepção |
+| --- | --- | --- |
+| **Reagendamento** | Mudar o horário de uma sessão. O resumo pode trazer uma mensagem livre e até 3 preferências de dia/período. | Reagendar a sessão na agenda e marcar a solicitação como resolvida. |
+| **Atualização de dados** | Corrigir cadastro (nome, telefone, e-mail, endereço). O resumo lista quais campos o paciente quer mudar. | Conferir os novos valores e **aplicar** (ou resolver/rejeitar). |
+| **Dados (LGPD)** | Receber uma cópia dos próprios dados, conforme a LGPD. | Gerar/entregar os dados ao paciente e marcar como resolvida. |
+
+## Tratar um pedido de reagendamento
+
+Quando o paciente pede reagendamento pelo portal, o sistema já cria automaticamente uma **tarefa (to-do) para o profissional** daquela sessão, com o título no formato `Reagendar: <Nome do paciente> — DD/MM HH:mm` e a mensagem do paciente nas observações.
+
+<Steps>
+  <Step>
+    No card, leia o resumo. Ele indica se o paciente deixou uma mensagem e
+    quantas preferências de dia/período enviou.
+  </Step>
+  <Step>
+    Faça o reagendamento real na **Agenda**, combinando com o paciente o novo
+    horário (o pedido em si não move a sessão).
+  </Step>
+  <Step>
+    Volte à fila e clique em **Resolver** no card para tirá-lo dos pendentes.
+    Use **Rejeitar** caso não seja possível atender (por exemplo, paciente
+    desistiu ou já foi tratado por outro canal).
+  </Step>
+</Steps>
+
+<Callout type="warn">
+  Pedidos de reagendamento **não** têm o botão **Aplicar**. O sistema não move a
+  sessão sozinho — quem reagenda é você, na Agenda. O card serve só para
+  registrar o pedido e fechá-lo depois.
+</Callout>
+
+## Tratar uma atualização de dados
+
+Este é o único tipo que o sistema sabe aplicar automaticamente, porque o paciente envia exatamente os novos valores dos campos cadastrais. Os campos que podem ser atualizados são: nome, telefone, e-mail, logradouro, número, bairro, cidade, estado e CEP.
+
+<Steps>
+  <Step>
+    No card, confira no resumo quais campos o paciente quer alterar (ex.:
+    *Atualização de dados: Telefone, E-mail*).
+  </Step>
+  <Step>
+    Se os valores estiverem corretos, clique em **Aplicar**. O sistema grava as
+    mudanças direto na ficha do paciente e marca a solicitação como **Resolvida**.
+  </Step>
+  <Step>
+    Se preferir tratar manualmente (por exemplo, precisa validar o dado com o
+    paciente antes), edite a ficha pela tela de Pacientes e depois clique em
+    **Resolver** no card. Use **Rejeitar** se o pedido não procede.
+  </Step>
+</Steps>
+
+<Callout type="info">
+  O botão **Aplicar** só existe em solicitações de **Atualização de dados**. Por
+  segurança, nome e telefone nunca são apagados: se o paciente tiver deixado um
+  desses campos em branco, ele é ignorado ao aplicar. Se nenhuma alteração for
+  aplicável, o sistema avisa e nada é gravado.
+</Callout>
+
+## Tratar uma solicitação de dados (LGPD)
+
+O pedido de **Dados (LGPD)** registra que o paciente exerceu o direito de acesso aos próprios dados. O sistema não gera o arquivo automaticamente — a entrega é feita pela equipe.
+
+<Steps>
+  <Step>
+    Reúna e entregue ao paciente a cópia dos dados, pelo canal combinado com a
+    clínica.
+  </Step>
+  <Step>
+    Depois de entregar, clique em **Resolver** no card. Use **Rejeitar** apenas
+    se o pedido for indevido (por exemplo, identidade não confirmada).
+  </Step>
+</Steps>
+
+<Callout type="info">
+  O paciente só consegue ter **um** pedido de dados LGPD em aberto por vez. Se
+  ele tentar abrir outro enquanto houver um pendente, o portal informa que já
+  existe uma solicitação em andamento. Por isso, mantenha a fila em dia.
+</Callout>
+
+## As três ações dos cards
+
+Cada card pendente mostra de um a três botões, dependendo do tipo:
+
+<Cards>
+  <Card title="Aplicar" description="Só em Atualização de dados. Grava as mudanças na ficha do paciente e fecha como Resolvida." />
+  <Card title="Resolver" description="Marca a solicitação como Resolvida sem alterar a ficha. Use depois de tratar o pedido por fora (reagendar, entregar dados LGPD)." />
+  <Card title="Rejeitar" description="Marca como Rejeitada quando o pedido não pode ou não deve ser atendido." />
+</Cards>
+
+Ao concluir uma ação, o card sai da lista de pendentes e a fila é recarregada. Uma solicitação só pode ser tratada uma vez: se ela já tiver sido resolvida ou rejeitada por outra pessoa, o sistema avisa **Solicitação já tratada.** ao tentar agir de novo.
+
+<Callout type="info" title="O que fica registrado">
+  A abertura de cada pedido pelo paciente gera registro de auditoria
+  (reagendamento, atualização de dados e LGPD). Ao **aplicar** uma atualização de
+  dados, também é gravado um registro de auditoria com os campos alterados. Em
+  qualquer ação, a própria solicitação guarda quem a tratou e quando. Isso é útil
+  para conformidade com a LGPD.
+</Callout>
+
+## Perguntas frequentes
+
+**Apliquei sem querer / o paciente mandou um dado errado.** A solicitação fica como Resolvida e não dá para "desfazer" pelo card. Corrija o dado direto na ficha do paciente, pela tela de Pacientes.
+
+**O card de reagendamento não tem botão Aplicar — está com defeito?** Não. Apenas Atualização de dados pode ser aplicada automaticamente. Reagendamento e LGPD só têm **Resolver** e **Rejeitar**.
+
+**Não vejo a aba Solicitações do Portal.** A aba aparece para qualquer perfil com acesso à tela de Pacientes. Se você não a vê, confirme que o seu perfil tem acesso a **Pacientes**. (Sem permissão de edição você ainda vê a aba e a fila, mas os botões Aplicar/Resolver/Rejeitar não aparecem.)

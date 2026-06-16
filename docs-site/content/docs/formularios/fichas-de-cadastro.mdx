@@ -1,0 +1,280 @@
+---
+title: "Fichas de cadastro (intake público)"
+description: "Ficha pública, ViaCEP, aprovar/rejeitar virando paciente e envio automático de formulário."
+feature: formularios
+sources:
+  - "src/lib/intake/**"
+  - "src/app/intake/**"
+  - "src/app/api/public/intake/**"
+  - "src/app/api/intake-submissions/**"
+  - "src/app/patients/components/IntakeSubmission*"
+lastReviewedCommit: 1d93f26
+audience: recepcao
+status: published
+isNew: true
+---
+
+A **ficha de cadastro** é um formulário público que os responsáveis preenchem
+pela internet, sem precisar de login. Você compartilha um link, a família
+informa os dados da criança e do responsável financeiro, e a ficha chega à
+clínica esperando revisão. Quando você aprova, a ficha vira automaticamente um
+paciente — e, se quiser, já dispara os formulários de anamnese configurados.
+
+<Callout type="info" title="Como isso economiza tempo da recepção">
+  Em vez de digitar nome, CPF, endereço e telefones a partir de uma mensagem de
+  WhatsApp, a própria família preenche tudo. Você só confere, completa os campos
+  internos (profissional de referência, valor da sessão etc.) e aprova.
+</Callout>
+
+## Visão geral do fluxo
+
+<Steps>
+  <Step>
+    A clínica compartilha o **link da ficha de cadastro** com a família.
+  </Step>
+  <Step>
+    O responsável preenche a ficha pública e envia. Os administradores recebem
+    um e-mail avisando que uma nova ficha chegou.
+  </Step>
+  <Step>
+    A ficha aparece em **Pacientes → Fichas de Cadastro** como **Pendente**, e um
+    aviso fica visível no topo do sistema.
+  </Step>
+  <Step>
+    Você abre a ficha, confere os dados e clica em **Aprovar** (que abre o
+    cadastro do paciente para você completar e salvar) ou em **Rejeitar**.
+  </Step>
+  <Step>
+    Ao aprovar, o paciente é criado e os formulários marcados para envio
+    automático são enviados por e-mail.
+  </Step>
+</Steps>
+
+## Encontrar e compartilhar o link da ficha
+
+O link é montado a partir do **slug** (identificador da clínica na URL) e tem o
+formato `https://seu-dominio/intake/<slug-da-clinica>`.
+
+Para copiá-lo:
+
+<Steps>
+  <Step>
+    Abra **Configurações** (administração da clínica) e vá até a aba de dados
+    gerais.
+  </Step>
+  <Step>
+    No bloco **Link da Ficha de Cadastro**, clique em **Copiar**. O botão muda
+    para **Copiado!** por alguns segundos.
+  </Step>
+  <Step>
+    Cole o link no WhatsApp, no e-mail ou no site da clínica e envie para o
+    responsável.
+  </Step>
+</Steps>
+
+<Callout type="info">
+  O link depende do slug da clínica. Se você alterar o slug em Configurações, o
+  link antigo deixa de funcionar — sempre copie o link atualizado depois de uma
+  mudança de slug. O bloco do link só aparece quando há um slug preenchido.
+</Callout>
+
+{/* TODO screenshot: /img/formularios-fichas-de-cadastro-1.png */}
+
+## A ficha pública
+
+Ao abrir o link, o responsável vê o logo (ou o nome) da clínica e o título
+**Ficha de Cadastro**. Não há login: qualquer pessoa com o link pode preencher.
+A ficha está organizada em três blocos.
+
+### Dados da criança
+
+- **Nome completo da criança/adolescente** (obrigatório)
+- **Data de nascimento** (obrigatória) — informada no formato DD/MM/AAAA
+- **Nome da escola e unidade** (opcional)
+- **Unidade** e **Turno em que estuda** (opcional) — o turno aceita **Manhã**,
+  **Tarde** ou **Integral**
+- **Nome do pai** e **Telefone do pai (WhatsApp)** (opcional)
+- **Nome da mãe** e **Telefone da mãe (WhatsApp)** (opcional)
+
+### Responsável financeiro
+
+Este bloco traz uma orientação fixa: o responsável deve preencher com os dados
+de **quem vai declarar o imposto de renda**. Se a família quiser as notas em
+nome da criança, basta usar os dados dela.
+
+- **Nome do responsável financeiro** (obrigatório)
+- **CPF/CNPJ** (obrigatório) — aceita CPF (11 dígitos) ou CNPJ (14 dígitos),
+  com validação dos dígitos verificadores. Um número inválido é apontado na hora.
+- **Telefone** (obrigatório) — aceita números brasileiros, ex.: `(11) 99999-9999`,
+  e internacionais, ex.: `+351...`
+- **E-mail** (obrigatório)
+- **CEP** (obrigatório) — preenche o endereço automaticamente (veja abaixo)
+- **Endereço** (obrigatório). **Número**, **Bairro**, **Cidade** e **UF** são
+  opcionais (o ViaCEP costuma preencher bairro, cidade e UF a partir do CEP)
+
+### Autorizações
+
+Uma autorização opcional sobre a **gravação das sessões** para fins de
+supervisão e segurança, com o respaldo legal correspondente. O responsável marca
+ou deixa em branco; a resposta é registrada na ficha e vira o consentimento do
+paciente quando a ficha é aprovada.
+
+### Preenchimento automático de endereço (ViaCEP)
+
+Ao digitar um **CEP válido (8 dígitos)** e sair do campo, a ficha consulta o
+serviço público **ViaCEP** e preenche sozinha **rua/logradouro, bairro, cidade e
+UF**. Enquanto a busca acontece, aparece a mensagem **"Buscando endereco..."**.
+
+<Callout type="info" title="Se o ViaCEP estiver indisponível">
+  Caso o serviço não responda ou o CEP não seja encontrado, nada trava: os campos
+  de endereço continuam editáveis e a família preenche manualmente. O número da
+  residência é sempre digitado à mão.
+</Callout>
+
+### Envio
+
+O responsável clica em **Enviar Ficha de Cadastro**. Em caso de sucesso, a ficha
+mostra **"Ficha enviada com sucesso!"** com um aviso de que a clínica entrará em
+contato para agendar a primeira consulta.
+
+<Callout type="warn" title="Proteções da ficha pública">
+  Como a ficha é pública, há um limite de tentativas por origem (IP): muitos
+  envios seguidos exibem **"Muitas tentativas. Aguarde alguns minutos e tente
+  novamente."** Além disso, o link só funciona para clínicas ativas — clínicas
+  inativas retornam **"Clinica nao encontrada"**.
+</Callout>
+
+## Aviso de fichas pendentes
+
+Sempre que houver fichas aguardando revisão, um aviso aparece no topo do sistema:
+**"Há 1 ficha de cadastro pendente"** (ou **"Há N fichas de cadastro
+pendentes"**). Clique em **Revisar** para ir direto à lista de fichas. O aviso
+some sozinho quando não há mais nenhuma ficha pendente — não há botão para
+fechá-lo.
+
+<Callout type="info">
+  O aviso e a contagem aparecem apenas para quem tem permissão de **escrita** em
+  Pacientes — ou seja, quem pode de fato aprovar ou rejeitar. Quem tem acesso só
+  de leitura não vê o aviso.
+</Callout>
+
+## Revisar as fichas recebidas
+
+Acesse **Pacientes** e abra a aba **Fichas de Cadastro**.
+
+A lista mostra, para cada ficha, o **nome da criança**, o **responsável**, o
+**telefone**, a **data de envio** e o **status**:
+
+| Status | Significado |
+|---|---|
+| **Pendente** | Recebida, aguardando sua revisão |
+| **Aprovada** | Já transformada em paciente |
+| **Rejeitada** | Descartada por você |
+
+Você pode **buscar por nome** e filtrar por **Pendentes**, **Aprovadas**,
+**Rejeitadas** ou **Todas** (o filtro inicial é **Pendentes**). Clique em uma
+ficha para abrir os detalhes.
+
+{/* TODO screenshot: /img/formularios-fichas-de-cadastro-2.png */}
+
+### Tela de detalhes
+
+A ficha aberta mostra todos os dados agrupados em **Dados da Criança**, **Pais**,
+**Responsável Financeiro**, **Endereço** e **Autorizações**, além da data de
+envio. Quando a ficha ainda está **Pendente** (e você tem permissão de escrita),
+aparecem dois botões: **Aprovar** e **Rejeitar**.
+
+## Aprovar uma ficha (vira paciente)
+
+Aprovar é o passo que transforma a ficha em um paciente de verdade.
+
+<Steps>
+  <Step>
+    Na ficha aberta, clique em **Aprovar**.
+  </Step>
+  <Step>
+    Abre o **cadastro do paciente já preenchido** com os dados da ficha. Aqui você
+    completa os campos internos que a família não informa — por exemplo,
+    **profissional de referência**, **valor da sessão**, telefones adicionais e
+    outros dados administrativos.
+  </Step>
+  <Step>
+    Salve. O sistema cria o paciente e marca a ficha como **Aprovada** em uma única
+    operação, exibindo **"Paciente criado com sucesso"**.
+  </Step>
+  <Step>
+    Na tela de confirmação (**"Paciente criado"**) você pode clicar em **Agendar
+    primeira sessão** — que abre a agenda já com o paciente selecionado — ou em
+    **Concluído** para voltar à lista.
+  </Step>
+</Steps>
+
+<Callout type="info" title="Os consentimentos vêm da ficha">
+  As autorizações marcadas pela família na ficha (como a gravação das sessões)
+  são transferidas para o cadastro do paciente, junto com a data em que foram
+  dadas. Os dados informados pelo responsável (nome, CPF/CNPJ, endereço,
+  telefones, escola) já chegam preenchidos no formulário de aprovação.
+</Callout>
+
+<Callout type="warn" title="Duplicidades bloqueiam a aprovação">
+  Se o CPF informado já pertencer a outro paciente, a aprovação é recusada com
+  **"Já existe um paciente com este CPF"**. Telefones repetidos entre o número
+  principal e os adicionais também são bloqueados. Corrija os dados e tente
+  novamente.
+</Callout>
+
+## Rejeitar uma ficha
+
+Se a ficha for um teste, um duplicado ou não for aproveitada, clique em
+**Rejeitar** na tela de detalhes. A ficha passa para **Rejeitada**, **nenhum
+paciente é criado** e a ação fica registrada no histórico de auditoria (quem
+rejeitou e quando). Fichas rejeitadas continuam visíveis pelo filtro
+**Rejeitadas** ou **Todas**.
+
+<Callout type="info">
+  Tanto aprovar quanto rejeitar só funcionam em fichas **Pendentes**. Se a ficha
+  já tiver sido revisada por outra pessoa, o sistema avisa **"Ficha nao
+  encontrada ou ja foi revisada"** — basta atualizar a lista.
+</Callout>
+
+## Envio automático de formulários na aprovação
+
+Você pode configurar **formulários** (anamneses, questionários) para serem
+enviados **automaticamente por e-mail** ao paciente assim que a ficha é aprovada.
+
+<Steps>
+  <Step>
+    Vá em **Formulários** e abra (ou crie) o modelo que deve ser enviado.
+  </Step>
+  <Step>
+    Marque a opção **"Enviar automaticamente ao aprovar ficha de cadastro"** e
+    salve. O modelo precisa estar **ativo**.
+  </Step>
+  <Step>
+    A partir daí, toda ficha aprovada dispara o envio desses formulários por
+    e-mail para o novo paciente, vinculados ao profissional de referência quando
+    houver.
+  </Step>
+</Steps>
+
+<Callout type="info">
+  O envio automático é **best-effort**: se um formulário específico falhar (por
+  exemplo, sem versão publicada), isso **não impede** a criação do paciente nem o
+  envio dos demais formulários. A aprovação sempre conclui.
+</Callout>
+
+Para detalhes de como montar e enviar formulários, veja
+**[Construtor de formulários](/docs/formularios/construtor-de-formularios)** e
+**[Enviar e responder formulários](/docs/formularios/enviar-e-responder)**.
+
+## Perguntas frequentes
+
+- **A família precisa de senha?** Não. A ficha é pública; basta o link.
+- **Posso editar os dados antes de aprovar?** Sim. Ao clicar em **Aprovar**, o
+  cadastro abre preenchido e você ajusta qualquer campo antes de salvar.
+- **O que acontece se eu fechar sem aprovar?** Nada. A ficha continua **Pendente**
+  até alguém aprovar ou rejeitar.
+- **Quem é avisado quando chega uma ficha?** Os administradores da clínica recebem
+  um e-mail; o aviso de pendência também aparece no topo do sistema.
+
+{/* OUTLINE coberto: ficha pública (campos, validações, ViaCEP, envio), revisão (lista/filtros/aviso), aprovar virando paciente, rejeitar e envio automático de formulário. */}

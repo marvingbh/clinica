@@ -1,0 +1,131 @@
+---
+title: "Configurações de prontuário"
+description: "Prazo de guarda, responsável por prontuários de inativos, mensagem de risco."
+feature: prontuario
+sources:
+  - "src/app/admin/settings/components/ProntuarioTab.tsx"
+  - "src/lib/prontuario/retention.ts"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+As **Configurações de prontuário** reúnem, num só lugar, as três regras de governança clínica da sua clínica: por quanto tempo os prontuários ficam guardados, quem pode ler as notas de profissionais que saíram da equipe e qual mensagem de apoio o paciente vê quando uma escala clínica indica risco.
+
+<Callout type="info" title="Funcionalidade recente">
+  A aba **Prontuário** nas configurações é uma adição recente. Se você não a
+  encontrar, atualize a página ou confirme com o administrador que sua clínica
+  está na versão mais nova do sistema.
+</Callout>
+
+## Como abrir
+
+Essas opções ficam no painel administrativo e exigem acesso de administrador.
+
+<Steps>
+  <Step>
+    No menu, abra **Configurações** (painel administrativo da clínica).
+  </Step>
+  <Step>
+    Selecione a aba **Prontuário** (ícone de prancheta).
+  </Step>
+  <Step>
+    Ajuste os campos descritos abaixo e clique em **Salvar**. O botão só fica
+    ativo quando há alterações pendentes.
+  </Step>
+</Steps>
+
+<Screenshot src="/img/configuracao-configuracoes-de-prontuario-1.png" alt="Aba Prontuário nas configurações, com os campos de prazo de guarda, profissional responsável e mensagem de apoio" caption="Configurações > Prontuário" />
+
+## Prazo de guarda (anos)
+
+Define por quanto tempo, **no mínimo**, o prontuário fica guardado depois de encerrado. É o campo **Prazo de guarda (anos)**, obrigatório.
+
+- O valor aceito vai de **5 a 20 anos**. O mínimo de 5 anos acompanha a recomendação do Conselho Federal de Psicologia (CFP).
+- Enquanto o número digitado estiver fora dessa faixa, o botão **Salvar** permanece desabilitado, então só é possível gravar valores entre 5 e 20.
+
+### O que o prazo controla na prática
+
+O prazo de guarda não apaga nada sozinho: ele governa **quando o descarte formal de um prontuário fica liberado**. O fluxo acontece no prontuário do próprio paciente:
+
+<Steps>
+  <Step>
+    No prontuário do paciente, o profissional com permissão de escrita clica em
+    **Encerrar prontuário**. A data de encerramento passa a contar.
+  </Step>
+  <Step>
+    Enquanto o prazo não vence, o painel exibe uma faixa informando até quando a
+    guarda é obrigatória — por exemplo:
+    *"Prontuário encerrado em 10/03/2026. Guarda obrigatória até 10/03/2031
+    (5 anos restantes)."*
+  </Step>
+  <Step>
+    Cumprido o prazo, a faixa muda para
+    *"Prazo de guarda cumprido. O descarte formal está liberado."* e o botão
+    **Realizar descarte formal** fica visível para administradores.
+  </Step>
+</Steps>
+
+<Callout type="warn" title="O descarte é definitivo">
+  Ao confirmar o descarte, **todos os registros clínicos do paciente são
+  eliminados** e o sistema gera um **termo de descarte** (PDF) para download.
+  A ação não pode ser desfeita. Se você tentar descartar antes de o prazo
+  vencer, o sistema bloqueia com a mensagem *"O prazo legal de guarda ainda não
+  foi cumprido."*
+</Callout>
+
+Aumentar o prazo depois afeta os cálculos de qualquer prontuário ainda dentro da janela de guarda: o descarte só será liberado quando o novo prazo, contado a partir da data de encerramento, vencer.
+
+## Profissional responsável por prontuários de inativos
+
+Quando um profissional é desligado (conta inativada), suas notas clínicas **não desaparecem** — continuam guardadas pelo prazo de guarda. Mas, por sigilo profissional, ninguém da equipe lê as notas de outro profissional automaticamente. Este campo define a exceção.
+
+- O campo **Profissional responsável por prontuários de profissionais desligados** é uma lista dos profissionais da clínica. O padrão é **Nenhum**.
+- O profissional escolhido aqui pode **ler** as notas de autores **inativos** — mesmo sem ser o autor.
+
+### Quem pode ler o quê
+
+<Cards>
+  <Card title="O próprio autor">
+    Lê e escreve nas suas notas livremente. Esse acesso nunca é auditado.
+  </Card>
+  <Card title="Quem tem permissão de prontuário">
+    Quem possui acesso de leitura ao prontuário pode ler notas de outros
+    profissionais — e **toda leitura assim é registrada na auditoria**.
+  </Card>
+  <Card title="Responsável por inativos">
+    O profissional indicado neste campo pode ler notas de **autores
+    desligados**, mesmo sem permissão geral de prontuário. **Toda leitura é
+    auditada.**
+  </Card>
+</Cards>
+
+<Callout type="info">
+  Selecionar **Nenhum** significa que, ao desligar um profissional, ninguém
+  herda automaticamente a leitura das notas dele (além de quem já tem permissão
+  geral de prontuário). Defina um responsável antes de precisar — por exemplo,
+  para dar continuidade ao atendimento de um paciente cujo psicólogo saiu da
+  equipe.
+</Callout>
+
+Apenas profissionais da própria clínica podem ser indicados; o sistema valida esse vínculo ao salvar.
+
+## Mensagem de apoio (resposta de risco)
+
+Quando um paciente responde a uma escala clínica e endossa um item de risco, o sistema mostra a ele uma **mensagem de acolhimento** e, em paralelo, alerta o profissional responsável (sem expor a pontuação no e-mail de alerta). O campo **Mensagem de apoio (resposta de risco)** permite personalizar o texto que o paciente vê.
+
+- Deixe o campo **em branco** para usar a mensagem padrão da plataforma, que inclui o contato do **CVV — 188** (24 horas, gratuito), o **192 (SAMU)** e a orientação de procurar o pronto-socorro mais próximo.
+- Para personalizar, escreva o texto da sua clínica na caixa. Ao salvar, ele substitui a mensagem padrão.
+
+<Callout type="warn" title="Mantenha um canal de emergência no texto">
+  Se você personalizar a mensagem, recomende sempre um meio de apoio imediato
+  (como o **CVV — 188** ou o **192/SAMU**). A mensagem padrão já traz esses
+  contatos; ao reescrevê-la, não deixe o paciente sem um caminho de ajuda.
+</Callout>
+
+## Salvar
+
+Depois de ajustar qualquer campo, clique em **Salvar**. O sistema confirma com a mensagem *"Configurações de prontuário salvas"*. As regras passam a valer imediatamente para os próximos cálculos de guarda, leituras de notas e respostas de escala.
+
+{/* OUTLINE coberto: Prazo de guarda, responsável por prontuários de inativos, mensagem de risco. */}

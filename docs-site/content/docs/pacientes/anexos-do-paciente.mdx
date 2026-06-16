@@ -1,0 +1,177 @@
+---
+title: "Anexos do paciente"
+description: "Upload, categorizar, buscar, pré-visualizar, lixeira/restaurar e cota de armazenamento."
+feature: anexos
+sources:
+  - "src/lib/patient-documents/**"
+  - "src/lib/storage/**"
+  - "src/app/patients/components/documents/**"
+  - "src/app/api/patients/[id]/documents/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+isNew: true
+---
+
+A aba **Anexos** guarda os arquivos de cada paciente — exames, encaminhamentos, contratos e documentos em geral — em um só lugar, com categorias, busca, pré-visualização e uma lixeira de 30 dias. Os arquivos ficam protegidos: o download passa sempre por um endereço autenticado da clínica e cada acesso é registrado no histórico de auditoria.
+
+<Callout type="info" title="Funcionalidade recém-lançada">
+Os Anexos do paciente são uma adição recente. Se você ainda não vê a aba **Anexos** na ficha do paciente, fale com o administrador da clínica para confirmar que sua versão está atualizada.
+</Callout>
+
+## Onde encontrar
+
+Abra a ficha de um paciente e selecione a aba **Anexos** na barra de abas (ao lado de **Dados**, **Prontuário** e **Documentos**). A aba aparece para qualquer usuário com acesso de leitura a pacientes; para anexar, editar ou remover arquivos você precisa de acesso de escrita ao recurso **Pacientes**.
+
+<Callout type="info">
+A aba **Anexos** é diferente da aba **Documentos**. **Documentos** reúne peças geradas pela clínica; **Anexos** é a biblioteca de arquivos daquele paciente — uploads manuais e PDFs arquivados automaticamente, como formulários respondidos.
+</Callout>
+
+{/* TODO screenshot: /img/pacientes-anexos-do-paciente-1.png */}
+
+## Enviar um arquivo (upload)
+
+Com acesso de escrita, a área de envio aparece no topo da aba.
+
+<Steps>
+
+<Step>
+**Escolha a categoria** no campo *Categoria*. As opções são Exame, Encaminhamento, Documento, Contrato e Outro. O padrão é **Documento**.
+</Step>
+
+<Step>
+**(Opcional) Escreva uma descrição** no campo *Descrição* — por exemplo, "exame de sangue". Ela facilita a busca depois e aceita até 500 caracteres.
+</Step>
+
+<Step>
+**(Opcional) Marque *Compartilhar com paciente*** se o arquivo deve ficar visível ao paciente no portal (quando disponível). Por padrão fica desmarcado.
+</Step>
+
+<Step>
+**Adicione os arquivos**: arraste-os para a área tracejada "Arraste arquivos aqui ou clique para selecionar" ou clique para abrir o seletor. Você pode enviar vários arquivos de uma vez.
+</Step>
+
+</Steps>
+
+Ao terminar, você vê o aviso "Documento anexado" (ou "N documentos anexados") e a lista é recarregada. A categoria, a descrição e o compartilhamento escolhidos valem para todos os arquivos enviados naquele lote.
+
+### Tipos e tamanho aceitos
+
+São aceitos PDF, imagens (JPG, JPEG, PNG, WebP) e documentos do Office (DOC, DOCX, XLS, XLSX), além de TXT e CSV. O limite padrão é de **10 MB por arquivo**. A própria área de envio mostra o limite vigente ("PDF, imagens e documentos do Office até 10 MB").
+
+A validação acontece tanto no seu navegador quanto no servidor. Se o arquivo não for aceito, aparece uma destas mensagens:
+
+- **"Tipo de arquivo não permitido. Use PDF, imagens ou documentos do Office."** — quando o formato (ou a extensão) está fora da lista.
+- **"Arquivo vazio."** — quando o arquivo não tem conteúdo.
+- **"Arquivo excede o limite de 10 MB."** — quando passa do tamanho máximo.
+
+<Callout type="info">
+Alguns arquivos chegam à biblioteca **automaticamente**, sem upload manual. É o caso dos formulários respondidos pelo paciente: ao serem concluídos, o sistema gera um PDF e o arquiva aqui com a origem **Formulário**. Esses documentos do sistema têm uma etiqueta de origem e não podem ser editados nem removidos manualmente.
+</Callout>
+
+## Categorizar e identificar
+
+Cada arquivo na lista mostra, lado a lado:
+
+- O **ícone do tipo** (PDF, imagem, planilha ou arquivo genérico).
+- O **nome do arquivo** original.
+- A **etiqueta de categoria** colorida (Exame, Encaminhamento, Documento, Contrato ou Outro).
+- A **etiqueta de origem**, exibida **apenas** para arquivos gerados pelo sistema — Gerado, Assinado ou Formulário. Uploads manuais não recebem etiqueta de origem.
+- O **tamanho**, a **data** de inclusão (DD/MM/AAAA) e quem enviou. Arquivos do sistema aparecem como **Sistema**.
+
+Para corrigir a categoria, a descrição ou o compartilhamento de um upload, use **Editar** (veja [Editar metadados](#editar-metadados)).
+
+## Buscar e filtrar
+
+Há duas formas de encontrar um arquivo, que funcionam em conjunto:
+
+<Tabs items={["Filtro por categoria", "Busca por texto"]}>
+
+<Tab value="Filtro por categoria">
+Acima da lista há botões de categoria: **Todas**, **Exame**, **Encaminhamento**, **Documento**, **Contrato** e **Outro**. Clique em um para mostrar só aquela categoria; clique em **Todas** para voltar. O filtro de categoria é aplicado no servidor.
+</Tab>
+
+<Tab value="Busca por texto">
+O campo **"Buscar por nome/descrição"** filtra a lista exibida pelo **nome do arquivo** e pela **descrição**. A busca não diferencia maiúsculas de minúsculas e atua sobre os arquivos já carregados na tela.
+</Tab>
+
+</Tabs>
+
+Quando a lista é longa, role até o fim e use **Carregar mais** para trazer o próximo lote (20 por vez).
+
+## Pré-visualizar e baixar
+
+Em cada arquivo ativo, abra o menu de ações (ícone **⋮**) para ver:
+
+- **Visualizar** — abre uma janela de pré-visualização.
+- **Baixar** — faz o download do arquivo com o nome original.
+
+Na pré-visualização:
+
+- **PDFs** abrem incorporados na própria janela.
+- **Imagens** (JPG, PNG, WebP) aparecem na janela.
+- Demais formatos (Office, TXT, CSV) mostram **"Visualização não disponível — baixe o arquivo."** — use o botão **Baixar** no topo da janela.
+
+<Callout type="info">
+O arquivo nunca fica exposto por um link público: tanto o download quanto a pré-visualização passam por um endereço autenticado da clínica, e **todo acesso é registrado no histórico de auditoria** (com o nome do arquivo). Por isso os anexos não ficam guardados em cache pelo navegador.
+</Callout>
+
+## Editar metadados
+
+Para uploads manuais, o menu **⋮** traz a opção **Editar**. A janela "Editar documento" permite alterar:
+
+- **Categoria**
+- **Descrição**
+- **Compartilhar com paciente**
+
+Clique em **Salvar** para confirmar ou **Cancelar** para sair. O nome e o conteúdo do arquivo não mudam — para substituir o conteúdo, envie um novo arquivo e remova o antigo.
+
+<Callout type="warn">
+Arquivos **gerados pelo sistema** (origem Gerado, Assinado ou Formulário) têm metadados fixos: a opção **Editar** não aparece para eles. Ao tentar editar um documento desse tipo, o sistema responde "Documento gerado pelo sistema — não editável".
+</Callout>
+
+## Remover, lixeira e restaurar
+
+Remover um anexo **não apaga o arquivo na hora**. Ele vai para a **lixeira** e permanece recuperável por **30 dias**; só depois é excluído definitivamente.
+
+<Steps>
+
+<Step>
+No menu **⋮** de um upload, clique em **Remover**. Confirme no aviso: "Remover documento? Ele ficará na lixeira por 30 dias e depois será excluído definitivamente." A lista mostra "Documento removido".
+</Step>
+
+<Step>
+Para ver os removidos, marque **Mostrar lixeira** (à direita dos filtros). A lista passa a exibir somente os arquivos na lixeira, esmaecidos, com a observação "Removido em DD/MM/AAAA — exclui definitivamente em DD/MM/AAAA".
+</Step>
+
+<Step>
+Para recuperar, clique em **Restaurar** no arquivo desejado (ainda com **Mostrar lixeira** marcado). Aparece "Documento restaurado" e ele volta à lista ativa.
+</Step>
+
+</Steps>
+
+<Callout type="warn">
+A restauração só funciona dentro da janela de 30 dias. Depois desse prazo o arquivo é excluído de forma permanente e a tentativa de restaurar retorna "Documento já passou da janela de restauração". A remoção fica registrada na auditoria.
+</Callout>
+
+<Callout type="info">
+Só **uploads manuais** podem ser removidos. Documentos gerados pelo sistema ficam sujeitos à retenção clínica: a ação **Remover** aparece desabilitada, com a explicação "Documento vinculado ao prontuário — sujeito à retenção clínica".
+</Callout>
+
+## Cota de armazenamento
+
+Cada clínica tem uma cota de armazenamento definida pelo plano (clínicas sem plano usam o padrão de 1024 MB; alguns planos são ilimitados). O espaço **consumido inclui os arquivos na lixeira** — eles continuam ocupando espaço até serem excluídos em definitivo.
+
+Se um upload ultrapassar a cota, ele é bloqueado e um aviso amarelo aparece no topo da aba, com uma mensagem como "Limite de armazenamento do seu plano atingido (... de ...). Faça upgrade para anexar mais documentos." e o link **Ver plano e armazenamento**.
+
+Para acompanhar o consumo, abra **Configurações → Armazenamento** (acesso de administrador). Lá você vê:
+
+- Quanto está em uso e o limite do plano (ou "ilimitado"), com uma barra que fica amarela a partir de 80% e vermelha a partir de 95%.
+- Quanto desse total está **na lixeira** ("dos quais ... na lixeira").
+- O ajuste **Restringir exames a profissionais** — quando ligado, documentos da categoria **Exame** ficam visíveis apenas a usuários com perfil profissional (uma secretária, por exemplo, não os vê na lista nem consegue baixá-los).
+
+<Callout type="info">
+Como a lixeira conta na cota, lembre-se de que arquivos removidos só liberam espaço após os 30 dias de retenção (ou quando a limpeza automática os exclui). Documentos gerados pelo sistema são sempre arquivados, mesmo que a clínica já tenha atingido a cota — são arquivos clínicos obrigatórios e não passam pela checagem de limite. Mas eles **contam** no espaço consumido, então ocupam cota e podem reduzir o que sobra para uploads manuais.
+</Callout>
+
+{/* OUTLINE (do sitemap): Upload, categorizar, buscar, pré-visualizar, lixeira/restaurar e cota de armazenamento. — COBERTO */}

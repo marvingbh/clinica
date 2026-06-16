@@ -1,0 +1,228 @@
+---
+title: "Assistente de IA para evoluções"
+description: "Gerar rascunho a partir de tópicos, pseudonimização, abordagem e contexto histórico."
+feature: ia
+sources:
+  - "src/lib/ai/**"
+  - "src/app/api/ai/note-draft/**"
+  - "src/app/prontuario/components/ai/AiDraftPanel.tsx"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+isNew: true
+---
+
+O assistente de IA transforma suas anotações soltas de sessão em um rascunho de
+evolução clínica já organizado nas seções do modelo da nota. Você continua no
+controle: o texto gerado entra como **rascunho para revisão**, nunca é assinado
+automaticamente, e os dados pessoais do paciente são pseudonimizados antes de
+qualquer envio.
+
+<Callout type="info" title="Como funciona, em uma frase">
+  Você escreve os tópicos da sessão, escolhe a abordagem terapêutica e clica em
+  **Gerar rascunho**. A IA devolve cada seção do prontuário preenchida, marcada
+  para revisão — e você ajusta antes de assinar.
+</Callout>
+
+## Onde o painel aparece
+
+O painel **Gerar com IA** fica dentro do editor de notas do prontuário, logo
+acima dos campos de seção. Ele só aparece quando **todas** estas condições são
+verdadeiras:
+
+- A nota ainda é um rascunho (não está **assinada**) e você tem permissão de
+  escrita nela.
+- A nota está vinculada a um **paciente**.
+- A clínica habilitou o assistente de IA e o plano contratado inclui créditos
+  de IA.
+- Você não desativou a IA na sua conta (opt-out).
+
+Se qualquer condição falhar, o painel simplesmente não é exibido — não há erro
+nem botão desabilitado. Para habilitar a IA na clínica ou rever o opt-out, veja
+<Cards>
+  <Card title="Configurar IA na clínica e opt-out" href="/docs/ia/configuracao-de-ia" />
+  <Card title="Créditos, feedback e revisão de IA" href="/docs/ia/creditos-e-feedback" />
+</Cards>
+
+{/* TODO screenshot: /img/ia/assistente-de-evolucoes-painel.png */}
+
+No topo do painel você vê a contagem de gerações: `N gerações restantes neste
+mês` ou `Gerações ilimitadas`, conforme o plano.
+
+## Gerar um rascunho a partir de tópicos
+
+<Steps>
+
+<Step>
+### Abra o painel
+
+No editor da nota, clique em **Gerar com IA** para expandir o painel.
+</Step>
+
+<Step>
+### Escreva os tópicos da sessão
+
+No campo de texto, anote os pontos principais — pode ser uma lista de tópicos
+soltos ou até uma transcrição colada. O texto precisa ter **ao menos 10
+caracteres**; abaixo disso o sistema avisa "Escreva ao menos 10 caracteres."
+
+> Quanto mais concretos os fatos que você anotar, melhor o rascunho. A IA é
+> instruída a usar **exclusivamente** o que você escreveu e a **nunca inventar**
+> fatos clínicos, diagnósticos ou condutas que você não mencionou.
+
+Textos muito longos são aceitos, mas apenas os primeiros **24.000 caracteres**
+são considerados. Quando isso acontece, você recebe o aviso "Texto longo —
+apenas os primeiros caracteres foram considerados." O corte respeita limites de
+palavra, então nada é cortado no meio.
+</Step>
+
+<Step>
+### Confira o formato
+
+O campo **Formato** mostra `SOAP`, `DAP` ou `LIVRE` seguido de "(do modelo da
+nota)". O formato **não é escolhido aqui** — ele vem do modelo da nota que você
+selecionou no prontuário. Para mudá-lo, troque o modelo da nota.
+
+| Formato | Seções geradas |
+| --- | --- |
+| SOAP | Subjetivo, Objetivo, Avaliação, Plano |
+| DAP | Dados, Avaliação, Plano |
+| LIVRE | Registro corrido e coeso, sem subdivisões rígidas |
+</Step>
+
+<Step>
+### Escolha a abordagem (opcional)
+
+No seletor **Abordagem**, escolha a linha terapêutica para que o estilo e a
+terminologia do rascunho fiquem mais alinhados ao seu trabalho. As opções são:
+
+- (em branco — sem ajuste de abordagem)
+- TCC
+- Psicanálise
+- ABA
+- Sistêmica
+- Humanista
+- Outra
+
+Deixe em branco se preferir um texto neutro.
+</Step>
+
+<Step>
+### Decida sobre o contexto histórico (opcional)
+
+Marque **Incluir contexto das últimas notas assinadas** para que o assistente
+considere as evoluções anteriores do mesmo paciente. Veja a seção
+[Contexto histórico](#contexto-historico) abaixo para entender o que entra.
+</Step>
+
+<Step>
+### Gere o rascunho
+
+Clique em **Gerar rascunho**. Enquanto a IA trabalha, o botão muda para
+"Gerando rascunho…". A geração leva alguns segundos.
+</Step>
+
+<Step>
+### Revise antes de assinar
+
+Cada seção preenchida pela IA recebe a etiqueta **"Gerado por IA — revise"** e
+um aviso fixo aparece no editor:
+
+> Conteúdo gerado por IA — revise antes de assinar. O profissional é responsável
+> pelo conteúdo do registro (Res. CFP nº 11/2018).
+
+Edite o texto livremente. Assim que você altera uma seção, a etiqueta de "gerado
+por IA" daquela seção desaparece — sinal de que aquele trecho passou pela sua
+revisão. O rascunho é salvo automaticamente conforme você digita.
+</Step>
+
+</Steps>
+
+<Callout type="warn" title="Sempre revise — você é o responsável">
+  O assistente produz um **rascunho**, não um registro pronto. A responsabilidade
+  pelo conteúdo do prontuário é sempre do profissional (Res. CFP nº 11/2018).
+  Leia e ajuste cada seção antes de assinar a nota.
+</Callout>
+
+Se a geração falhar por qualquer motivo, você vê "Não foi possível gerar o
+rascunho. Seu texto foi preservado." — suas anotações no campo continuam
+intactas e você pode tentar de novo.
+
+## Pseudonimização (proteção de dados)
+
+Antes de qualquer envio ao provedor de IA, o sistema **substitui os dados
+pessoais do paciente por marcadores anônimos** entre colchetes. Isso atende à
+LGPD: o conteúdo que sai da clínica não carrega a identidade do paciente.
+
+São substituídos automaticamente:
+
+| Dado original | Marcador |
+| --- | --- |
+| Nome do paciente (completo e primeiro nome) | `[PACIENTE]` |
+| Nome da mãe | `[MAE]` |
+| Nome do pai | `[PAI]` |
+| CPF do cadastro / CPF de cobrança | `[CPF_1]`, `[CPF_2]` |
+| Telefone | `[TEL_1]` |
+| E-mail | `[EMAIL_1]` |
+
+Além desses, uma varredura genérica captura **CPFs, telefones e e-mails de
+terceiros** que apareçam no texto livre (por exemplo, o contato de um familiar
+citado na sessão), substituindo-os por marcadores como `[CPF_X1]` ou `[TEL_X1]`.
+
+Quando a IA devolve o rascunho, os marcadores são **re-substituídos pelos valores
+reais localmente**, dentro da clínica. O texto que você vê no editor já está
+completo e legível.
+
+<Callout type="info" title="O que isso significa na prática">
+  - Os dados de identificação do paciente **não** são enviados ao provedor de IA.
+  - O conteúdo da geração **não é armazenado** — registramos apenas metadados
+    (modelo usado, contagem de tokens, sucesso/falha) para fins de auditoria.
+  - A pseudonimização é uma proteção em camadas: a revisão humana obrigatória
+    antes da assinatura é a salvaguarda final.
+</Callout>
+
+Você não precisa fazer nada para ativar a pseudonimização — ela é automática em
+toda geração. Não há motivo para anonimizar manualmente o texto que você digita;
+o sistema cuida disso.
+
+## Abordagem terapêutica
+
+A **abordagem** que você seleciona ajusta o estilo de redação e a terminologia
+do rascunho, sem alterar os fatos. Por exemplo:
+
+- **TCC** tende a um vocabulário focado em pensamentos, comportamentos e tarefas.
+- **Psicanálise** privilegia uma linguagem mais interpretativa.
+- **ABA** enfatiza descrição comportamental e dados objetivos.
+
+A escolha é opcional e por geração — você pode usar abordagens diferentes em
+notas diferentes. Independentemente da abordagem, a IA continua proibida de
+incluir diagnósticos ou condutas que você não mencionou.
+
+## Contexto histórico
+
+Quando você marca **Incluir contexto das últimas notas assinadas**, o assistente
+recebe um resumo das **até 3 evoluções mais recentes já assinadas** do mesmo
+paciente, da mais nova para a mais antiga. Isso dá continuidade ao registro —
+útil para retomar temas e acompanhar a evolução ao longo das sessões.
+
+Pontos importantes:
+
+- Só entram notas com status **assinada**. Rascunhos não assinados ficam de fora.
+- O conteúdo histórico também passa pela **pseudonimização** antes do envio.
+- O recurso só tem efeito se a clínica habilitou a opção de contexto histórico
+  nas configurações de IA. Se ela estiver desligada na clínica, marcar a caixa
+  não altera o resultado.
+
+## Créditos e feedback
+
+Cada geração bem-sucedida consome **um crédito** do plano da clínica no mês
+corrente. Quando o limite é atingido, o painel mostra a mensagem de limite e o
+botão fica indisponível até o próximo mês. Logo após gerar, você pode avaliar o
+rascunho com **👍 / 👎** para ajudar a melhorar o assistente.
+
+Os detalhes de cotas, contagem mensal e o que acontece ao esgotar os créditos
+estão em:
+
+<Cards>
+  <Card title="Créditos, feedback e revisão de IA" href="/docs/ia/creditos-e-feedback" />
+</Cards>

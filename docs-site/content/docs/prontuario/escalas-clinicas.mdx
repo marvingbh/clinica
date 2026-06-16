@@ -1,0 +1,318 @@
+---
+title: "Escalas clínicas (PHQ-9 / GAD-7)"
+description: "Enviar/preencher escalas, cálculo de score, faixa de risco e trajetória."
+feature: escalas
+sources:
+  - "src/lib/scales/**"
+  - "src/app/escala/**"
+  - "src/app/api/patients/[id]/escalas/**"
+  - "src/app/patients/components/escalas/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+isNew: true
+---
+
+As escalas clínicas permitem acompanhar de forma estruturada os sintomas do
+paciente ao longo do tratamento. A Clinica traz dois instrumentos validados e de
+domínio público, em português do Brasil:
+
+- **PHQ-9** — Questionário de Saúde do Paciente (rastreio de depressão), 9
+  perguntas, pontuação de 0 a 27.
+- **GAD-7** — Transtorno de Ansiedade Generalizada, 7 perguntas, pontuação de
+  0 a 21.
+
+Você pode **enviar um link** para o paciente responder pelo celular, **aplicar a
+escala durante a sessão**, **agendar envios automáticos** e acompanhar a
+**trajetória** da pontuação em um gráfico ao longo do tempo.
+
+<Callout type="info" title="Funcionalidade recente">
+  As escalas clínicas foram adicionadas recentemente. Tudo o que você precisa
+  fica na aba **Escalas** dentro da ficha do paciente. Se você não vê a aba ou
+  os botões de ação, fale com o administrador da clínica sobre suas permissões
+  (veja [Quem pode ver e gerenciar](#quem-pode-ver-e-gerenciar)).
+</Callout>
+
+## Onde encontrar
+
+Abra a ficha de um paciente e selecione a aba **Escalas**. Ela reúne, de cima
+para baixo:
+
+- os botões de ação (**Enviar escala**, **Aplicar em sessão**, **Agendar
+  envios**);
+- a **Trajetória** (gráfico da pontuação ao longo do tempo);
+- a tabela de **Administrações** (cada aplicação, com status, pontuação e
+  severidade);
+- os **Envios automáticos** configurados.
+
+{/* TODO screenshot: /img/prontuario-escalas-clinicas-1.png */}
+
+## Enviar uma escala para o paciente responder
+
+O paciente recebe um link e responde no próprio celular, uma pergunta por tela.
+
+<Steps>
+
+<Step>
+Na aba **Escalas**, clique em **Enviar escala**.
+</Step>
+
+<Step>
+No campo **Escala**, escolha **PHQ-9** ou **GAD-7**.
+</Step>
+
+<Step>
+Em **Canal**, escolha **E-mail** ou **WhatsApp**. Só ficam habilitados os canais
+para os quais o paciente deu consentimento — os demais aparecem com a marca
+**(sem consentimento)** e ficam desabilitados.
+
+<Callout type="warn" title="Sem canal consentido">
+  Se o paciente não tem nenhum canal de contato consentido, o envio fica
+  indisponível e o sistema avisa: *"Paciente sem canal de contato consentido —
+  aplique a escala em sessão."* Nesse caso, use **Aplicar em sessão**.
+</Callout>
+</Step>
+
+<Step>
+Clique em **Enviar**. A escala é despachada pelo canal escolhido e o sistema
+gera um **link**.
+</Step>
+
+<Step>
+Se precisar enviar manualmente (por exemplo, por outro meio), use **Copiar
+link** para copiar o endereço e cole onde quiser.
+</Step>
+
+</Steps>
+
+<Callout type="info" title="Validade do link">
+  Cada link vale **7 dias**. Depois disso a administração fica como
+  **Expirada** e você precisa reenviar (veja
+  [Reenviar um link](#reenviar-um-link)).
+</Callout>
+
+<Callout type="info" title="Apenas a versão mais recente vale">
+  Ao enviar uma nova escala do mesmo tipo para o mesmo paciente, qualquer envio
+  anterior ainda em aberto daquela escala passa para **Expirada**
+  automaticamente — só a versão mais recente continua válida.
+</Callout>
+
+### Como é a experiência do paciente
+
+O link abre uma página simples, sem login. O paciente vê o nome da clínica, o
+nome do instrumento, quantas perguntas há e o enunciado (por exemplo, *"Durante
+as últimas 2 semanas..."*), e toca em **Começar**.
+
+A partir daí é **uma pergunta por tela**, com uma barra de progresso (*"3 de
+9"*). Cada resposta é **salva automaticamente** ao ser tocada — se o paciente
+fechar e abrir o link de novo (dentro dos 7 dias), ele retoma exatamente da
+primeira pergunta sem resposta. O botão **Voltar** permite rever as respostas
+anteriores. Ao responder a última pergunta, o questionário é enviado.
+
+## Aplicar em sessão
+
+Quando você aplica a escala durante o atendimento, registra as respostas
+diretamente e a pontuação é calculada na hora.
+
+<Steps>
+
+<Step>
+Clique em **Aplicar em sessão**.
+</Step>
+
+<Step>
+Escolha a **Escala**. O enunciado e todas as perguntas aparecem na tela, cada
+uma com as opções de 0 a 3.
+</Step>
+
+<Step>
+Para cada item, toque na opção que corresponde à resposta do paciente (por
+exemplo, *"0 — Nenhuma vez"* até *"3 — Quase todos os dias"*).
+</Step>
+
+<Step>
+Quando **todas** as perguntas estiverem respondidas, clique em **Salvar
+pontuação**. A administração é registrada como **Concluída**, já com pontuação e
+severidade.
+</Step>
+
+</Steps>
+
+<Callout type="info" title="Origem da administração">
+  Na tabela de **Administrações**, a coluna **Origem** distingue **Em sessão**
+  (preenchida por você) de **Link do paciente** (respondida pelo paciente).
+</Callout>
+
+## Cálculo do score, severidade e faixas de risco
+
+Cada item vale de **0 a 3**. A pontuação total é a soma das respostas. A partir
+dela, o sistema atribui uma **faixa de severidade** (mostrada como um selo
+colorido na tabela e no gráfico).
+
+<Tabs items={["PHQ-9", "GAD-7"]}>
+
+<Tab value="PHQ-9">
+
+Pontuação total de **0 a 27**. Faixas de severidade:
+
+| Pontuação | Severidade |
+| --- | --- |
+| 0–4 | Mínimo |
+| 5–9 | Leve |
+| 10–14 | Moderado |
+| 15–19 | Moderadamente grave |
+| 20–27 | Grave |
+
+</Tab>
+
+<Tab value="GAD-7">
+
+Pontuação total de **0 a 21**. Faixas de severidade:
+
+| Pontuação | Severidade |
+| --- | --- |
+| 0–4 | Mínima |
+| 5–9 | Leve |
+| 10–14 | Moderada |
+| 15–21 | Grave |
+
+</Tab>
+
+</Tabs>
+
+Na tabela de **Administrações**, cada linha concluída mostra a pontuação no
+formato `total/máximo` (por exemplo, `14/27`) e o selo de severidade. Clique em
+**Ver respostas** para abrir o detalhamento item a item, com a opção escolhida
+em cada pergunta.
+
+<Callout type="info" title="Faixas como bandas no gráfico">
+  As mesmas faixas aparecem sombreadas ao fundo do gráfico de **Trajetória**,
+  o que ajuda a enxergar de relance em qual nível de severidade cada ponto cai.
+</Callout>
+
+### Resposta de risco
+
+O **PHQ-9** inclui um item de risco — a pergunta 9, sobre *"pensar em se ferir de
+alguma maneira ou que seria melhor estar morto(a)"*. Se o paciente endossar esse
+item (responder com qualquer valor acima de 0), a administração recebe uma
+**marca de risco**: um ícone de alerta vermelho ao lado da pontuação na tabela,
+e a resposta correspondente aparece destacada em vermelho na tela de detalhes.
+
+<Callout type="warn" title="O que acontece quando há resposta de risco">
+  Ao concluir uma escala com item de risco endossado, a Clinica dispara
+  automaticamente:
+
+  - uma **tarefa** (Todo) para o profissional responsável, com o título
+    *"⚠ Resposta de risco — [nome do paciente]"*, datada para o dia atual;
+  - um **e-mail de alerta** ao profissional responsável. Por sigilo, esse
+    e-mail **não contém a pontuação nem as respostas** — apenas avisa que houve
+    uma resposta de risco e pede que você **acesse o sistema** para ver os
+    detalhes.
+
+  Para o **paciente** que respondeu pelo link, a página final mostra uma
+  mensagem de acolhimento (configurável pela clínica) com canais de apoio
+  imediato — incluindo o **CVV (188)**, gratuito e 24 horas. Esse alerta não
+  substitui o acompanhamento de emergência.
+</Callout>
+
+O GAD-7 não tem item de risco.
+
+## Trajetória
+
+O gráfico de **Trajetória** mostra a evolução da pontuação ao longo do tempo.
+Ele considera **apenas as administrações concluídas** daquela escala, ordenadas
+pela data de conclusão.
+
+- Se o paciente tem administrações de **mais de uma escala**, use o seletor ao
+  lado do título para alternar entre PHQ-9 e GAD-7.
+- Passe o mouse sobre um ponto para ver a **data** (no formato DD/MM/AAAA) e a
+  **pontuação com a severidade** daquele momento.
+- As faixas de severidade aparecem sombreadas ao fundo, com uma legenda dos
+  intervalos.
+
+{/* TODO screenshot: /img/prontuario-escalas-clinicas-2.png */}
+
+Para gerar uma versão em **PDF** da escala selecionada, use o link **PDF** ao
+lado do gráfico.
+
+## Envios automáticos (agendamentos)
+
+Em vez de enviar manualmente a cada vez, você pode programar o envio recorrente
+de uma escala.
+
+<Steps>
+
+<Step>
+Clique em **Agendar envios**.
+</Step>
+
+<Step>
+Escolha a **Escala** e a **Cadência**:
+
+- **A cada N semanas** — você informa o **Intervalo (semanas)** (de 1 a 26). O
+  primeiro envio ocorre na próxima execução e, depois, a cada N semanas.
+- **Antes de cada sessão** — o envio é disparado automaticamente nas horas que
+  antecedem a próxima consulta agendada do paciente.
+</Step>
+
+<Step>
+Clique em **Agendar**. O agendamento passa a aparecer na lista de **Envios
+automáticos**.
+</Step>
+
+</Steps>
+
+Na lista de **Envios automáticos**, cada agendamento mostra a escala, a cadência
+descrita (por exemplo, *"A cada 4 semanas"* ou *"Antes de cada sessão"*) e o
+estado. Você pode **pausar/reativar** (ícone de pausa/play) ou **excluir** (ícone
+de lixeira) um agendamento.
+
+<Callout type="info" title="Por que um agendamento pode aparecer pausado">
+  O sistema pausa automaticamente um envio automático quando não há condições
+  para enviar e indica o motivo:
+
+  - **Pausado — sem canal de contato consentido**: o paciente não tem canal
+    consentido.
+  - **Pausado — profissional inativo**: o profissional responsável foi
+    desativado.
+  - **Pausado — sem agendamentos futuros**: não há consulta futura para
+    sustentar a cadência.
+</Callout>
+
+## Reenviar um link
+
+Enquanto uma administração **não estiver concluída** (status **Enviada** ou
+**Expirada**), você pode gerar um novo link sem perder o que o paciente já
+respondeu: na tabela de **Administrações**, use **Reenviar link** na linha
+correspondente. As respostas parciais são preservadas e um link novo (com
+validade renovada de 7 dias) é despachado pelo canal consentido.
+
+## Quem pode ver e gerenciar
+
+O acesso às escalas é controlado pela permissão **Escalas** (níveis Nenhum,
+Leitura ou Escrita) e por uma regra clínica adicional:
+
+- **Profissional**: só vê e gerencia as escalas de pacientes que **trata** — ou
+  seja, é o **profissional de referência** do paciente, ou tem ao menos um
+  **agendamento** com ele.
+- **Administrador**: com permissão de Leitura/Escrita em Escalas (por exemplo,
+  um diretor clínico), enxerga o conteúdo clínico de qualquer paciente.
+
+<Callout type="info" title="Visão sem conteúdo clínico">
+  Pontuações, respostas e marcas de risco são **dados clínicos**. Um
+  administrador **sem** permissão de leitura em Escalas vê apenas os metadados
+  (escala, origem, status, datas de envio e conclusão) — nunca as pontuações ou
+  as respostas. A própria aba exibe esse aviso.
+</Callout>
+
+Para **enviar, aplicar em sessão ou agendar** é preciso permissão de
+**Escrita**. Os botões de ação só aparecem para quem tem esse nível.
+
+<Callout type="warn" title="Profissional de referência obrigatório">
+  Se um administrador tentar enviar uma escala para um paciente que ainda não
+  tem **profissional de referência** definido, o sistema pede que esse
+  profissional seja definido antes — pois é a ele que ficam vinculadas as
+  tarefas e os alertas de risco.
+</Callout>
+
+{/* OUTLINE coberto: Enviar/preencher escalas, cálculo de score, faixa de risco e trajetória. */}

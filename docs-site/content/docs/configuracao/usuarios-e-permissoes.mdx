@@ -1,0 +1,212 @@
+---
+title: "Usuários e permissões"
+description: "Criar/editar/desativar usuários; overrides de permissão por usuário por feature."
+feature: onboarding-contas
+sources:
+  - "src/app/users/**"
+  - "src/app/api/users/**"
+  - "src/app/admin/permissions/**"
+  - "src/app/api/admin/permissions/**"
+  - "src/lib/rbac/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+Toda pessoa que acessa a clínica tem uma **conta de usuário**. Cada conta tem um **perfil de acesso** (Administrador ou Profissional) que define, por padrão, o que ela pode ver e fazer. Esta página explica como criar, editar e desativar contas na tela **Usuários** e como afinar o acesso de cada pessoa, recurso por recurso, na tela **Permissões**.
+
+<Callout type="info">
+**Quem pode gerenciar isto?** Apenas usuários com acesso de **escrita** ao recurso de usuários (por padrão, os administradores) veem os botões de criar/editar/desativar e a tela de Permissões. Quem tem apenas leitura consegue consultar a lista, mas não editar.
+</Callout>
+
+## Os dois perfis de acesso
+
+Antes de criar contas, vale entender a diferença entre os dois perfis:
+
+- **Administrador (ADMIN)** — acesso amplo à clínica: agenda de todos, pacientes, financeiro, configurações, gerenciamento de usuários, etc.
+- **Profissional (PROFESSIONAL)** — acesso restrito aos próprios recursos: a própria agenda, os próprios pacientes, a própria disponibilidade, e assim por diante.
+
+<Callout type="warn">
+Por respeito ao sigilo profissional (CFP), há uma inversão intencional: o **administrador NÃO lê o prontuário nem as escalas clínicas por padrão**. Esse conteúdo clínico fica acessível ao profissional que atende. Se você precisa que um diretor clínico tenha acesso a prontuários, conceda esse acesso por meio de um **override** (veja a seção [Permissões personalizadas](#permissões-personalizadas-overrides-por-usuário)).
+</Callout>
+
+## A tela Usuários
+
+A tela **Usuários** ("Gerenciar contas de acesso ao sistema") lista as contas da sua clínica. Acesse-a pela URL `/users`.
+
+No topo há uma busca por **nome ou email** e dois filtros: **perfil** (Todos perfis / Administrador / Profissional) e **status** (Todos / Ativos / Inativos). Cada conta aparece como um cartão com as iniciais, o nome, o email e selos indicando se é **Admin** e se está **Inativo**. Quando a pessoa tem um perfil profissional vinculado, o cartão também mostra "Tem perfil profissional".
+
+<Screenshot src="/img/configuracao/usuarios-e-permissoes-1.png" alt="Tela Usuários com a busca, os filtros de perfil e status e os cartões das contas" caption="A tela Usuários lista as contas com busca, filtros e ações por cartão." />
+
+### Criar um usuário
+
+<Steps>
+
+<Step>
+### Abra o formulário
+
+Clique no botão flutuante **Novo usuário** (canto inferior direito). Se a lista estiver vazia, você também pode usar o botão **Adicionar usuário** no centro da tela.
+</Step>
+
+<Step>
+### Preencha os dados
+
+O formulário **Novo Usuário** tem quatro campos:
+
+- **Nome** (obrigatório) — pelo menos 2 caracteres, no máximo 100.
+- **Email** (obrigatório) — precisa ser um email válido e é usado para login.
+- **Senha** (obrigatória na criação) — pelo menos 6 caracteres.
+- **Perfil** (obrigatório) — **Profissional** (padrão) ou **Administrador**.
+</Step>
+
+<Step>
+### Salve
+
+Clique em **Criar usuário**. Ao concluir, aparece a mensagem **"Usuário criado com sucesso"** e a conta passa a constar na lista.
+</Step>
+
+</Steps>
+
+<Callout type="info">
+Criar uma conta com perfil **Profissional** consome uma vaga do plano da clínica. Se o limite de profissionais já tiver sido atingido, a criação é bloqueada com a mensagem informada pelo sistema. Nesse caso, desative um profissional que não usa mais o sistema ou fale sobre o seu plano.
+</Callout>
+
+<Callout type="info">
+O email é único **dentro da clínica**. Se você tentar usar um email que já existe, o sistema responde **"Já existe um usuário com este email"**.
+</Callout>
+
+### Ver e editar um usuário
+
+Clique sobre um cartão para abrir os detalhes da conta (email, status **Ativo/Inativo**, perfil e se há **Perfil profissional** vinculado). A partir daí, ou direto pelo botão **Editar** no cartão, você abre o formulário **Editar Usuário**.
+
+Na edição valem as mesmas regras, com uma diferença importante na senha:
+
+<Callout type="info">
+O campo aparece como **"Senha (deixe vazio para manter)"**. Deixe-o em branco para preservar a senha atual; preencha-o apenas quando quiser definir uma nova senha para a pessoa.
+</Callout>
+
+Clique em **Salvar alterações** para confirmar (mensagem **"Usuário atualizado com sucesso"**) ou em **Cancelar** para sair sem gravar.
+
+<Callout type="warn">
+Você **não pode alterar o seu próprio perfil de acesso**. Se tentar mudar o próprio Administrador para Profissional (ou vice-versa), o sistema bloqueia com **"Você não pode alterar seu próprio perfil de acesso"**. Isso evita que um administrador se tranque para fora da gestão da clínica.
+</Callout>
+
+### Desativar e reativar
+
+A clínica **não exclui** contas: ela as **desativa**. Desativar preserva todo o histórico (agendamentos, registros, financeiro) e apenas impede o login.
+
+- **Desativar** — clique em **Desativar** no cartão. Aparece a confirmação "Deseja realmente desativar [nome]?". Ao confirmar, a conta fica com o selo **Inativo** e o cartão fica esmaecido. Mensagem: **"Usuário desativado com sucesso"**.
+- **Reativar** — em uma conta inativa, o botão passa a ser **Reativar**. Clique nele para devolver o acesso. Mensagem: **"Usuário reativado com sucesso"**.
+
+Para encontrar contas desligadas, use o filtro de status **Inativos**.
+
+<Callout type="warn">
+Você **não pode desativar a própria conta** — o sistema responde **"Você não pode desativar sua própria conta"**. Para desligar um administrador, faça-o a partir de **outra** conta de administrador.
+</Callout>
+
+## Permissões personalizadas (overrides por usuário)
+
+<Callout type="info">
+**Funcionalidade recém-lançada.** Até então, o acesso de cada pessoa era ditado inteiramente pelo perfil (Administrador ou Profissional). Agora você pode **personalizar o acesso de uma pessoa, recurso por recurso**, sem precisar mudar o perfil dela.
+</Callout>
+
+A tela **Permissões** mostra uma **matriz**: cada **linha** é um usuário e cada **coluna** é uma funcionalidade do sistema (Agenda própria, Agenda de outros, Pacientes, Grupos, Financeiro, Prontuário, Relatórios, e assim por diante). Em cada célula você escolhe o nível de acesso daquela pessoa àquela funcionalidade:
+
+| Nível | O que significa |
+| --- | --- |
+| **Nenhum** | Sem acesso à funcionalidade. |
+| **Leitura** | Pode visualizar, mas não alterar. |
+| **Escrita** | Pode visualizar **e** alterar. |
+
+Cada perfil já vem com um valor **padrão** para cada funcionalidade. O override só entra em ação quando você escolhe um valor **diferente** do padrão.
+
+### Como abrir
+
+Abra o menu da sua conta e clique em **Permissões** (ícone de escudo). A opção aparece apenas para quem pode gerenciar usuários. Você também pode usar a URL `/admin/permissions`.
+
+{/* TODO screenshot: /img/configuracao/usuarios-e-permissoes-2.png */}
+
+### Como personalizar o acesso de alguém
+
+<Steps>
+
+<Step>
+### Encontre a pessoa
+
+Use a busca **"Buscar usuario..."** (por nome ou email) para localizar a linha desejada. Cada linha mostra o nome, o email e um selo com o perfil (**Admin** ou **Profissional**). Contas inativas aparecem esmaecidas e não podem ter as permissões alteradas.
+</Step>
+
+<Step>
+### Ajuste a célula
+
+Na coluna da funcionalidade, use o seletor para escolher **Nenhum**, **Leitura** ou **Escrita**. Abaixo de cada seletor há a indicação **"Padrao: …"**, mostrando qual seria o valor do perfil daquela pessoa.
+</Step>
+
+<Step>
+### Pronto — salva sozinho
+
+Não há botão **Salvar**: a alteração é gravada **na hora** em que você muda o seletor. Ao concluir, aparece a mensagem **"Permissao atualizada"**.
+</Step>
+
+</Steps>
+
+<Callout type="info">
+Uma célula com **borda destacada** indica uma **permissão personalizada** — ou seja, diferente do padrão do perfil. Células com a borda normal estão seguindo o **padrão da role**. A legenda no rodapé da tela explica essa distinção.
+</Callout>
+
+### Voltar ao padrão
+
+Para **remover** um override e fazer a pessoa voltar a seguir o padrão do perfil, basta selecionar, naquela célula, **o mesmo valor que aparece em "Padrao: …"**. O sistema entende que não há mais nada de personalizado e apaga o override.
+
+<Callout type="warn">
+Você **não pode remover a sua própria permissão de gerenciar usuários**. Se tentar reduzir o seu próprio acesso à coluna de usuários para algo abaixo de **Escrita**, o sistema bloqueia com **"Voce nao pode remover sua propria permissao de gerenciar usuarios"** — assim você não fica sem como administrar contas e permissões.
+</Callout>
+
+### Quando o novo acesso passa a valer
+
+As permissões são carregadas no **login**. Uma alteração feita aqui vale imediatamente para qualquer ação **nova** que a pessoa fizer, mas se ela já estiver com o sistema aberto, pode ser necessário **recarregar a página** (ou sair e entrar de novo) para que a mudança apareça por completo na navegação.
+
+## Exemplos práticos
+
+<Cards>
+
+<Card title="Recepcionista que só agenda">
+Crie a conta como **Profissional** e, na tela Permissões, deixe **Pacientes** e **Agenda** em **Escrita** e zere o que ela não deve ver (por exemplo, **Financeiro** e **Prontuário** em **Nenhum**).
+</Card>
+
+<Card title="Diretor clínico que precisa ler prontuários">
+O administrador não lê prontuário por padrão. Na tela Permissões, mude a coluna **Prontuário** desse usuário para **Leitura** (ou **Escrita**, se ele também atende).
+</Card>
+
+<Card title="Profissional sem acesso ao financeiro">
+Na linha da pessoa, mude **Financeiro** para **Nenhum**. Ela continua com a própria agenda e pacientes, mas deixa de ver valores.
+</Card>
+
+<Card title="Desfazer uma personalização">
+Selecione, naquela célula, o mesmo valor mostrado em "Padrao: …". O override é removido e a pessoa volta a seguir o perfil.
+</Card>
+
+</Cards>
+
+## Perguntas frequentes
+
+<Cards>
+
+<Card title="Excluí alguém por engano. E agora?">
+Ninguém é realmente excluído — apenas desativado. Filtre por **Inativos** na tela Usuários e clique em **Reativar**.
+</Card>
+
+<Card title="Mudei a senha mas a pessoa diz que a antiga ainda funciona">
+Ao editar, o campo de senha vem vazio para **manter** a senha atual. Para trocá-la, preencha o campo com a nova senha (mínimo 6 caracteres) antes de salvar.
+</Card>
+
+<Card title="Por que não vejo a opção Permissões no menu?">
+A tela de Permissões só aparece para quem tem acesso de **escrita** ao recurso de usuários (em geral, os administradores).
+</Card>
+
+<Card title="Mudei uma permissão e a pessoa ainda não vê a diferença">
+As permissões são lidas no login. Peça para ela recarregar a página ou sair e entrar novamente.
+</Card>
+
+</Cards>

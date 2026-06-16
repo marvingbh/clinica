@@ -1,0 +1,9 @@
+{
+  "title": "Fiscal (NFS-e, Receita Saúde, DMED)",
+  "pages": [
+    "configuracao-fiscal",
+    "nfse",
+    "receita-saude",
+    "dmed"
+  ]
+}

@@ -1,0 +1,173 @@
+---
+title: "Relatórios e dashboard operacional"
+description: "Ocupação, retenção, faltas e desempenho por profissional; escopo por papel."
+feature: relatorios
+sources:
+  - "src/lib/analytics/**"
+  - "src/app/relatorios/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+A página **Relatórios** reúne os indicadores operacionais da clínica em um só lugar: taxa de ocupação da agenda, retenção de pacientes, faltas e cancelamentos, origem dos novos pacientes e ocupação dos grupos. Tudo organizado por período e, quando você é administrador, comparável entre profissionais.
+
+<Callout type="info" title="Funcionalidade recente">
+  O dashboard operacional foi adicionado há pouco tempo ao Clinica. Ele lê os dados que já existem na sua agenda e no financeiro — não é preciso preencher nada novo para começar a usar. Quanto mais completos estiverem disponibilidade, status de atendimentos e origem dos pacientes, mais ricos ficam os indicadores.
+</Callout>
+
+## Como abrir
+
+No menu lateral (seção **Principal**), clique em **Relatórios**. A página abre direto na aba **Visão Geral**.
+
+O acesso é controlado pela permissão **Relatórios**. Por padrão, tanto administradores quanto profissionais têm leitura liberada — a diferença está no que cada um enxerga, explicada em [Escopo por papel](#escopo-por-papel).
+
+<Screenshot src="/img/financeiro/relatorios-operacionais-visao-geral.png" alt="Aba Visão Geral dos Relatórios com cartões de indicadores, tabela por profissional e gráfico de tendência" caption="Visão Geral: indicadores do período, comparativo por profissional e tendência." />
+
+## A barra de filtros
+
+A barra no topo da página vale para **todas as abas**. Ao mudar qualquer filtro, a aba ativa recarrega automaticamente com os novos números.
+
+- **Granularidade** — escolha entre **Mês**, **Trimestre** ou **Ano**. Ao abrir, o filtro começa no mês atual.
+- **Período** — use as setas `‹` e `›` para navegar para o período anterior ou seguinte. O rótulo no centro mostra o período selecionado (por exemplo, *Maio 2026*, *2º trimestre 2026* ou *2026*).
+- **Profissional** — uma lista suspensa com **Todos os profissionais** e cada profissional da clínica. Esse seletor **só aparece para administradores**.
+
+<Callout type="info">
+  Os indicadores de ocupação contam apenas os dias que **já aconteceram**. Se você abrir um mês em andamento, dias futuros não entram no cálculo — assim a ocupação não fica artificialmente baixa por causa de dias que ainda nem chegaram.
+</Callout>
+
+## As cinco abas
+
+<Cards>
+  <Card title="Visão Geral" href="#visão-geral">Ocupação, sessões, cancelamentos, reagendamento e novos pacientes — com comparativo por profissional.</Card>
+  <Card title="Retenção" href="#retenção">Quantos pacientes voltam para a 2ª e a 5ª sessão, vida média e quem parou de vir.</Card>
+  <Card title="Cancelamentos" href="#cancelamentos">Faltas e cancelamentos por tipo, mapa de calor por dia e horário, total por profissional.</Card>
+  <Card title="Origens" href="#origens">De onde vêm os pacientes novos e qual canal converte melhor.</Card>
+  <Card title="Grupos" href="#grupos">Ocupação, presença média e faltas de cada grupo de terapia.</Card>
+</Cards>
+
+### Visão Geral
+
+A aba traz cinco indicadores no topo, calculados para o período e o profissional filtrados:
+
+| Indicador | O que significa |
+| --- | --- |
+| **Taxa de ocupação** | Horas agendadas dividido pelas horas disponíveis cadastradas. Aparece como `n/d` quando não há disponibilidade configurada. |
+| **Sessões realizadas** | Consultas com status **FINALIZADO** no período. |
+| **Taxa de cancelamento** | Consultas canceladas dividido pelo total de consultas do período. |
+| **Reagendamento em 7 dias** | Das sessões finalizadas, quantas já têm a próxima consulta marcada em até 7 dias. |
+| **Pacientes novos no período** | Pacientes cadastrados dentro do período. |
+
+Logo abaixo está a tabela **Desempenho por profissional**, com uma linha por profissional:
+
+- **Horas disp.** e **Horas agend.** — horas de disponibilidade cadastrada e horas efetivamente ocupadas na agenda.
+- **Ocupação** — horas agendadas ÷ horas disponíveis. Quem não tem disponibilidade cadastrada mostra **n/d**; quando alguma linha está nessa situação, um atalho **Cadastrar disponibilidade** (que leva a *Configurações → Disponibilidade*) aparece logo abaixo da tabela. Se a ocupação passar de 100%, surge a etiqueta **acima da grade** — sinal de que há mais atendimentos do que a grade comporta.
+- **Sessões** — consultas finalizadas.
+- **Cancel. (Ac./Falta/Prof.)** — três números: cancelamentos **acordados**, **faltas** e **cancelados pelo profissional**.
+- **% Cancel.** e **Rebooking 7d** — taxa de cancelamento e taxa de reagendamento em 7 dias daquele profissional.
+- **Receita** e **Ticket médio** — **só aparecem para administradores**. Profissionais não veem essas colunas (veja [Escopo por papel](#escopo-por-papel)).
+
+Por fim, o gráfico **Tendência** traça duas linhas — **Sessões realizadas** e **Canceladas** — ao longo do tempo. Quando o período é um único mês, os pontos são por **semana do mês** (*Sem 1*, *Sem 2*, …); em trimestre ou ano, são por **mês**.
+
+<Callout type="info">
+  As sessões de grupo ocupam **um único bloco** na agenda, mesmo tendo um atendimento por paciente. O cálculo de horas agendadas já desconta essa duplicação automaticamente.
+</Callout>
+
+### Retenção
+
+Mede a fidelização dos pacientes — o melhor termômetro da qualidade clínica. A *coorte* do período é formada pelos pacientes cuja **primeira** sessão finalizada caiu dentro do período selecionado.
+
+Indicadores principais:
+
+- **Chegam à 2ª sessão** e **Chegam à 5ª sessão** — percentual da coorte que atingiu 2 e 5 sessões finalizadas no total do histórico.
+- **Sessões por paciente (média)** e **Vida mediana (sessões)** — média e mediana de sessões por paciente da coorte.
+
+E, sobre toda a base de pacientes:
+
+- **Ativos (30 dias)** e **Ativos (60 dias)** — pacientes com sessão finalizada nos últimos 30 e 60 dias.
+- **Sem retorno** — pacientes cuja última sessão foi há **mais de 60 dias** e que **não têm** consulta futura marcada.
+
+A tabela **Pacientes sem retorno** lista cada um com **nome**, **última sessão** (DD/MM/AAAA) e **profissional de referência** — uma lista pronta para ações de recontato.
+
+<Callout type="warn" title="Amostra pequena">
+  Quando a coorte tem menos de 5 pacientes, aparece o aviso **"Amostra pequena — interprete com cautela."**. Com poucos pacientes, um único caso muda muito os percentuais; trate os números como tendência, não como verdade absoluta.
+</Callout>
+
+### Cancelamentos
+
+Quatro cartões no topo separam os cancelamentos por tipo e mostram a taxa total:
+
+- **Cancelado (acordado)** — combinado com o paciente.
+- **Falta** — o paciente não compareceu (no-show).
+- **Cancelado pelo profissional** — cancelado pelo lado da clínica.
+- **Taxa total de cancelamento** — cancelados ÷ total de consultas.
+
+O **mapa de calor** *Cancelamentos por dia e horário* cruza os dias da semana (Dom–Sáb) com os horários das **06h às 22h**. Quanto mais escura a célula, mais cancelamentos naquele dia/horário — útil para identificar, por exemplo, que as segundas de manhã concentram faltas. Passe o mouse sobre uma célula para ver a quebra por tipo.
+
+Abaixo, a tabela **Por profissional** traz, para cada profissional, o total de consultas, quantas foram canceladas, a **% Cancel.** e a quebra **Ac./Falta/Prof.**.
+
+### Origens
+
+Mostra **de onde vêm os pacientes novos**. Cada linha é um canal de origem (Indicação, Instagram, Google, Site, Convênio, Outro e *Não informado*), com:
+
+- **Pacientes novos** — quantos chegaram por aquele canal no período.
+- **Converteram** — quantos já têm pelo menos uma consulta finalizada.
+- **% Conversão** — converteram ÷ pacientes novos.
+
+<Callout type="info">
+  A origem vem do campo **"Como conheceu a clínica?"** no cadastro do paciente. Pacientes sem essa informação aparecem como **Não informado**. Preencher esse campo é o que faz a aba ganhar valor: sem ele você não consegue saber qual canal traz mais (e quais melhores) pacientes.
+</Callout>
+
+### Grupos
+
+Ocupação de cada grupo de terapia no período. A tabela traz por grupo:
+
+- **Profissional** responsável e **Sessões** realizadas no período.
+- **Média de presentes** — média de pacientes presentes por sessão.
+- **Capacidade** — capacidade definida no grupo; quando não há uma definida, usa o número de membros ativos como referência.
+- **Ocupação** — média de presentes ÷ capacidade.
+- **Faltas** — total de faltas registradas.
+
+Sessões **canceladas pelo profissional** não contam: como o encontro não aconteceu, elas ficam de fora do cálculo de ocupação.
+
+## Exportar para planilha
+
+Cada tabela tem o botão **Exportar CSV** (ícone de download). Ele baixa exatamente os dados da aba e do período/profissional filtrados no momento.
+
+<Steps>
+  <Step>Ajuste a granularidade, o período e — se for administrador — o profissional desejado.</Step>
+  <Step>Abra a aba que quer exportar (Visão Geral, Retenção, Cancelamentos, Origens ou Grupos).</Step>
+  <Step>Clique em **Exportar CSV**. O arquivo é nomeado pelo tipo e período, por exemplo `ocupacao-2026-05.csv`, `cancelamentos-2026-T2.csv` ou `sem-retorno-2026.csv`.</Step>
+</Steps>
+
+<Callout type="info">
+  Os arquivos saem em UTF-8 com separador `;` e marca de codificação (BOM), prontos para abrir no Excel em português sem acentos quebrados. Toda exportação fica registrada no log de auditoria (nome do relatório e período).
+</Callout>
+
+## Escopo por papel
+
+O que cada pessoa vê depende do papel — a regra é aplicada **no servidor**, não dá para contornar trocando parâmetros na URL.
+
+<Tabs items={["Administrador", "Profissional"]}>
+  <Tab value="Administrador">
+    - Vê os números de **toda a clínica**.
+    - Pode filtrar por **um profissional específico** ou ver **Todos os profissionais**.
+    - Vê as colunas **Receita** e **Ticket médio** na comparação por profissional (incluindo o que colegas faturaram).
+  </Tab>
+  <Tab value="Profissional">
+    - Vê **apenas os próprios atendimentos**. Não há seletor de profissional.
+    - Mesmo que alguém altere a URL para pedir dados de um colega, o servidor **ignora o parâmetro** e devolve só os dados do próprio profissional.
+    - As colunas **Receita** e **Ticket médio** **não aparecem** — receita só é exibida no escopo da clínica.
+  </Tab>
+</Tabs>
+
+<Callout type="info">
+  A atribuição segue o **profissional que atendeu**: quando um atendimento foi coberto por outro profissional (campo de quem atendeu preenchido), a sessão conta para quem efetivamente realizou o atendimento, não para quem estava originalmente na agenda.
+</Callout>
+
+## Telas vazias e "n/d"
+
+- **Sem dados no período** — cada aba mostra uma mensagem explicando o indicador quando ainda não há nada a exibir (por exemplo, *"Sem atendimentos neste período"* na Visão Geral ou *"Nenhum cancelamento neste período"* em Cancelamentos).
+- **Ocupação "n/d"** — significa que o profissional não tem disponibilidade cadastrada. Configure em *Configurações → Disponibilidade* para que a ocupação passe a ser calculada.
+- **Origens sem dados** — preencha *"Como conheceu a clínica?"* nos cadastros para a aba Origens deixar de ficar vazia.

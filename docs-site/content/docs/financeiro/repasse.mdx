@@ -1,0 +1,165 @@
+---
+title: "Repasse a profissionais"
+description: "Cálculo mensal, impostos, líquido, marcar pago e detalhamento por profissional."
+feature: financeiro
+sources:
+  - "src/app/financeiro/repasse/**"
+  - "src/lib/financeiro/repasse.ts"
+  - "src/app/api/financeiro/repasse/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+O **Repasse** calcula, mês a mês, quanto cada profissional tem a receber a partir das faturas da clínica. A partir do valor bruto faturado, o sistema desconta o imposto, encontra o valor líquido e aplica o percentual de repasse de cada profissional. Você acompanha o que já foi recebido dos pacientes, marca o repasse como pago e abre o detalhamento fatura a fatura.
+
+<Callout type="info" title="Onde fica">
+  Em **Financeiro**, abra a aba **Repasse**. O relatório é restrito ao módulo financeiro: administradores veem todos os profissionais; um profissional vê apenas o próprio repasse.
+</Callout>
+
+## Antes de começar: dois percentuais
+
+O cálculo depende de dois ajustes que você configura fora desta tela:
+
+<Cards>
+  <Card title="Imposto da clínica (%)">
+    Percentual único da clínica, descontado do bruto antes do repasse. Configure em **Configurações da Clínica → Financeiro**, no bloco **Imposto para Repasse**, campo **Percentual (%)**.
+  </Card>
+  <Card title="Repasse do profissional (%)">
+    Percentual pago a cada profissional sobre o valor líquido (já sem imposto). Configure em **Profissionais**, ao editar o profissional, no campo **Repasse (%)**.
+  </Card>
+</Cards>
+
+<Callout type="warn" title="Sem percentuais, sem repasse">
+  Se o repasse de um profissional estiver em **0%**, o valor de repasse dele será **R$ 0,00** e o botão de marcar como pago fica desabilitado. Ajuste o percentual no cadastro do profissional antes de fechar o mês.
+</Callout>
+
+## Como o valor é calculado
+
+Para cada fatura, o sistema parte do valor bruto e chega ao repasse em três passos:
+
+<Steps>
+  <Step>
+    **Imposto** = bruto × imposto da clínica. Exemplo com imposto de 6%: sobre R$ 1.000,00, o imposto é R$ 60,00.
+  </Step>
+  <Step>
+    **Líquido** = bruto − imposto. No exemplo: R$ 1.000,00 − R$ 60,00 = R$ 940,00.
+  </Step>
+  <Step>
+    **Repasse** = líquido × repasse do profissional. Com repasse de 70%: R$ 940,00 × 70% = R$ 658,00.
+  </Step>
+</Steps>
+
+O imposto incide **sobre o bruto**, e o percentual de repasse incide **sobre o líquido** — nunca sobre o bruto. Os totais do mês são a soma das faturas de cada profissional.
+
+### A quem cabe cada fatura
+
+Uma fatura pode envolver mais de um profissional. O sistema atribui o bruto item a item:
+
+- Cada item de sessão conta para o **profissional que atendeu** aquela sessão. Itens sem profissional de atendimento definido caem para o profissional dono da fatura.
+- Itens de **crédito** (sessões canceladas que viraram crédito) são atribuídos ao profissional que originou aquele crédito.
+- As sessões são distribuídas proporcionalmente entre os profissionais conforme os itens atendidos.
+
+<Callout type="info" title="Valor parcial não é erro">
+  Como cada profissional só enxerga as sessões que atendeu, o repasse dele pode ser menor que o total da fatura quando outro profissional cobriu parte dos itens. A soma dos repasses de todos os profissionais sobre uma fatura corresponde ao total dela.
+</Callout>
+
+## Escolher o período
+
+Use a barra de filtro acima da tabela:
+
+- As setas **←** e **→** mudam o **ano**.
+- As pílulas **Jan** a **Dez** selecionam o **mês**.
+
+O relatório usa o mês/ano de referência das faturas. Enquanto nenhum mês estiver selecionado, a tela mostra _"Selecione um mês para ver o relatório de repasse"_. Se não houver faturas no período, aparece _"Nenhum dado de repasse encontrado para este período"_.
+
+<Screenshot src="/img/financeiro/repasse-lista.png" alt="Tabela de repasse mensal com uma linha por profissional" caption="Lista de repasse do mês, com totais no rodapé." />
+
+## A tabela do mês
+
+Acima da tabela, a clínica mostra o **Imposto da clínica: X%** vigente. Cada linha é um profissional, com as colunas:
+
+| Coluna | O que mostra |
+| --- | --- |
+| **Profissional** | Nome do profissional. |
+| **% Repasse** | Percentual de repasse cadastrado para ele. |
+| **Sessões** | Total de sessões atribuídas no período. |
+| **Bruto** | Valor bruto faturado das sessões dele. |
+| **Recebido** | Quanto desse bruto já foi conciliado (recebido do paciente), com o percentual abaixo. Verde quando ≥ 100%, âmbar quando parcial. |
+| **Imposto** | Imposto descontado do bruto. |
+| **Líquido** | Bruto menos imposto. |
+| **Repasse** | Valor final a repassar ao profissional. |
+| **Status** | Etiqueta **Pago** (verde) ou **Pendente** (amarelo). |
+| **Pago** | Valor já registrado como pago, ou **—**. |
+| **Saldo** | Diferença entre o repasse atual e o que foi pago. |
+| **Ações** | Ver detalhes e marcar/desfazer pagamento. |
+
+O rodapé soma sessões, bruto, recebido, imposto, líquido e repasse de todos os profissionais.
+
+<Callout type="info" title="Recebido vem da Conciliação">
+  A coluna **Recebido** reflete o caixa já conciliado das faturas (aba **Conciliação**), distribuído proporcionalmente à parte de cada profissional. Repasse calculado (coluna **Repasse**) e dinheiro efetivamente recebido (coluna **Recebido**) são informações distintas: o repasse não espera o pagamento do paciente para ser calculado.
+</Callout>
+
+## Marcar como pago
+
+Quando você efetua o repasse a um profissional, registre o pagamento para fechar o mês.
+
+<Steps>
+  <Step>
+    Na linha do profissional, clique no ícone de check na coluna **Ações** (dica: _"Marcar como pago"_). Você também pode fazer isso pelo botão **Marcar como pago** dentro da tela de detalhes.
+  </Step>
+  <Step>
+    O sistema recalcula o repasse do período, grava um **registro do pagamento** (uma fotografia dos valores: bruto, imposto e repasse daquele momento) e mostra _"Pagamento registrado"_.
+  </Step>
+  <Step>
+    A linha passa para o status **Pago** (verde) e a data fica visível na tela de detalhes como _"Pago em DD/MM/AAAA"_.
+  </Step>
+</Steps>
+
+<Callout type="warn" title="Quem pode marcar">
+  Apenas **administradores** podem registrar ou desfazer pagamentos de repasse. Repasses com valor zero são recusados com a mensagem _"Nenhum valor de repasse para este período"_.
+</Callout>
+
+### Desfazer um pagamento
+
+Se registrou por engano, desfaça: na lista, clique novamente no ícone de check (verde) da linha já paga; na tela de detalhes, use o link **Desfazer pagamento**. A confirmação aparece como _"Pagamento desfeito"_ e o profissional volta ao status **Pendente**.
+
+### Entendendo o Saldo
+
+O **registro do pagamento** guarda os valores do momento em que você marcou como pago. Se depois disso o repasse mudar — por exemplo, uma fatura nova entrar no período ou um valor ser ajustado —, a coluna **Saldo** mostra a diferença entre o repasse atual e o que já foi pago:
+
+- **Saldo positivo (âmbar):** ainda há valor a repassar além do que foi pago.
+- **Saldo negativo (vermelho):** foi pago a mais do que o repasse atual indica.
+- **Saldo zerado (—):** o pago corresponde exatamente ao repasse.
+
+Para acertar, desfaça o pagamento e marque como pago novamente — o registro será refeito com os valores atualizados.
+
+## Detalhamento por profissional
+
+Clique no ícone de olho (_"Ver detalhes"_) na coluna **Ações** para abrir a página do profissional no mês selecionado. No topo, o cabeçalho repete o período, o **Imposto** e o **Repasse (%)** aplicados.
+
+{/* TODO screenshot: /img/financeiro/repasse-detalhe.png */}
+
+A tela traz seis cartões de resumo:
+
+<Cards>
+  <Card title="Total Bruto">Soma do bruto das faturas do profissional.</Card>
+  <Card title="Recebido">Quanto já foi conciliado, com o percentual das faturas recebidas.</Card>
+  <Card title="Líquido">Bruto menos imposto.</Card>
+  <Card title="Repasse Total">Valor final a repassar (destacado).</Card>
+  <Card title="Já Pago">Valor registrado como pago no período.</Card>
+  <Card title="Saldo">Diferença entre o repasse atual e o já pago.</Card>
+</Cards>
+
+Logo abaixo fica o botão **Marcar como pago** (ou, se já pago, a etiqueta com a data e o link **Desfazer pagamento**). A tabela lista uma linha por fatura, ordenada por horário, com as colunas **Horário**, **Paciente**, **Sessões**, **Bruto**, **Imposto**, **Líquido**, **Repasse** e **Recebido**. O horário aparece como dia da semana abreviado mais hora (por exemplo, _Seg 14:00_) sempre que a fatura está ligada a uma consulta: ele vem do padrão semanal quando a consulta é recorrente ou, caso contrário, do horário agendado da consulta. Faturas sem consulta vinculada mostram **—**. Use **← Voltar** para retornar à lista do mês.
+
+## Fluxo recomendado para fechar o mês
+
+<Steps>
+  <Step>Confira em **Profissionais** se cada **Repasse (%)** está correto e em **Configurações da Clínica → Financeiro** se o **Imposto para Repasse** está atualizado.</Step>
+  <Step>Selecione o mês na barra de filtro da aba **Repasse**.</Step>
+  <Step>Revise a coluna **Recebido** para saber quanto já entrou de cada faturamento (opcional, mas útil para priorizar quem pagar).</Step>
+  <Step>Efetue o pagamento ao profissional e clique em **Marcar como pago**.</Step>
+  <Step>Se o repasse mudar depois, acompanhe a coluna **Saldo** e, se necessário, desfaça e marque novamente.</Step>
+</Steps>

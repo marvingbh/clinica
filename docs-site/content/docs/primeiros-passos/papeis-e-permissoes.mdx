@@ -1,0 +1,211 @@
+---
+title: "Papéis e permissões (ADMIN x PROFISSIONAL)"
+description: "Os dois papéis, escopo de acesso e por que ADMIN não vê prontuário."
+feature: onboarding-contas
+sources:
+  - "src/lib/rbac/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+---
+
+O Clinica tem **dois papéis** de usuário: **Admin** e **Profissional**. O papel define
+o que cada pessoa enxerga e pode fazer dentro da clínica. Por cima do papel, você pode
+liberar ou restringir recursos individuais com **permissões personalizadas** por usuário.
+
+Esta página explica os dois papéis, o que significa "escopo da clínica" versus "escopo
+próprio", e por que **mesmo o Admin não vê o prontuário** por padrão.
+
+## Os dois papéis
+
+<Cards>
+  <Card title="Admin" description="Acesso amplo à clínica: agenda de todos, pacientes, financeiro, usuários, configurações e relatórios. É o papel de quem coordena/gerencia a operação." />
+  <Card title="Profissional" description="Acesso apenas aos próprios recursos: a própria agenda, os próprios pacientes, o próprio financeiro e o próprio prontuário. É o papel de quem atende." />
+</Cards>
+
+A diferença central não é "quem manda em quem", e sim **qual o escopo de cada
+recurso**:
+
+- O **Admin** enxerga recursos no **escopo da clínica** — ou seja, de todos os
+  profissionais.
+- O **Profissional** enxerga recursos no **escopo próprio** — apenas o que está ligado
+  a ele.
+
+<Callout type="info">
+  Não existe um papel separado de "recepção" ou "secretária" como cargo fixo. Para um
+  perfil de recepção, crie um usuário **Profissional** e ajuste as **permissões
+  personalizadas** (por exemplo, dar Escrita em Agenda dos outros e Leitura em
+  Pacientes). Veja a seção [Permissões personalizadas](#permissões-personalizadas-por-usuário).
+</Callout>
+
+## Níveis de acesso
+
+Cada recurso tem um de três níveis de acesso:
+
+| Nível | Rótulo na tela | O que permite |
+| --- | --- | --- |
+| `NONE` | **Nenhum** | Não vê nem usa o recurso. |
+| `READ` | **Leitura** | Vê o recurso, mas não cria nem edita. |
+| `WRITE` | **Escrita** | Vê, cria, edita e exclui. |
+
+A regra de comparação é simples: **Escrita** inclui **Leitura**, que inclui **Nenhum**.
+Quando uma tela exige no mínimo Leitura, quem tem Escrita também passa.
+
+## O que cada papel pode fazer por padrão
+
+A tabela abaixo mostra o **padrão de cada papel** para os recursos do sistema. Estes são
+os valores que valem se você não criar nenhuma permissão personalizada.
+
+| Recurso | Admin | Profissional |
+| --- | --- | --- |
+| Agenda (própria) | Escrita | Escrita |
+| Agenda (outros) | Escrita | Nenhum |
+| Pacientes | Escrita | Leitura |
+| Grupos | Escrita | Escrita |
+| Usuários | Escrita | Nenhum |
+| Config. Clínica | Escrita | Nenhum |
+| Profissionais | Escrita | Nenhum |
+| Notificações | Escrita | Nenhum |
+| Logs de Auditoria | Leitura | Nenhum |
+| Disponibilidade (própria) | Escrita | Escrita |
+| Disponibilidade (outros) | Escrita | Nenhum |
+| Financeiro | Escrita | Escrita |
+| Despesas | Escrita | Nenhum |
+| Tarefas | Escrita | Escrita |
+| **Prontuário** | **Nenhum** | **Escrita** |
+| Assistente de IA | Escrita | Escrita |
+| Agendamento Online | Escrita | Escrita |
+| Lista de Espera | Escrita | Escrita |
+| Sincronização de Agenda | Escrita | Escrita |
+| Fiscal (Receita Saúde/DMED) | Escrita | Escrita |
+| Documentos | Escrita | Escrita |
+| Assinaturas | Escrita | Escrita |
+| Formulários | Escrita | Escrita |
+| **Escalas Clínicas** | **Nenhum** | **Escrita** |
+| Relatórios | Leitura | Leitura |
+
+Repare em duas inversões propositais: **Prontuário** e **Escalas Clínicas** são os
+únicos recursos em que o **Profissional tem mais acesso que o Admin**. Os dois carregam
+conteúdo clínico, e o motivo está explicado adiante.
+
+<Callout type="info">
+  Mesmo quando o Profissional vê um recurso "no escopo próprio", o corte fino acontece
+  no servidor. Exemplos: na **Agenda própria** ele só vê os próprios atendimentos; em
+  **Financeiro** e **Relatórios** ele só vê os próprios números, nunca o faturamento ou
+  as linhas de colegas; em **Fiscal**, só os próprios recibos. Liberar o recurso não
+  expõe os dados dos outros profissionais.
+</Callout>
+
+## Escopo: clínica x próprio
+
+O escopo é o que torna "Escrita" do Admin diferente de "Escrita" do Profissional num
+mesmo recurso.
+
+<Steps>
+  <Step>
+    **Escopo da clínica** (Admin). A pessoa acessa o recurso de **qualquer
+    profissional** da clínica — desde que o dado pertença à própria clínica. O
+    isolamento entre clínicas continua valendo: ninguém acessa dados de outra clínica.
+  </Step>
+  <Step>
+    **Escopo próprio** (Profissional). A pessoa acessa apenas o que está **vinculado a
+    ela** — a própria agenda, os pacientes que atende, o próprio perfil, a própria
+    disponibilidade. Em listagens, o sistema já filtra para devolver só o que é dela.
+  </Step>
+</Steps>
+
+Por isso a **Agenda (própria)** é Escrita para os dois papéis, mas a **Agenda (outros)**
+é Escrita só para o Admin: o Profissional opera a própria agenda, e o Admin opera a de
+todos.
+
+## Por que o Admin não vê o prontuário
+
+Esta é a regra que mais surpreende quem chega de outros sistemas. **Por padrão, o Admin
+tem acesso `Nenhum` ao Prontuário** (e às Escalas Clínicas). Não é um esquecimento — é
+uma decisão de privacidade clínica:
+
+<Callout type="warn" title="Sigilo profissional (CFP)">
+  O conteúdo do prontuário — evoluções, anotações de sessão, escalas como PHQ-9/GAD-7,
+  pontuações e respostas — é **dado clínico sob sigilo profissional**. Quem coordena a
+  clínica administrativamente (Admin) **não precisa** ler o conteúdo das sessões para
+  fazer o seu trabalho. Por isso o padrão do Admin é **não enxergar** esse conteúdo.
+</Callout>
+
+Na prática, isso significa:
+
+- O **Profissional** que atende tem **Escrita** no prontuário dos próprios pacientes — é
+  ele quem registra e assina as evoluções.
+- O **Admin**, por padrão, **não vê** o conteúdo clínico, mesmo tendo acesso total ao
+  resto da clínica (agenda, financeiro, pacientes, usuários).
+- O sistema mantém o **registro de auditoria** dessas ações clínicas sem nunca gravar o
+  **conteúdo** em si: o que fica registrado é "evolução criada/assinada/acessada", e
+  nunca o texto da nota. O mesmo vale para escalas, documentos, IA e formulários.
+
+### E se houver um diretor clínico?
+
+Algumas clínicas têm um **responsável técnico/diretor clínico** que precisa, sim, ler
+prontuários. Para esse caso, você **libera explicitamente** o acesso para aquela pessoa
+usando uma **permissão personalizada** — sem mudar o padrão de todos os outros Admins.
+
+<Steps>
+  <Step>Abra **Permissões** (rota `/admin/permissions`).</Step>
+  <Step>Localize o usuário que será o diretor clínico.</Step>
+  <Step>Na coluna **Prontuário**, troque de **Nenhum** para **Leitura** (ou **Escrita**, se ele também atende e registra).</Step>
+</Steps>
+
+O acesso passa a valer só para aquele usuário. Os demais Admins continuam com **Nenhum**.
+
+## Permissões personalizadas por usuário
+
+O papel define o **padrão**. Por cima dele, você ajusta recurso a recurso, usuário a
+usuário, na tela **Permissões**.
+
+{/* TODO screenshot: /img/primeiros-passos-papeis-e-permissoes-1.png */}
+
+Como funciona a tela (`/admin/permissions`):
+
+- Cada **linha** é um usuário (com o nome, e-mail e a etiqueta **Admin** ou
+  **Profissional**); cada **coluna** é um recurso.
+- Em cada célula há um seletor com **Nenhum**, **Leitura** e **Escrita**, e abaixo o
+  texto **"Padrao: ..."** mostrando o valor herdado do papel.
+- Quando você escolhe um valor **diferente do padrão**, a célula fica **destacada
+  (borda azul)** — é a indicação de "permissão personalizada". A legenda no rodapé
+  explica: **"Permissao personalizada (diferente do padrao)"** versus **"Padrao da
+  role"**.
+- Se você voltar o seletor para o **mesmo valor do padrão**, a personalização é
+  **removida** e o usuário volta a seguir o padrão do papel.
+- Cada alteração é salva na hora (aparece o aviso **"Permissao atualizada"**). Use o
+  campo **"Buscar usuario..."** para filtrar por nome ou e-mail.
+
+<Callout type="info">
+  Só **Admins** (mais precisamente, quem tem **Escrita em Usuários**) abrem e editam a
+  tela de Permissões. Um Profissional sem esse acesso recebe **"Acesso negado"**.
+</Callout>
+
+### Proteção contra se trancar para fora
+
+O sistema impede que você **remova a própria permissão de gerenciar usuários**. Se você
+tentar baixar o seu próprio **Usuários** de **Escrita** para Leitura/Nenhum, a alteração
+é bloqueada com a mensagem **"Voce nao pode remover sua propria permissao de gerenciar
+usuarios"**. Assim, sempre sobra pelo menos um caminho para administrar as permissões.
+
+<Callout type="info" title="Casos comuns de personalização">
+  - **Recepção/secretária**: usuário **Profissional** com **Agenda (outros) = Escrita**
+    e **Pacientes = Leitura ou Escrita**, sem mexer em Prontuário.
+  - **Diretor clínico**: usuário **Admin** com **Prontuário** e **Escalas Clínicas**
+    elevados para Leitura (ou Escrita).
+  - **Admin financeiro sem agenda dos outros**: baixe **Agenda (outros)** para Leitura
+    se ele só precisa consultar.
+</Callout>
+
+## Resumo
+
+- **Dois papéis**: Admin (escopo da clínica) e Profissional (escopo próprio).
+- **Três níveis** por recurso: Nenhum, Leitura, Escrita.
+- O papel define o **padrão**; **permissões personalizadas** ajustam recurso a recurso
+  por usuário, em **Permissões** (`/admin/permissions`).
+- **Prontuário e Escalas Clínicas** são as exceções: o Profissional tem Escrita e o
+  Admin tem **Nenhum** por padrão, por **sigilo profissional**. Libere caso a caso para
+  um diretor clínico.
+
+{/* OUTLINE (do sitemap): Os dois papéis, escopo de acesso e por que ADMIN não vê prontuário. — COBERTO */}

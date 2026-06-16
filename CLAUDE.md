@@ -288,3 +288,24 @@ Use `@/` for imports from `src/`:
 import { prisma } from "@/lib/prisma"
 import { Button } from "@/shared/components/ui/button"
 ```
+
+## Docs Sync (docs ficam em sincronia com o código)
+
+- As docs vivem em `docs-site/content/docs/**/*.mdx`. Cada página declara `sources:` (globs) +
+  `feature:` + `lastReviewedCommit:` no frontmatter; o mapa feature⇄fonte⇄página é
+  `docs/feature-manifest.yml`.
+- ANTES de finalizar qualquer mudança no código do produto, rode:
+  `node scripts/docs/check-drift.mjs --base origin/main --head HEAD --ai-list`
+  Trate a saída como checklist: ela imprime exatamente quais páginas seus arquivos tornaram stale.
+  (As deps do script ficam em `docs-site/node_modules`; o script as resolve sozinho — pode rodar da raiz.)
+- Para CADA página stale: abra-a, atualize a prosa para refletir o novo comportamento, e re-carimbe
+  com `node scripts/docs/stamp.mjs --page <path> --commit HEAD`. Nunca edite `lastReviewedCommit`
+  à mão nem o avance sem revisar/atualizar a prosa — o carimbo afirma "li esta mudança contra esta doc".
+- Se uma mudança genuinamente não afeta o conteúdo da página, ainda assim re-carimbe (registra que
+  você revisou). Use `ignoreDrift: true` só para arquivos intencionalmente não documentados (testes,
+  mocks) — prefira ajustar `ignoreGlobs` no manifesto.
+- Se adicionar/renomear pasta de fonte ou adicionar página de doc, ATUALIZE `docs/feature-manifest.yml`
+  na mesma mudança — o script falha o CI (exit 2) se o mapa e o frontmatter discordarem. Depois de
+  editar o manifesto, regenere os donos: `node scripts/docs/gen-codeowners.mjs`.
+- Ao tocar arquivos sob qualquer `sources:` do manifesto, você está editando uma feature documentada:
+  assuma que uma página precisa de atualização até o check-drift dizer o contrário.

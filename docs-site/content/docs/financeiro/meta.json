@@ -1,0 +1,15 @@
+{
+  "title": "Financeiro e faturamento",
+  "pages": [
+    "dashboard-financeiro",
+    "faturas",
+    "creditos-de-sessao",
+    "tabela-de-precos",
+    "repasse",
+    "cobranca-stripe",
+    "fluxo-de-caixa",
+    "despesas",
+    "conciliacao-bancaria",
+    "relatorios-operacionais"
+  ]
+}

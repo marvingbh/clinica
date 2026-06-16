@@ -1,0 +1,121 @@
+---
+title: "Criar a conta da clínica"
+description: "Inscrição inicial em /signup: cria clínica, usuário ADMIN e perfil profissional."
+feature: onboarding-contas
+sources:
+  - "src/app/signup/**"
+  - "src/app/api/public/signup/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+---
+
+A primeira pessoa a usar o Clinica na sua clínica faz a **inscrição inicial**. Esse cadastro cria, de uma só vez, três coisas: a **clínica** (o seu espaço de trabalho), o seu **usuário ADMIN** (com acesso total) e o seu **perfil profissional** (para que você já apareça na agenda como um profissional que atende). Tudo isso acontece em uma única tela.
+
+<Callout type="info">
+  Você só precisa fazer esse cadastro **uma vez**, e ele é feito por quem vai
+  administrar a clínica. Os demais membros da equipe (recepção e outros
+  profissionais) são adicionados depois, de dentro do sistema, pelo
+  administrador — eles **não** usam a tela de inscrição.
+</Callout>
+
+## Antes de começar
+
+Tenha em mãos:
+
+- O **nome da clínica** como você quer que apareça no sistema.
+- Um **e-mail** que ainda não tenha sido usado para criar uma conta no Clinica.
+- Uma **senha** com pelo menos 6 caracteres.
+- Um **telefone** de contato.
+- A **especialidade** com que você atende (ex.: Psicologia, Fonoaudiologia).
+
+## Passo a passo da inscrição
+
+<Steps>
+
+<Step>
+### Abra a tela de inscrição
+
+Acesse o endereço `/signup` no navegador. Você verá o título **Clinica** e a
+mensagem "Crie sua conta para comecar".
+
+{/* TODO screenshot: /img/primeiros-passos-criar-conta-da-clinica-1.png */}
+</Step>
+
+<Step>
+### Preencha os dados da clínica e do administrador
+
+O formulário tem os seguintes campos, todos obrigatórios:
+
+| Campo | O que informar |
+| --- | --- |
+| **Nome da clínica** | O nome do seu espaço de trabalho. Mínimo de 2 caracteres. |
+| **Seu nome** | O nome completo do administrador (você). Mínimo de 2 caracteres. |
+| **Email** | E-mail de acesso. Será o seu login. Precisa ser um e-mail válido e ainda não cadastrado. |
+| **Senha** | Mínimo de 6 caracteres. |
+| **Confirmar senha** | Repita exatamente a mesma senha. |
+| **Telefone** | Telefone de contato, ex.: `(11) 99999-9999`. Mínimo de 10 caracteres. |
+| **Especialidade** | A área em que você atende, ex.: Psicologia, Fonoaudiologia. Mínimo de 2 caracteres. |
+</Step>
+
+<Step>
+### Clique em "Criar conta"
+
+Ao enviar, o botão muda para **"Criando conta..."** enquanto o sistema
+processa. Se tudo estiver correto, a conta é criada e você é **conectado
+automaticamente** e levado para a página inicial — sem precisar fazer login
+em seguida.
+</Step>
+
+</Steps>
+
+## O que o sistema cria automaticamente
+
+Quando a inscrição é concluída com sucesso, o Clinica monta toda a base da sua
+clínica de uma vez:
+
+<Cards>
+  <Card title="A clínica" description="Seu espaço de trabalho (tenant). Recebe o nome informado, um endereço interno único gerado a partir do nome e o telefone de contato." />
+  <Card title="Seu usuário ADMIN" description="Sua conta de acesso, com papel ADMIN — acesso total à clínica. O e-mail vira seu login e a senha é armazenada de forma criptografada." />
+  <Card title="Seu perfil profissional" description="Vincula você como profissional que atende, com a especialidade informada. É o que faz você aparecer como profissional na agenda." />
+</Cards>
+
+<Callout type="info" title="Período de teste de 14 dias">
+  A clínica já começa com uma **assinatura em período de teste** ("trialing")
+  válida por **14 dias** a partir da criação. Durante esse período você usa o
+  sistema normalmente. Para continuar após o teste, configure a assinatura no
+  módulo de cobrança/planos.
+</Callout>
+
+## Mensagens de erro comuns
+
+<Callout type="warn" title="Verifique antes de enviar">
+  Se algum dado não passar na validação, a conta **não é criada** e uma
+  mensagem aparece no topo do formulário. Corrija o campo indicado e tente
+  novamente.
+</Callout>
+
+| Mensagem | Causa | Como resolver |
+| --- | --- | --- |
+| **As senhas nao coincidem** | Os campos "Senha" e "Confirmar senha" estão diferentes. | Digite a mesma senha nos dois campos. |
+| **Ja existe uma conta com este email** | O e-mail informado já está cadastrado no Clinica. | Use outro e-mail, ou vá para a tela de login se a conta já é sua. |
+| **Senha deve ter pelo menos 6 caracteres** | A senha é muito curta. | Escolha uma senha com 6 caracteres ou mais. |
+| **Telefone invalido** | O telefone tem menos de 10 caracteres. | Informe um telefone completo com DDD. |
+| **Nome da clinica deve ter pelo menos 2 caracteres** | O nome da clínica está muito curto. | Informe um nome com pelo menos 2 caracteres. |
+| **Conta criada, mas houve erro ao entrar. Tente fazer login.** | A conta foi criada, mas o login automático falhou. | Vá para a tela de login e entre com o e-mail e a senha que você acabou de cadastrar. |
+
+## Depois de criar a conta
+
+Você entra como **ADMIN** e já pode começar a configurar a clínica. A partir
+daqui, próximos passos típicos:
+
+- **Adicionar a equipe** — convide recepção e outros profissionais (eles não
+  passam pela tela de inscrição).
+- **Cadastrar pacientes** e montar a agenda.
+- **Definir papéis e permissões** de cada membro da equipe.
+
+<Callout type="info">
+  Já tem uma conta? Na própria tela de inscrição há o link **"Entrar"**, que
+  leva para a página de login. Veja também a página "Entrar e acessar o
+  sistema".
+</Callout>

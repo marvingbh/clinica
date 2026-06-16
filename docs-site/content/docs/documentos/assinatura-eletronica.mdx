@@ -1,0 +1,287 @@
+---
+title: "Assinatura eletrônica de TCLE/contratos"
+description: "Envelope OTP, trilha de evidências, ICP-Brasil opcional, sync LGPD, lembretes."
+feature: assinaturas
+sources:
+  - "src/lib/assinaturas/**"
+  - "src/app/assinar/**"
+  - "src/app/api/assinaturas/**"
+  - "src/app/api/public/assinaturas/**"
+  - "src/lib/jobs/signature-reminders.ts"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+A assinatura eletrônica permite enviar TCLE, contratos terapêuticos e termos de
+consentimento para o paciente (ou responsável) assinar pelo celular ou
+computador, sem papel. Cada envio gera um **envelope** com trilha de auditoria,
+e o documento final ganha uma página de assinaturas com código de verificação.
+
+<Callout type="info" title="Recurso recém-lançado">
+  A assinatura eletrônica é uma das funcionalidades mais recentes da Clínica.
+  Ela usa assinatura eletrônica **avançada** (Lei 14.063/2020 e MP 2.200-2/2001),
+  com prova de posse por código enviado ao contato do signatário e trilha de
+  evidências. A contra-assinatura ICP-Brasil da clínica é opcional e entra
+  automaticamente quando há certificado configurado (veja abaixo).
+</Callout>
+
+## Como funciona o envelope OTP
+
+Cada envio é um **envelope**: um documento (gerado previamente em **Documentos**
+do paciente) mais um ou mais **signatários**, cada um com sua ordem de
+assinatura. O fluxo é sempre sequencial — o segundo signatário só recebe o link
+depois que o primeiro assina.
+
+A confirmação de identidade usa um **código de uso único (OTP)** de 6 dígitos,
+enviado por e-mail ou WhatsApp no momento da assinatura. Isso prova que quem
+assinou tinha acesso ao contato cadastrado.
+
+<Steps>
+
+<Step>
+**A clínica envia o documento.** Você escolhe o documento, confere os
+signatários e clica em **Enviar**. O link de assinatura vai para o **primeiro
+signatário** (e-mail ou WhatsApp).
+</Step>
+
+<Step>
+**O signatário abre o link e lê o documento.** O PDF original aparece na tela.
+Ele marca *"Li e concordo com o conteúdo deste documento"*, confirma nome e CPF,
+e clica em **Receber código**.
+</Step>
+
+<Step>
+**O código chega ao contato.** Um código de 6 dígitos é enviado pelo canal
+escolhido. O signatário digita o código e clica em **Assinar documento**. O
+código vale por **10 minutos** e admite até **5 tentativas**.
+</Step>
+
+<Step>
+**A assinatura é registrada.** Se houver mais signatários, o próximo recebe o
+link automaticamente. Quando o último assina, o envelope é **concluído**: a
+página de assinaturas é anexada ao PDF e o código de verificação é exibido.
+</Step>
+
+</Steps>
+
+## Enviar um documento para assinatura
+
+O envio é feito a partir da aba **Documentos** do paciente, no painel
+**Assinaturas**. Cada documento gerado aparece em uma linha com seu status de
+assinatura.
+
+{/* TODO screenshot: /img/documentos-assinatura-eletronica-1.png */}
+
+<Steps>
+
+<Step>
+Abra a ficha do paciente, vá em **Documentos** e localize o documento na seção
+**Assinaturas**.
+</Step>
+
+<Step>
+Na coluna **Ações**, clique em **Enviar para assinatura**. Abre-se o painel
+*"Enviar documento para assinatura"*.
+</Step>
+
+<Step>
+Confira o **Signatário 1**. Os dados do paciente já vêm preenchidos quando
+disponíveis. Os campos são:
+
+- **Nome completo** — obrigatório.
+- **CPF (opcional)** — se informado, o signatário precisará digitar o mesmo CPF
+  ao assinar. Se não houver CPF no cadastro, ele informa o próprio na hora.
+- **Papel** — **Paciente** ou **Responsável**.
+- **Canal do código** — **E-mail** ou **WhatsApp** (botões de seleção).
+- **E-mail** e **WhatsApp** — pelo menos um contato é obrigatório para o envio.
+</Step>
+
+<Step>
+Para mais de um signatário (por exemplo, paciente e responsável), use
+**Adicionar signatário**. A ordem dos cartões define a ordem de assinatura.
+</Step>
+
+<Step>
+Ajuste **Validade do link (dias)** se necessário (padrão **30 dias**; o sistema
+limita o valor entre **1 e 365 dias**) e clique em **Enviar**.
+</Step>
+
+</Steps>
+
+<Callout type="info" title="Paciente menor de idade">
+  Quando o paciente tem menos de 18 anos, o **primeiro signatário deve ser o
+  Responsável** — o campo de papel já vem travado nessa opção e o envio é
+  recusado caso contrário.
+</Callout>
+
+<Callout type="warn" title="É preciso ter contato com consentimento">
+  Cada signatário precisa de **e-mail ou WhatsApp** cadastrado. Sem nenhum
+  contato, o envio é bloqueado com a mensagem *"Cadastre um e-mail ou telefone
+  com consentimento para enviar."* Se você informar um CPF, ele precisa ser
+  válido.
+</Callout>
+
+## Acompanhar e gerenciar envios
+
+No painel **Assinaturas**, cada documento mostra um selo de status e os botões
+disponíveis conforme a situação:
+
+| Selo na tela | Significado |
+| --- | --- |
+| **Aguardando assinatura** | Envelope em andamento; aguardando o signatário da vez. |
+| **Visualizado** | O signatário abriu o link mas ainda não assinou. |
+| **Assinado** | Envelope concluído; todos assinaram. |
+| **Recusado** | Um signatário recusou o documento. |
+| **Expirado** | O link passou da validade sem ser assinado. |
+| **Cancelado** | A clínica cancelou o envio. |
+| **Invalidado** | O documento foi regerado/alterado e o envio antigo não vale mais. |
+
+Os botões de ação por linha:
+
+<Cards>
+  <Card title="Reenviar">
+    Gera um novo link para o signatário da vez e reinicia a validade (30 dias).
+    Aparece enquanto o signatário está **Aguardando assinatura** ou
+    **Visualizado**. Os lembretes do signatário são zerados.
+  </Card>
+  <Card title="Cancelar">
+    Encerra um envio em andamento. Só funciona enquanto o envelope está
+    **Aguardando assinatura** — depois de concluído, recusado ou expirado não há
+    o que cancelar.
+  </Card>
+  <Card title="Via assinada">
+    Disponível quando o status é **Assinado**. Baixa o PDF final (documento +
+    página de assinaturas) já com o código de verificação.
+  </Card>
+  <Card title="Evidências">
+    Abre a trilha de evidências do envelope com a linha do tempo de cada
+    signatário (veja a próxima seção).
+  </Card>
+</Cards>
+
+## Trilha de evidências
+
+Toda ação registrada no envelope alimenta uma **trilha de evidências** por
+signatário, exibida ao clicar em **Evidências**. Ela compõe a prova da
+assinatura eletrônica avançada e inclui:
+
+- **Signatário** e seu papel (Paciente / Responsável).
+- **CPF** mascarado (`***.456.789-**`), quando informado.
+- **Enviado em** — data/hora e canal do envio do link.
+- **Visualizado em** — data/hora da primeira abertura e o **IP** de acesso.
+- **Código verificado em** — data/hora e canal do código OTP confirmado.
+- **Assinado em** — data/hora da assinatura e o **IP** de quem assinou.
+- **Contra-assinatura ICP-Brasil** — **Sim** ou **Não**.
+
+Todas as datas seguem o formato **DD/MM/AAAA HH:mm** no fuso da clínica. A trilha
+é interna: ela nunca aparece nas telas públicas do signatário.
+
+<Callout type="info" title="Página de assinaturas no PDF final">
+  Ao concluir, a Clínica anexa uma **PÁGINA DE ASSINATURAS** ao PDF com: clínica,
+  título do documento, **código de verificação**, **SHA-256 do documento
+  original**, indicação de contra-assinatura ICP-Brasil e um bloco por
+  signatário (nome, papel, CPF mascarado, data/hora, canal do código e IP). O
+  rodapé traz a base legal e a instrução de conferir a integridade em
+  **/verificar**.
+</Callout>
+
+## Contra-assinatura ICP-Brasil (opcional)
+
+Além da assinatura avançada do signatário, a clínica pode **contra-assinar** o
+documento concluído com seu próprio certificado digital, reforçando a
+não-repúdio.
+
+Isso acontece **automaticamente** quando a clínica tem um **certificado A1 de
+NFS-e ativo** configurado (o mesmo usado para emissão de notas fiscais). Nesse
+caso, ao concluir o envelope a Clínica gera uma assinatura destacada
+(RSA-SHA256) do hash do PDF final e marca **Contra-assinatura ICP-Brasil: Sim**
+na trilha e na página de assinaturas.
+
+<Callout type="info" title="Sem certificado, o envelope segue válido">
+  Se a clínica não tem certificado A1 ativo, a contra-assinatura simplesmente
+  não é aplicada (**Não**). A assinatura eletrônica avançada do signatário,
+  com OTP e trilha de evidências, continua válida por si só.
+</Callout>
+
+## Sincronização de consentimentos (LGPD)
+
+Quando um envelope é concluído, a Clínica pode **atualizar automaticamente os
+consentimentos LGPD do paciente** conforme o tipo do documento assinado:
+
+| Tipo de documento | Consentimento atualizado no paciente |
+| --- | --- |
+| Consentimento de imagem | Foto/vídeo |
+| Consentimento de gravação | Gravação de sessão |
+| TCLE, Termo LGPD, Consentimento de menor | Nenhum flag de canal — o próprio envelope assinado é o registro |
+| Contrato terapêutico | Nenhum flag de canal |
+
+Quando aplicável, o flag de consentimento é marcado como concedido e recebe a
+**data/hora da assinatura** como carimbo, gerando também um registro de
+auditoria com origem `signature`.
+
+## Lembretes automáticos e expiração
+
+Enquanto o signatário da vez não assina, a Clínica envia **lembretes
+automáticos**:
+
+- Um lembrete em **D+3** e outro em **D+7** após o envio do link (no máximo
+  **2 lembretes** por signatário).
+- No máximo **um lembrete por dia**, sempre pelo mesmo canal do link.
+- Os lembretes param assim que o signatário assina, recusa, ou o link expira.
+
+A rotina automática também marca como **Expirado** qualquer link que passou da
+validade. Esses dois processos rodam em conjunto na tarefa agendada de
+assinaturas — você não precisa disparar nada manualmente.
+
+<Callout type="info" title="Link expirado: o signatário pode pedir um novo">
+  Em um link expirado, o signatário vê a mensagem *"Este link expirou. Solicite
+  um novo link à clínica."* e o botão **Solicitar novo link**. Isso **não gera
+  um novo link sozinho** — apenas cria uma tarefa (Todo) para a equipe avisando
+  que o paciente quer prosseguir. Cabe à clínica reenviar o documento. Apenas a
+  clínica regenera links.
+</Callout>
+
+## O que o signatário vê
+
+A página de assinatura (`/assinar/<link>`) é pública e responsiva. O signatário:
+
+1. Vê o cabeçalho **"Assinatura de documento — `nome da clínica`"** e o título do documento.
+2. Lê o PDF inline (com a opção *"Não consegue ver o documento? Baixar para ler"*).
+3. Marca o aceite, confirma **Nome completo** e **CPF**, e clica em **Receber código**.
+4. Digita o código de 6 dígitos e clica em **Assinar documento**. Pode usar
+   **Reenviar código** após 60 segundos.
+5. Ao concluir, vê **"Documento assinado com sucesso!"**, o **código de
+   verificação** e o botão **Baixar via assinada (PDF)**.
+
+Se discordar, ele pode usar **"Não concordo / recusar"**, informando um motivo
+opcional. A recusa é registrada e a equipe é avisada por uma tarefa.
+
+<Callout type="warn" title="CPF precisa conferir">
+  Se o documento foi enviado com CPF, o signatário deve digitar o **mesmo CPF**
+  ao assinar. Divergência retorna *"CPF não confere com o cadastro. Confira com a
+  clínica."* O fluxo também é protegido por limite de tentativas para evitar
+  abuso.
+</Callout>
+
+## Verificação de autenticidade
+
+Cada documento concluído recebe um **código de verificação** público no formato
+de 3 grupos de 4 caracteres (por exemplo, `K7XF-2MQ9-PA4D`), impresso na página
+de assinaturas. Qualquer pessoa pode confirmar a validade e a integridade
+(hash SHA-256) do documento em **/verificar**. Veja
+[Verificar autenticidade de documentos](/docs/documentos/verificar-autenticidade).
+
+## Contrato terapêutico e telepsicologia
+
+Para psicologia online, a Res. CFP 09/2024 exige **contrato terapêutico
+escrito**. Ao agendar uma **consulta online** de um paciente **sem contrato
+assinado**, a agenda exibe um aviso (não bloqueante):
+
+> Este paciente não possui contrato terapêutico assinado (Res. CFP 09/2024).
+
+O aviso traz um atalho direto para **Gerar contrato** (se ainda não houver
+documento) ou **Enviar para assinatura** (se o contrato já foi gerado), levando
+à aba **Documentos** do paciente. Se já existe um envio de contrato em
+andamento, o aviso indica *"Há um envio de contrato aguardando assinatura."*

@@ -1,0 +1,159 @@
+---
+title: "Habilitar teleconsulta"
+description: "Flag por clínica; depende de TELEHEALTH_JITSI_DOMAIN no servidor."
+feature: configuracao-clinica
+sources:
+  - "src/app/admin/settings/components/SchedulingTab.tsx"
+  - "src/lib/telehealth/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+A **teleconsulta integrada** gera automaticamente uma sala de vídeo para os atendimentos online e inclui o link de acesso nos lembretes e confirmações enviados ao paciente. Você não precisa criar reuniões manualmente nem colar links: ao marcar uma consulta como **Online**, o sistema cuida do resto.
+
+Esta página explica como ligar ou desligar o recurso para a sua clínica e o que precisa estar pronto no servidor para que ele fique disponível.
+
+<Callout type="info" title="Funcionalidade recente">
+  A teleconsulta integrada é uma adição recente ao Clinica. Se o recurso ainda não aparecer disponível para você, confira a seção [Quando o recurso fica indisponível](#quando-o-recurso-fica-indisponivel) abaixo.
+</Callout>
+
+## Como funciona
+
+Existem dois níveis de controle, e os dois precisam estar ativos para que a teleconsulta funcione:
+
+<Cards>
+  <Card title="Disponibilidade da plataforma">
+    Configurada no servidor pela equipe técnica. Define se o recurso de vídeo
+    está habilitado para a instalação como um todo. Você não controla isso pela
+    interface.
+  </Card>
+  <Card title="Flag da sua clínica">
+    O botão **Teleconsulta integrada** na aba **Agenda** das configurações.
+    Liga ou desliga o recurso apenas para a sua clínica, sem afetar outras.
+  </Card>
+</Cards>
+
+Quando os dois níveis estão ativos, toda consulta marcada como **Online** ganha automaticamente uma sala de vídeo, e o link entra nas notificações enviadas ao paciente.
+
+## Habilitar para a sua clínica
+
+A flag fica nas configurações da clínica, na aba **Agenda**.
+
+<Steps>
+
+<Step>
+### Abra as configurações
+
+No menu de administração, acesse **Configurações** e selecione a aba **Agenda**.
+</Step>
+
+<Step>
+### Localize "Teleconsulta integrada"
+
+Role até o final da aba. Abaixo dos campos de duração e lembrete há a seção
+**Teleconsulta integrada**, com a descrição:
+
+> Gera uma sala de vídeo para consultas online e inclui o link nos lembretes e
+> confirmações.
+</Step>
+
+<Step>
+### Ligue ou desligue o recurso
+
+Marque ou desmarque a caixa de seleção ao lado. A alteração é salva
+imediatamente — não há botão **Salvar** separado para essa opção. Ao salvar,
+aparece a mensagem **"Configuração de teleconsulta salva"**.
+</Step>
+
+</Steps>
+
+<Screenshot src="/img/configuracao/teleconsulta-config-toggle.png" alt="Seção Teleconsulta integrada na aba Agenda das configurações da clínica" caption="A caixa Teleconsulta integrada fica no final da aba Agenda." />
+
+<Callout type="info">
+  Em clínicas novas, a teleconsulta já vem ligada por padrão quando a plataforma
+  está configurada. Você só precisa desmarcar se quiser desativá-la.
+</Callout>
+
+## Quando o recurso fica indisponível
+
+Se a plataforma não estiver configurada no servidor, a caixa **Teleconsulta integrada** aparece **desabilitada** (cinza, não clicável) e abaixo dela surge o aviso:
+
+> Indisponível no momento — fale com o suporte.
+
+Nesse caso, ligar a flag da sua clínica não teria efeito — por isso a opção fica bloqueada. A liberação depende de uma configuração no servidor que descrevemos a seguir.
+
+## O que precisa estar pronto no servidor
+
+A disponibilidade da plataforma depende de uma variável de ambiente: **`TELEHEALTH_JITSI_DOMAIN`**. Essa configuração é feita pela equipe técnica que mantém a instalação — não há tela no produto para isso.
+
+<Tabs items={["Como a plataforma decide", "Variáveis de ambiente"]}>
+
+<Tab value="Como a plataforma decide">
+
+A teleconsulta usa o provedor de vídeo **Jitsi**. Para o provedor ficar utilizável, é preciso informar o domínio do Jitsi em `TELEHEALTH_JITSI_DOMAIN`. Enquanto o domínio não for definido:
+
+- a caixa **Teleconsulta integrada** permanece desabilitada com o aviso de suporte;
+- o link de vídeo (`{{videoLink}}`) **não** é inserido nas notificações.
+
+Os nomes das salas são derivados de forma determinística (HMAC) a partir do `AUTH_SECRET` e **não contêm dados do paciente**. Os links enviados ao paciente usam o endereço público da aplicação (`NEXT_PUBLIC_APP_URL`).
+
+</Tab>
+
+<Tab value="Variáveis de ambiente">
+
+| Variável | Função |
+| --- | --- |
+| `TELEHEALTH_JITSI_DOMAIN` | Domínio do Jitsi usado para a sala integrada, ex.: `meet.suaclinica.com.br` ou `8x8.vc/<tenant>`. **Obrigatória** para liberar o recurso. |
+| `TELEHEALTH_PROVIDER` | Provedor de vídeo: `jitsi` (padrão fora de testes) ou `mock`. Normalmente não precisa ser alterada. |
+
+Com o `TELEHEALTH_JITSI_DOMAIN` definido, o recurso passa a ficar disponível para todas as clínicas, e cada uma decide ligá-lo ou desligá-lo pela flag descrita acima.
+
+</Tab>
+
+</Tabs>
+
+<Callout type="warn">
+  `TELEHEALTH_JITSI_DOMAIN` é uma configuração de servidor. Se a teleconsulta
+  estiver indisponível e você não tiver acesso ao ambiente, fale com o suporte —
+  conforme o próprio aviso exibido na tela.
+</Callout>
+
+## O que acontece depois de habilitar
+
+Com o recurso ligado (plataforma configurada **e** flag da clínica ativa), o link de vídeo entra automaticamente no fluxo, mas **somente** para os atendimentos elegíveis:
+
+- A consulta precisa ser do tipo **Consulta** (não tarefa, lembrete, nota ou reunião).
+- A modalidade precisa ser **Online** (definida no agendamento, no seletor **Presencial / Online**).
+
+Quando esses dois critérios são atendidos, o sistema gera a sala e inclui o link nos lembretes e confirmações do paciente. Se você informar um link externo próprio no campo de reunião do agendamento, esse link tem prioridade sobre a sala integrada.
+
+### Janela de acesso à sala
+
+O acesso à sala de vídeo é controlado pelo horário do atendimento, sempre avaliado em tempo real sobre a consulta atual:
+
+- A sala **abre 15 minutos antes** do horário agendado.
+- Permanece acessível até **30 minutos depois** do horário de término (margem de tolerância).
+- Fora dessa janela, o link informa que ainda é cedo demais ou que o atendimento já foi encerrado.
+
+Como a validade é calculada sobre o estado atual da consulta, **reagendar** move a janela automaticamente e **cancelar** invalida o acesso na hora — sem precisar reenviar nenhum link.
+
+<Callout type="info">
+  As salas comportam um número prático recomendado de participantes simultâneos,
+  o que cobre tanto consultas individuais quanto sessões de grupo online (cada
+  sessão de grupo compartilha uma única sala).
+</Callout>
+
+## Resumo
+
+<Cards>
+  <Card title="Liguei a flag mas nada acontece">
+    Verifique se a caixa não está desabilitada. Se estiver, a plataforma ainda
+    não foi configurada no servidor (`TELEHEALTH_JITSI_DOMAIN`) — fale com o suporte.
+  </Card>
+  <Card title="A flag está ligada e o link não aparece">
+    Confirme que a consulta é do tipo **Consulta** e está marcada como **Online**.
+    O link só entra nas notificações desses atendimentos.
+  </Card>
+</Cards>

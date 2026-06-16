@@ -1,0 +1,214 @@
+---
+title: "Agendamento online público"
+description: "Fluxo público sem login: escolher profissional, slot e dados; auto-confirm ou aprovação."
+feature: portal-paciente
+sources:
+  - "src/lib/booking/**"
+  - "src/app/agendar/**"
+  - "src/app/api/public/booking/**"
+lastReviewedCommit: 1d93f26
+audience: paciente
+status: published
+isNew: true
+---
+
+O agendamento online público é a página em que o paciente marca a própria sessão
+direto pelo navegador, **sem precisar de login**. A clínica divulga o link, o
+paciente escolhe o profissional, o horário e preenche os dados de contato. Conforme
+a configuração da clínica, o horário é **confirmado na hora** ou fica **aguardando
+aprovação** da equipe.
+
+<Callout type="info" title="Como a clínica liga isso">
+  Esta página descreve o que o **paciente** vê. Para ativar o recurso, definir o
+  modo (confirmação automática ou aprovação) e gerar os links, veja
+  [Configurar agendamento online](/docs/portal/configurar-agendamento-online).
+</Callout>
+
+## O link de agendamento
+
+A clínica divulga um destes endereços (em redes sociais, no rodapé do site, no
+WhatsApp, etc.):
+
+<Cards>
+  <Card title="Link da clínica" description="/agendar/nome-da-clinica — o paciente começa escolhendo o profissional." />
+  <Card title="Link direto do profissional" description="/agendar/nome-da-clinica/nome-do-profissional — já abre no profissional escolhido e pula a primeira etapa. Ideal para a bio do Instagram." />
+</Cards>
+
+O `nome-da-clinica` é o identificador (slug) da clínica e o `nome-do-profissional`
+é o slug público daquele profissional (por exemplo, o nome "Dra. Ana Müller" vira
+`ana-muller` — o título e os acentos são removidos). Ao abrir o link direto, o
+paciente já cai direto na escolha de horário daquele profissional.
+
+<Screenshot src="/img/portal/agendamento-online-abertura.png" alt="Tela do sistema: agendamento online abertura" />
+
+## As três etapas
+
+A página é um assistente curto, otimizado para celular, com três passos exibidos
+no topo: **Profissional · Horário · Seus dados**.
+
+<Steps>
+
+<Step>
+### Escolher o profissional
+
+A primeira tela mostra os profissionais disponíveis para agendamento online, cada
+um em um cartão com foto (ou as iniciais do nome), nome, especialidade e uma breve
+descrição. O paciente toca no cartão do profissional desejado.
+
+Só aparecem aqui os profissionais que a clínica habilitou para agendamento online
+e que têm horários de atendimento cadastrados. Se nenhum estiver disponível, a
+página exibe:
+
+> Nenhum profissional disponível para agendamento online no momento.
+
+Quando o paciente usa o **link direto do profissional**, esta etapa é pulada
+automaticamente.
+
+{/* TODO screenshot: /img/portal/agendamento-online-profissional.png */}
+</Step>
+
+<Step>
+### Escolher o horário
+
+Em seguida, o paciente vê uma grade semanal com os horários livres, organizada por
+dia (Dom a Sáb), com a data em formato DD/MM. Cada horário aparece como um botão no
+formato HH:mm (24 horas).
+
+- **Modalidade:** se a clínica oferece atendimento **Online** e **Presencial**, dois
+  botões aparecem no topo para o paciente escolher. Se só uma modalidade é
+  permitida, o seletor não aparece.
+- **Navegação entre semanas:** as setas avançam ou voltam de 7 em 7 dias. A seta de
+  “Semana anterior” fica desabilitada quando o paciente já está na semana atual —
+  não dá para agendar no passado.
+- Se a semana não tiver vagas, aparece:
+  > Sem horários livres nesta semana. Tente a próxima.
+
+Os horários livres são calculados pelo sistema com base na agenda do profissional:
+respeitam os horários de atendimento cadastrados, os bloqueios e exceções, a
+duração da sessão, a antecedência mínima exigida e o limite de quantos dias à
+frente é possível agendar. Horários já ocupados nunca aparecem.
+
+{/* TODO screenshot: /img/portal/agendamento-online-horarios.png */}
+</Step>
+
+<Step>
+### Preencher os dados
+
+Por fim, o paciente informa os dados de contato:
+
+| Campo | Obrigatório | Observação |
+| --- | --- | --- |
+| **Nome completo** | Sim | Mínimo de 3 caracteres. |
+| **Telefone** | Sim | Aceita número nacional ou internacional; já vem com máscara. |
+| **E-mail** | Sim | Validado no formato de e-mail. |
+| **CPF (opcional)** | Não | Pode deixar em branco. |
+| **Consentimento** | Sim | Caixa de seleção que precisa ser marcada. |
+
+O texto do consentimento é:
+
+> Autorizo o contato por WhatsApp e e-mail para confirmações e lembretes de
+> sessões, conforme a Política de Privacidade.
+
+Para concluir, o paciente toca em **Confirmar agendamento**.
+
+<Callout type="info" title="Por que existe um campo invisível">
+  O formulário tem um campo escondido (honeypot) que pessoas reais nunca veem nem
+  preenchem. Se ele vier preenchido, é sinal de robô: o sistema responde como se
+  tivesse dado certo, mas não cria nenhum agendamento. É uma proteção silenciosa
+  contra spam.
+</Callout>
+
+{/* TODO screenshot: /img/portal/agendamento-online-dados.png */}
+</Step>
+
+</Steps>
+
+## O que acontece depois de confirmar
+
+O resultado depende do **modo** configurado pela clínica e de o telefone informado
+já estar (ou não) cadastrado como paciente.
+
+<Tabs items={["Confirmado na hora", "Aguardando aprovação"]}>
+
+<Tab value="Confirmado na hora">
+Quando a clínica usa o modo **confirmação automática** e o telefone informado
+corresponde a **exatamente um** paciente já cadastrado, o agendamento entra direto
+na agenda com status **AGENDADO** e o paciente vê:
+
+> **Agendamento confirmado!**
+> Você receberá uma mensagem com os detalhes.
+
+O paciente recebe a confirmação por WhatsApp/e-mail (conforme o consentimento dado)
+e o profissional é avisado do novo horário.
+</Tab>
+
+<Tab value="Aguardando aprovação">
+O horário fica **pendente de aprovação** quando:
+
+- a clínica usa o modo **aprovação obrigatória**; **ou**
+- o telefone informado **não corresponde** a nenhum paciente cadastrado; **ou**
+- o telefone corresponde a **mais de um** paciente (situação ambígua, por exemplo
+  um responsável que usa o mesmo número para dois filhos).
+
+Nesses casos o paciente vê:
+
+> **Solicitação enviada!**
+> A clínica vai confirmar seu horário em breve.
+
+A equipe recebe um aviso e uma **tarefa** para revisar o pedido (no formato
+“Aprovar agendamento online: Nome — DD/MM HH:mm”). O horário só entra de fato na
+agenda quando a clínica aprova a solicitação.
+</Tab>
+
+</Tabs>
+
+<Callout type="info" title="Confirmação automática é só para pacientes já conhecidos">
+  Mesmo no modo de confirmação automática, um número novo (que ainda não é paciente)
+  **sempre** cai em aprovação. Isso evita que estranhos entrem direto na agenda. A
+  confirmação imediata acontece apenas quando o telefone identifica, sem ambiguidade,
+  um paciente que já existe no cadastro.
+</Callout>
+
+## Situações especiais
+
+### O horário foi preenchido durante o preenchimento
+
+Se outra pessoa marcar o mesmo horário enquanto o paciente preenchia os dados, ao
+confirmar ele vê:
+
+> Ops! Esse horário acabou de ser preenchido. Escolha outro horário.
+
+Basta tocar em **Ver outros horários** para voltar à grade — que já vem atualizada
+com a disponibilidade mais recente — e escolher outro horário.
+
+### Agendamento online indisponível
+
+Se a clínica desativou o recurso, está inativa ou com a assinatura suspensa, a
+página mostra um aviso amigável em vez do assistente:
+
+> O agendamento online desta clínica está temporariamente indisponível.
+
+Quando há um telefone cadastrado, o aviso também sugere entrar em contato por ele.
+
+### Limites de proteção
+
+Para evitar abuso, o sistema aplica alguns limites automáticos:
+
+- **Limite de solicitações em aberto por telefone:** cada número pode ter apenas uma
+  quantidade de agendamentos pendentes/confirmados em aberto (definida pela clínica).
+  Ao atingir o limite, o paciente recebe a mensagem: “Você já possui agendamentos
+  aguardando confirmação. Aguarde o retorno da clínica.”
+- **Telefones bloqueados:** números que a clínica colocou em uma lista de bloqueio
+  não conseguem agendar; a tela parece normal, mas nada é criado.
+- **Limite de tentativas:** muitas tentativas em sequência (do mesmo dispositivo ou
+  do mesmo telefone) são temporariamente barradas com a mensagem “Muitas tentativas.
+  Aguarde alguns minutos e tente novamente.”
+
+## Resumo do fluxo
+
+<Cards>
+  <Card title="1. Profissional" description="O paciente escolhe entre os profissionais habilitados (ou já chega no profissional pelo link direto)." />
+  <Card title="2. Horário" description="Escolhe a modalidade (se houver mais de uma) e um horário livre na grade semanal." />
+  <Card title="3. Dados" description="Informa nome, telefone, e-mail, CPF opcional e aceita o consentimento." />
+  <Card title="4. Resultado" description="Confirmação imediata (paciente conhecido + modo automático) ou solicitação pendente de aprovação da clínica." />
+</Cards>

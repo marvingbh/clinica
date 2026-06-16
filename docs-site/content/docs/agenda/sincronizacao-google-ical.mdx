@@ -1,0 +1,218 @@
+---
+title: "Sincronizar com Google Agenda / iCal"
+description: "OAuth Google bidirecional e feed iCal público; tratamento de erros de sync."
+feature: calendar-sync
+sources:
+  - "src/lib/calendar-sync/**"
+  - "src/app/api/calendar-sync/**"
+  - "src/app/profile/components/CalendarSyncSettings.tsx"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+isNew: true
+---
+
+Você pode ver suas sessões da clínica diretamente no seu **Google Agenda**, **Apple
+Calendar** ou **Outlook**, sem precisar abrir a Clinica para conferir os horários do
+dia. São duas formas de conectar: a **conexão Google** (atualiza quase em tempo real e
+pode bloquear seus horários ocupados de volta na agenda da clínica) e o **link iCal**
+(assinatura somente leitura, funciona em qualquer aplicativo de calendário).
+
+<Callout type="info" title="Funcionalidade recente">
+A Sincronização de Agenda é uma adição recente. Ela fica em **Perfil →
+Sincronização de Agenda** e está disponível **apenas para usuários com perfil
+profissional** — são eles que possuem sessões para sincronizar. Se você não vê a
+seção, é porque sua conta não tem um perfil profissional vinculado.
+</Callout>
+
+## Onde encontrar
+
+Abra seu **Perfil** e role até o bloco **Sincronização de Agenda**. Ele tem dois
+cartões:
+
+<Cards>
+  <Card title="Google Agenda" href="#conectar-o-google-agenda">
+    Conexão em tempo quase real, com privacidade configurável e bloqueio opcional
+    dos seus horários pessoais.
+  </Card>
+  <Card title="Link iCal (Apple, Outlook e outros)" href="#link-ical-apple-outlook-e-outros">
+    Assinatura somente leitura por um link secreto. Sem conta Google.
+  </Card>
+</Cards>
+
+<Callout type="warn" title="A Clinica é a fonte oficial">
+Os eventos da clínica no seu calendário são um **espelho** dos seus atendimentos.
+Alterações feitas diretamente no Google (mover, renomear ou apagar um evento da
+clínica) serão **sobrescritas** na próxima sincronização. Para mudar uma sessão,
+edite-a sempre dentro da Clinica.
+</Callout>
+
+{/* TODO screenshot: /img/agenda/sincronizacao-perfil.png */}
+
+## Conectar o Google Agenda
+
+<Steps>
+
+<Step>
+No cartão **Google Agenda**, clique em **Conectar Google Agenda**.
+</Step>
+
+<Step>
+Você é levado à tela de consentimento do Google. Escolha a conta e autorize o
+acesso ao calendário.
+</Step>
+
+<Step>
+Ao voltar para a Clinica, o cartão mostra o e-mail conectado e a etiqueta de
+status **Conectado**. A Clinica já começa a enviar suas **próximas sessões dos
+próximos 90 dias** para o calendário.
+</Step>
+
+</Steps>
+
+A partir daí, cada vez que você cria, edita, confirma ou cancela uma sessão, o
+evento correspondente é atualizado no Google automaticamente — normalmente em
+segundos. Uma rotina de verificação também roda a cada 10 minutos para garantir
+que nada fique para trás.
+
+### O que é sincronizado
+
+| Tipo de agendamento | Vai para o Google? | Bloqueia horário? |
+| --- | --- | --- |
+| Consulta, Tarefa, Reunião | Sempre | Sim (evento "ocupado") |
+| Lembrete, Nota | Só se você ativar a opção | Não (evento "livre") |
+
+Para incluir lembretes e notas, marque **Sincronizar lembretes e notas (não
+bloqueiam horário no Google)**. Esses eventos entram como "livre", então não fazem
+o Google considerar você ocupado naquele horário.
+
+Sessões **canceladas** são removidas do calendário automaticamente.
+
+### Privacidade do que aparece no calendário
+
+Você decide quanta informação aparece no título do evento. A Clinica **nunca**
+envia telefone, CPF, e-mail ou anotações da sessão para o calendário — apenas o
+título e o horário.
+
+<Tabs items={["Total (recomendado)", "Primeiro nome"]}>
+
+<Tab value="Total (recomendado)">
+Os eventos aparecem como **"Atendimento — nome da clínica"**, sem qualquer nome
+de paciente. É a opção indicada para quem compartilha o calendário ou o usa em
+telas visíveis a terceiros.
+</Tab>
+
+<Tab value="Primeiro nome">
+Os eventos mostram apenas o **primeiro nome** do paciente, por exemplo
+"Atendimento — Maria". Quando a sessão não tem paciente (tarefa, lembrete etc.),
+volta para o formato "Total".
+</Tab>
+
+</Tabs>
+
+Ao trocar o modo de privacidade, a Clinica **re-titula os eventos dos próximos 90
+dias** para você não precisar fazer nada manualmente.
+
+### Bloquear seus horários pessoais (mão dupla)
+
+Marque **Bloquear horários ocupados da minha agenda pessoal** para que os
+compromissos que você já tem no Google apareçam como horários ocupados dentro da
+Clinica, evitando que alguém marque uma sessão por cima deles.
+
+<Callout type="info">
+Como essa opção lê a sua agenda do Google, ela pede uma autorização adicional.
+Ao marcá-la pela primeira vez, você é redirecionado para uma nova tela de
+consentimento do Google. Após autorizar, a opção fica ativa. A Clinica só enxerga
+os **intervalos ocupados** (início e fim) — nunca os títulos ou detalhes dos seus
+compromissos pessoais.
+</Callout>
+
+### Desconectar
+
+No cartão **Google Agenda**, clique em **Desconectar**. Antes de confirmar, você
+pode marcar **Remover também os eventos já criados no Google**:
+
+- **Sem marcar:** a conexão é encerrada, mas os eventos que a Clinica já criou
+  permanecem no seu calendário.
+- **Marcando:** a Clinica apaga do Google os eventos das sessões antes de encerrar
+  a conexão.
+
+## Link iCal (Apple, Outlook e outros)
+
+Se você não usa Google, pode **assinar** sua agenda da clínica por um link iCal em
+qualquer aplicativo de calendário (Apple Calendar, Outlook etc.). É uma assinatura
+**somente leitura** — o aplicativo busca os horários, mas não consegue alterá-los.
+
+<Steps>
+
+<Step>
+No cartão **Link iCal**, clique em **Gerar link iCal**.
+</Step>
+
+<Step>
+Use o botão de copiar para pegar o endereço gerado.
+</Step>
+
+<Step>
+Cole o link no seu aplicativo. No iPhone, por exemplo:
+**Ajustes → Calendário → Contas → Adicionar conta → Outra → Assinar calendário**.
+</Step>
+
+</Steps>
+
+O feed traz suas sessões dos **próximos 90 dias** (e dos **últimos 7 dias**),
+seguindo o **mesmo modo de privacidade** configurado na conexão Google. Sessões
+canceladas são marcadas como canceladas para que o aplicativo as remova.
+
+<Callout type="warn" title="Trate o link como uma senha">
+O link iCal é secreto: qualquer pessoa com ele consegue ver os títulos e horários
+das suas sessões. Não o compartilhe. Se ele vazar, clique em **Gerar novo link** —
+o link anterior para de funcionar **imediatamente** — ou em **Desativar** para
+encerrar a assinatura de vez.
+</Callout>
+
+<Callout type="info">
+Calendários assinados **não** atualizam em tempo real: eles seguem o ritmo do seu
+aplicativo (geralmente a cada algumas horas, e o intervalo é definido pelo próprio
+app, não pela Clinica). Para ver as mudanças quase imediatamente, use a conexão
+Google.
+</Callout>
+
+## Quando a sincronização dá erro
+
+O cartão do Google mostra uma etiqueta de status que indica a saúde da conexão:
+
+| Etiqueta | O que significa | O que fazer |
+| --- | --- | --- |
+| **Conectado** | Tudo certo, sincronizando normalmente. | Nada. |
+| **Erro** | Uma tentativa de sincronizar falhou após várias tentativas automáticas. | Clique em **Tentar novamente**. |
+| **Revogada** | O acesso ao Google foi retirado (você revogou a permissão na conta Google, ou ela expirou). | Clique em **Reconectar** e autorize novamente. |
+
+A Clinica não desiste no primeiro tropeço: cada sincronização é repetida
+automaticamente, com intervalos crescentes, antes de marcar a conexão como
+**Erro**. Quando isso acontece — ou quando o acesso é **revogado** — você também
+recebe um **e-mail** avisando que a sincronização foi interrompida, com o link para
+reconectar pelo perfil.
+
+<Steps>
+
+<Step>
+Se aparecer **Erro**, leia a mensagem exibida e clique em **Tentar novamente**. A
+Clinica reenvia suas próximas sessões dos próximos 90 dias.
+</Step>
+
+<Step>
+Se aparecer **Revogada**, clique em **Reconectar** para refazer a autorização do
+Google. Depois disso a sincronização é retomada e o histórico recente é reenviado.
+</Step>
+
+<Step>
+Se o problema persistir, **desconecte** e **conecte novamente** o Google Agenda.
+</Step>
+
+</Steps>
+
+<Callout type="info">
+Cada profissional sincroniza apenas as **próprias** sessões, e tudo fica restrito à
+sua clínica. Um erro na sua conexão nunca afeta a sincronização de outro colega.
+</Callout>

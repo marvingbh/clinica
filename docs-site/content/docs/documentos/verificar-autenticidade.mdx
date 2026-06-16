@@ -1,0 +1,198 @@
+---
+title: "Verificar autenticidade de documentos"
+description: "Verificação pública por código, validação de hash SHA-256 e aviso CFP 09/2024."
+feature: assinaturas
+sources:
+  - "src/app/verificar/**"
+  - "src/lib/assinaturas/verification-code.ts"
+  - "src/app/api/public/verificacao/[code]/route.ts"
+lastReviewedCommit: 1d93f26
+audience: paciente
+status: published
+isNew: true
+---
+
+Todo documento assinado eletronicamente na clínica recebe um **código de verificação**
+impresso na página de assinaturas anexada ao PDF final. Com esse código, qualquer pessoa —
+paciente, responsável, advogado, perito ou um terceiro que recebeu o documento — pode
+confirmar, sem precisar de senha ou login, que o documento é autêntico e não foi adulterado.
+
+<Callout type="info" title="Para quem é esta página">
+A verificação é **pública**: a página de verificação fica em `/verificar` e não exige
+conta nem acesso ao sistema da clínica. Você só precisa do código que aparece no rodapé
+do documento assinado.
+</Callout>
+
+## Onde fica o código de verificação
+
+Quando um documento (TCLE, contrato terapêutico, etc.) termina de ser assinado, o sistema
+anexa uma **Página de assinaturas** ao final do PDF. Nessa página aparecem, entre outras
+informações:
+
+- **Código de verificação** no formato `K7XF-2MQ9-PA4D` (três grupos de quatro caracteres);
+- **SHA-256 do documento original** (a "impressão digital" do arquivo);
+- a clínica, o título do documento, os signatários e se houve contra-assinatura ICP-Brasil;
+- a observação de que a integridade pode ser conferida em `/verificar` com o código acima.
+
+<Callout type="info">
+O código usa apenas letras e números **sem caracteres ambíguos** — não existem `0`, `O`,
+`1`, `I` nem `L`. Isso evita confusão ao digitar a partir de um documento impresso ou de
+uma foto. Maiúsculas/minúsculas e os hifens não importam: o sistema normaliza tudo
+automaticamente.
+</Callout>
+
+## Verificação pública por código
+
+<Steps>
+
+<Step>
+### Abra a página de verificação
+
+Acesse o endereço **`/verificar`** no site da clínica. Você verá o título
+"Verificar autenticidade de documento" e um campo para informar o código.
+</Step>
+
+<Step>
+### Digite o código de verificação
+
+No campo, digite o código que está na página de assinaturas do documento — por exemplo
+`K7XF-2MQ9-PA4D`. O campo formata automaticamente em grupos de quatro caracteres enquanto
+você digita; você pode digitar com ou sem hifens.
+
+O botão **Verificar** só fica habilitado quando o código tem os 12 caracteres completos.
+</Step>
+
+<Step>
+### Veja o resultado
+
+Ao confirmar, você é levado para a página de resultado (`/verificar/<código>`), que mostra
+se o documento é autêntico.
+</Step>
+
+</Steps>
+
+{/* TODO screenshot: /img/documentos-verificar-autenticidade-1.png */}
+
+### Documento autêntico
+
+Quando o código corresponde a um documento concluído, o resultado mostra um selo verde com
+**"Documento autêntico — assinado em DD/MM/AAAA HH:mm"** e os dados de identificação:
+
+- **Clínica** que emitiu o documento;
+- **Documento** (título);
+- **Contra-assinatura ICP-Brasil**: "Sim" ou "Não";
+- **Signatários**: nome e CPF de cada pessoa que assinou, com o papel (Paciente ou
+  Responsável) e a data/hora da assinatura.
+
+<Callout type="info" title="Proteção de dados (LGPD)">
+Os nomes e CPFs exibidos na verificação pública aparecem **parcialmente ocultos** — por
+exemplo, o CPF é mostrado como `***.456.789-**` e o nome como "Maria S.". Isso permite
+confirmar a identidade sem expor os dados pessoais completos a quem apenas tem o código.
+</Callout>
+
+### Documento não encontrado
+
+Se o código estiver incorreto, incompleto, ou não corresponder a um documento concluído, a
+página mostra **"Código não encontrado ou documento inválido."** Por segurança, a resposta é
+sempre a mesma nesses casos — o sistema **não** revela se o código quase acertou nem expõe
+qualquer dado clínico. A página de verificação também tem limite de tentativas por endereço
+de IP para impedir adivinhação de códigos.
+
+## Validação do hash SHA-256
+
+Confirmar o código prova que **existe** um documento autêntico com aquele código. Mas como
+ter certeza de que o **arquivo PDF que você tem em mãos** é exatamente o documento assinado,
+sem nenhuma alteração? É para isso que serve a conferência do hash SHA-256.
+
+O SHA-256 é uma "impressão digital" do arquivo: qualquer mudança, por menor que seja,
+produz um hash completamente diferente. A página de resultado guarda o hash do documento
+assinado e compara com o hash do seu arquivo.
+
+<Steps>
+
+<Step>
+### Localize a área "Conferir meu arquivo PDF"
+
+Na página de resultado de um documento autêntico, role até o quadro **"Conferir meu arquivo
+PDF"**.
+</Step>
+
+<Step>
+### Selecione o arquivo PDF
+
+Clique para escolher o PDF do documento assinado que você quer conferir. O sistema calcula o
+hash SHA-256 do arquivo e compara com o hash registrado.
+</Step>
+
+<Step>
+### Leia o resultado da conferência
+
+- **Íntegro: o arquivo corresponde ao documento assinado.** — o arquivo é idêntico ao que
+  foi assinado, byte a byte.
+- **O arquivo NÃO corresponde ao documento assinado.** — o arquivo é diferente (foi alterado,
+  é uma versão errada, ou está corrompido). Não confie nele.
+
+</Step>
+
+</Steps>
+
+<Callout type="info" title="Seu arquivo nunca sai do navegador">
+A conferência do hash acontece **inteiramente no seu navegador** — o PDF **não é enviado a
+nenhum servidor**. A própria página avisa isso: "O arquivo é verificado no seu navegador e
+não é enviado a nenhum servidor." Você pode conferir documentos sigilosos com segurança.
+</Callout>
+
+{/* TODO screenshot: /img/documentos-verificar-autenticidade-2.png */}
+
+## Contra-assinatura ICP-Brasil
+
+Quando o resultado indica **Contra-assinatura ICP-Brasil: Sim**, significa que a clínica
+adicionou, sobre o documento já assinado eletronicamente, uma assinatura digital com
+certificado ICP-Brasil. Esse é um reforço opcional de validade jurídica. Quando aparece
+"Não", o documento continua válido como assinatura eletrônica avançada (Lei nº 14.063/2020 e
+MP nº 2.200-2/2001), com prova de posse por código enviado ao contato do signatário e trilha
+de auditoria.
+
+## Aviso CFP 09/2024 (contrato terapêutico)
+
+A Resolução CFP nº 09/2024 exige um **contrato terapêutico por escrito** para o atendimento
+psicológico online. Para apoiar essa exigência, ao agendar uma **consulta na modalidade
+online** para um paciente que **ainda não possui contrato terapêutico assinado**, o sistema
+exibe um aviso (não bloqueante) na agenda:
+
+> Este paciente não possui contrato terapêutico assinado (Res. CFP 09/2024).
+
+A partir desse aviso é possível **gerar o contrato** ou, se ele já existe, **enviar para
+assinatura**. Depois de assinado, o contrato passa a ter seu próprio código de verificação e
+pode ser conferido aqui, em `/verificar`, exatamente como qualquer outro documento.
+
+<Callout type="info">
+O aviso é apenas um lembrete e não impede o agendamento. Ele desaparece assim que o paciente
+tem um contrato terapêutico assinado registrado.
+</Callout>
+
+## Perguntas frequentes
+
+<Cards>
+
+<Card title="Preciso de login para verificar?">
+Não. A página `/verificar` é pública. Basta ter o código impresso no documento.
+</Card>
+
+<Card title="Digitei o código e não encontrou.">
+Confira se digitou os 12 caracteres. Lembre-se de que não há `0`, `O`, `1`, `I` ou `L` no
+código. Se mesmo assim não encontrar, o documento pode não estar concluído ou o código pode
+estar incorreto.
+</Card>
+
+<Card title="O hash deu diferente. E agora?">
+Significa que o arquivo não corresponde ao documento assinado. Solicite à clínica o PDF
+original do documento assinado e refaça a conferência.
+</Card>
+
+<Card title="Por que os dados aparecem ocultos?">
+Para proteger os dados pessoais dos signatários (LGPD). A verificação confirma a
+autenticidade sem expor nome e CPF completos a quem só tem o código.
+</Card>
+
+</Cards>

@@ -1,0 +1,169 @@
+---
+title: "Tabela de preços"
+description: "Valores de sessão por paciente, edição em lote e modos de faturamento."
+feature: financeiro
+sources:
+  - "src/app/financeiro/precos/**"
+  - "src/lib/financeiro/billing-labels.ts"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+A **Tabela de preços** reúne, em uma única tela, o valor cobrado de cada paciente. Em vez de abrir o cadastro de um paciente por vez, você vê todos os valores lado a lado e ajusta vários ao mesmo tempo, salvando tudo de uma vez só.
+
+<Callout type="info" title="Para que serve">
+Esta tela é o lugar central para conferir e atualizar os valores de cobrança. O valor definido aqui é o mesmo usado pelo cadastro do paciente e pela geração de faturas — alterar o preço aqui ou no cadastro do paciente tem o mesmo efeito.
+</Callout>
+
+## Onde encontrar
+
+A tabela fica dentro do **Financeiro**, na aba **Preços**.
+
+<Steps>
+
+<Step>
+No menu lateral, abra **Financeiro**.
+</Step>
+
+<Step>
+Clique na aba **Preços** (logo após a aba **Créditos** na faixa de abas).
+</Step>
+
+</Steps>
+
+A tela lista os pacientes da sua clínica, 50 por página, com três colunas:
+
+- **Nome** — nome do paciente.
+- **Profissional Referência** — profissional vinculado ao paciente (exibe `—` quando não há vínculo).
+- **Coluna de valor** — campo editável com o preço. O título dessa coluna muda conforme o **modo de cobrança** da clínica (veja [Modos de faturamento](#modos-de-faturamento)).
+
+<Screenshot src="/img/financeiro/tabela-de-precos-lista.png" alt="Tabela de preços com colunas Nome, Profissional Referência e valor por sessão" caption="A aba Preços lista todos os pacientes com o valor editável na última coluna." />
+
+## Encontrar pacientes
+
+No topo da tela há três filtros para localizar quem você quer ajustar:
+
+- **Busca** — campo de texto que procura por nome, e-mail ou telefone.
+- **Profissional** — lista suspensa que começa em **Todos profissionais**; selecione um profissional para ver apenas os pacientes vinculados a ele.
+- **Situação** — lista suspensa com **Todos**, **Ativos** e **Inativos**. Por padrão a tela já vem filtrada em **Ativos**.
+
+A busca é aplicada automaticamente enquanto você digita. Ao alterar qualquer filtro, a lista volta para a primeira página.
+
+## Editar um valor
+
+Cada paciente tem um campo numérico na coluna de valor. Para alterar:
+
+<Steps>
+
+<Step>
+Clique no campo do paciente desejado e digite o novo valor (use ponto para os centavos, por exemplo `150` ou `180.50`).
+</Step>
+
+<Step>
+A linha alterada fica **destacada em amarelo**, indicando que há uma mudança ainda não salva.
+</Step>
+
+<Step>
+Repita para quantos pacientes quiser — cada linha modificada também ficará destacada.
+</Step>
+
+</Steps>
+
+Para **remover** o valor de um paciente (deixá-lo sem preço definido), apague o conteúdo do campo. Pacientes sem valor aparecem com um traço (`—`) de espaço reservado no campo.
+
+<Callout type="info" title="Ajuste de reajuste automático">
+Quando você altera um valor que já existia (de um número para outro número diferente), o sistema registra a data do reajuste como o **1º dia do mês seguinte**. Isso evita que o novo preço afete retroativamente o mês corrente ao gerar faturas.
+</Callout>
+
+## Edição em lote
+
+Você pode ajustar vários pacientes antes de salvar. Conforme edita linhas, uma **barra fixa aparece na parte inferior da tela** informando quantas alterações estão pendentes.
+
+<Steps>
+
+<Step>
+Edite os valores dos pacientes desejados (as linhas alteradas ficam em amarelo).
+</Step>
+
+<Step>
+Confira o contador na barra inferior, por exemplo **"3 alterações pendentes"**.
+</Step>
+
+<Step>
+Clique em **Salvar 3 alterações** para gravar todas de uma vez.
+</Step>
+
+</Steps>
+
+Ao salvar, o sistema atualiza cada paciente alterado e mostra uma confirmação como **"3 preços atualizados com sucesso"**. Se algum paciente não puder ser atualizado, aparece um aviso separado indicando quantos falharam — os que deram certo permanecem salvos. Após salvar, a lista é recarregada e os destaques amarelos desaparecem.
+
+<Callout type="warn" title="As alterações só valem após salvar">
+Enquanto a barra inferior estiver visível, há mudanças pendentes. Se você sair da página sem clicar em **Salvar**, as edições não gravadas serão perdidas. A paginação não envia automaticamente: salve antes de trocar de página.
+</Callout>
+
+## Modos de faturamento
+
+A coluna de valor representa coisas diferentes conforme o **Modo de Cobrança** configurado para a clínica. O modo controla tanto o título da coluna quanto o significado do número:
+
+<Tabs items={["Por sessão", "Mensalidade fixa"]}>
+
+<Tab value="Por sessão">
+No modo **Por sessão** (`PER_SESSION`), cada sessão realizada é cobrada individualmente.
+
+- Título da coluna: **Preço Sessão (R$)**
+- O valor é o preço de **uma sessão** do paciente.
+</Tab>
+
+<Tab value="Mensalidade fixa">
+No modo **Mensalidade fixa** (`MONTHLY_FIXED`), o paciente paga um valor fixo por mês, independentemente do número de sessões.
+
+- Título da coluna: **Valor Mensal (R$)**
+- O valor é a **mensalidade** do paciente.
+</Tab>
+
+</Tabs>
+
+### Onde definir o modo de cobrança
+
+O modo de cobrança é uma configuração da clínica inteira (não por paciente). Para alterá-lo:
+
+<Steps>
+
+<Step>
+Abra as **Configurações** da clínica (área administrativa) e selecione a aba **Financeiro**.
+</Step>
+
+<Step>
+Na seção **Modo de Cobrança**, escolha entre:
+
+- **Por sessão** — "Cada sessão realizada é cobrada individualmente."
+- **Mensalidade fixa** — "Valor fixo mensal por paciente."
+</Step>
+
+</Steps>
+
+<Callout type="info">
+Ao selecionar **Mensalidade fixa**, o agrupamento de faturas passa automaticamente para **Mensal** (uma fatura por mês), já que a cobrança por sessão individual não faz sentido nesse modo.
+</Callout>
+
+Depois de alterar o modo nas Configurações, volte à aba **Preços**: o título da coluna de valor reflete o novo modo automaticamente.
+
+## Perguntas frequentes
+
+<Cards>
+
+<Card title="O valor aqui é o mesmo do cadastro do paciente?">
+Sim. A coluna de valor edita o mesmo campo de valor de sessão do cadastro do paciente. Ajustar aqui ou no cadastro tem o mesmo efeito sobre as faturas.
+</Card>
+
+<Card title="Por que um paciente aparece sem valor?">
+O campo está vazio quando o paciente ainda não tem um valor definido. Basta digitar o valor e salvar.
+</Card>
+
+<Card title="Não encontro um paciente na lista.">
+Verifique o filtro de **Situação**: por padrão a tela mostra apenas **Ativos**. Mude para **Todos** para incluir pacientes inativos.
+</Card>
+
+</Cards>

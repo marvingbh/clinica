@@ -1,0 +1,110 @@
+---
+title: "Abas e deep-links do paciente"
+description: "As 8 abas, deep-links ?id=&tab= e abas de página (Pacientes/Fichas/Solicitações)."
+feature: pacientes
+sources:
+  - "src/app/patients/components/PatientDetailsView.tsx"
+  - "src/app/patients/page.tsx"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+isNew: true
+---
+
+A tela de **Pacientes** tem dois níveis de navegação por abas: as **abas de página** (no topo, separando Pacientes, Fichas de Cadastro e Solicitações do Portal) e, dentro do painel de detalhes de um paciente, as **8 abas do paciente** (Dados, Histórico, Financeiro, Prontuário, Documentos, Anexos, Formulários e Escalas). Você também pode chegar direto a um paciente ou a uma aba específica por **deep-link** na URL, usando os parâmetros `?id=` e `?tab=`.
+
+<Callout type="info" title="Novidade">
+Os deep-links (`?id=` e `?tab=`) e a organização da tela em abas de página são adições recentes. Links de outras partes do sistema — busca global, prontuário, cobrança da saúde e DMED — já abrem o paciente certo automaticamente; alguns também já abrem a aba certa (por exemplo, o aviso de contrato de telepsicologia, que abre direto em Documentos).
+</Callout>
+
+## Abas de página
+
+No topo da tela de Pacientes há três abas que trocam o conteúdo principal:
+
+<Cards>
+  <Card title="Pacientes" description="A lista de pacientes, com busca, filtros e paginação. É a aba inicial." />
+  <Card title="Fichas de Cadastro" description="As fichas de intake enviadas (formulário de pré-cadastro) que aguardam revisão." />
+  <Card title="Solicitações do Portal" description="Pedidos enviados pelos pacientes pelo portal." />
+</Cards>
+
+O botão **+ Novo Paciente** e a busca/filtros só aparecem na aba **Pacientes**. Nas outras duas abas, o conteúdo correspondente (fichas ou solicitações) ocupa a tela.
+
+<Callout type="info">
+A aba inicial é sempre **Pacientes**, a menos que você chegue por um deep-link `?tab=fichas` ou `?tab=solicitacoes` (veja abaixo).
+</Callout>
+
+## As 8 abas do paciente
+
+Ao clicar em um paciente na lista, abre-se o painel de detalhes (uma folha que desliza de baixo). Dentro dele há uma barra com até 8 abas. Algumas só aparecem conforme suas permissões.
+
+| Aba | O que mostra | Quando aparece |
+| --- | --- | --- |
+| **Dados** | Dados cadastrais: contato, telefones adicionais, datas, filiação, escola, valor da sessão, projeto terapêutico, observações, consentimentos LGPD e histórico de atendimentos. | Sempre. |
+| **Histórico** | Linha do tempo de alterações do registro do paciente (auditoria). | Com permissão de logs de auditoria. |
+| **Financeiro** | Situação financeira do paciente. | Com permissão de logs de auditoria. |
+| **Prontuário** | Evoluções e notas clínicas do paciente. | Para quem lê prontuário, ou para quem gerencia pacientes (ADMIN vê a aba, mas não o conteúdo das notas). |
+| **Documentos** | Documentos gerados (contratos, recibos etc.). | Com permissão de leitura de documentos. |
+| **Anexos** | Arquivos anexados ao paciente. | Sempre. |
+| **Formulários** | Formulários do paciente. | Com permissão de leitura de formulários. |
+| **Escalas** | Escalas/instrumentos aplicados. Leitores clínicos veem pontuações e trajetória; o ADMIN vê apenas metadados (status e datas, sem pontuações). | Para quem lê escalas, ou para quem gerencia pacientes. |
+
+<Callout type="info">
+A aba selecionada fica destacada em azul. Como nem todas as abas aparecem para todos, a lista que **você** vê pode ser menor que 8 — depende do seu perfil e das permissões da clínica.
+</Callout>
+
+A aba inicial ao abrir um paciente é **Dados**, a menos que um deep-link `?tab=` indique outra.
+
+## Deep-links: abrir um paciente ou uma aba pela URL
+
+A URL da tela de Pacientes aceita dois parâmetros que são lidos uma única vez, na abertura da página:
+
+- **`?id=<id-do-paciente>`** — abre direto o painel de detalhes daquele paciente.
+- **`?tab=<aba>`** — escolhe qual aba abrir.
+
+O valor de `?tab=` é interpretado de acordo com o contexto:
+
+<Steps>
+
+<Step>
+**Sem `?id=`** — `?tab=` controla a **aba de página**. Os valores reconhecidos são `fichas` (abre Fichas de Cadastro) e `solicitacoes` (abre Solicitações do Portal). Qualquer outro valor deixa a aba padrão (Pacientes).
+</Step>
+
+<Step>
+**Com `?id=`** — `?tab=` controla a **aba do paciente** dentro do painel de detalhes. Os valores aceitos são: `dados`, `historico`, `financeiro`, `prontuario`, `documentos`, `anexos`, `formularios` e `escalas`. Se o valor não corresponder a nenhuma aba, abre-se em **Dados**.
+</Step>
+
+</Steps>
+
+### Exemplos
+
+```text
+/patients?tab=fichas
+```
+Abre a tela já na aba **Fichas de Cadastro**.
+
+```text
+/patients?id=ABC123
+```
+Abre o painel de detalhes do paciente `ABC123` na aba **Dados**.
+
+```text
+/patients?id=ABC123&tab=documentos
+```
+Abre o paciente `ABC123` direto na aba **Documentos** — útil, por exemplo, para gerar um contrato ou recibo sem precisar navegar manualmente.
+
+<Callout type="info">
+Os parâmetros são lidos apenas na **abertura** da página. Se você já está na tela e troca de aba clicando, a URL não muda — e atualizar a página volta a ler os parâmetros originais da URL.
+</Callout>
+
+## De onde vêm esses links
+
+Você normalmente não digita esses links à mão — outras telas do sistema já apontam para o paciente e a aba corretos:
+
+- **Busca global** (no painel inicial): cada resultado de paciente leva a `/patients?id=<id>`, abrindo o detalhe direto.
+- **Prontuário**: ações que precisam abrir o cadastro do paciente usam `/patients?id=<id>`.
+- **Aviso de contrato de telepsicologia** (na agenda): o botão "Gerar contrato" (ou "Enviar para assinatura", quando já existe um contrato) leva a `/patients?id=<id>&tab=documentos`, já na aba de Documentos.
+- **DMED** (relatório fiscal): cada pendência liga para `/patients?id=<id>`, levando ao paciente com problema.
+
+{/* TODO screenshot: /img/pacientes-abas-do-paciente-1.png */}
+
+{/* TODO screenshot: /img/pacientes-abas-do-paciente-2.png */}

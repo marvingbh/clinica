@@ -1,0 +1,5 @@
+#!/bin/sh
+# Advisory: nunca bloqueia o push, so avisa antes de compartilhar.
+# O gate de verdade e o CI (.github/workflows/docs-drift.yml --strict).
+# As deps do script vivem em docs-site/node_modules; check-drift.mjs as resolve sozinho.
+node scripts/docs/check-drift.mjs --base origin/main --head HEAD || true

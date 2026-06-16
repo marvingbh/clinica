@@ -1,0 +1,315 @@
+# docs/feature-manifest.yml — mapa canonico feature ⇄ fonte ⇄ docs.
+# Glob: itens mais especificos/posteriores vencem (regra CODEOWNERS). Globs POSIX da raiz.
+# Tres consumidores a partir de um arquivo:
+#   1. check-drift.mjs constroi um indice inverso glob -> {feature, docs[]}.
+#   2. Contrato do campo `feature` do frontmatter (todo feature e chave aqui; a pagina consta em docs:).
+#   3. .github/CODEOWNERS e GERADO de features.*.owner + sources.
+version: 1
+defaults:
+  docsRoot: docs-site/content/docs   # onde os caminhos de pagina abaixo resolvem
+  ignoreGlobs:
+    - "**/*.test.ts"
+    - "**/*.test.tsx"
+    - "**/__mocks__/**"
+    - "**/*.stories.tsx"
+
+features:
+  onboarding-contas:
+    title: Onboarding, contas e permissões
+    owner: "@clinica/platform"
+    sources:
+      - src/app/signup/**
+      - src/app/login/**
+      - src/app/users/**
+      - src/app/profile/**
+      - src/app/professionals/**
+      - src/app/api/auth/**
+      - src/app/api/users/**
+      - src/app/api/me/**
+      - src/lib/auth.ts
+      - src/lib/rbac/**
+    docs:
+      - primeiros-passos/login-e-conta.mdx
+      - primeiros-passos/visao-geral-do-painel.mdx
+      - configuracao/usuarios-e-permissoes.mdx
+      - configuracao/meu-perfil.mdx
+      - configuracao/profissionais.mdx
+
+  configuracao-clinica:
+    title: Configurações da Clínica
+    owner: "@clinica/platform"
+    sources:
+      - src/app/admin/settings/**
+      - src/app/api/admin/settings/**
+      - src/lib/clinic/**
+    docs:
+      - configuracao/dados-da-clinica.mdx
+      - configuracao/cores-da-agenda.mdx
+      - configuracao/configuracoes-financeiras.mdx
+      - configuracao/configuracoes-de-email.mdx
+      - configuracao/teleconsulta-config.mdx
+
+  agendamento:
+    title: Agenda e agendamentos
+    owner: "@clinica/scheduling"
+    sources:
+      - src/app/agenda/**
+      - src/app/api/appointments/**
+      - src/lib/appointments/**
+      - src/lib/professionals/availability.ts
+      - src/lib/jobs/send-reminders.ts
+      - src/lib/jobs/extend-recurrences.ts
+    docs:
+      - agenda/visao-geral-agenda.mdx
+      - agenda/criar-e-editar-agendamento.mdx
+      - agenda/status-e-pendencias.mdx
+      - agenda/recorrencias.mdx
+      - agenda/conflitos-e-arrastar-soltar.mdx
+      - agenda/tarefas.mdx
+      - agenda/imprimir-agenda.mdx
+      - agenda/disponibilidade.mdx
+
+  calendar-sync:
+    title: Sincronização de Agenda (Google/iCal)
+    owner: "@clinica/scheduling"
+    sources:
+      - src/lib/calendar-sync/**
+      - src/app/api/calendar-sync/**
+      - src/app/profile/components/CalendarSyncSettings.tsx
+      - src/app/profile/components/GoogleCalendarCard.tsx
+      - src/app/profile/components/IcsFeedCard.tsx
+    docs:
+      - agenda/sincronizacao-google-ical.mdx
+
+  pacientes:
+    title: Pacientes e cadastros
+    owner: "@clinica/clinical"
+    sources:
+      - src/app/patients/**
+      - src/app/api/patients/**
+      - src/lib/patients/**
+      - src/lib/phone/**
+    docs:
+      - pacientes/cadastro-de-pacientes.mdx
+      - pacientes/consentimentos-e-lgpd.mdx
+      - pacientes/historico-e-financeiro.mdx
+      - pacientes/abas-do-paciente.mdx
+
+  prontuario:
+    title: Prontuário Eletrônico
+    owner: "@clinica/clinical"
+    sources:
+      - src/lib/prontuario/**
+      - src/app/prontuario/**
+      - src/app/api/prontuario/**
+    docs:
+      - prontuario/prontuario-eletronico.mdx
+      - prontuario/busca-e-navegacao.mdx
+      - prontuario/exportar-pdf.mdx
+      - prontuario/adendos.mdx
+
+  escalas:
+    title: Escalas Clínicas (PHQ-9/GAD-7)
+    owner: "@clinica/clinical"
+    sources:
+      - src/lib/scales/**
+      - src/app/escala/**
+      - src/app/api/patients/[id]/escalas/**
+      - src/app/patients/components/escalas/**
+    docs:
+      - prontuario/escalas-clinicas.mdx
+
+  anexos:
+    title: Anexos do Paciente
+    owner: "@clinica/clinical"
+    sources:
+      - src/lib/patient-documents/**
+      - src/lib/storage/**
+      - src/app/patients/components/documents/**
+      - src/app/api/patients/[id]/documents/**
+    docs:
+      - pacientes/anexos-do-paciente.mdx
+
+  ia:
+    title: Recursos de IA
+    owner: "@clinica/clinical"
+    sources:
+      - src/lib/ai/**
+      - src/app/api/ai/**
+      - src/app/prontuario/components/ai/**
+      - src/app/admin/settings/components/AiSettingsTab.tsx
+      - src/app/admin/settings/components/AiDisclosureDialog.tsx
+    docs:
+      - ia/assistente-de-evolucoes.mdx
+      - ia/creditos-e-feedback.mdx
+      - ia/configuracao-de-ia.mdx
+
+  documentos:
+    title: Documentos CFP
+    owner: "@clinica/clinical"
+    sources:
+      - src/lib/documents/**
+      - src/shared/components/documents/**
+      - src/app/api/documents/**
+      - src/app/patients/components/DocumentsTab.tsx
+      - src/app/admin/settings/components/DocumentTemplatesSection.tsx
+      - src/app/admin/settings/components/TemplateEditorSheet.tsx
+    docs:
+      - documentos/gerar-documentos-cfp.mdx
+      - documentos/enviar-documentos.mdx
+      - documentos/templates-de-documentos.mdx
+
+  assinaturas:
+    title: Assinatura Eletrônica
+    owner: "@clinica/clinical"
+    sources:
+      - src/lib/assinaturas/**
+      - src/app/assinar/**
+      - src/app/verificar/**
+      - src/app/api/assinaturas/**
+      - src/app/api/public/assinaturas/**
+      - src/lib/jobs/signature-reminders.ts
+    docs:
+      - documentos/assinatura-eletronica.mdx
+      - documentos/verificar-autenticidade.mdx
+
+  financeiro:
+    title: Financeiro e faturamento
+    owner: "@clinica/finance"
+    sources:
+      - src/app/financeiro/**
+      - src/app/api/financeiro/**
+      - src/lib/financeiro/**
+      - src/lib/cobranca/**
+      - src/lib/expenses/**
+      - src/lib/cashflow/**
+      - src/lib/expense-matcher/**
+      - src/lib/bank-reconciliation/**
+      - src/lib/bank-statement-parser/**
+    docs:
+      - financeiro/dashboard-financeiro.mdx
+      - financeiro/faturas.mdx
+      - financeiro/creditos-de-sessao.mdx
+      - financeiro/tabela-de-precos.mdx
+      - financeiro/repasse.mdx
+      - financeiro/cobranca-stripe.mdx
+      - financeiro/fluxo-de-caixa.mdx
+      - financeiro/despesas.mdx
+      - financeiro/conciliacao-bancaria.mdx
+
+  fiscal:
+    title: Fiscal (NFS-e, Receita Saúde, DMED)
+    owner: "@clinica/finance"
+    sources:
+      - src/lib/nfse/**
+      - src/lib/fiscal/**
+      - src/app/financeiro/receita-saude/**
+      - src/app/financeiro/dmed/**
+      - src/app/financeiro/faturas/[id]/Nfse*
+      - src/app/api/financeiro/faturas/[id]/nfse/**
+      - src/app/api/financeiro/fiscal/**
+      - src/app/admin/settings/components/NfseConfig*
+      - src/app/admin/settings/components/FiscalConfigTab.tsx
+    docs:
+      - fiscal/configuracao-fiscal.mdx
+      - fiscal/nfse.mdx
+      - fiscal/receita-saude.mdx
+      - fiscal/dmed.mdx
+
+  notificacoes:
+    title: Notificações e lembretes
+    owner: "@clinica/platform"
+    sources:
+      - src/lib/notifications/**
+      - src/app/admin/settings/notifications/**
+      - src/app/api/admin/notification-templates/**
+    docs:
+      - notificacoes/notificacoes-e-lembretes.mdx
+      - configuracao/templates-de-notificacao.mdx
+
+  portal-paciente:
+    title: Portal do Paciente e agendamento online
+    owner: "@clinica/scheduling"
+    sources:
+      - src/lib/booking/**
+      - src/lib/patient-portal/**
+      - src/app/agendar/**
+      - src/app/paciente/**
+      - src/app/api/public/booking/**
+      - src/app/api/public/portal/**
+      - src/app/admin/settings/agendamento-online/**
+      - src/app/admin/settings/components/PortalTab.tsx
+    docs:
+      - portal/agendamento-online.mdx
+      - portal/configurar-agendamento-online.mdx
+      - portal/portal-do-paciente.mdx
+      - portal/solicitacoes-de-agendamento.mdx
+
+  lista-espera:
+    title: Lista de Espera
+    owner: "@clinica/scheduling"
+    sources:
+      - src/lib/waitlist/**
+      - src/app/espera/**
+      - src/app/oferta/**
+      - src/app/api/waitlist/**
+      - src/app/api/public/waitlist/**
+      - src/app/admin/settings/components/WaitlistTab.tsx
+    docs:
+      - portal/lista-de-espera.mdx
+
+  formularios:
+    title: Formulários e intake
+    owner: "@clinica/clinical"
+    sources:
+      - src/lib/forms/**
+      - src/lib/intake/**
+      - src/app/formularios/**
+      - src/app/f/**
+      - src/app/intake/**
+      - src/app/api/forms/**
+      - src/app/api/intake-submissions/**
+      - src/app/api/public/intake/**
+      - src/app/patients/components/IntakeSubmission*
+    docs:
+      - formularios/construtor-de-formularios.mdx
+      - formularios/enviar-e-responder.mdx
+      - formularios/fichas-de-cadastro.mdx
+
+  grupos:
+    title: Grupos terapêuticos
+    owner: "@clinica/clinical"
+    sources:
+      - src/lib/groups/**
+      - src/app/groups/**
+      - src/app/api/groups/**
+      - src/app/api/group-sessions/**
+      - src/app/agenda/components/group-session/**
+      - src/app/agenda/components/CreateGroupSessionSheet.tsx
+      - src/app/agenda/components/GroupSessionSheet.tsx
+    docs:
+      - grupos/grupos-terapeuticos.mdx
+      - grupos/sessoes-de-grupo.mdx
+
+  teleconsulta:
+    title: Teleconsulta (telessaúde)
+    owner: "@clinica/scheduling"
+    sources:
+      - src/lib/telehealth/**
+      - src/app/teleconsulta/**
+      - src/app/api/appointments/[id]/teleconsulta/**
+      - src/app/api/public/teleconsulta/**
+      - src/shared/components/telehealth/**
+      - src/app/agenda/components/Teleconsulta*
+    docs:
+      - teleconsulta/teleconsulta.mdx
+      - teleconsulta/acesso-do-paciente.mdx
+
+  relatorios:
+    title: Relatórios e dashboard operacional
+    owner: "@clinica/platform"
+    sources:
+      - src/lib/analytics/**
+      - src/app/relatorios/**
+    docs:
+      - financeiro/relatorios-operacionais.mdx

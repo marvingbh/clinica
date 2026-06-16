@@ -1,0 +1,227 @@
+---
+title: "Iniciar teleconsulta (profissional)"
+description: "Sala Jitsi/mock, sessões de grupo online, link externo, janela de acesso e finalizar."
+feature: teleconsulta
+sources:
+  - "src/lib/telehealth/**"
+  - "src/app/agenda/components/Teleconsulta*"
+  - "src/shared/components/telehealth/**"
+  - "src/app/api/appointments/[id]/teleconsulta/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+isNew: true
+---
+
+A teleconsulta permite atender o paciente por vídeo direto da agenda, sem
+instalar nada. Você abre a sala com um clique a partir do agendamento, conversa
+com o paciente e, ao sair, pode marcar a consulta como finalizada.
+
+<Callout type="info" title="Funcionalidade recém-lançada">
+  A teleconsulta integrada é uma adição recente ao Clinica. Se o botão não
+  aparecer para você, confira a seção [Quando o botão aparece](#quando-o-botao-aparece)
+  abaixo — normalmente é a modalidade do agendamento ou uma configuração da
+  clínica.
+</Callout>
+
+## Pré-requisitos
+
+Para que a teleconsulta funcione, três condições precisam estar satisfeitas:
+
+- **A clínica habilitou a teleconsulta.** Em **Configurações → Agendamento**, a
+  opção **Teleconsulta integrada** precisa estar ligada. Se ela aparecer com o
+  aviso *"Indisponível no momento — fale com o suporte"*, a sala de vídeo ainda
+  não está configurada para a clínica — fale com a administração.
+- **O agendamento é uma consulta online.** A modalidade do agendamento precisa
+  ser **Online** (e não **Presencial**). Você escolhe isso ao criar ou editar o
+  agendamento, no campo **Modalidade**.
+- **O agendamento está ativo.** O botão aparece enquanto a consulta está
+  **AGENDADO** ou **CONFIRMADO**. Consultas **FINALIZADO** ou canceladas não
+  exibem o botão.
+
+## Quando o botão aparece
+
+O botão de teleconsulta fica dentro do agendamento, no painel de edição da
+consulta (e, em sessões de grupo, na aba da sessão). Ele só é exibido quando a
+consulta é do tipo **CONSULTA**, com modalidade **Online** e status
+**AGENDADO** ou **CONFIRMADO**.
+
+O rótulo do botão muda conforme a consulta tem ou não um link externo:
+
+<Cards>
+  <Card title="Iniciar teleconsulta">
+    Aparece quando a consulta usa a **sala integrada** do Clinica. Abre a sala
+    de vídeo em tela cheia, dentro do próprio sistema.
+  </Card>
+  <Card title="Abrir link da reunião">
+    Aparece quando você cadastrou um **link externo** (Zoom, Google Meet etc.)
+    no agendamento. Abre esse link em uma nova aba do navegador.
+  </Card>
+</Cards>
+
+{/* TODO screenshot: /img/teleconsulta-teleconsulta-1.png */}
+
+## Iniciar a sala integrada
+
+Quando a consulta usa a sala integrada (sem link externo cadastrado), o fluxo é
+todo dentro do Clinica.
+
+<Steps>
+  <Step>
+    Abra o agendamento da consulta online na agenda.
+  </Step>
+  <Step>
+    Clique em **Iniciar teleconsulta**. A sala abre em **tela cheia**, com o
+    título **Teleconsulta** no topo.
+  </Step>
+  <Step>
+    Aguarde a sala carregar. Antes de entrar, você passa pela tela de
+    pré-ingresso, onde confere câmera e microfone.
+  </Step>
+  <Step>
+    Conduza o atendimento. A barra de ferramentas traz microfone, câmera,
+    compartilhamento de tela, tela cheia, chat, configurações, levantar a mão,
+    qualidade de vídeo, visualização em grade e encerrar.
+  </Step>
+</Steps>
+
+A primeira vez que você abre a sala, o sistema registra o início da
+teleconsulta (data e hora) e grava o evento no histórico de auditoria do
+agendamento. Reabrir a sala depois **não** sobrescreve esse registro — o início
+fica gravado apenas uma vez.
+
+<Callout type="info" title="Privacidade da sala">
+  O nome da sala é gerado a partir de um código único do agendamento e **nunca
+  contém o nome do paciente** nem outros dados pessoais. O cabeçalho da sala
+  mostra apenas "Teleconsulta". Gravação e transmissão ao vivo ficam
+  desabilitadas na sala integrada.
+</Callout>
+
+### Sala em modo de desenvolvimento
+
+Em ambientes de teste ou demonstração, a sala pode aparecer como um quadro
+estático com a mensagem **"Sala de teleconsulta (modo desenvolvimento)"** e o
+identificador da sala. Isso é esperado: nesse modo o sistema não se conecta ao
+serviço de vídeo real. Em produção, com a teleconsulta configurada, a sala de
+vídeo carrega normalmente.
+
+## Sessões de grupo online
+
+Sessões de grupo na modalidade **Online** compartilham **uma única sala**: todos
+os participantes daquela sessão entram no mesmo ambiente de vídeo. Você não
+precisa abrir uma sala por paciente.
+
+<Steps>
+  <Step>
+    Abra a sessão de grupo na agenda e vá para a aba da **sessão**.
+  </Step>
+  <Step>
+    Clique em **Iniciar teleconsulta**. O botão aparece a partir de qualquer
+    participante ativo da sessão e leva todos para a mesma sala.
+  </Step>
+  <Step>
+    Conduza a sessão normalmente. Os participantes acessam pelos próprios links
+    e entram na mesma sala.
+  </Step>
+</Steps>
+
+<Callout type="info" title="Capacidade recomendada">
+  A sala integrada suporta com folga uma sessão de grupo, com capacidade
+  recomendada de até **25 participantes simultâneos** com vídeo. Para grupos
+  maiores, fale com a administração sobre a configuração do serviço de vídeo.
+</Callout>
+
+## Link externo (Zoom, Meet)
+
+Se você prefere usar uma ferramenta externa, pode cadastrar o endereço da
+reunião no próprio agendamento. Quando há um link externo, ele **tem prioridade
+sobre a sala integrada**: o botão passa a ser **Abrir link da reunião** e os
+lembretes/confirmações do paciente usam esse mesmo endereço.
+
+<Steps>
+  <Step>
+    Edite o agendamento e deixe a **Modalidade** como **Online**.
+  </Step>
+  <Step>
+    No campo **Link externo (Zoom/Meet) — opcional**, cole o endereço da
+    reunião (por exemplo, `https://meet.google.com/...`).
+  </Step>
+  <Step>
+    Salve o agendamento. A partir daí, o botão da consulta abre esse link em uma
+    nova aba.
+  </Step>
+</Steps>
+
+Se quiser enviar manualmente o acesso ao paciente, use o botão **Copiar link do
+paciente**, ao lado do campo de link externo. Ele copia o endereço de acesso do
+paciente para a área de transferência.
+
+<Callout type="info" title="Sem link externo? Sala integrada">
+  Deixe o campo de link externo **em branco** para usar a sala integrada do
+  Clinica. O link só substitui a sala quando está preenchido.
+</Callout>
+
+## Janela de acesso
+
+A teleconsulta tem uma janela de tempo em torno do horário marcado:
+
+- **Abre 15 minutos antes** do horário agendado.
+- **Fecha 30 minutos depois** do horário de término da consulta.
+
+Para o **paciente**, essa janela controla o acesso: fora dela, o paciente vê uma
+mensagem de "muito cedo" ou de consulta encerrada. Para **você, profissional**, a
+janela serve apenas de orientação na interface — você consegue entrar na sala
+mesmo um pouco antes do horário, o que é útil para testar câmera e microfone e
+receber o paciente.
+
+A validade é sempre calculada sobre o **estado atual** do agendamento. Isso tem
+efeitos práticos:
+
+- **Reagendar** a consulta **move a janela** junto, sem precisar trocar nenhum
+  link.
+- **Cancelar** a consulta **invalida o acesso na hora**, inclusive o link do
+  paciente.
+- Consultas **finalizadas** ou já fora da janela aparecem como **encerradas**.
+
+<Callout type="warn" title="Não consegue iniciar?">
+  O sistema bloqueia a abertura da sala quando a consulta está **cancelada**,
+  **não é uma consulta online**, ou a **teleconsulta não está habilitada/
+  configurada** para a clínica. Nesses casos aparece a mensagem *"Não é possível
+  iniciar a teleconsulta para esta sessão."* Verifique a modalidade do
+  agendamento, o status e a configuração da clínica.
+</Callout>
+
+## Finalizar a consulta
+
+Ao sair da sala (encerrar a chamada), o Clinica pergunta:
+
+> **Deseja marcar esta consulta como finalizada?**
+
+Você tem duas opções:
+
+- **Marcar como finalizada** — muda o status do agendamento para **FINALIZADO**,
+  usando o mesmo fluxo de mudança de status da agenda.
+- **Agora não** — fecha a sala sem alterar o status. A consulta continua como
+  estava (AGENDADO → CONFIRMADO → FINALIZADO segue valendo) e você pode
+  finalizá-la depois pela própria agenda.
+
+<Callout type="info">
+  Marcar como finalizada pela teleconsulta tem o mesmo efeito que finalizar a
+  consulta diretamente na agenda — registra a conclusão do atendimento e libera
+  os passos seguintes (como faturamento, quando aplicável).
+</Callout>
+
+## Problemas comuns
+
+| Situação | O que verificar |
+| --- | --- |
+| O botão de teleconsulta não aparece | A modalidade é **Online**? O status é **AGENDADO** ou **CONFIRMADO**? É uma **CONSULTA**? |
+| Aparece "Não é possível iniciar a teleconsulta para esta sessão." | A consulta pode estar cancelada/finalizada, não ser online, ou a teleconsulta não está habilitada na clínica. |
+| "Indisponível no momento — fale com o suporte" nas configurações | A sala de vídeo ainda não está configurada para a clínica — contate a administração/suporte. |
+| A sala não carrega ("Não foi possível conectar.") | Cheque a conexão de internet e tente novamente; em ambientes de teste, a sala aparece como modo desenvolvimento. |
+| Quero usar Zoom/Meet em vez da sala integrada | Cadastre o **Link externo (Zoom/Meet)** no agendamento — ele substitui a sala integrada. |
+
+<Callout type="info">
+  Para o lado do paciente — como ele recebe e abre o link, e o que vê fora da
+  janela de acesso — veja [Acesso do paciente à teleconsulta](/docs/teleconsulta/acesso-do-paciente).
+</Callout>

@@ -1,0 +1,17 @@
+{
+  "title": "Configuração inicial",
+  "pages": [
+    "dados-da-clinica",
+    "usuarios-e-permissoes",
+    "meu-perfil",
+    "profissionais",
+    "disponibilidade",
+    "cores-da-agenda",
+    "configuracoes-financeiras",
+    "configuracoes-de-email",
+    "templates-de-notificacao",
+    "teleconsulta-config",
+    "armazenamento",
+    "configuracoes-de-prontuario"
+  ]
+}

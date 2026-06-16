@@ -1,0 +1,20 @@
+{
+  "root": true,
+  "pages": [
+    "index",
+    "primeiros-passos",
+    "configuracao",
+    "agenda",
+    "pacientes",
+    "prontuario",
+    "ia",
+    "documentos",
+    "financeiro",
+    "fiscal",
+    "notificacoes",
+    "portal",
+    "formularios",
+    "grupos",
+    "teleconsulta"
+  ]
+}

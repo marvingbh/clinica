@@ -1,0 +1,139 @@
+---
+title: "Conflitos e arrastar-e-soltar"
+description: "Detecção de conflito com buffers; reagendar por drag-and-drop com sugestões."
+feature: agendamento
+sources:
+  - "src/lib/appointments/conflict-check.ts"
+  - "src/lib/appointments/drag-constraints.ts"
+  - "src/app/agenda/components/SlotMatchesDialog.tsx"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+---
+
+A agenda evita dois compromissos no mesmo horário e permite reagendar arrastando o cartão pela grade. Esta página explica quando um conflito é bloqueado, como o intervalo entre sessões entra na conta e como mover um agendamento sem digitar horários.
+
+## Detecção de conflito
+
+Sempre que você cria ou move um agendamento, o sistema verifica se o horário escolhido se sobrepõe a outro compromisso do mesmo profissional. Dois horários se sobrepõem quando um começa antes do outro terminar — ou seja, quando há qualquer minuto em comum.
+
+Se houver sobreposição, o sistema bloqueia a ação e mostra uma mensagem como:
+
+> Conflito de horário: já existe um compromisso agendado com **Maria Souza** em **15/06/2026** das **14:00** às **14:50**
+
+O agendamento não é salvo até que você escolha um horário livre.
+
+### O que conta como conflito
+
+<Callout type="info" title="Regra de sobreposição">
+Encostar não é conflito. Uma sessão das **08:00 às 08:45** e outra das **08:45 às 09:30** convivem sem problema — o sistema só bloqueia quando os horários realmente se cruzam.
+</Callout>
+
+Entram na verificação de conflito:
+
+- Compromissos do **mesmo profissional** (incluindo profissionais adicionais, quando o atendimento tem mais de um responsável).
+- Tipos que **ocupam tempo** na agenda: `CONSULTA`, `TAREFA` e `REUNIAO`.
+
+Ficam **de fora** da verificação (nunca geram conflito):
+
+- Agendamentos **cancelados**, em qualquer das formas: cancelamento acordado, falta do paciente ou cancelamento pelo profissional.
+- Entradas do tipo `LEMBRETE` e `NOTA`, que aparecem como pequenas etiquetas na linha do tempo e **não bloqueiam horário**.
+- Sessões em grupo entre si: os participantes da mesma sessão compartilham o horário de propósito e não conflitam uns com os outros.
+
+### Conflito e intervalo entre sessões (buffer) são coisas diferentes
+
+Cada profissional tem um campo **Intervalo entre sessões (minutos)** (de 0 a 60 minutos) no seu cadastro, em **Profissionais**. Esse intervalo é o tempo de respiro entre uma sessão e outra.
+
+<Callout type="warn" title="O intervalo não bloqueia o agendamento manual">
+O intervalo entre sessões afeta **apenas os horários livres oferecidos** no agendamento público e nas sugestões de slot — ele empurra o próximo horário sugerido para depois do respiro. Ele **não** entra na verificação de conflito. Por isso você consegue, manualmente, marcar duas sessões coladas (back-to-back) quando precisar, mesmo que o profissional use um intervalo de 10 minutos.
+</Callout>
+
+Na prática:
+
+- **Agendamento automático / link público:** respeita o intervalo. Se a sessão dura 50 minutos e o intervalo é de 10, os horários sugeridos avançam de 60 em 60 minutos.
+- **Agendamento manual na agenda:** só impede a sobreposição real. Encostar duas sessões é permitido.
+
+## Reagendar por arrastar-e-soltar
+
+Na agenda diária e na semanal você pode mover um agendamento simplesmente arrastando o cartão para um novo horário (ou, na visão semanal, para outro dia da semana).
+
+<Steps>
+
+<Step>
+**Segure e arraste o cartão.** Clique no agendamento e arraste para cima ou para baixo. O movimento começa após um pequeno deslocamento, para não disparar sem querer.
+</Step>
+
+<Step>
+**Acompanhe a prévia.** Enquanto arrasta, aparece uma faixa tracejada indicando onde o agendamento vai cair, e o cartão fantasma mostra o novo horário, por exemplo **15:30 – 16:20**. O horário "imanta" para os intervalos da grade.
+</Step>
+
+<Step>
+**Solte no horário desejado.** A duração original é sempre preservada — uma sessão de 50 minutos continua com 50 minutos no novo horário.
+</Step>
+
+<Step>
+**Confirmação.** Ao soltar, o sistema salva e exibe a mensagem **"Agendamento movido para HH:mm"**. Se o horário não tiver mudado de fato, nada é salvo.
+</Step>
+
+</Steps>
+
+### Aviso visual de sobreposição durante o arraste
+
+Enquanto você arrasta, a faixa de prévia muda de cor para sinalizar conflito antes mesmo de soltar:
+
+- **Azul:** o horário de destino está livre.
+- **Vermelho:** o destino se sobrepõe a outro compromisso que ocupa tempo.
+
+<Callout type="info" title="O servidor é a palavra final">
+A cor é um aviso visual imediato. A verificação definitiva acontece ao soltar: se houver sobreposição real, o movimento é desfeito, o cartão volta ao lugar e aparece um aviso com o conflito. Ajuste o horário e tente de novo.
+</Callout>
+
+### O que pode e o que não pode ser arrastado
+
+Um cartão só pode ser arrastado quando **todas** as condições abaixo são verdadeiras:
+
+- Você tem permissão de **escrita** na agenda.
+- O status é **AGENDADO** ou **CONFIRMADO**.
+
+Não podem ser arrastados:
+
+- Agendamentos **FINALIZADO** ou **cancelados** (em qualquer forma).
+- Sessões em **grupo** e participantes de sessão coletiva — esses são reagendados pela própria sessão, não individualmente.
+
+### Reagendar um agendamento recorrente
+
+Ao arrastar um agendamento que faz parte de uma recorrência (semanal, quinzenal ou mensal), o sistema abre a janela **Mover agendamento recorrente** com o resumo da mudança (por exemplo, `14:00 → 15:30`) e duas opções:
+
+<Cards>
+  <Card title="Mover apenas este agendamento">
+    Altera só a ocorrência que você arrastou. As demais sessões da série permanecem no horário original.
+  </Card>
+  <Card title="Mover este e todos os futuros">
+    Ajusta esta ocorrência e todas as seguintes da série. Na visão semanal, mover para outro dia também muda o dia da semana das próximas. Sessões já passadas não são afetadas.
+  </Card>
+</Cards>
+
+Ao confirmar a opção que afeta toda a série, a mensagem informa quantos agendamentos foram atualizados: **"Recorrência e N agendamento(s) atualizados para HH:mm"**.
+
+## Sugestões da lista de espera para horários vagos
+
+Quando uma **consulta futura é cancelada**, ela deixa um horário em aberto que pode ser preenchido pela lista de espera. Abra o agendamento cancelado e clique em **Ver correspondências na lista de espera**.
+
+A janela **Lista de espera — correspondências** mostra os candidatos compatíveis com aquele horário, ordenados por prioridade. Cada candidato traz:
+
+- Nome e telefone.
+- Resumo de preferências (modalidade, dias e horários desejados).
+- A etiqueta **Lead**, para contatos que ainda não são pacientes cadastrados.
+- A etiqueta **Já tem sessão neste dia**, quando o candidato já possui um atendimento agendado naquela data.
+
+Para pacientes cadastrados, o botão **Enviar oferta** registra uma oferta do horário e dispara uma notificação ao paciente. O botão não aparece para leads. Ao enviar, o candidato sai da lista e você vê **"Oferta enviada"**.
+
+<Callout type="info" title="Sem candidatos?">
+Se ninguém na lista de espera combinar com aquele horário, a janela mostra **"Nenhum candidato na lista de espera para este horário."** — basta fechá-la.
+</Callout>
+
+{/* Sugestões de screenshots (arquivos ainda não existem):
+    /img/agenda/conflito-mensagem.png — mensagem de conflito de horário ao salvar
+    /img/agenda/arrastar-previa.png — faixa tracejada azul vs. vermelha durante o arraste
+    /img/agenda/mover-recorrente.png — janela "Mover agendamento recorrente"
+    /img/agenda/lista-espera-correspondencias.png — janela de correspondências da lista de espera */}

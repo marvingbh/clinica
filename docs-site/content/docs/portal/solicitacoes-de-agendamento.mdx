@@ -1,0 +1,163 @@
+---
+title: "Aprovar solicitações de agendamento"
+description: "Revisar pendentes, aprovar (vincular/criar paciente), recusar e reenviar."
+feature: portal-paciente
+sources:
+  - "src/app/agenda/solicitacoes/**"
+  - "src/app/api/public/booking/**"
+  - "src/app/api/booking-requests/**"
+lastReviewedCommit: 1d93f26
+audience: recepcao
+status: published
+isNew: true
+---
+
+Quando o **agendamento online** está configurado no modo *Aprovação necessária*, cada horário que um paciente reserva pelo site da clínica chega como uma **solicitação pendente** que você precisa revisar. Aprovar uma solicitação cria a consulta na agenda; rejeitar avisa o contato com uma mensagem de cortesia.
+
+<Callout type="info" title="Funcionalidade recente">
+A tela de **Solicitações** faz parte do módulo de agendamento online, lançado recentemente. Se você não enxerga a opção no menu, peça a um administrador para liberar a permissão **Agendamento Online** (nível Escrita) e ativar o agendamento online nas configurações da clínica.
+</Callout>
+
+## Quando uma solicitação aparece
+
+O paciente reserva um horário na página pública de agendamento da clínica. O que acontece em seguida depende do **modo de confirmação** configurado:
+
+- **Confirmação automática:** se o telefone informado corresponde a **um único** paciente já cadastrado, a consulta é criada na hora e nada cai na fila de aprovação. Você não precisa fazer nada.
+- **Aprovação necessária** (ou telefone desconhecido/duplicado mesmo no modo automático): a reserva entra como **Pendente** e aguarda a sua revisão nesta tela.
+
+<Callout type="info" title="Quem recebe o aviso">
+Ao chegar uma nova solicitação, o profissional do horário e os administradores da clínica recebem um e-mail com um link direto para a tela de Solicitações. Um contador também aparece ao lado de **Solicitações** no menu, indicando quantas estão pendentes.
+</Callout>
+
+## Abrir a tela de Solicitações
+
+<Steps>
+
+<Step>
+No menu lateral, clique em **Solicitações**. O número ao lado do item indica quantas estão pendentes.
+</Step>
+
+<Step>
+A tela abre já na aba **Pendentes**. Use as abas no topo para alternar entre **Pendentes**, **Aprovadas**, **Rejeitadas** e **Expiradas**.
+</Step>
+
+</Steps>
+
+{/* TODO screenshot: /img/portal/solicitacoes-lista.png */}
+
+## Revisar uma solicitação pendente
+
+Cada solicitação aparece como um cartão com as informações que o paciente preencheu:
+
+- **Nome** do contato.
+- **Telefone** e **e-mail**.
+- Uma etiqueta indicando se o contato já é um **paciente cadastrado** (`Paciente: Nome`) ou um **Novo contato**.
+- O **profissional**, a **data e hora** (no formato DD/MM/AAAA HH:mm) e a **modalidade** (Online ou Presencial).
+
+A etiqueta de paciente é importante: o sistema tenta casar o telefone informado com um paciente existente. Quando encontra **exatamente um**, já mostra "Paciente: Nome" e a aprovação pode ser feita em um clique. Quando não encontra nenhum, ou encontra mais de um, mostra "Novo contato" e você decide a quem vincular.
+
+## Aprovar uma solicitação
+
+Aprovar cria a consulta na agenda com status **AGENDADO** e marca a solicitação como **Aprovada**.
+
+<Tabs items={["Contato já é paciente", "Novo contato"]}>
+
+<Tab value="Contato já é paciente">
+
+Quando o cartão mostra **Paciente: Nome**, basta um clique:
+
+<Steps>
+
+<Step>
+Clique em **Aprovar e agendar**.
+</Step>
+
+<Step>
+A consulta é criada para aquele paciente, naquele horário, e você recebe a confirmação **"Agendamento confirmado"**. O paciente recebe a mensagem de confirmação da consulta (WhatsApp e/ou e-mail, conforme os consentimentos).
+</Step>
+
+</Steps>
+
+</Tab>
+
+<Tab value="Novo contato">
+
+Quando o cartão mostra **Novo contato**, ao clicar em **Aprovar e agendar** abre um painel para você resolver o paciente antes de criar a consulta. Há duas opções:
+
+<Steps>
+
+<Step>
+**Vincular a paciente existente** — use a busca para localizar o paciente certo (por exemplo, quando o cadastro usa outro telefone). Digite ao menos 2 caracteres, clique no ícone de busca e selecione o paciente na lista. A consulta é criada vinculada a ele.
+</Step>
+
+<Step>
+**Criar novo paciente** — abre um formulário já preenchido com os dados da solicitação (**Nome**, **Telefone**, **E-mail** e **CPF**, este último opcional). Ajuste o que for necessário e clique em **Criar e agendar**. O sistema cria o paciente e a consulta de uma só vez.
+</Step>
+
+</Steps>
+
+<Callout type="info" title="Consentimentos LGPD">
+Os consentimentos de WhatsApp e e-mail informados pelo paciente na reserva são registrados no cadastro no momento da aprovação. Para um paciente que já existe, a aprovação apenas **ativa** consentimentos novos — nunca desativa os que já estavam concedidos.
+</Callout>
+
+</Tab>
+
+</Tabs>
+
+<Callout type="warn" title="Conflito de horário">
+Na hora de aprovar, o sistema revalida o horário. Se outra consulta já tiver ocupado aquele intervalo entre a reserva e a sua aprovação, a aprovação é bloqueada e uma mensagem informa o conflito. Nesse caso, combine outro horário com o paciente e crie a consulta manualmente na agenda.
+</Callout>
+
+<Callout type="warn" title="CPF duplicado ao criar paciente">
+Se o CPF informado já pertence a outro paciente da clínica, a criação é recusada com a mensagem "Não foi possível resolver o paciente. Verifique os dados." Use a opção **Vincular a paciente existente** para apontar para o cadastro correto.
+</Callout>
+
+## Rejeitar uma solicitação
+
+Quando a solicitação não deve virar consulta (horário indisponível, dado incorreto, contato repetido), rejeite-a:
+
+<Steps>
+
+<Step>
+No cartão pendente, clique em **Rejeitar**.
+</Step>
+
+<Step>
+Se quiser, escreva um **Motivo (opcional)** no campo de texto. O motivo é incluído na mensagem enviada ao contato.
+</Step>
+
+<Step>
+Clique em **Confirmar rejeição** (ou **Cancelar** para desistir). A solicitação vai para a aba **Rejeitadas** e o contato recebe uma mensagem de cortesia por WhatsApp ou e-mail, conforme o consentimento informado.
+</Step>
+
+</Steps>
+
+<Callout type="info">
+Rejeitar **não** cria nenhuma consulta e não cadastra o contato como paciente. É apenas uma resposta educada de que o horário não foi confirmado.
+</Callout>
+
+## Solicitações expiradas
+
+Toda noite, uma rotina automática marca como **Expiradas** as solicitações que continuaram pendentes mas cujo horário **já passou**. Elas saem da aba Pendentes e ficam disponíveis na aba **Expiradas** apenas para consulta.
+
+Uma solicitação pendente cujo horário já passou também aparece com o aviso **"Esta solicitação expirou."** e o botão **Aprovar e agendar** fica desabilitado — não é possível agendar no passado.
+
+## Reenviar ou reagendar
+
+Esta tela **não** reabre uma solicitação já aprovada, rejeitada ou expirada — cada solicitação é tratada uma única vez. Para "reenviar" um agendamento que não deu certo, há dois caminhos:
+
+<Cards>
+
+<Card title="O paciente reserva de novo">
+Oriente o paciente a entrar na página pública de agendamento e escolher um novo horário disponível. Uma nova solicitação cairá na fila de Pendentes para você revisar.
+</Card>
+
+<Card title="Você agenda manualmente">
+Crie a consulta diretamente na **Agenda**, escolhendo o profissional, o horário e o paciente. Útil quando você já combinou o horário por telefone ou quando houve conflito na aprovação.
+</Card>
+
+</Cards>
+
+<Callout type="info" title="Quem vê o quê">
+Administradores veem todas as solicitações da clínica. Um profissional sem permissão para a agenda de colegas vê e age **apenas** sobre as solicitações dos próprios horários.
+</Callout>

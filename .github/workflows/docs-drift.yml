@@ -1,0 +1,56 @@
+name: docs-drift
+on: pull_request
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # para o comentario fixo (sticky) do annotate.mjs
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # historico completo para rev-list/show (sensibilidade ao tempo)
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
+      # As deps dos scripts (gray-matter, picomatch, yaml) vivem em docs-site/node_modules.
+      # check-drift.mjs as resolve a partir de docs-site/package.json via createRequire.
+      - name: Instalar deps do site de docs
+        working-directory: docs-site
+        run: npm ci
+
+      - name: Detectar defasagem de docs
+        # Exit 2 (mapa quebrado) sempre falha o job; exit 1 (stale) falha so com --strict.
+        run: node scripts/docs/check-drift.mjs --base "origin/${{ github.base_ref }}" --head HEAD --strict --json > drift.json || echo "drift=$?" >> "$GITHUB_ENV"
+
+      - name: Anotar PR
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/docs/annotate.mjs drift.json
+
+      - name: Falhar se houver erro de mapa (exit 2) ou drift sem ack
+        if: always()
+        run: |
+          code="${drift:-0}"
+          if [ "$code" = "2" ]; then
+            echo "Erro de consistencia do manifesto/frontmatter (exit 2). Sempre fatal."
+            exit 2
+          fi
+          # Escape hatch: label `docs:deferred` ou linha `Docs-Drift-Ack:` rebaixa exit 1 para advisory.
+          if [ "$code" = "1" ]; then
+            if echo "${{ join(github.event.pull_request.labels.*.name, ',') }}" | grep -q "docs:deferred"; then
+              echo "Drift reconhecido via label docs:deferred — advisory."
+              exit 0
+            fi
+            if printf '%s' "${{ github.event.pull_request.body }}" | grep -qE '^Docs-Drift-Ack:'; then
+              echo "Drift reconhecido via Docs-Drift-Ack — advisory."
+              exit 0
+            fi
+            echo "Paginas de documentacao defasadas. Atualize a prosa e rode scripts/docs/stamp.mjs."
+            exit 1
+          fi
+          echo "Sem drift."

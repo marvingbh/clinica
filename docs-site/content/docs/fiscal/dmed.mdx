@@ -1,0 +1,247 @@
+---
+title: "DMED (declaração anual PJ)"
+description: "Conferência por CPF do pagador por ano, divergências e download TXT/CSV."
+feature: fiscal
+sources:
+  - "src/lib/fiscal/dmed-aggregation.ts"
+  - "src/lib/fiscal/dmed-file-builder.ts"
+  - "src/lib/fiscal/dmed-csv.ts"
+  - "src/app/financeiro/dmed/**"
+  - "src/app/api/financeiro/fiscal/dmed/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+A **DMED** (Declaração de Serviços Médicos e de Saúde) é a obrigação anual que clínicas
+pessoa jurídica (PJ) entregam à Receita Federal, informando, por CPF do pagador, quanto cada
+pessoa pagou por serviços de saúde no ano-calendário. O Clínica monta essa conferência
+automaticamente a partir das suas faturas e recebimentos já conciliados: você revisa os totais
+por pagador, resolve as pendências e baixa os arquivos de apoio.
+
+<Callout type="info" title="Quem usa esta tela">
+  A conferência DMED é **restrita a administradores**. Profissionais e demais perfis veem a
+  mensagem "A conferência DMED é restrita a administradores." ao acessar a aba.
+</Callout>
+
+## O que a DMED considera
+
+A conferência reúne os recebimentos do ano e os agrupa **por CPF do pagador**. Antes de tudo,
+vale entender três regras que o Clínica aplica:
+
+- **Competência = data do pagamento.** O que conta é a data em que o dinheiro entrou (data da
+  transação conciliada), não a data da sessão. Uma sessão de dezembro paga em janeiro entra no
+  ano seguinte.
+- **Apenas recebimentos PJ.** Só entram na conferência os recebimentos de profissionais cujo
+  **regime fiscal vigente na data do pagamento** era Pessoa Jurídica (PJ). Recebimentos de
+  profissionais PF aparecem na tela **Receita Saúde**, não aqui.
+- **Pagador x beneficiário.** O pagador é quem pagou; o beneficiário é quem recebeu o serviço.
+  Quando o paciente tem um **CPF de cobrança / responsável financeiro** cadastrado (por exemplo,
+  um pai pagando pela consulta do filho), esse responsável vira o pagador e o paciente é listado
+  como beneficiário sob o CPF dele. Quando o paciente paga por si mesmo, ele aparece apenas como
+  pagador (sem linha de beneficiário separada).
+
+<Callout type="info" title="Funcionalidade recém-lançada">
+  A conferência DMED é uma adição recente ao módulo Financeiro. O **leiaute do arquivo TXT ainda
+  não é o oficial da Receita Federal** — ele é versionado internamente (`DMED-v1`) e será
+  ajustado quando a especificação oficial for confirmada. Trate o TXT como material de apoio à
+  conferência, não como o arquivo final de transmissão.
+</Callout>
+
+## Antes de começar: configuração fiscal
+
+A geração do arquivo TXT depende dos dados da empresa. Preencha-os em
+**Configurações → aba Fiscal**:
+
+<Steps>
+
+<Step>
+Abra **Configurações** e selecione a aba **Fiscal**.
+</Step>
+
+<Step>
+Marque **Gerar DMED para esta clínica**.
+</Step>
+
+<Step>
+Preencha o **CNPJ** e o **Nome empresarial** da clínica. Se você já usa NFS-e, o sistema sugere o
+CNPJ cadastrado lá.
+</Step>
+
+<Step>
+No bloco **Responsável pela DMED**, informe **CPF** e **Nome** do responsável e, opcionalmente,
+**DDD** e **Telefone**.
+</Step>
+
+<Step>
+Clique em **Salvar**.
+</Step>
+
+</Steps>
+
+<Callout type="warn" title="Configuração incompleta bloqueia o TXT">
+  Se faltar CNPJ, Nome empresarial, CPF ou Nome do responsável, a tela DMED mostra um aviso
+  "Configuração fiscal incompleta" com a lista do que falta, e o botão **Baixar arquivo DMED**
+  fica bloqueado (com um aviso pedindo para verificar a aba Fiscal das configurações). O
+  **Exportar CSV de conferência** continua funcionando mesmo sem essa configuração.
+</Callout>
+
+## Como conferir por CPF do pagador
+
+<Steps>
+
+<Step>
+Acesse **Financeiro → DMED**. O título mostra **DMED — Conferência** seguido do ano selecionado.
+</Step>
+
+<Step>
+Escolha o **ano** no seletor no canto superior direito. A tela já abre no **ano anterior** (o
+ano-calendário típico da declaração) e oferece os últimos 6 anos. A conferência recarrega
+sozinha ao trocar o ano.
+</Step>
+
+<Step>
+Confira a tabela de pagadores. Cada linha traz **Pagador**, **CPF** e **Total recebido** no ano,
+ordenada por nome. No rodapé, **Total geral** soma todos os pagadores.
+</Step>
+
+<Step>
+Clique na **seta** ao lado de um pagador para expandir os **beneficiários** vinculados (só
+aparece quando há beneficiário diferente do pagador). Cada beneficiário mostra nome, data de
+nascimento entre parênteses, CPF e o total recebido sob aquele pagador.
+</Step>
+
+</Steps>
+
+<Screenshot src="/img/fiscal/dmed-conferencia.png" alt="Tela de conferência DMED com tabela de pagadores e totais por ano" caption="Conferência DMED: pagadores agrupados por CPF, com beneficiários expansíveis e total geral." />
+
+<Callout type="info">
+  Quando não há nenhum recebimento PJ no ano escolhido, a tabela exibe **"Nenhum recebimento PJ
+  no ano."** Isso normalmente significa que nenhum profissional estava em regime PJ naquele
+  ano-calendário, ou que ainda não há recebimentos conciliados no período.
+</Callout>
+
+## Divergências e pendências
+
+Abaixo da tabela, o card **Pendências** aponta tudo que **não pôde entrar** nos totais por
+pagador. Resolver essas pendências é o que faz a conferência fechar.
+
+### Diferença não explicada
+
+O card mostra a **Diferença não explicada** sempre que ela for relevante. Ela é a diferença
+entre o total de recebimentos do ano (incluindo os que ficaram de fora por algum problema) e o
+total efetivamente agrupado por pagador. Em outras palavras: é o valor que o sistema viu entrar,
+mas não conseguiu atribuir a um CPF de pagador. Quanto mais perto de **R$ 0,00**, mais completa
+está a conferência.
+
+### Tipos de pendência
+
+<Cards>
+
+<Card title="Bloqueio de cadastro">
+Falta um dado obrigatório no cadastro (CPF do pagador, CPF ou data de nascimento do
+beneficiário, CPF/CRP do profissional, valor inválido ou pagamento sem data). A pendência
+aparece com o nome do paciente e um link **Corrigir →** que leva direto ao cadastro do paciente.
+</Card>
+
+<Card title="Fatura parcial sem detalhe">
+Uma fatura marcada como parcial não tem os recebimentos conciliados que permitiriam saber data e
+valor de cada parcela. O link **Abrir →** leva à fatura para você conciliar os pagamentos.
+</Card>
+
+<Card title="Recebimento sem origem">
+Um crédito bancário entrou no período, mas não está conciliado a nenhuma fatura. O link
+**Conciliar →** leva à tela de **Conciliação** para vincular o recebimento.
+</Card>
+
+</Cards>
+
+Os rótulos de bloqueio que podem aparecer:
+
+| Rótulo na tela | O que corrigir |
+| --- | --- |
+| Beneficiário sem CPF | Cadastrar o CPF do paciente (exceto quando coberto por responsável financeiro). |
+| Beneficiário sem data de nascimento | Preencher a data de nascimento do paciente. |
+| Pagador sem CPF | Cadastrar o CPF do paciente ou o CPF de cobrança do responsável. |
+| Profissional sem CPF | Preencher o CPF no cadastro do profissional. |
+| Profissional sem CRP | Preencher o registro profissional (CRP). |
+| Pagamento sem data | Conciliar o recebimento para registrar a data do pagamento. |
+| Valor inválido | Revisar o valor da fatura/recebimento (deve ser maior que zero). |
+
+<Callout type="info">
+  Recebimentos com bloqueio, sem data de pagamento ou totalmente estornados **não entram** nos
+  totais por pagador, mas continuam compondo a Diferença não explicada — por isso resolver as
+  pendências reduz essa diferença.
+</Callout>
+
+## Baixar os arquivos
+
+A tela oferece duas exportações, ambas referentes ao **ano selecionado**:
+
+<Tabs items={["Arquivo DMED (TXT)", "CSV de conferência"]}>
+
+<Tab value="Arquivo DMED (TXT)">
+
+Clique em **Baixar arquivo DMED** para gerar o arquivo de texto da declaração
+(`dmed-<ano>.txt`). Ele só é liberado quando a **configuração fiscal está completa** — caso
+contrário, o botão avisa que faltam dados na aba Fiscal.
+
+O TXT consolida, por pagador, o total recebido no ano e os beneficiários vinculados, além dos
+dados da empresa e do responsável. **Cada download é registrado na auditoria** (quem baixou, o
+ano, a quantidade de pagadores e o total geral).
+
+<Callout type="warn">
+  O leiaute atual (`DMED-v1`) é interno e ainda **não corresponde ao layout oficial da Receita
+  Federal**. Use-o para conferência; aguarde a versão oficial para a transmissão definitiva.
+</Callout>
+
+</Tab>
+
+<Tab value="CSV de conferência">
+
+Clique em **Exportar CSV de conferência** para baixar a planilha de revisão
+(`dmed-conferencia-<ano>.csv`). É um CSV separado por ponto e vírgula, em UTF-8, já pronto para
+abrir no Excel em português.
+
+Cada linha traz **Tipo** (Pagador ou Beneficiário), **CPF**, **Nome**, **Nascimento** e
+**Total** — valores em R$ e datas no formato DD/MM/AAAA. Os beneficiários aparecem indentados sob
+o respectivo pagador, e a última linha traz o **Total geral**. Esse arquivo não exige a
+configuração fiscal e é o melhor formato para conferir os números com o contador.
+
+</Tab>
+
+</Tabs>
+
+## Fluxo recomendado
+
+<Steps>
+
+<Step>
+Preencha a configuração fiscal (CNPJ, Nome empresarial e Responsável pela DMED).
+</Step>
+
+<Step>
+Selecione o **ano-calendário** da declaração (em geral, o ano anterior).
+</Step>
+
+<Step>
+Resolva as **Pendências** até a **Diferença não explicada** ficar em R$ 0,00 (ou próxima disso):
+corrija cadastros bloqueados, abra faturas parciais e concilie recebimentos sem origem.
+</Step>
+
+<Step>
+Confira os totais por pagador e exporte o **CSV de conferência** para validar com a contabilidade.
+</Step>
+
+<Step>
+Baixe o **arquivo DMED (TXT)** como material de apoio.
+</Step>
+
+</Steps>
+
+<Callout type="info">
+  Os recebimentos de profissionais **PF** não aparecem aqui — eles são tratados na tela
+  **Receita Saúde**. Se um profissional mudou de regime durante o ano, cada recebimento é
+  classificado pelo regime vigente **na data do pagamento**.
+</Callout>

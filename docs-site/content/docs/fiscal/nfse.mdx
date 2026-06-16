@@ -1,0 +1,194 @@
+---
+title: "Emissão de NFS-e"
+description: "Emitir por fatura/item, DANFSE/XML, cancelar, e-mail, marcar externa, histórico, download em massa."
+feature: fiscal
+sources:
+  - "src/lib/nfse/**"
+  - "src/app/financeiro/faturas/[id]/Nfse*"
+  - "src/app/financeiro/faturas/NfseEmitWrapper.tsx"
+  - "src/app/api/financeiro/faturas/[id]/nfse/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+A NFS-e (Nota Fiscal de Serviços eletrônica) é emitida diretamente a partir de cada fatura do módulo financeiro, integrada ao **ADN (Ambiente de Dados Nacional)** do padrão nacional `nfse.gov.br`. Você emite, baixa o DANFSE e o XML, envia por e-mail, cancela e acompanha o histórico sem sair da Clínica.
+
+<Callout type="info" title="Funcionalidade recente">
+A emissão de NFS-e integrada ao padrão nacional foi adicionada recentemente. Para que os botões de emissão apareçam, a clínica precisa ter a **configuração fiscal ativa** (certificado digital, CNPJ, inscrição municipal, código de serviço e alíquota de ISS). Consulte [Configuração fiscal](/docs/fiscal/configuracao-fiscal) antes de emitir a primeira nota.
+</Callout>
+
+## Pré-requisitos para emitir
+
+A NFS-e só pode ser emitida quando todas as condições abaixo são atendidas:
+
+- A clínica tem uma **configuração de NFS-e ativa** (`isActive`). Sem ela, a emissão retorna *"Configuração de NFS-e não encontrada ou inativa para esta clínica"*.
+- A fatura está com status **Pago** ou **Enviado**. Faturas em outros status mostram *"A fatura precisa estar com status Pago ou Enviado para emitir NFS-e."*
+- O valor total da fatura é **maior que zero**. Faturas zeradas mostram *"Fatura com valor zero — NFS-e não pode ser emitida."*
+- O **CPF do responsável financeiro (tomador)** e o **endereço** estão preenchidos (você pode completá-los no próprio momento da emissão).
+
+Você precisa de permissão de **escrita em Financeiro** para emitir, cancelar e enviar por e-mail. A leitura (download de PDF/XML e histórico) exige apenas permissão de leitura.
+
+## Dois modos de emissão
+
+O modo é definido pelo cadastro do paciente, pela opção **Emitir NFS-e individual por sessão** (`nfsePerAppointment`):
+
+<Cards>
+  <Card title="Por fatura (padrão)">
+    Uma única NFS-e cobrindo o valor total da fatura. A descrição agrupa todas as sessões do período em um único texto.
+  </Card>
+  <Card title="Por sessão">
+    Uma NFS-e separada para cada item faturável (cada sessão). A seção aparece como **NFS-e por sessão** e mostra o contador `X/Y emitidas`. Itens do tipo crédito (CREDITO) nunca geram nota.
+  </Card>
+</Cards>
+
+## Emitir por fatura
+
+<Steps>
+
+<Step>
+Abra a fatura em **Financeiro → Faturas** e localize o bloco **NFS-e**. Clique em **Emitir NFS-e**.
+</Step>
+
+<Step>
+Revise os dados no diálogo **Emitir NFS-e**:
+
+- **Tomador (Responsável Financeiro):** nome completo e CPF (11 dígitos). Se o cadastro não tiver CPF de nota, aparece um aviso para informá-lo. O paciente é exibido abaixo para conferência.
+- **Endereço do Tomador:** Rua, Nº, Bairro, Cidade, UF e CEP (8 dígitos). Rua, Bairro e CEP são obrigatórios.
+- **Valor total:** somente leitura, vindo da fatura.
+- **Serviço:** o código `cTribNac`, a alíquota de **ISS %**, o **Serviço NBS** (lista suspensa com os códigos de saúde — psicologia, serviços médicos especializados, etc.) e a **descrição do serviço**, pré-preenchida automaticamente.
+
+<Callout type="info" title="Dados salvos no cadastro">
+O CPF, o nome do responsável e o endereço que você informar aqui são **salvos no cadastro do paciente**, evitando preencher de novo na próxima emissão.
+</Callout>
+</Step>
+
+<Step>
+Clique em **Confirmar Emissão**. O status passa para **Processando…** (PENDENTE) e o sistema envia a nota ao ADN. Quando concluído, o bloco mostra **NFS-e #&lt;número&gt;** com o código de verificação e a data de emissão.
+</Step>
+
+</Steps>
+
+A descrição padrão é gerada automaticamente a partir das sessões do período, do nome do paciente, do profissional e do CRP/registro. Você pode editá-la antes de confirmar. Se o cadastro do paciente tiver uma observação fiscal (`nfseObs`), ela aparece em destaque vermelho no topo do diálogo.
+
+{/* TODO screenshot: /img/fiscal/nfse-emitir-dialog.png */}
+
+## Emitir por sessão (por item)
+
+Quando o paciente está marcado como **NFS-e por sessão**, cada item faturável aparece como um cartão com a data, o valor e a descrição da sessão. Em cada cartão:
+
+- **Emitir NFS-e** emite a nota daquele item. O diálogo abre para você revisar a descrição e os dados do tomador antes de confirmar.
+- Após emitida, o cartão mostra a etiqueta **#&lt;número&gt;** e os botões de **PDF**, **Gov.br**, **e-mail** e **cancelar**.
+- Itens com erro mostram **Tentar novamente**; itens cancelados mostram **Re-emitir**.
+
+O cabeçalho exibe o progresso (ex.: `3/5 emitidas`). Quando parte dos itens foi emitida, a fatura fica com status agregado **PARCIAL**.
+
+## Status da NFS-e
+
+| Status | Significado |
+| --- | --- |
+| **Processando…** (PENDENTE) | Nota enviada ao ADN, aguardando retorno. |
+| **NFS-e #número** (EMITIDA) | Emitida com sucesso; PDF e XML disponíveis. |
+| **Erro na emissão** (ERRO) | Falha no ADN; mostra a mensagem e o botão **Tentar Novamente**. |
+| **NFS-e emitida externamente** (EMITIDA_EXTERNA) | Marcada manualmente como emitida fora do sistema. |
+| **NFS-e Cancelada** (CANCELADA) | Modo por sessão: item cancelado; mostra data e motivo. No modo por fatura, o cancelamento limpa a NFS-e e a fatura volta a permitir emissão (sem badge fixo de cancelada). |
+| **PARCIAL** | Modo por sessão: parte dos itens emitida. |
+
+## DANFSE (PDF) e XML
+
+Para uma NFS-e **EMITIDA**, o bloco oferece dois caminhos de download do PDF:
+
+- **PDF** — gera o **DANFSE localmente** a partir dos dados e do XML armazenados, com QR Code de verificação. É o caminho padrão e mais rápido.
+- **Gov.br** — busca o DANFSE diretamente no ADN/`nfse.gov.br`. Use quando precisar do documento oficial direto da fonte. Se o servidor do ADN estiver indisponível, o sistema avisa para tentar novamente em alguns minutos.
+
+O XML assinado fica armazenado junto à emissão e é exportável no download em massa (veja abaixo). O nome do arquivo segue o padrão `NFS-e-<número>-<nome-do-paciente>.pdf`.
+
+## Enviar por e-mail
+
+<Steps>
+
+<Step>
+Na NFS-e emitida, clique em **Enviar por E-mail** (no modo por sessão, o ícone de envelope no cartão).
+</Step>
+
+<Step>
+Confira ou edite o e-mail do destinatário. Se for diferente do cadastro, o e-mail do paciente é atualizado automaticamente.
+</Step>
+
+<Step>
+Clique em **Enviar**. O sistema gera o DANFSE em PDF e o envia como anexo, com um corpo de e-mail contendo número, valor, descrição e código de verificação.
+</Step>
+
+</Steps>
+
+<Callout type="warn" title="E-mail precisa estar configurado">
+O envio usa o serviço de e-mail da clínica (Resend). Se o endereço de envio não estiver configurado, aparece *"Endereço de envio de e-mail não configurado. Configure em Configurações > E-mail."* Se houver um BCC configurado, uma cópia é enviada para ele.
+</Callout>
+
+## Cancelar uma NFS-e
+
+Somente notas com status **EMITIDA** podem ser canceladas.
+
+<Steps>
+
+<Step>
+Clique em **Cancelar** (ícone de proibido). No modo por sessão, o cancelamento é feito por item.
+</Step>
+
+<Step>
+Informe o **motivo do cancelamento** — mínimo de **15 caracteres** (o sistema bloqueia textos menores).
+</Step>
+
+<Step>
+Clique em **Confirmar**. O cancelamento é enviado ao ADN. No modo **por fatura**, no sucesso a fatura volta a permitir nova emissão (os dados da NFS-e são limpos) — o cancelamento fica registrado apenas no histórico. No modo **por sessão**, o item passa a exibir o status **CANCELADA** com a data e o motivo, e pode ser **re-emitido**.
+</Step>
+
+</Steps>
+
+<Callout type="info">
+No modo **por sessão**, cancelar um item recalcula o status agregado da fatura (por exemplo, de EMITIDA para PARCIAL). Itens cancelados podem ser **re-emitidos** — a emissão cancelada permanece no histórico.
+</Callout>
+
+## Marcar como emitida externamente
+
+Se a nota já foi emitida em outro sistema (fora da Clínica), você pode registrar isso sem chamar o ADN:
+
+- Em uma fatura ainda sem NFS-e, clique em **Já emitida externamente**. O status passa para **NFS-e emitida externamente** (EMITIDA_EXTERNA). Nesse caso **não há XML/PDF disponível no sistema** — apenas o registro do fato.
+- Para reverter, clique em **Desmarcar**, e a fatura volta a permitir emissão normal.
+
+## Histórico de emissões
+
+Em qualquer fatura com integração de NFS-e, clique em **Ver histórico de emissões** para abrir o log de comunicações com o ADN (até os 50 registros mais recentes). Cada linha mostra:
+
+- A operação (**Emissão** ou **Cancelamento**), com indicador verde (sucesso) ou vermelho (erro).
+- Data e hora (DD/MM/AAAA HH:mm).
+- O código HTTP de retorno e a duração da chamada em milissegundos.
+- A mensagem de erro, quando houver.
+
+Se não houver comunicações registradas, aparece *"Nenhum registro de comunicação com o ADN."*
+
+## Download em massa (ZIP do período)
+
+Na lista **Financeiro → Faturas**, depois de selecionar um **mês**, use o botão **Exportar**:
+
+- **NFS-e PDFs (ZIP)** — baixa um `.zip` com os DANFSE em PDF de todas as NFS-e emitidas no período (por fatura e por sessão).
+- **NFS-e XMLs (ZIP)** — baixa um `.zip` com os XMLs assinados de todas as NFS-e emitidas no período.
+
+Os arquivos são nomeados `nfse-pdf-<mês>-<ano>.zip` e `nfse-xml-<mês>-<ano>.zip`, onde `<mês>` é a abreviação de três letras (ex.: `nfse-pdf-Jun-2026.zip`). Se nenhum mês estiver selecionado, o sistema avisa *"Selecione um mês"* (no XML, *"Selecione um mês para baixar os XMLs"*). Se não houver notas no período, o ZIP de PDFs retorna *"Nenhuma NFS-e emitida encontrada para este período"* e o de XMLs *"Nenhum XML de NFS-e encontrado para este período"*.
+
+<Callout type="info">
+O download em massa inclui apenas notas com status **EMITIDA** que possuem XML armazenado. Notas marcadas como emitidas externamente não entram no pacote, pois não têm documento no sistema.
+</Callout>
+
+## Solução de problemas
+
+- **"Configuração de NFS-e não encontrada ou inativa"** — ative a configuração fiscal em [Configuração fiscal](/docs/fiscal/configuracao-fiscal).
+- **"Informe o CPF do responsável financeiro"** — preencha o CPF do tomador no diálogo de emissão.
+- **"Endereço do tomador é obrigatório"** — preencha Rua, Bairro e CEP.
+- **"Erro do ADN: …"** — falha retornada pelo padrão nacional. Confira certificado/credenciais e use **Tentar Novamente**.
+- **Erro ao baixar do Gov.br** — o ADN pode estar temporariamente indisponível; tente o botão **PDF** (geração local) ou aguarde alguns minutos.
+
+<Callout type="info" title="Ambiente de testes">
+A configuração fiscal pode operar em modo **sandbox** (produção restrita do ADN). Notas emitidas em sandbox não têm validade fiscal. Confirme o ambiente antes de emitir em produção.
+</Callout>

@@ -1,0 +1,155 @@
+---
+title: "Enviar documentos (e-mail/WhatsApp)"
+description: "Enviar por e-mail (anexo) ou WhatsApp (link HMAC 7 dias); recibos por período."
+feature: documentos
+sources:
+  - "src/shared/components/documents/SendDocumentDialog.tsx"
+  - "src/app/api/documents/[id]/send/**"
+  - "src/app/api/documents/recibo-items/**"
+lastReviewedCommit: 1d93f26
+audience: recepcao
+status: published
+isNew: true
+---
+
+Depois de gerar um documento (declaração, atestado, recibo de reembolso, contrato, termo de consentimento etc.), você pode entregá-lo ao paciente direto pelo Clinica — sem precisar baixar o PDF e anexar manualmente em outro aplicativo. São dois canais: **e-mail** (com o PDF anexado) e **WhatsApp** (com um link seguro de download).
+
+<Callout type="info" title="Funcionalidade recente">
+O envio de documentos por e-mail e WhatsApp foi adicionado recentemente. Se você não encontrar o botão **Enviar**, peça ao administrador da clínica para confirmar se a sua versão está atualizada.
+</Callout>
+
+## Onde encontrar
+
+Os documentos ficam na ficha do paciente, na aba **Documentos**. A lista mostra cada documento gerado com as colunas **Tipo**, **Título**, **Gerado em**, **Por** e **Enviado**, além das ações **Baixar** e **Enviar** à direita.
+
+A coluna **Enviado** mostra para onde o documento já foi remetido (o e-mail ou o número usado no último envio). Enquanto nada tiver sido enviado, ela exibe um traço (`—`).
+
+{/* TODO screenshot: /img/documentos-enviar-documentos-1.png */}
+
+## Enviar um documento
+
+<Steps>
+
+<Step>
+Abra a ficha do paciente e vá até a aba **Documentos**.
+</Step>
+
+<Step>
+Na linha do documento que deseja entregar, clique em **Enviar**. Abre-se a janela **Enviar documento**.
+</Step>
+
+<Step>
+Escolha o canal no topo da janela: **E-mail** ou **WhatsApp**. O campo do destinatário muda conforme o canal escolhido.
+</Step>
+
+<Step>
+Confira o destinatário. O Clinica já preenche o campo com o e-mail e o telefone cadastrados na ficha do paciente, mas você pode alterar antes de enviar.
+</Step>
+
+<Step>
+Clique em **Enviar**. Enquanto a entrega é processada, o botão mostra **Enviando...**. Ao concluir, aparece uma confirmação e a janela se fecha.
+</Step>
+
+</Steps>
+
+<Callout type="info">
+O botão **Enviar** fica desabilitado enquanto o campo do destinatário estiver vazio. Preencha o e-mail (para o canal E-mail) ou o WhatsApp (para o canal WhatsApp) para habilitá-lo.
+</Callout>
+
+## Os dois canais
+
+<Tabs items={["E-mail", "WhatsApp"]}>
+
+<Tab value="E-mail">
+
+No canal **E-mail**, o documento vai **anexado em PDF** à mensagem. O campo a preencher é **E-mail do destinatário**.
+
+O e-mail é enviado em nome da clínica, com o nome do paciente (ou do responsável financeiro, quando houver) na saudação e os dados de contato da clínica no rodapé. O assunto identifica o tipo do documento e o nome da clínica.
+
+Ao concluir, você vê a confirmação **"Documento enviado por e-mail"**.
+
+<Callout type="warn" title="E-mail precisa estar configurado">
+O envio por e-mail depende do serviço de e-mail da clínica estar configurado. Se não estiver, a janela mostra **"Serviço de e-mail não configurado"** e nada é enviado. Nesse caso, use o canal **WhatsApp** ou peça ao administrador para configurar o e-mail da clínica.
+</Callout>
+
+</Tab>
+
+<Tab value="WhatsApp">
+
+No canal **WhatsApp**, **o arquivo não é enviado**. Em vez disso, o paciente recebe uma mensagem com um **link seguro de download**. O campo a preencher é **WhatsApp do destinatário**.
+
+A mensagem traz o nome da clínica, o tipo do documento e o link, com o aviso de que ele é **válido por 7 dias**. Ao abrir o link, o paciente baixa o PDF diretamente.
+
+Ao concluir, você vê a confirmação **"Link de download enviado por WhatsApp"**.
+
+<Callout type="info" title="Link com validade de 7 dias">
+O link de download é assinado e expira automaticamente após **7 dias**. Depois disso, ao tentar abri-lo o paciente vê a mensagem *"Este link expirou. Solicite um novo à clínica."* — basta enviar o documento de novo pelo WhatsApp para gerar um link novo.
+</Callout>
+
+</Tab>
+
+</Tabs>
+
+## Recibos por período (recibo para reembolso)
+
+Para o documento **Recibo para reembolso**, você não digita as sessões à mão: o Clinica monta a lista a partir das sessões **já pagas** do paciente. A seleção do período acontece na hora de **gerar** o recibo, na etapa **Dados** do assistente de novo documento.
+
+<Steps>
+
+<Step>
+Na aba **Documentos**, clique em **Novo documento** e escolha o modelo **Recibo para reembolso**. Clique em **Continuar**.
+</Step>
+
+<Step>
+Na etapa **Dados**, aparece a seção **Sessões pagas** com dois campos de data — **De** e **Até** — no formato DD/MM/AAAA.
+</Step>
+
+<Step>
+Informe o intervalo desejado e clique em **Buscar sessões**. Enquanto carrega, o botão mostra **Buscando...**.
+</Step>
+
+<Step>
+O Clinica lista as sessões pagas do período, cada uma com a descrição e o valor (em R$). Todas vêm marcadas por padrão — desmarque as que não quiser incluir no recibo.
+</Step>
+
+<Step>
+Avance para a **Pré-visualização** e clique em **Gerar PDF**. O recibo gerado já entra na lista de documentos e pode ser enviado por e-mail ou WhatsApp como qualquer outro.
+</Step>
+
+</Steps>
+
+<Callout type="info" title="O que entra no recibo">
+Só entram sessões cuja cobrança está **paga** (fatura com status PAGO) — sessões regulares, extras e de grupo. Créditos e itens não pagos não aparecem. Se nenhuma sessão paga existir no período, o Clinica mostra *"Nenhuma sessão paga encontrada no período selecionado"*; revise as datas ou confira o status das faturas no módulo Financeiro.
+</Callout>
+
+<Callout type="info">
+Deixar os dois campos **De** e **Até** em branco e clicar em **Buscar sessões** traz **todas** as sessões pagas do paciente. Use as datas para restringir ao período do reembolso.
+</Callout>
+
+## Depois do envio
+
+- A coluna **Enviado**, na lista de documentos, passa a mostrar o destinatário do último envio.
+- Cada envio fica registrado no histórico de auditoria da clínica (quem enviou, qual documento, por qual canal e para qual destinatário).
+- Você pode reenviar o mesmo documento quantas vezes precisar — inclusive trocando de canal. No WhatsApp, cada reenvio gera um link novo, com nova validade de 7 dias.
+
+## Dúvidas comuns
+
+<Cards>
+
+<Card title="O paciente não recebeu o e-mail">
+Confirme se o endereço estava correto na hora do envio e peça para o paciente checar a caixa de spam. Se a janela tiver mostrado "Serviço de e-mail não configurado", o envio nem chegou a sair — use o WhatsApp ou avise o administrador.
+</Card>
+
+<Card title="O link do WhatsApp parou de funcionar">
+Links de WhatsApp valem 7 dias. Se expirou, reenvie o documento pelo WhatsApp para gerar um link novo.
+</Card>
+
+<Card title="Não aparece nenhuma sessão no recibo">
+Só entram sessões com fatura PAGO. Verifique o status das cobranças no Financeiro e o intervalo de datas informado.
+</Card>
+
+<Card title="Quero anexar o arquivo no WhatsApp">
+Não é possível: por segurança, o WhatsApp envia sempre um link de download, nunca o PDF. Para entregar o arquivo em si, use o canal E-mail (que anexa o PDF) ou baixe pelo botão Baixar e anexe manualmente.
+</Card>
+
+</Cards>

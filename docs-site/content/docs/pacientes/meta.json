@@ -1,0 +1,11 @@
+{
+  "title": "Pacientes",
+  "pages": [
+    "cadastro-de-pacientes",
+    "consentimentos-e-lgpd",
+    "historico-e-financeiro",
+    "abas-do-paciente",
+    "anexos-do-paciente",
+    "solicitacoes-do-portal"
+  ]
+}

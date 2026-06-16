@@ -1,0 +1,278 @@
+---
+title: "Despesas e contas a pagar"
+description: "Criar/categorizar/pagar despesas, categorias, recorrentes e import OFX/CSV."
+feature: financeiro
+sources:
+  - "src/app/financeiro/despesas/**"
+  - "src/lib/expenses/**"
+  - "src/app/api/financeiro/despesas/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+O módulo de **Despesas** registra tudo o que a clínica tem a pagar — aluguel,
+energia, internet, honorários, impostos — e acompanha cada conta do lançamento
+até o pagamento. Você organiza as despesas por categoria, automatiza as contas
+fixas com recorrências e ainda importa o extrato do banco (OFX ou CSV) para não
+digitar nada manualmente.
+
+Acesse em **Financeiro → Despesas**.
+
+<Callout type="info" title="Como ler os valores">
+  Todos os valores são em reais (R$) e as datas seguem o formato DD/MM/AAAA.
+  O período exibido (mês e ano) é controlado pelo seletor do topo do módulo
+  Financeiro, compartilhado com as demais abas.
+</Callout>
+
+## Visão geral da tela
+
+Ao abrir **Despesas** você vê:
+
+- **Cartões de resumo** com os totais do período em quatro faixas: **Em aberto**
+  (azul), **Vencido** (vermelho), **Pago** (verde) e **Total**.
+- **Filtros**: campo de busca (descrição, fornecedor ou categoria), filtro de
+  **status** (Todos, Em aberto, Vencido, Pago, Cancelado) e filtro de **categoria**.
+- A **tabela de despesas** do período, ordenada por data de vencimento, com as
+  colunas Vencimento, Descrição, Fornecedor, Categoria, Valor, Status e Ações.
+
+A busca por texto filtra a lista que já está na tela; os filtros de status e
+categoria recarregam os dados do período selecionado.
+
+<Screenshot src="/img/financeiro/despesas-visao-geral.png" alt="Tela de Despesas com cartões de resumo, filtros e tabela de contas a pagar" caption="Resumo do período, filtros e lista de despesas." />
+
+## Criar uma despesa
+
+<Steps>
+
+<Step>
+Clique em **Nova Despesa** (canto superior direito). Um formulário abre em
+janela sobreposta.
+</Step>
+
+<Step>
+Preencha os campos:
+
+- **Descrição** (obrigatório) — ex.: *Aluguel escritório*.
+- **Fornecedor** — ex.: *Imobiliária ABC*. Opcional.
+- **Categoria** — escolha uma categoria existente ou deixe em *Sem categoria*.
+- **Valor (R$)** (obrigatório) — precisa ser maior que zero.
+- **Vencimento** (obrigatório) — a data em que a conta vence.
+- **Forma de pagamento** — texto livre, ex.: *PIX*, *Boleto*, *Cartão*. Opcional.
+- **Observações** — anotações livres. Opcional.
+</Step>
+
+<Step>
+Clique em **Criar**. A despesa nasce com status **Em aberto** e passa a
+aparecer na lista e nos cartões de resumo.
+</Step>
+
+</Steps>
+
+<Callout type="info" title="Categorias padrão criadas automaticamente">
+  Na primeira despesa que você cadastra, a clínica recebe um conjunto de
+  categorias padrão (Aluguel, Energia, Água, Internet/Telefone, Material de
+  Escritório, Software/Assinaturas, Impostos, Honorários Profissionais, entre
+  outras). Não é preciso configurar nada antes — basta começar a lançar.
+</Callout>
+
+### Editar uma despesa
+
+Clique em **Editar** na linha desejada para reabrir o formulário com todos os
+campos preenchidos. Você também pode ajustar **Fornecedor** e **Categoria**
+direto na tabela: clique sobre a célula. No fornecedor, digite o novo valor e
+confirme com **Enter** (ou clicando fora); na categoria, basta escolher uma
+opção na lista. A alteração é salva na hora; se algo der errado, o valor
+anterior é restaurado automaticamente.
+
+## Categorizar despesas
+
+As categorias dão cor e significado às suas contas e alimentam a análise por
+categoria. A tela de categorias fica em **/financeiro/despesas/categorias**.
+
+<Steps>
+
+<Step>
+Para criar: informe o **Nome** e escolha uma **Cor** no seletor, depois clique
+em **Criar**.
+</Step>
+
+<Step>
+A tabela lista todas as categorias com a contagem de despesas vinculadas e o
+tipo: **Padrão** (criadas automaticamente) ou **Personalizada** (criadas por você).
+</Step>
+
+<Step>
+Para remover, clique no ícone de lixeira na linha da categoria.
+</Step>
+
+</Steps>
+
+<Callout type="warn" title="Categorias em uso">
+  Se a exclusão de uma categoria for recusada, verifique a coluna **Despesas**:
+  categorias com despesas vinculadas podem não permitir remoção. Reclassifique
+  as despesas antes de excluir.
+</Callout>
+
+## Pagar uma despesa
+
+Despesas com status **Em aberto** ou **Vencido** exibem o botão **Pagar** na
+coluna de ações.
+
+<Steps>
+
+<Step>
+Clique em **Pagar** na linha da despesa.
+</Step>
+
+<Step>
+A despesa muda para **Pago**, registra a data de pagamento e migra do total
+*Em aberto* para o total *Pago* nos cartões de resumo.
+</Step>
+
+</Steps>
+
+<Callout type="info" title="Fluxo de status">
+  Uma despesa segue: **Em aberto → Pago** (ou **Vencido → Pago**). Contas já
+  pagas ou canceladas não voltam atrás — o sistema bloqueia transições inválidas
+  e avisa caso uma ação não seja permitida para o status atual. Os status
+  possíveis são Rascunho, Em aberto, Vencido, Pago e Cancelado.
+</Callout>
+
+Para remover uma despesa lançada por engano, use **Excluir** (será pedida
+confirmação).
+
+## Despesas recorrentes
+
+Contas fixas como aluguel, energia e internet não precisam ser digitadas todo
+mês. Cadastre uma **recorrência** e as despesas são geradas automaticamente com
+antecedência (até três meses à frente), cada uma com a data de vencimento no dia
+configurado. Abra **Recorrentes** no módulo de Despesas.
+
+<Steps>
+
+<Step>
+Clique em **Nova Recorrência** e preencha **Descrição**, **Fornecedor**
+(opcional), **Valor (R$)**, **Categoria** (opcional), **Frequência**
+(**Mensal** ou **Anual**), **Dia do mês** (1 a 31) e a data de **Início**.
+</Step>
+
+<Step>
+Em **Data de fim**, deixe em branco para uma recorrência indefinida ou informe
+a data em que ela deve parar.
+</Step>
+
+<Step>
+Clique em **Criar**. A partir daí, uma rotina diária gera as despesas com status
+**Em aberto**, sempre com vencimento no dia configurado.
+</Step>
+
+</Steps>
+
+A tela de recorrências mostra um resumo com **Total mensal fixo**, **Total anual
+fixo** e o número de **recorrências ativas**, além das tabelas de recorrências
+ativas e inativas.
+
+<Callout type="info" title="Dia 31 em meses curtos">
+  Se você escolher um dia que não existe no mês (ex.: dia 31 em fevereiro), a
+  despesa é gerada no último dia daquele mês automaticamente.
+</Callout>
+
+### Desativar e reativar
+
+Use **Desativar** para interromper a geração de uma recorrência sem perder o
+histórico — ela passa para a lista de **Inativas**, de onde pode ser
+**Reativada** quando quiser. O botão de lápis (**Editar**) ajusta os dados de
+uma recorrência ativa.
+
+## Importar extrato (OFX / CSV)
+
+Em vez de lançar conta por conta, importe o extrato do banco. Abra **Importar
+Extrato** no módulo de Despesas.
+
+<Steps>
+
+<Step>
+Selecione um arquivo **OFX** ou **CSV** exportado pelo seu banco (também são
+aceitos arquivos `.txt`). O tamanho máximo é de 4 MB.
+</Step>
+
+<Step>
+Confirme o **formato** (OFX ou CSV) no seletor ao lado do arquivo e clique em
+**Processar**.
+</Step>
+
+<Step>
+O sistema lê o arquivo e considera apenas as **saídas (débitos)** — créditos são
+ignorados. As transações que já constam como movimentações do banco (trazidas
+pela integração com o Inter) são descartadas como duplicatas, e o total
+ignorado aparece acima da tabela. Atenção: a importação de arquivo não guarda um
+histórico próprio, então reenviar o mesmo extrato pode recriar as mesmas
+despesas — desmarque as linhas que já lançou.
+</Step>
+
+<Step>
+Revise a lista. Cada linha mostra Data, Descrição, Valor, **Categoria sugerida**
+e **Fornecedor**. As sugestões aprendem com importações anteriores e vêm com um
+indicador de confiança (alta, média ou baixa). Ajuste o fornecedor onde quiser e
+**marque/desmarque** as transações que deseja importar (por padrão todas vêm
+selecionadas).
+</Step>
+
+<Step>
+Clique em **Confirmar … transações**. As despesas são criadas já como **Pago**
+(pois constam no extrato) e o sistema memoriza a categoria/fornecedor de cada
+descrição para sugerir melhor nas próximas importações.
+</Step>
+
+</Steps>
+
+<Callout type="info" title="Formato do CSV">
+  O CSV é lido na ordem padrão **data, valor, descrição** (primeira, segunda e
+  terceira colunas). Exporte o extrato nesse formato ou prefira o OFX, que já
+  traz os campos identificados.
+</Callout>
+
+## Análise de despesas
+
+A aba **Análise** consolida os gastos do período em um **gráfico de pizza por
+categoria**, um **detalhamento** com valor e percentual de cada categoria e um
+gráfico com os **Top Fornecedores**. Despesas canceladas ficam de fora dos
+totais. Use para entender para onde está indo o dinheiro da clínica no mês ou no
+ano selecionado.
+
+{/* TODO screenshot: /img/financeiro/despesas-analise.png */}
+
+## Importar do Inter (agendamentos)
+
+Se a clínica tiver a integração com o **Banco Inter** configurada, o botão
+**Importar do Inter** abre a tela de importação. Lá, em **Agendamentos**, o
+sistema busca os **pagamentos agendados** dos próximos 90 dias e permite
+cadastrá-los como despesas **Em aberto**, com sugestão de categoria. O sistema
+indica quando um agendamento já tem despesa correspondente para evitar
+duplicidade. A configuração da integração e a conciliação bancária são tratadas
+na página de [Conciliação bancária](/docs/financeiro/conciliacao-bancaria).
+
+## Perguntas frequentes
+
+<Cards>
+  <Card title="A despesa importada já entra como paga?">
+    Sim. Transações de extrato (OFX/CSV) viram despesas com status **Pago**,
+    pois já saíram da conta. Já os agendamentos do Inter entram como **Em aberto**.
+  </Card>
+  <Card title="Por que não vejo o botão Pagar?">
+    Ele só aparece para despesas **Em aberto** ou **Vencido**. Contas já pagas
+    ou canceladas não exibem a ação.
+  </Card>
+  <Card title="Reimportar o mesmo arquivo cria despesas duplicadas?">
+    Pode criar. O sistema só descarta transações que já existem como
+    movimentações do banco (vindas da integração com o Inter); o upload de
+    arquivo não guarda histórico próprio. Ao reenviar o mesmo extrato,
+    desmarque as linhas que você já lançou.
+  </Card>
+  <Card title="Onde vejo o impacto das despesas no caixa?">
+    No [Fluxo de caixa](/docs/financeiro/fluxo-de-caixa), que projeta entradas
+    e saídas da clínica.
+  </Card>
+</Cards>

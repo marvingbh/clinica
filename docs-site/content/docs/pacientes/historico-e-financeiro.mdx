@@ -1,0 +1,143 @@
+---
+title: "Histórico de atendimentos e taxa de sessão"
+description: "Histórico paginado, taxa de sessão e profissional de referência."
+feature: pacientes
+sources:
+  - "src/app/patients/components/AppointmentHistorySection.tsx"
+  - "src/app/patients/components/PatientFinanceTab.tsx"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+---
+
+Ao abrir o cadastro de um paciente, você encontra três informações que ajudam a acompanhar o atendimento ao longo do tempo: o **histórico de consultas** (com filtro por status e carregamento paginado), a **taxa de sessão** e o **profissional de referência**. Esta página explica onde cada uma aparece e como usá-las no dia a dia.
+
+## Onde encontrar essas informações
+
+Abra um paciente na lista e o painel de detalhes mostra uma barra de abas no topo. As informações desta página estão distribuídas em duas abas:
+
+- **Dados** — traz o card **Profissional de Referencia** (no topo), o card **Valor da Sessão** e a seção **Historico de Consultas** (no rodapé da aba).
+- **Financeiro** — repete o valor da sessão e acrescenta **Creditos Disponiveis** e **Faturas Recentes**.
+
+<Callout type="info">
+A aba **Financeiro** (assim como a aba **Historico**) só aparece para quem tem permissão de leitura de auditoria. Se você não vê essas abas, fale com o administrador da clínica para ajustar suas permissões.
+</Callout>
+
+## Histórico de consultas
+
+A seção **Historico de Consultas** fica no final da aba **Dados** e lista os atendimentos do paciente, do mais recente para o mais antigo. No canto superior direito da seção, um contador mostra quantos itens estão carregados em relação ao total — por exemplo, `10 de 47`.
+
+### Cada consulta no histórico mostra
+
+Para cada atendimento da lista, você vê um card com:
+
+- **Data e hora** do atendimento, no formato DD/MM/AAAA HH:mm.
+- **Status** do atendimento, em uma etiqueta colorida.
+- **Profissional** que realizou (ou realizará) o atendimento.
+- **Modalidade**: **Online** ou **Presencial**.
+
+### Status possíveis
+
+As etiquetas de status seguem o fluxo de agendamento da agenda:
+
+| Etiqueta | Significado |
+| --- | --- |
+| Agendado | Consulta marcada, ainda sem confirmação (AGENDADO). |
+| Confirmado | Paciente confirmou presença (CONFIRMADO). |
+| Finalizado | Atendimento concluído (FINALIZADO). |
+| Desmarcou | Cancelamento combinado com o paciente. |
+| Cancelado (Falta) | Paciente faltou sem aviso. |
+| Cancelado (Profissional) | Cancelamento por parte do profissional. |
+
+### Filtrar por status
+
+Logo abaixo do título há uma fileira de chips de filtro. Toque em um deles para mostrar apenas os atendimentos daquele status; o chip ativo fica destacado. As opções são:
+
+**Todos · Agendado · Confirmado · Finalizado · Desmarcou · Faltou · Canc. Profissional**
+
+O filtro **Todos** vem selecionado por padrão. Ao trocar de filtro, a lista recarrega do início com os atendimentos correspondentes. Se nenhum atendimento corresponder, você verá a mensagem "Nenhuma consulta com este filtro"; se o paciente ainda não tiver atendimentos, aparece "Nenhuma consulta registrada".
+
+### Carregar mais atendimentos
+
+O histórico carrega **10 atendimentos por vez**. Quando há mais itens do que os já exibidos, aparece o botão **Carregar mais**, indicando quantos faltam — por exemplo, **Carregar mais (37 restantes)**.
+
+<Steps>
+
+<Step>
+Abra o paciente e role até a seção **Historico de Consultas** na aba **Dados**.
+</Step>
+
+<Step>
+Use os chips de filtro se quiser ver apenas um status (por exemplo, somente **Finalizado**).
+</Step>
+
+<Step>
+Toque em **Carregar mais (N restantes)** para anexar os próximos 10 atendimentos à lista. Enquanto carrega, o botão exibe **Carregando...**. Repita até que não restem mais itens.
+</Step>
+
+</Steps>
+
+{/* TODO screenshot: /img/pacientes-historico-e-financeiro-1.png */}
+
+## Taxa de sessão
+
+A **taxa de sessão** é o valor cobrado do paciente por atendimento. Ela aparece em dois lugares do cadastro:
+
+- Na aba **Dados**, ao lado da data do **Ultimo Reajuste**.
+- Na aba **Financeiro**, em destaque no topo, como primeiro card.
+
+O **rótulo do valor muda conforme o modo de cobrança** configurado para a clínica:
+
+<Tabs items={["Por sessão", "Mensalidade fixa"]}>
+<Tab value="Por sessão">
+Quando a clínica cobra por atendimento (modo **PER_SESSION**), o card aparece como **Valor da Sessão** e mostra o preço de cada sessão, em R$.
+</Tab>
+<Tab value="Mensalidade fixa">
+Quando a clínica cobra mensalidade fixa (modo **MONTHLY_FIXED**), o mesmo card aparece como **Valor Mensal**, refletindo o valor cobrado por mês.
+</Tab>
+</Tabs>
+
+Valores são exibidos no padrão brasileiro (por exemplo, **R$ 250,00**). Quando o paciente não tem valor cadastrado, o campo mostra **-**.
+
+<Callout type="info">
+A taxa de sessão é **somente leitura** nas abas de visualização. Para alterá-la (ou registrar um reajuste), use o botão **Editar** no topo do painel do paciente — veja a página de [cadastro de pacientes](/docs/pacientes/cadastro-de-pacientes).
+</Callout>
+
+### Faturas e créditos (aba Financeiro)
+
+Além do valor da sessão, a aba **Financeiro** mostra o panorama financeiro do paciente:
+
+- **Creditos Disponiveis** — lista os créditos de sessão ainda não utilizados, com valor, motivo (quando registrado) e a data de criação no formato DD/MM/AAAA. Um resumo indica quantos créditos existem. Sem créditos, aparece "Nenhum credito disponivel."
+- **Faturas Recentes** — tabela com três colunas: **Periodo** (mês abreviado e ano, ex.: `Mar/2026`), **Valor** (em R$) e **Status**. Sem faturas, aparece "Nenhuma fatura encontrada."
+
+Os status de fatura usam etiquetas próprias:
+
+| Status | Significado |
+| --- | --- |
+| Rascunho | Fatura ainda em preparação (DRAFT). |
+| Enviada | Fatura enviada ao paciente (SENT). |
+| Paga | Pagamento confirmado (PAID). |
+| Atrasada | Vencida sem pagamento (OVERDUE). |
+| Cancelada | Fatura cancelada (CANCELLED). |
+
+<Callout type="info">
+Esta aba é uma visão de leitura voltada ao acompanhamento. A geração e a gestão completa de faturas e créditos ficam no módulo Financeiro.
+</Callout>
+
+## Profissional de referência
+
+O **Profissional de Referencia** é quem responde pelo acompanhamento do paciente. Ele aparece em um card destacado no **topo da aba Dados**, mostrando o nome do profissional.
+
+<Callout type="info">
+O card só é exibido quando há um profissional de referência definido para o paciente. Se o card não aparecer, o paciente ainda não tem um profissional de referência atribuído — defina-o ao editar o cadastro.
+</Callout>
+
+Atenção a uma distinção importante:
+
+- O **profissional de referência** é uma atribuição fixa do cadastro do paciente.
+- O **profissional que aparece em cada card do histórico** é quem realizou aquele atendimento específico — pode ser diferente do profissional de referência, já que outros profissionais podem ter conduzido sessões pontuais.
+
+<Cards>
+<Card title="Cadastro de pacientes" href="/docs/pacientes/cadastro-de-pacientes" description="Editar dados, taxa de sessão e profissional de referência." />
+<Card title="Abas do paciente" href="/docs/pacientes/abas-do-paciente" description="Visão geral de todas as abas do painel do paciente." />
+</Cards>

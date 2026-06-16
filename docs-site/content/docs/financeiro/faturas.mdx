@@ -1,0 +1,223 @@
+---
+title: "Gerenciamento de faturas"
+description: "Gerar/editar/cancelar, status, recalcular, enviar, PDF/ZIP e agrupamento."
+feature: financeiro
+sources:
+  - "src/app/financeiro/faturas/**"
+  - "src/lib/financeiro/generate-monthly-invoice.ts"
+  - "src/lib/financeiro/generate-per-session-invoices.ts"
+  - "src/app/api/financeiro/faturas/**"
+lastReviewedCommit: 1d93f26
+audience: admin
+status: published
+isNew: true
+---
+
+A tela de **Faturas** (em `/financeiro/faturas`) concentra a cobrança das sessões: você gera as faturas do mês, acompanha o status de pagamento, recalcula valores quando algo muda na agenda, envia para o paciente e exporta tudo em PDF ou ZIP.
+
+<Callout type="info" title="Funcionalidade nova">
+O agrupamento de faturas por sessão, o recálculo em lote por paciente e as exportações em ZIP (relatórios, NFS-e XML e NFS-e PDF) foram adicionados recentemente. Se você usava o módulo financeiro antes, vale rever as seções **Agrupamento** e **PDF e ZIP** abaixo.
+</Callout>
+
+## Visão geral da tela
+
+No topo da página você encontra:
+
+- **Cartões de resumo**: Vencidas, Vencem em 3 dias, Em aberto total e Recebido no mês selecionado, com o valor em R$ e a contagem de faturas.
+- **Aviso de inadimplência**: quando há faturas vencidas, aparece uma faixa vermelha com o total em atraso e o botão **Ver só vencidas**.
+- **Barra de filtros**: busca por paciente ou responsável, filtro por profissional (apenas para administradores), filtros de **Status**, **NFS-e** (Com / Sem) e **Ordem** (Nome ou Dia da semana).
+- **Tabela de faturas**: uma linha por fatura (ou por grupo de sessões), com paciente, sessões, total, status, NF, vencimento, pagamento e ações.
+
+O período (mês/ano) é controlado pelo seletor do módulo financeiro. Quando nenhum mês está selecionado, a lista mostra o ano inteiro — mas algumas ações (gerar, exportar) exigem um mês específico.
+
+<Screenshot src="/img/financeiro/faturas-visao-geral.png" alt="Tela de faturas com cartões de resumo, filtros e tabela" caption="Cartões de resumo, filtros e a tabela de faturas do mês." />
+
+## Gerar faturas do mês
+
+A geração cria (ou atualiza) automaticamente uma fatura para cada paciente com agendamentos no mês de referência.
+
+<Steps>
+
+<Step>
+Selecione o **mês e ano** desejados no seletor do módulo financeiro.
+</Step>
+
+<Step>
+Se quiser gerar apenas para um profissional, escolha-o no filtro **Todos os profissionais** (disponível para administradores).
+</Step>
+
+<Step>
+Abra o menu **Mais ações** e clique em **Gerar faturas do mês**.
+</Step>
+
+<Step>
+Acompanhe a barra de progresso: o sistema processa paciente por paciente e mostra o nome de cada um. Ao final, um aviso resume quantas faturas foram **geradas**, **atualizadas** e **mantidas**.
+</Step>
+
+</Steps>
+
+Apenas agendamentos do tipo **consulta** e **reunião** entram na fatura. O que o sistema faz por trás:
+
+- **Não cria fatura vazia**: pacientes sem sessões cobráveis no mês são ignorados (contam como "mantidas").
+- **Não cobra duas vezes**: agendamentos já incluídos em outra fatura são automaticamente excluídos.
+- **Respeita faturas já em andamento**: uma fatura existente com status **Pago**, **Enviado** ou **Parcial** nunca é sobrescrita (conta como "mantida").
+- **Sessões de meses anteriores ainda não faturadas** são puxadas para a fatura do mês atual.
+- **Créditos de sessão** disponíveis (por exemplo, de uma falta com aviso prévio) são aplicados como desconto — desde que tenham origem em um mês anterior ao da fatura.
+
+<Callout type="warn" title="Paciente sem valor de sessão">
+Pacientes sem **valor de sessão** configurado são pulados na geração. Configure o valor no cadastro do paciente antes de gerar.
+</Callout>
+
+## Criar fatura manual (Nova fatura)
+
+Para cobrar algo fora do fluxo mensal — uma sessão avulsa, um relatório, uma avaliação — use **Nova fatura**, no canto superior direito.
+
+<Steps>
+
+<Step>
+**Paciente** — busque pelo nome (a partir de 2 letras) e selecione.
+</Step>
+
+<Step>
+**Valor** — escolha entre dois modos:
+- **Agendamentos**: marque os agendamentos ainda não faturados; o total soma o preço de cada sessão (ou o valor padrão de sessão do paciente).
+- **Valor avulso**: informe um valor em R$, uma descrição opcional (ex.: "Avaliação", "Relatório") e o mês/ano de referência.
+</Step>
+
+<Step>
+**Confirmar** — revise o resumo. Se a cobrança já foi quitada, marque **Marcar como pago**. Clique em **Criar Fatura**.
+</Step>
+
+</Steps>
+
+Você é levado para a página da fatura recém-criada. Faturas manuais entram com status **Pendente** (ou **Pago**, se você marcou a opção).
+
+<Callout type="info">
+No modo Agendamentos, cada agendamento só pode estar em uma fatura. Se um deles já estiver vinculado a outra fatura, a criação é bloqueada com um aviso.
+</Callout>
+
+## Status das faturas
+
+Toda fatura passa por um destes status:
+
+| Status | Significado |
+| --- | --- |
+| **Pendente** | Gerada, ainda não enviada ao paciente. |
+| **Enviado** | Já enviada ao paciente / pronta para cobrança. |
+| **Parcial** | Recebida em parte (pagamento incompleto). |
+| **Pago** | Quitada. Registra a data e se foi conciliada pelo banco ou marcada manualmente. |
+| **Cancelado** | Anulada. Não entra mais nos totais em aberto. |
+
+Como mudar o status:
+
+- **Marcar como pago**: na coluna **Pagamento**, clique no botão verde **Pagar**. Funciona para faturas Pendente, Enviado ou Parcial.
+- **Marcar pendentes como enviadas (em lote)**: menu **Mais ações → Marcar pendentes como enviadas**. Percorre as faturas pendentes visíveis e muda todas para **Enviado**.
+- **Trocar manualmente**: abra a fatura (ícone de lápis) e use o seletor de status no cabeçalho.
+
+<Callout type="warn" title="Efeito sobre cobranças">
+Ao mudar uma fatura para **Pago** ou **Cancelado**, qualquer cobrança (link de pagamento) ainda em aberto para ela é expirada automaticamente — o paciente não consegue pagar uma fatura já quitada ou cancelada.
+</Callout>
+
+## Editar uma fatura
+
+Clique no ícone de **lápis** (Editar fatura) na linha, ou no ícone de **olho** (Ver detalhes) para o modal rápido. Na página de edição você pode:
+
+- **Alterar o status** e o **vencimento** (clique na data para editar).
+- **Editar a mensagem da fatura**, ver o **resumo** (Total, Sessões, Créditos, Extras) e os **pagamentos conciliados**.
+- **Editar itens** (quando a fatura está editável): mudar a descrição, a quantidade e o valor de cada item, ou remover itens. Ao remover um item de crédito, o crédito de sessão correspondente é liberado para reuso.
+- **Adicionar item manual**: pelo botão **+ Adicionar item manual** é possível incluir itens do tipo **Sessão Extra**, **Reunião Escola** ou **Crédito (desconto)**.
+- **Registrar observações** internas.
+- **Re-vincular itens sem data**: se a fatura tiver itens órfãos (sem agendamento associado), aparece o botão **Re-vincular N itens sem data**, que tenta reconectá-los aos agendamentos do mês.
+
+<Callout type="info">
+Uma fatura só é editável (itens, recálculo) enquanto está em **Pendente**, **Enviado** ou **Parcial**. Faturas Pagas ou Canceladas ficam somente leitura.
+</Callout>
+
+## Recalcular
+
+O recálculo regenera os itens automáticos de uma fatura com base no estado atual da agenda — útil quando você adicionou, removeu ou reagendou sessões depois de gerar a fatura.
+
+- **Uma fatura**: clique no ícone de **atualizar** (Recalcular fatura) na linha, ou no botão **Recalcular** dentro da fatura.
+- **Um grupo de sessões**: no cabeçalho de um grupo (faturas por sessão), clique no ícone de atualizar (**Recalcular todas as sessões**).
+
+O que o recálculo preserva e regenera:
+
+- **Mantém itens manuais** e observações que você adicionou.
+- **Regenera os itens automáticos** de sessões e **reaplica os créditos** disponíveis.
+- **Atualiza o vencimento** conforme o dia de vencimento do paciente/clínica.
+- **Recalcula totais** (valor, número de sessões, créditos, extras).
+
+<Callout type="warn">
+Só é possível recalcular faturas **Pendente**, **Enviado** ou **Parcial**. Faturas com **NFS-e emitida** pelo sistema não podem ser recalculadas — cancele a NFS-e primeiro.
+</Callout>
+
+## Enviar para o paciente
+
+Dentro de uma fatura, o botão **Enviar WhatsApp** registra o envio da mensagem da fatura para o paciente.
+
+Pré-requisitos:
+
+- O paciente precisa ter **autorizado a comunicação por WhatsApp** (consentimento no cadastro).
+- A fatura precisa ter uma **mensagem** preenchida. Se estiver vazia, recalcule ou regenere a fatura antes de enviar.
+
+A mensagem usa o modelo de fatura do paciente, ou o da clínica, ou o modelo padrão — com o nome do paciente, valor, vencimento, número de sessões e o detalhamento dos itens.
+
+## Cancelar e excluir
+
+- **Cancelar**: troque o status da fatura para **Cancelado**. Ela sai dos totais em aberto e cobranças abertas são expiradas.
+- **Excluir**: na página da fatura, **Excluir Fatura**. A exclusão é permanente; os créditos consumidos pela fatura são liberados de volta.
+
+<Callout type="warn" title="NFS-e bloqueia cancelar e excluir">
+Não é possível **cancelar** nem **excluir** uma fatura com **NFS-e emitida**. Cancele (ou desmarque) a NFS-e antes. Da mesma forma, faturas de valor zero não podem ser marcadas como tendo NFS-e emitida.
+</Callout>
+
+## PDF e ZIP
+
+Cada fatura tem o seu PDF, e há exportações em lote para fechar o mês.
+
+### PDF individual
+
+- Na linha da fatura, clique no ícone de **download** (Baixar PDF).
+- Dentro da fatura, use o botão **Baixar PDF**.
+
+### PDF de um grupo
+
+No cabeçalho de um grupo de sessões, o ícone de **download** (Baixar PDF do grupo) gera **um único PDF com uma página por sessão**, ordenadas por vencimento.
+
+### Exportações em ZIP
+
+O menu **Exportar** (exige um mês selecionado e ao menos uma fatura) reúne:
+
+<Cards>
+  <Card title="Relatórios (ZIP)">
+    Um PDF por fatura do mês. Faturas mensais/manuais saem como PDFs individuais; faturas por sessão do mesmo paciente são consolidadas em um PDF com várias páginas. Respeita o filtro de profissional.
+  </Card>
+  <Card title="NFS-e XMLs (ZIP)">
+    Os arquivos XML das NFS-e emitidas no mês.
+  </Card>
+  <Card title="NFS-e PDFs (ZIP)">
+    Os PDFs das NFS-e emitidas no mês.
+  </Card>
+  <Card title="Preview NFS-e">
+    Relatório de pré-visualização das NFS-e antes da emissão.
+  </Card>
+</Cards>
+
+Os arquivos do ZIP de relatórios são nomeados por mês, primeiro nome do profissional e nome do paciente (ex.: `Jun-Ana-Joao-Silva.pdf`).
+
+## Agrupamento
+
+A forma como as faturas aparecem na tabela depende do **agrupamento** configurado (na clínica ou por paciente):
+
+- **Mensal (consolidado)**: uma fatura por paciente no mês, somando todas as sessões. Aparece como **uma linha** na tabela.
+- **Por sessão**: uma fatura para cada sessão. Na tabela elas aparecem **agrupadas por paciente** numa linha-resumo recolhível — clique para expandir e ver cada sessão individual. O status mostrado no grupo é derivado das faturas: se há pagas e não pagas juntas, o grupo fica **Parcial**.
+
+Além disso, há o **desdobramento por profissional**: se o paciente é atendido por mais de um profissional e está marcado para dividir a fatura, cada profissional recebe a sua própria fatura. Caso contrário, tudo é consolidado sob o profissional de referência do paciente.
+
+<Callout type="info">
+Trocar o agrupamento (mensal ↔ por sessão) e depois **recalcular** converte a fatura para o novo formato, cancelando a versão antiga pendente e regenerando no modelo escolhido. O sistema também reorganiza as faturas quando você liga/desliga o desdobramento por profissional.
+</Callout>
+
+## Quem pode acessar
+
+O módulo exige a permissão de **finanças**. Quem tem acesso de leitura vê e exporta; quem tem acesso de escrita gera, edita, recalcula, envia e cancela. Profissionais (não administradores) veem e operam apenas as **próprias faturas**; administradores enxergam a clínica inteira e podem filtrar por profissional.

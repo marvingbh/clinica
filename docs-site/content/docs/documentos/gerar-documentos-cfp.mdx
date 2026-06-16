@@ -1,0 +1,201 @@
+---
+title: "Gerar documentos CFP"
+description: "Wizard de tipos CFP, merge de dados, preview, checklist de pendências e PDF."
+feature: documentos
+sources:
+  - "src/lib/documents/**"
+  - "src/shared/components/documents/**"
+  - "src/app/api/documents/generate/**"
+  - "src/app/api/documents/preview/**"
+  - "src/app/patients/components/DocumentsTab.tsx"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+isNew: true
+---
+
+A geração de documentos CFP produz, em poucos cliques, um PDF formal e
+assinado pela clínica (declaração de comparecimento, atestado, relatório,
+laudo, parecer, encaminhamento, contrato terapêutico, recibo para reembolso e
+os termos de consentimento). Você escolhe um modelo, confere os dados que serão
+mesclados, valida as pendências e gera o arquivo — tudo dentro da ficha do
+paciente.
+
+<Callout type="info" title="Funcionalidade recente">
+  O gerador de documentos CFP foi lançado recentemente. Os modelos seguem a
+  estrutura da Resolução CFP 06/2019. Por decisão de projeto, **não existe
+  nenhum campo de diagnóstico ou CID** no sistema — uma declaração de
+  comparecimento é, por construção, incapaz de carregar conteúdo clínico.
+</Callout>
+
+## Antes de começar
+
+- Você precisa de permissão de **escrita** no recurso de documentos. Sem ela, o
+  botão **Novo documento** não aparece.
+- O documento é assinado pelo **profissional**. Se você acessa como profissional,
+  o sistema usa o seu próprio perfil; alguns dados (CRP, CPF/CNPJ) vêm do seu
+  cadastro e precisam estar completos.
+- Alguns tipos clínicos (relatório, laudo, parecer e atestado) podem estar
+  **restritos a profissionais** por configuração da clínica. Se a restrição
+  estiver ativa e você não tiver um perfil profissional vinculado, a geração
+  desses tipos é bloqueada.
+
+## Onde fica
+
+<Steps>
+
+<Step>
+Abra a ficha do paciente em **Pacientes** e selecione a aba **Documentos**.
+</Step>
+
+<Step>
+Clique em **Novo documento**. O painel **Novo documento** abre com o assistente
+em três etapas: **1. Modelo → 2. Dados → 3. Pré-visualização**.
+</Step>
+
+</Steps>
+
+{/* TODO screenshot: /img/documentos-gerar-documentos-cfp-1.png */}
+
+## Etapa 1 — Escolher o modelo
+
+A primeira etapa lista os modelos disponíveis em até dois grupos:
+
+- **Modelos do sistema** — os modelos padrão alinhados à Resolução CFP 06/2019,
+  prontos para uso. Aparecem com a marca **Padrão do sistema**.
+- **Modelos da clínica** — só aparece quando a sua clínica criou versões
+  personalizadas. Cada item mostra **Modelo da clínica** e o tipo correspondente.
+
+Clique no modelo desejado (a borda fica azul indicando a seleção) e use
+**Continuar**. O botão fica desabilitado enquanto nenhum modelo estiver
+selecionado.
+
+<Callout type="info" title="Modelos personalizados">
+  Quando a clínica cria um modelo próprio para um tipo, ele substitui o texto
+  padrão, mas continua restrito ao mesmo conjunto de variáveis. Para criar ou
+  editar esses modelos, consulte **Modelos de documentos**.
+</Callout>
+
+## Etapa 2 — Preencher os dados
+
+O que aparece nesta etapa depende **do que o modelo escolhido realmente usa**:
+
+- **Campos de texto manuais** — o assistente lê o corpo do modelo e exibe um
+  campo para cada variável de preenchimento manual presente nele. Exemplos:
+  **Finalidade** (atestado), **Identificação**, **Demanda**, **Procedimento**,
+  **Análise**, **Conclusão** (relatório/laudo), **Exposição de motivos**
+  (parecer), **Destinatário** e **Motivo do encaminhamento** (encaminhamento),
+  **Período de afastamento** e **Código TUSS (opcional)**. Campos curtos usam
+  caixa de uma linha; os demais usam área de texto.
+- **Sessões pagas** — aparece **somente no recibo para reembolso** (modelos que
+  usam a lista de sessões). Veja a seção a seguir.
+- Se o modelo não exige nenhum dado adicional (caso da declaração de
+  comparecimento, por exemplo), o assistente mostra a mensagem *"Este documento
+  não exige dados adicionais. Avance para a pré-visualização."*
+
+Clique em **Continuar** para gerar a pré-visualização.
+
+### Seleção de sessões (recibo para reembolso)
+
+Para o recibo, informe o período em **De** e **Até** (formato DD/MM/AAAA) e
+clique em **Buscar sessões**. O sistema lista apenas as sessões **pagas** do
+paciente no período — itens de fatura com status `PAGO` cujo tipo seja sessão
+regular, sessão extra ou sessão de grupo. Créditos e itens não pagos nunca
+entram no recibo.
+
+Todas as sessões encontradas vêm marcadas; desmarque as que não quiser incluir.
+Se nada for encontrado, aparece *"Nenhuma sessão paga encontrada no período
+selecionado"*.
+
+<Callout type="info">
+  O **valor total** do recibo é a soma das sessões marcadas, calculada
+  automaticamente. A duração de cada sessão vem do agendamento; quando não há
+  agendamento vinculado, é usada a duração padrão da clínica.
+</Callout>
+
+## Merge dos dados
+
+Ao avançar, o sistema monta o documento substituindo as variáveis `{{...}}` do
+modelo pelos dados reais. As fontes são resolvidas automaticamente:
+
+| Origem | Exemplos de variáveis |
+| --- | --- |
+| Paciente | nome, CPF, responsável (responsável financeiro → mãe → pai) |
+| Profissional | nome, CRP, CPF/CNPJ (CPF do profissional ou, na falta, CNPJ da clínica) |
+| Clínica | nome, endereço |
+| Atendimento | data, horário de início e de término |
+| Sessões | tabela de sessões e valor total (recibo) |
+| Data | data atual de emissão |
+| Manuais | os campos que você digitou na Etapa 2 |
+
+Regras importantes do merge:
+
+- **Datas** saem no formato DD/MM/AAAA e **horários** em HH:mm (24h), no fuso da
+  clínica. Valores em **R$** seguem o padrão brasileiro.
+- Variáveis **opcionais** que ficam sem valor são removidas, e a linha que
+  ficaria vazia por causa disso é descartada — o texto não fica com lacunas.
+- Variáveis **obrigatórias** sem valor **não** são preenchidas e entram na
+  checklist de pendências (veja abaixo), bloqueando a geração.
+
+## Etapa 3 — Pré-visualização e checklist de pendências
+
+A última etapa mostra o texto do documento já mesclado e, no caso do recibo, a
+tabela de sessões (**Data**, **Duração**, **Valor**).
+
+Se faltar algum dado obrigatório, aparece no topo um aviso âmbar **"Faltam dados
+para gerar este documento"** listando cada pendência. Quando há um atalho de
+correção, um link rápido leva direto ao lugar certo:
+
+- **CPF do paciente não cadastrado** → *Completar cadastro* (ficha do paciente)
+- **CRP do profissional não cadastrado** / **CPF/CNPJ do profissional...** →
+  *Editar perfil*
+- **Nenhuma sessão paga encontrada...** → *Ver faturas*
+
+<Callout type="warn" title="Geração bloqueada">
+  Enquanto houver itens na checklist, o botão **Gerar PDF** permanece
+  desabilitado. Resolva cada pendência (complete o cadastro, ajuste o período
+  das sessões ou preencha o campo manual) e volte ao assistente.
+</Callout>
+
+Casos especiais que entram na checklist mesmo sem aparecer literalmente no
+texto: um **contrato terapêutico de paciente menor de idade** exige um
+responsável cadastrado — se não houver, a pendência *"Responsável do paciente
+não cadastrado"* aparece.
+
+{/* TODO screenshot: /img/documentos-gerar-documentos-cfp-2.png */}
+
+## Gerar o PDF
+
+Com a checklist vazia, clique em **Gerar PDF**. O botão exibe **Gerando...**
+durante o processo. Ao concluir:
+
+1. Aparece a confirmação **"Documento gerado com sucesso"**.
+2. O PDF abre automaticamente em uma nova aba.
+3. O documento passa a constar na lista da aba **Documentos**, com **Tipo**,
+   **Título** (tipo + data de emissão, ex.: *Declaração de comparecimento —
+   15/06/2026*), **Gerado em**, **Por** e situação de envio.
+
+Na lista, cada documento oferece **Baixar** (reabre o PDF) e **Enviar** (para
+encaminhar ao paciente — veja **Enviar documentos**).
+
+<Callout type="info" title="Pré-visualizar não gera nada">
+  A pré-visualização é apenas leitura: ela não cria registro nem PDF. O
+  documento só é salvo, registrado em auditoria e disponibilizado quando você
+  confirma em **Gerar PDF**.
+</Callout>
+
+## Tipos de documento disponíveis
+
+Os modelos do sistema cobrem:
+
+<Cards>
+  <Card title="Declaração de comparecimento" description="Confirma presença em atendimento, com data e horário. Sem conteúdo clínico." />
+  <Card title="Atestado psicológico" description="Atesta acompanhamento para uma finalidade informada." />
+  <Card title="Relatório / Laudo / Parecer" description="Documentos clínicos com identificação, análise e conclusão preenchidos manualmente." />
+  <Card title="Encaminhamento" description="Encaminha o paciente a um destinatário, com o motivo." />
+  <Card title="Contrato terapêutico" description="Termos do acompanhamento; exige responsável quando o paciente é menor." />
+  <Card title="Recibo para reembolso" description="Lista de sessões pagas e valor total, para reembolso." />
+  <Card title="Termos de consentimento" description="TCLE, consentimento de menor, de imagem, de gravação e termo LGPD." />
+</Cards>
+
+{/* OUTLINE (do sitemap): Wizard de tipos CFP, merge de dados, preview, checklist de pendências e PDF. — COBERTO */}

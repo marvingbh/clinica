@@ -1,0 +1,176 @@
+---
+title: "Acesso do paciente à teleconsulta"
+description: "Link por token HMAC, pré-entrada LGPD, sala de espera, telas de erro e auditoria."
+feature: teleconsulta
+sources:
+  - "src/app/teleconsulta/**"
+  - "src/app/api/public/teleconsulta/**"
+  - "src/lib/telehealth/video-tokens.ts"
+  - "src/lib/telehealth/join-window.ts"
+lastReviewedCommit: 1d93f26
+audience: paciente
+status: published
+isNew: true
+---
+
+Esta página explica como **você, paciente**, entra em uma teleconsulta da clínica:
+o que é o link que você recebe, a tela de boas-vindas com o aviso de privacidade,
+a sala de espera e as mensagens que podem aparecer quando ainda não é hora de
+entrar. Tudo acontece pelo navegador, sem instalar aplicativo e sem precisar de
+senha ou login.
+
+<Callout type="info" title="Funcionalidade recente">
+  A teleconsulta pelo próprio link da clínica é uma adição recente ao Clinica.
+  Se a sua clínica ainda não habilitou o atendimento por vídeo, o link não
+  funcionará — nesse caso, fale com a recepção.
+</Callout>
+
+## O link que você recebe
+
+Quando a sua consulta é marcada como **online**, a clínica envia um link de
+teleconsulta junto com a confirmação ou o lembrete (por WhatsApp ou e-mail). O
+endereço tem este formato:
+
+```
+https://<sua-clinica>/teleconsulta/<código>
+```
+
+O `<código>` é único e assinado digitalmente (token HMAC). Na prática, isso
+significa que:
+
+- **Só quem tem o link chega até a sua consulta.** Não existe tela de busca nem
+  lista de pacientes; o próprio link já identifica o atendimento.
+- **O link não expira por data.** A validade é decidida na hora, com base no
+  estado atual da consulta. Se a clínica **remarcar** o horário, o mesmo link
+  passa a valer no novo horário. Se a consulta for **cancelada**, o link deixa
+  de dar acesso imediatamente.
+- **O link não carrega seus dados pessoais.** O nome da sala de vídeo é gerado
+  de forma embaralhada, sem o seu nome.
+
+<Callout type="warn" title="Cuide do seu link">
+  O link é pessoal. Não o compartilhe em grupos nem em redes sociais: quem tiver
+  o link consegue entrar na sua sala de vídeo dentro do horário permitido.
+</Callout>
+
+## Quando a sala abre
+
+A sala de vídeo fica disponível em uma janela em torno do horário agendado:
+
+<Cards>
+  <Card title="Abre 15 minutos antes" description="Você já pode entrar e aguardar o profissional a partir de 15 minutos antes do horário marcado." />
+  <Card title="Fecha 30 minutos após o término" description="Há uma tolerância de 30 minutos depois do horário previsto de término da consulta." />
+</Cards>
+
+Se você abrir o link **antes** dessa janela, verá uma mensagem informando o
+dia e a hora da sua teleconsulta — basta voltar mais perto do horário.
+
+## Passo a passo para entrar
+
+<Steps>
+
+<Step>
+### Abra o link
+
+Toque no link recebido da clínica. Ele abre direto no navegador do celular ou do
+computador. Recomendamos uma conexão estável e um ambiente reservado.
+</Step>
+
+<Step>
+### Confira os dados e seu nome
+
+A tela de boas-vindas mostra o nome da **clínica**, o **Profissional** e a
+**Data** no formato DD/MM/AAAA às HH:mm. No campo **Seu nome** já vem preenchido
+o seu primeiro nome; você pode ajustá-lo para como prefere ser identificado(a)
+na chamada.
+
+{/* TODO screenshot: /img/teleconsulta/acesso-pre-entrada.png */}
+</Step>
+
+<Step>
+### Leia o aviso de privacidade (LGPD)
+
+Antes do botão de entrada há um aviso destacado informando que **a sessão não é
+gravada** e que, ao entrar, você concorda com o atendimento por videochamada e
+com o tratamento dos seus dados conforme a **LGPD**.
+</Step>
+
+<Step>
+### Entre na sessão
+
+Toque em **Entrar na sessão**. O navegador pode pedir permissão para usar a
+**câmera** e o **microfone** — autorize para que o profissional possa ver e
+ouvir você. Em seguida, você cai na sala de vídeo ou na sala de espera,
+dependendo de o profissional já ter entrado.
+</Step>
+
+</Steps>
+
+## A sala de espera
+
+Se o profissional ainda não tiver entrado, você vê a tela:
+
+> **Aguardando o(a) profissional entrar na sala...**
+
+com a data e a hora da consulta logo abaixo. Não é preciso atualizar a página:
+o Clinica verifica automaticamente, a cada 10 segundos, se o profissional já
+entrou. Assim que isso acontece, você é levado(a) para a sala de vídeo sem
+precisar fazer nada.
+
+<Callout type="info" title="Pode deixar a aba aberta">
+  Mantenha a aba do navegador aberta enquanto espera. Quando o profissional
+  entrar, a chamada começa sozinha.
+</Callout>
+
+## Dentro da sala de vídeo
+
+Na sala de vídeo você tem os controles habituais de uma videochamada:
+**microfone**, **câmera**, **compartilhar tela**, **tela cheia**, **chat**,
+**configurações**, **levantar a mão**, **qualidade de vídeo**, **visão em
+mosaico** e **encerrar**.
+
+- A sessão **não é gravada**.
+- Ao encerrar a chamada (botão de desligar), você volta para a tela de
+  boas-vindas e pode entrar novamente, caso a janela de horário ainda esteja
+  aberta.
+
+## Telas de erro e o que fazer
+
+Dependendo da situação da consulta, o link pode mostrar uma mensagem em vez de
+abrir a sala. Veja o que cada uma significa:
+
+| Mensagem que aparece | O que significa | O que fazer |
+|---|---|---|
+| Sua teleconsulta está agendada para DD/MM/AAAA às HH:mm. A sala abre 15 minutos antes do horário. | Você abriu o link cedo demais. | Aguarde e volte a partir de 15 minutos antes do horário. |
+| Esta sessão já foi encerrada. Em caso de dúvida, entre em contato com a clínica. | A consulta foi finalizada ou a janela de horário já fechou. | Se ainda precisar do atendimento, fale com a clínica. |
+| Esta sessão foi cancelada. Entre em contato com a clínica para reagendar. | A consulta foi cancelada. | Entre em contato com a clínica para remarcar. |
+| Esta consulta será presencial. Em caso de dúvida, entre em contato com a clínica. | A consulta não está marcada como online. | Compareça presencialmente ou confirme o formato com a clínica. |
+| A teleconsulta não está disponível. Entre em contato com a clínica. | A clínica ainda não habilitou o atendimento por vídeo. | Fale com a recepção da clínica. |
+| Link de teleconsulta inválido. Confira o link recebido ou entre em contato com a clínica. | O link está incompleto, alterado ou foi digitado errado. | Use o link exatamente como recebido; se persistir, peça um novo à clínica. |
+| Não foi possível conectar. Verifique sua internet e tente novamente. | Houve falha de conexão ou ao carregar a sala de vídeo. | Verifique a internet e tente abrir o link novamente. |
+
+Quando a clínica tem um telefone cadastrado, algumas dessas telas exibem também
+a linha **"Precisa de ajuda? Ligue para ..."** com o número de contato.
+
+<Callout type="warn" title="Muitas tentativas seguidas">
+  Por segurança, o acesso é limitado contra tentativas em excesso. Se aparecer
+  "Muitas tentativas. Aguarde alguns minutos e tente novamente.", espere alguns
+  minutos antes de abrir o link de novo.
+</Callout>
+
+## Privacidade e registro de acesso
+
+A teleconsulta foi desenhada para proteger seus dados:
+
+- **Sem gravação.** As sessões não são gravadas pela plataforma.
+- **Sem dados pessoais na sala.** O nome da sala de vídeo é gerado de forma
+  embaralhada e o assunto exibido é apenas "Teleconsulta", nunca o seu nome ou
+  o da clínica.
+- **Acesso registrado (auditoria).** Para fins de segurança e conformidade com a
+  LGPD, cada abertura do link de entrada é registrada no histórico de auditoria
+  da clínica. A verificação automática da sala de espera, feita enquanto você
+  aguarda, **não** gera registro.
+
+<Callout type="info" title="Sem instalar nada">
+  Você não precisa de aplicativo, conta ou senha. Tudo funciona pelo navegador a
+  partir do link que a clínica enviou.
+</Callout>

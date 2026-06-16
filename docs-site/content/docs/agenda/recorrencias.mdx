@@ -1,0 +1,193 @@
+---
+title: "Agendamentos recorrentes"
+description: "Semanal/quinzenal/mensal, exceções e quinzenal com alternância de paciente."
+feature: agendamento
+sources:
+  - "src/lib/appointments/recurrence.ts"
+  - "src/lib/appointments/recurrence-slots.ts"
+  - "src/lib/appointments/biweekly.ts"
+  - "src/app/agenda/recorrencias/**"
+  - "src/lib/jobs/extend-recurrences.ts"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+isNew: true
+---
+
+Uma recorrência cria, de uma só vez, toda uma série de sessões fixas para um paciente — por exemplo, "toda terça-feira às 14:00". Você não precisa reagendar manualmente cada semana: o sistema gera os agendamentos futuros e mantém a série atualizada.
+
+Esta página cobre como criar uma recorrência **semanal**, **quinzenal** ou **mensal**, como **pular** datas específicas (exceções) e como funciona a **alternância de pacientes** em séries quinzenais.
+
+<Callout type="info" title="Funcionalidade recente">
+A visão dedicada de **Recorrências** (slots fixos) e a alternância par/ímpar entre pacientes em séries quinzenais foram adicionadas recentemente. Se você não encontrar o botão **Recorrências** no topo da agenda, peça ao administrador da clínica para confirmar que está usando a versão mais nova.
+</Callout>
+
+## Frequências disponíveis
+
+Ao criar um agendamento, o campo **Frequência** oferece quatro opções:
+
+<Cards>
+  <Card title="Único" description="Uma só sessão, sem repetição. É o padrão quando você não quer uma série." />
+  <Card title="Semanal" description="Repete a cada 7 dias, sempre no mesmo dia da semana e horário." />
+  <Card title="Quinzenal" description="Repete a cada 14 dias — uma semana sim, uma semana não." />
+  <Card title="Mensal" description="Repete uma vez por mês, no mesmo dia do mês da primeira sessão." />
+</Cards>
+
+Para todas as frequências recorrentes, o dia da semana é deduzido automaticamente da data da primeira sessão. Quando você escolhe uma data de início, a tela mostra **"Toda \<dia da semana\>"** (por exemplo, "Toda terça-feira") para confirmar.
+
+<Callout type="info">
+Na frequência **mensal**, a regra é "mesmo dia do mês" (por exemplo, todo dia 15). Quando o dia não existe em algum mês — como o dia 31 em fevereiro —, a sessão é ajustada para o último dia daquele mês.
+</Callout>
+
+## Criar uma recorrência
+
+A recorrência é definida no momento de criar o agendamento, dentro do formulário **Novo Agendamento** na agenda.
+
+<Steps>
+<Step>
+**Abra o formulário de novo agendamento** e preencha paciente, data e horário de início normalmente.
+</Step>
+<Step>
+**Escolha a Frequência**: Semanal, Quinzenal ou Mensal (deixe em **Único** se não quiser série).
+</Step>
+<Step>
+**Defina quando a série termina**, no campo **Terminar**:
+
+- **Nº de sessões** — você informa o total de sessões (no máximo **52**).
+- **Até uma data** — você informa a **Data final** (DD/MM/AAAA); o sistema cria sessões até essa data.
+- **Sem fim** — a série não tem data de término. O sistema cria automaticamente as sessões dos próximos **6 meses** e estende a série semanalmente daí em diante.
+</Step>
+<Step>
+**Confira a prévia.** O formulário mostra um resumo do tipo "**12 sessões**" (ou "**N sessões (6 meses)**" para séries sem fim). Clique nele para expandir a lista de datas, numeradas de 1 em diante, cada uma com o dia da semana e a data (DD/MM/AAAA).
+</Step>
+<Step>
+**Salve.** Todas as sessões da série são criadas com status **AGENDADO**.
+</Step>
+</Steps>
+
+<Callout type="info" title="Séries sem fim">
+Em **Sem fim**, as sessões não são criadas até o infinito de uma vez. O sistema mantém uma janela de **6 meses** à frente e, semanalmente, um processo automático estende a série quando o fim da janela se aproxima (cerca de 2 meses de antecedência). Na prática, sua agenda fica sempre povoada bem à frente, sem você precisar fazer nada. Você pode **encerrar** a série a qualquer momento (veja [Encerrar uma série](#encerrar-uma-serie)).
+</Callout>
+
+{/* TODO screenshot: /img/agenda/recorrencias-criar.png */}
+
+## Editar uma série existente
+
+Ao abrir um agendamento que faz parte de uma série, o painel mostra um selo com a frequência (por exemplo, **Semanal**) e abas no topo:
+
+- **Esta consulta** — altera apenas a sessão aberta.
+- **Recorrência** — altera a série inteira.
+- **Histórico** — registro de auditoria (quando você tem permissão).
+- **Pular** / **Pulada** — transforma a data atual em exceção (veja [Pular datas](#pular-datas-excecoes)).
+
+Na aba **Recorrência** você pode ajustar:
+
+- **Frequência** — alternar entre Semanal, Quinzenal e Mensal. Se você mudar de frequência, o sistema avisa que **agendamentos que não se encaixam no novo padrão serão removidos**.
+- **Dia da semana** — escolher outro dia. As sessões futuras são movidas para o novo dia.
+- **Horário da série** — início e duração (o término é calculado automaticamente).
+- **Modalidade** — Presencial ou Online.
+- **Profissionais adicionais** — incluir colegas que atendem junto.
+- **Condição de término** — Sem fim, Em uma data ou Após N sessões.
+
+A opção **Aplicar às sessões futuras** (marcada por padrão) atualiza horário e modalidade nas próximas sessões; **as sessões passadas permanecem como estão**. Ao final, clique em **Salvar alterações**.
+
+<Callout type="warn">
+Se a alteração colidir com outro agendamento já existente, o sistema **não salva** e mostra os conflitos com a data e com quem conflita. Ajuste o horário, o dia ou as sessões em choque antes de tentar de novo.
+</Callout>
+
+## Pular datas (exceções)
+
+Quando o paciente avisa que não poderá comparecer em uma data específica — feriado, viagem etc. — você não precisa apagar nem recriar a série. Basta marcar aquela data como **exceção**:
+
+<Steps>
+<Step>
+Abra a sessão da data que deseja pular.
+</Step>
+<Step>
+Clique na aba **Pular**.
+</Step>
+<Step>
+A sessão daquela data é **cancelada** (fica como cancelada pelo profissional, com o motivo "Excecao na recorrencia - data pulada") e a aba passa a se chamar **Pulada**.
+</Step>
+</Steps>
+
+O restante da série continua intacto. Para **desfazer**, abra a mesma data e clique em **Pulada** — a sessão é restaurada ao status **AGENDADO**.
+
+<Callout type="info">
+Pular uma data afeta **somente aquela ocorrência**. A regra da série (frequência, dia, horário) não muda. Pular uma data também libera o horário — pacientes em lista de espera para aquele encaixe podem ser notificados.
+</Callout>
+
+## Quinzenal com alternância de paciente
+
+A frequência **quinzenal** abre uma possibilidade comum em clínicas: dois pacientes que se revezam no mesmo horário. Um vem nas semanas "par"; o outro, nas semanas "ímpar". Cada um tem a **sua própria série quinzenal** — elas apenas compartilham o mesmo dia e horário.
+
+### Como o sistema reconhece o par
+
+O sistema classifica cada série quinzenal como **par** ou **ímpar** com base na data de início. Quando duas séries quinzenais de pacientes diferentes ocupam o mesmo dia da semana e o mesmo horário com paridades opostas, elas são exibidas **juntas, como um par**: o paciente "PAR" em uma linha e o "ÍMP" na outra. Onde só existe uma série, a outra linha aparece como **Disponível** — ou seja, há vaga para encaixar um paciente na semana alternada.
+
+<Callout type="warn">
+Se duas séries quinzenais caírem na **mesma paridade** no mesmo slot (ambas "par", por exemplo), o sistema sinaliza um **conflito** no card. Nesse caso, use o deslocamento de semana (abaixo) em uma delas para colocá-las em semanas opostas.
+</Callout>
+
+### As duas séries são independentes
+
+Cada paciente tem a sua série. Encerrar ou alterar a série de um **não afeta** a do outro. Ao encerrar uma série quinzenal que alterna com outro paciente, o sistema avisa explicitamente que a série do paciente alternado é independente e **não será encerrada**.
+
+### Deslocar a série para a semana alternada
+
+Se você precisar trocar a semana de um paciente quinzenal (passar das semanas "par" para as "ímpar", ou vice-versa), use o atalho na aba **Recorrência**:
+
+<Steps>
+<Step>
+Abra uma sessão da série quinzenal e vá para a aba **Recorrência**.
+</Step>
+<Step>
+No card **Mover série para a semana alternada**, clique em **Deslocar +7d**.
+</Step>
+<Step>
+Escolha o alcance da troca:
+
+<Tabs items={['Somente futuros', 'Todos os agendamentos']}>
+<Tab value="Somente futuros">
+Apenas as sessões a partir de hoje são movidas 7 dias para frente. As sessões passadas ficam como estão. É a opção indicada na maioria dos casos.
+</Tab>
+<Tab value="Todos os agendamentos">
+Move também as sessões passadas, para manter o histórico coerente. Use quando precisar que toda a série reflita a nova semana.
+</Tab>
+</Tabs>
+</Step>
+<Step>
+Confirme em **Deslocar semana**. Cada sessão avança 7 dias, invertendo a paridade da série.
+</Step>
+</Steps>
+
+<Callout type="warn">
+Assim como ao salvar a recorrência, o deslocamento **não é aplicado** se gerar conflito com agendamentos existentes — o sistema lista as datas em choque para você resolver antes.
+</Callout>
+
+## A visão de Recorrências (slots fixos)
+
+A agenda tem uma visão dedicada para planejar atendimentos recorrentes, aberta pelo botão **Recorrências** no topo da agenda. Em vez de mostrar dias específicos, ela exibe uma **grade semanal de slots fixos** — quem ocupa cada dia/horário de forma recorrente — para você enxergar onde há vaga.
+
+A grade traz:
+
+- **Cartões de resumo** com a contagem de slots por tipo: **Semanais**, **Quinzenais**, **Mensais**, **Grupos** e **Bloqueios** (supervisão, terapia pessoal, reuniões).
+- **Filtro por Tipo** (Todos, Semanal, Quinzenal, Mensal, Grupo, Bloqueio) para isolar uma categoria.
+- Cada slot com a **etiqueta de frequência** (Sem / Quinz / Mens), o horário e o nome do paciente.
+- Slots **quinzenais** mostrando as duas linhas par/ímpar; a linha vazia aparece como **Disponível**.
+- Slots **mensais** indicando em qual semana do mês a sessão cai (1ª, 2ª, 3ª ou 4ª).
+- Slots em **verde tracejado** (rótulo **Disponível**), que marcam horários dentro da sua disponibilidade onde nenhuma recorrência existe — ou seja, vagas para encaixar novos pacientes recorrentes.
+
+<Callout type="info">
+Os slots **Disponível** em verde só aparecem ao filtrar por **um profissional**. Em "Todos", a grade mistura agendas diferentes e não calcula vagas livres para não induzir a erro. Administradores podem alternar entre profissionais pelos botões no topo; profissionais veem apenas a própria agenda.
+</Callout>
+
+{/* TODO screenshot: /img/agenda/recorrencias-grade.png */}
+
+## Encerrar uma série
+
+Para parar uma série a partir de uma data (mantendo o que já passou), abra a aba **Recorrência**, expanda **Encerrar ou apagar série** e use **Encerrar**. Informe a **data final**: depois dela, nenhum novo agendamento é gerado, e as sessões futuras já criadas são removidas. As sessões passadas e o histórico permanecem.
+
+<Callout type="info">
+Apagar a série inteira de uma vez ainda não está disponível ("disponível em breve"). Para interromper uma recorrência, use **Encerrar** com uma data final.
+</Callout>

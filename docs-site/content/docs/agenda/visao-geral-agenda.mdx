@@ -1,0 +1,163 @@
+---
+title: "Visão geral da agenda (diária e semanal)"
+description: "Timeline diária, grade semanal, tipos de evento e seleção de profissional."
+feature: agendamento
+sources:
+  - "src/app/agenda/page.tsx"
+  - "src/app/agenda/weekly/**"
+  - "src/app/agenda/components/**"
+lastReviewedCommit: 1d93f26
+audience: profissional
+status: published
+---
+
+A agenda é a tela central do seu dia a dia. Ela tem duas formas de visualização — a **timeline diária** e a **grade semanal** — e você alterna entre elas com um clique. Esta página explica como ler cada visão, o que cada tipo de evento significa e como escolher de qual profissional você quer ver a agenda.
+
+## As duas visualizações
+
+<Cards>
+  <Card title="Timeline diária" href="#timeline-diária">
+    Um dia por vez, com os horários proporcionais ao tempo. É a tela inicial em `/agenda`.
+  </Card>
+  <Card title="Grade semanal" href="#grade-semanal">
+    Os sete dias da semana lado a lado, em `/agenda/weekly`. Ótima para ter o panorama da semana.
+  </Card>
+</Cards>
+
+Você troca de visão pelos botões no topo da tela:
+
+- Na timeline diária, clique em **Semana** para abrir a grade semanal.
+- Na grade semanal, clique em **Dia** para voltar à timeline diária.
+
+<Callout type="info">
+Ao abrir a semana a partir de um dia específico, a agenda já posiciona a semana correspondente àquele dia. As duas visões compartilham a mesma data selecionada.
+</Callout>
+
+## Timeline diária
+
+A timeline diária mostra um único dia, com os blocos de horário desenhados de forma proporcional ao tempo: um atendimento de 50 minutos ocupa mais espaço vertical do que um de 15.
+
+### Cabeçalho e navegação por data
+
+No topo da tela você encontra:
+
+- O **título** com o dia da semana e a data do dia selecionado (ex.: "Segunda-feira, 15/06/2026"). Para o dia atual e os vizinhos, ele usa "Hoje", "Amanha" ou "Ontem" no lugar do nome do dia.
+- Uma **faixa de dias** com três dias antes e três depois do dia selecionado. Toque em qualquer dia para ir direto até ele. O dia selecionado fica destacado e o dia de hoje aparece realçado.
+- As setas **‹** e **›** para avançar ou voltar um dia.
+- O botão **Hoje**, que volta a agenda para a data de hoje.
+- Um botão com a data (formato DD/MM/AAAA) que abre o seletor de data do navegador para escolher qualquer data.
+
+<Callout type="info">
+No celular você também pode **deslizar** a timeline para a esquerda (próximo dia) ou para a direita (dia anterior). A própria tela mostra a dica "Deslize para mudar o dia".
+</Callout>
+
+### Ações do dia
+
+Ainda no cabeçalho, ficam os atalhos:
+
+- **Imprimir** — abre a janela de impressão do navegador para exportar ou imprimir a agenda do dia.
+- **Semana** — troca para a grade semanal.
+- **Recorrências** — abre a tela de gerenciamento de agendamentos recorrentes.
+- **Cancelar dia** — aparece apenas para quem tem permissão de escrita na agenda; abre um assistente em duas etapas (filtros e confirmação) para cancelar agendamentos em lote, já com a data do dia preenchida (você pode ajustar o período).
+
+### A linha do tempo
+
+Dentro do dia, cada atendimento aparece como um cartão posicionado no seu horário. Quando o dia selecionado é hoje, uma **linha indicadora do horário atual** percorre a timeline e se atualiza automaticamente a cada minuto, ajudando você a ver onde está no dia.
+
+Os intervalos livres aparecem como espaços marcados com **Disponivel** e o ícone de **+**. Clicar em um horário livre abre direto o formulário de novo agendamento já com aquele horário preenchido.
+
+<Callout type="info" title="Arrastar e soltar">
+Quando a agenda está filtrada para **um único profissional selecionado** (uma das abas de profissional, e não o modo "Todos") e você tem permissão de escrita, é possível **arrastar** um atendimento para outro horário. No modo "Todos" (vários profissionais ao mesmo tempo) o arrastar fica desativado.
+</Callout>
+
+<Screenshot src="/img/agenda/visao-geral-timeline-diaria.png" alt="Timeline diária com cabeçalho de data, faixa de dias e blocos de atendimento proporcionais ao horário" />
+
+## Grade semanal
+
+A grade semanal (`/agenda/weekly`) mostra os sete dias da semana lado a lado, em colunas. É a melhor forma de enxergar a distribuição da carga ao longo da semana e de encontrar espaços livres.
+
+- O **título** mostra o intervalo da semana.
+- A **faixa de dias** da semana ajusta a data selecionada ao tocar em um dia (a visão continua semanal). Para abrir a visão diária daquele dia, use o botão **Dia**.
+- As setas **‹** e **›** avançam ou voltam uma semana inteira; o botão **Hoje** retorna à semana atual.
+- Você também pode **deslizar** a grade para a esquerda (próxima semana) ou para a direita (semana anterior).
+- Os botões **Imprimir**, **Dia** e **Recorrências** funcionam como na timeline diária.
+
+Assim como na visão diária, os horários livres aparecem marcados com **+ Disponivel**; clicar em um deles abre o novo agendamento já com o dia e horário corretos.
+
+<Screenshot src="/img/agenda/visao-geral-grade-semanal.png" alt="Grade semanal com os sete dias em colunas e blocos de atendimento" />
+
+## Tipos de evento
+
+A agenda comporta vários tipos de evento, cada um com uma cor e um comportamento próprio. Você cria um novo evento pelo botão flutuante **Novo** (o **+** no canto inferior direito), que abre um menu com as opções:
+
+<Cards>
+  <Card title="Consulta">
+    Atendimento de paciente. Exige um paciente vinculado e participa de notificações, lembretes e confirmação. Aparece com o nome do paciente, telefone e o status do atendimento.
+  </Card>
+  <Card title="Sessão em Grupo">
+    Sessão de terapia em grupo com vários pacientes. No bloco da agenda aparece com o nome do grupo, um ícone de pessoas e a quantidade de participantes.
+  </Card>
+  <Card title="Lembrete">
+    Anotação rápida de horário. Não exige paciente e **não bloqueia** o horário na agenda.
+  </Card>
+  <Card title="Reunião">
+    Compromisso interno (sem paciente). **Bloqueia** o horário, como um atendimento.
+  </Card>
+</Cards>
+
+<Callout type="info">
+**Tarefas** e **Notas** não são mais criadas pela agenda — as tarefas passaram a ter a sua própria tela. Registros antigos desses tipos continuam aparecendo normalmente na agenda.
+</Callout>
+
+### Quais eventos ocupam o horário
+
+| Tipo | Bloqueia o horário? | Exige paciente? |
+| --- | --- | --- |
+| Consulta | Sim | Sim |
+| Reunião | Sim | Não |
+| Tarefa (legado) | Sim | Não |
+| Lembrete | Não | Não |
+| Nota (legado) | Não | Não |
+
+Eventos que **não bloqueiam** o horário (Lembrete e Nota) convivem com os atendimentos no mesmo intervalo, sem impedir novos agendamentos naquele horário.
+
+### Status do atendimento
+
+Cada consulta exibe uma etiqueta de status, que segue o fluxo **Agendado → Confirmado → Finalizado**. Os rótulos usados na agenda são:
+
+| Status | Significado |
+| --- | --- |
+| Agendado | Atendimento marcado, ainda não confirmado. |
+| Confirmado | Paciente confirmou presença. |
+| Finalizado | Atendimento concluído. |
+| Desmarcou | Cancelado de comum acordo. |
+| Cancelado (Falta) | Paciente faltou. |
+| Cancelado (sem cobrança) | Cancelado pelo profissional, sem cobrança. |
+
+Atendimentos cancelados e finalizados aparecem com aparência esmaecida na timeline, para não competirem visualmente com os atendimentos ativos.
+
+Atendimentos recorrentes mostram um ícone de repetição e a frequência (**Semanal**, **Quinzenal** ou **Mensal**). Nas semanas em que um atendimento quinzenal não ocorre, o horário aparece como um espaço marcado com **Quinzenal · [nome do paciente]** — é o paciente que ocupa a semana oposta. Clicar nesse espaço abre o novo agendamento já com aquele horário.
+
+## Seleção de profissional
+
+A forma de escolher o profissional depende do seu perfil de acesso.
+
+<Tabs items={["Profissional", "Administrador"]}>
+  <Tab value="Profissional">
+    Se você tem acesso apenas à própria agenda, a tela já abre direto na sua agenda — não há nada a selecionar. Você vê os seus próprios atendimentos no dia e na semana.
+  </Tab>
+  <Tab value="Administrador">
+    Quem tem acesso à agenda de outros profissionais vê, logo abaixo da navegação por data, uma faixa de **abas de profissionais**:
+
+    - A aba **Todos** mostra a agenda de todos os profissionais ao mesmo tempo. Cada profissional recebe uma **cor** própria, exibida como um ponto colorido ao lado do nome e nos blocos de atendimento, para facilitar a leitura.
+    - Tocar no nome de um profissional filtra a agenda para mostrar **somente** os atendimentos dele.
+
+    Lembre-se: o **arrastar e soltar** só fica disponível quando você seleciona um único profissional, não no modo "Todos".
+  </Tab>
+</Tabs>
+
+<Callout type="info">
+A escolha do profissional vale tanto para a timeline diária quanto para a grade semanal — ao alternar entre as visões, o profissional selecionado é mantido.
+</Callout>
+
+{/* TODO screenshot: /img/agenda/visao-geral-abas-profissional.png */}

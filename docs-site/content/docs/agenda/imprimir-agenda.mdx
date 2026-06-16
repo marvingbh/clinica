@@ -1,0 +1,106 @@
+---
+title: "Imprimir a agenda"
+description: "Layouts de impressão diário/semanal e exportar para PDF."
+feature: agendamento
+sources:
+  - "src/app/agenda/components/AgendaPrintView.tsx"
+  - "src/app/agenda/components/DailyPrintGrid.tsx"
+  - "src/app/agenda/components/WeeklyPrintGrid.tsx"
+lastReviewedCommit: 1d93f26
+audience: recepcao
+status: published
+---
+
+A agenda pode ser impressa em papel ou salva como PDF a partir do próprio navegador, sem precisar exportar nada de antemão. O sistema gera um layout limpo, sem os botões e menus da tela, com todos os agendamentos do dia ou da semana que você está visualizando.
+
+Você escolhe entre dois layouts — **diário** e **semanal** — simplesmente pela tela em que está: a visão de dia (`/agenda`) imprime o layout diário, e a visão de semana (`/agenda/weekly`) imprime o layout semanal.
+
+## Como imprimir
+
+<Steps>
+
+<Step>
+**Abra a visão que você quer imprimir.** Para o layout diário, fique na agenda do dia. Para o layout semanal, abra a visão de semana pelo botão **Semana** no cabeçalho.
+</Step>
+
+<Step>
+**Ajuste o que será impresso.** A impressão usa exatamente o que está em tela: o dia (ou a semana) selecionado e o filtro de profissional ativo. Navegue até a data certa e, se for o caso, selecione o profissional antes de imprimir.
+</Step>
+
+<Step>
+**Clique em "Imprimir".** O botão fica no cabeçalho da agenda, com o ícone de impressora. Isso abre a janela de impressão do navegador.
+
+{/* TODO screenshot: /img/agenda/imprimir-agenda-botao.png */}
+</Step>
+
+<Step>
+**Escolha o destino.** Para imprimir em papel, selecione a impressora. Para gerar um arquivo, escolha **Salvar como PDF** (ou "Microsoft Print to PDF", dependendo do navegador) como destino e clique em **Salvar**.
+</Step>
+
+</Steps>
+
+<Callout type="info">
+O layout de impressão fica oculto enquanto você usa a agenda na tela — ele só aparece no momento da impressão. Por isso o que você vê na pré-visualização da janela de impressão é diferente da tela normal: é o layout otimizado para papel.
+</Callout>
+
+## Os dois layouts
+
+<Tabs items={["Diário", "Semanal"]}>
+
+<Tab value="Diário">
+
+O layout diário é gerado a partir da visão de dia (`/agenda`). Ele mostra uma única coluna de horários com todos os agendamentos daquele dia.
+
+- **Cabeçalho:** "Agenda — Diária" e a data com o dia da semana e a data no formato DD/MM/AAAA (por exemplo, "Segunda-feira, 15/06/2026"; o dia atual e os vizinhos aparecem como "Hoje", "Amanhã" ou "Ontem").
+- **Linha do tempo:** os horários ficam na coluna da esquerda; cada agendamento aparece como um bloco posicionado no seu horário, com início e fim no formato HH:mm.
+- **Agendamentos sobrepostos** ficam lado a lado, em colunas, para que nenhum seja escondido.
+
+</Tab>
+
+<Tab value="Semanal">
+
+O layout semanal é gerado a partir da visão de semana (`/agenda/weekly`). Ele mostra os sete dias da semana em colunas.
+
+- **Cabeçalho:** "Agenda — Semanal" e o intervalo da semana (por exemplo, "15 de jun. – 21 de jun. de 2026").
+- **Colunas por dia:** cada coluna traz o dia da semana abreviado (DOM, SEG, TER…) e a data no formato DD/MM. Sábado e domingo aparecem com fundo destacado.
+- **Blocos mais compactos:** por caber mais informação na página, os blocos da semana mostram menos detalhes que os do dia — título, horário e os indicadores essenciais.
+
+</Tab>
+
+</Tabs>
+
+<Callout type="info" title="Faixa de horários automática">
+Os dois layouts mostram, por padrão, das **07:00 às 21:00**. Se houver agendamentos antes ou depois desse intervalo, a faixa de horários se expande automaticamente para incluí-los, com uma hora de folga em cada extremidade.
+</Callout>
+
+## O que aparece em cada bloco
+
+Cada agendamento impresso traz, conforme o espaço disponível:
+
+- **Horário** de início e fim (HH:mm).
+- **Título:** para consultas, o nome do paciente; para outros tipos (Tarefa, Reunião, Lembrete, Nota), o título informado.
+- **Tipo** do agendamento (Consulta, Tarefa, Reunião, etc.) e, para sessões de grupo, a marcação **Grupo** com a quantidade de pacientes.
+- **Situação:** Agendado, Confirmado ou Finalizado (sessões de grupo não exibem situação). Agendamentos cancelados aparecem com o texto riscado e o bloco esmaecido.
+- **Modalidade:** Online ou Presencial, quando definida.
+- **Recorrência:** Semanal, Quinzenal ou Mensal, para agendamentos recorrentes.
+- **Profissional responsável** e, em agendamentos que não são consulta mas têm um paciente vinculado, a linha "Paciente:" com o nome (na consulta, o nome do paciente já é o próprio título).
+- **Observações**, quando o bloco for alto o suficiente para exibi-las.
+
+## Imprimindo a agenda de toda a equipe
+
+Se você é administrador e está visualizando **todos os profissionais** (sem filtro de profissional selecionado), a impressão ganha dois recursos extras:
+
+- **Legenda de profissionais** no topo, com uma cor para cada um.
+- **Borda colorida** em cada bloco, na cor do profissional responsável, para diferenciar a quem pertence cada agendamento.
+
+Quando você filtra por um profissional específico, o cabeçalho passa a indicar "Profissional: Nome" e a legenda de cores não aparece, já que todos os blocos são da mesma pessoa.
+
+<Callout type="info" title="Página A4 paisagem">
+A impressão é formatada para **A4 em orientação paisagem**, em uma única página. Mantenha esse formato na janela de impressão para o layout caber corretamente. Confirme também que a opção de imprimir cores e fundos esteja ativa, para que as cores de situação e de profissional saiam no papel ou no PDF.
+</Callout>
+
+## Dúvidas comuns
+
+- **Não aparece nenhum agendamento na impressão.** Confirme se você está na data certa e se o filtro de profissional não está escondendo os agendamentos. Se o dia (ou a semana) realmente não tiver agendamentos, o layout exibe "Nenhum agendamento.".
+- **As cores não saíram no PDF.** Ative a opção de imprimir gráficos de fundo/cores na janela de impressão do navegador.
+- **Quero o layout da semana, mas saiu o do dia.** Troque para a visão de semana (botão **Semana**) antes de clicar em **Imprimir** — o layout impresso é sempre o da tela em que você está.
