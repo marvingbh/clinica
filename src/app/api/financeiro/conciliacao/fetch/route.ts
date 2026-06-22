@@ -67,39 +67,50 @@ export const POST = withFeatureAuth(
     const credits = filtered.filter((tx) => tx.type === "CREDIT")
     const debits = filtered.filter((tx) => tx.type === "DEBIT")
 
-    // Delete only non-reconciled CREDIT transactions before importing fresh data
-    // DEBIT transactions are preserved for expense matching
+    // Delete only un-acted-on CREDIT transactions before importing fresh data.
+    // DEBIT transactions are preserved for expense matching. A credit is kept
+    // when the user has already acted on it: linked to an invoice
+    // (reconciliationLinks), dismissed (dismissReason), OR marked as the source
+    // of a refund/devolução (refundLinksAsCredit). Deleting a refund-source
+    // credit would cascade-delete its TransactionRefundLink, resurfacing both
+    // the credit here and its paired devolução debit in the expense queue.
     await prisma.bankTransaction.deleteMany({
       where: {
         clinicId: user.clinicId,
         type: "CREDIT",
         reconciliationLinks: { none: {} },
+        refundLinksAsCredit: { none: {} },
         dismissReason: null,
       },
     })
 
-    // Migrate reconciled records with old externalId format (index-based)
-    const reconciledInRange = await prisma.bankTransaction.findMany({
+    // Migrate manually-handled records (reconciled or refund-linked) that may
+    // carry an old index-based externalId, so a re-fetch updates them in place
+    // instead of creating a duplicate.
+    const handledInRange = await prisma.bankTransaction.findMany({
       where: {
         clinicId: user.clinicId,
-        reconciliationLinks: { some: {} },
+        OR: [
+          { reconciliationLinks: { some: {} } },
+          { refundLinksAsCredit: { some: {} } },
+        ],
         date: { gte: startDate, lte: endDate },
       },
       select: { id: true, date: true, amount: true, description: true },
     })
-    const reconciledLookup = new Map<string, string>()
-    for (const rec of reconciledInRange) {
+    const handledLookup = new Map<string, string>()
+    for (const rec of handledInRange) {
       const key = `${rec.date.toISOString().split("T")[0]}|${Number(rec.amount)}|${rec.description}`
-      reconciledLookup.set(key, rec.id)
+      handledLookup.set(key, rec.id)
     }
 
     let newCount = 0
     for (const tx of credits) {
-      // Check if a reconciled record exists with old externalId for same content
+      // Check if a handled record exists with old externalId for same content
       const contentKey = `${tx.date}|${tx.amount}|${tx.description}`
-      const existingReconciledId = reconciledLookup.get(contentKey)
+      const existingHandledId = handledLookup.get(contentKey)
 
-      if (existingReconciledId) {
+      if (existingHandledId) {
         // Only migrate externalId if no other record already has it
         const conflict = await prisma.bankTransaction.findUnique({
           where: {
@@ -112,11 +123,11 @@ export const POST = withFeatureAuth(
         })
         if (!conflict) {
           await prisma.bankTransaction.update({
-            where: { id: existingReconciledId },
+            where: { id: existingHandledId },
             data: { externalId: tx.externalId },
           })
         }
-        reconciledLookup.delete(contentKey)
+        handledLookup.delete(contentKey)
         continue
       }
 
