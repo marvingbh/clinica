@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation"
 import { SwipeContainer } from "@/shared/components/ui"
 
 import type { Appointment } from "../lib"
-import { canMarkStatus, canResendConfirmation, getWeekStart, getWeekDays, toDateString } from "../lib/utils"
+import { canMarkStatus, canResendConfirmation, getWeekStart, getWeekDays, toDateString, parseDateParam } from "../lib/utils"
 import {
   AppointmentEditor, GroupSessionSheet, CalendarEntrySheet,
   CreateAppointmentSheet, AgendaFabMenu,
@@ -25,7 +25,7 @@ import {
 import { useWeeklyAvailability } from "./hooks/useWeeklyAvailability"
 import { useWeeklyData } from "./hooks/useWeeklyData"
 import { useAgendaContext } from "../context/AgendaContext"
-import { usePermission } from "@/shared/hooks"
+import { usePermission, useMountEffect } from "@/shared/hooks"
 
 import { WeeklyGrid, WeeklyHeader } from "./components"
 import { TodosStrip } from "../components/todos"
@@ -39,11 +39,15 @@ function WeeklyAgendaPageContent() {
   const searchParams = useSearchParams()
   const { selectedDate, setSelectedDate } = useAgendaContext()
 
-  // Handle URL date parameter on mount
-  const initialDate = searchParams.get("date")
-  if (initialDate && selectedDate.toISOString().slice(0, 10) !== initialDate) {
-    // Will be handled by effect below
-  }
+  // Honor the ?date= param passed by the daily view's "weekly" link so the
+  // grid lands on that day's week (e.g. a lembrete added on the 19th). Applied
+  // once on mount; week navigation thereafter drives selectedDate via context.
+  useMountEffect(() => {
+    const urlDate = parseDateParam(searchParams.get("date"))
+    if (urlDate && toDateString(urlDate) !== toDateString(selectedDate)) {
+      setSelectedDate(urlDate)
+    }
+  })
 
   const weekStart = useMemo(() => getWeekStart(selectedDate), [selectedDate])
 

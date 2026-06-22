@@ -24,6 +24,7 @@ import {
   calculateEndTime,
   toDisplayDateFromDate,
   isSlotInPast,
+  parseDateParam,
 } from "./utils"
 import type { Appointment } from "./types"
 
@@ -629,5 +630,34 @@ describe("isSlotInPast", () => {
 
   it("returns false for future date", () => {
     expect(isSlotInPast("2026-02-21", "08:00")).toBe(false)
+  })
+})
+
+describe("parseDateParam", () => {
+  it("parses a valid YYYY-MM-DD into a local midnight Date", () => {
+    const d = parseDateParam("2026-06-19")
+    expect(d).not.toBeNull()
+    expect(d!.getFullYear()).toBe(2026)
+    expect(d!.getMonth()).toBe(5) // June (0-indexed)
+    expect(d!.getDate()).toBe(19)
+    // toDateString round-trips the same calendar day (no timezone drift)
+    expect(toDateString(d!)).toBe("2026-06-19")
+  })
+
+  it("returns null for null/undefined/empty", () => {
+    expect(parseDateParam(null)).toBeNull()
+    expect(parseDateParam(undefined)).toBeNull()
+    expect(parseDateParam("")).toBeNull()
+  })
+
+  it("returns null for malformed values", () => {
+    expect(parseDateParam("2026-6-9")).toBeNull()
+    expect(parseDateParam("19/06/2026")).toBeNull()
+    expect(parseDateParam("not-a-date")).toBeNull()
+  })
+
+  it("returns null for a well-formed but invalid calendar date", () => {
+    // Feb 30 rolls over in JS Date; reject it rather than silently shifting.
+    expect(parseDateParam("2026-02-30")).toBeNull()
   })
 })

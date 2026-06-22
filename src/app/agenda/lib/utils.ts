@@ -68,6 +68,27 @@ export function toDateString(date: Date): string {
 }
 
 /**
+ * Parses a YYYY-MM-DD URL param into a local Date (midnight local time),
+ * or null when the value is absent or malformed. Used so the weekly view can
+ * honor the ?date= passed from the daily view and land on that day's week.
+ */
+export function parseDateParam(value: string | null | undefined): Date | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const [year, month, day] = value.split("-").map(Number)
+  const date = new Date(year, month - 1, day)
+  // Reject rollover dates (e.g. Feb 30 → Mar 2) so we never silently land on
+  // the wrong day/week — the components must round-trip exactly.
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null
+  }
+  return date
+}
+
+/**
  * Adds months to a date, keeping the same day of month
  */
 export function addMonthsToDate(date: Date, months: number): Date {
