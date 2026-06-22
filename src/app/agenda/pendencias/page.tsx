@@ -12,6 +12,12 @@ import { PendenciasStatCards } from "./components/PendenciasStatCards"
 import { PendenciasFiltersBar } from "./components/PendenciasFiltersBar"
 import { PendenciasTable } from "./components/PendenciasTable"
 import { PendenciasBulkBar } from "./components/PendenciasBulkBar"
+import { CancelConfirmDialog } from "../components/CancelConfirmDialog"
+import {
+  getCancelVariant,
+  type AppointmentStatusType,
+  type CancelVariant,
+} from "@/lib/appointments/status-transitions"
 import { loadProfessionals } from "@/lib/professionals/list"
 import { todayIso, addDays } from "@/lib/todos"
 import type {
@@ -61,6 +67,14 @@ export default function PendenciasPage() {
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set())
   const [bulkBusy, setBulkBusy] = useState(false)
   const [page, setPage] = useState(0)
+
+  // Cancel statuses (falta / desmarcou / sem cobrança) collect a reason and show
+  // the billing impact before applying — matching the agenda editor.
+  const [singleCancel, setSingleCancel] = useState<{
+    appt: PendingAppointment
+    variant: CancelVariant
+  } | null>(null)
+  const [bulkCancel, setBulkCancel] = useState<CancelVariant | null>(null)
 
   const reqIdRef = useRef(0)
   const abortRef = useRef<AbortController | null>(null)
@@ -175,13 +189,30 @@ export default function PendenciasPage() {
     setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }))
   }
 
-  async function applySingleStatus(a: PendingAppointment, status: AppointmentStatus) {
+  // Cancel statuses route through the confirmation dialog; the rest apply directly.
+  function handleSelectStatus(a: PendingAppointment, status: AppointmentStatusType) {
+    const variant = getCancelVariant(status)
+    if (variant) setSingleCancel({ appt: a, variant })
+    else applySingleStatus(a, status as AppointmentStatus)
+  }
+
+  function handleBulkSelectStatus(status: AppointmentStatusType) {
+    const variant = getCancelVariant(status)
+    if (variant) setBulkCancel(variant)
+    else applyBulkStatus(status as AppointmentStatus)
+  }
+
+  async function applySingleStatus(
+    a: PendingAppointment,
+    status: AppointmentStatus,
+    reason?: string
+  ) {
     setBusyIds((s) => new Set(s).add(a.id))
     try {
       const res = await fetch(`/api/appointments/${a.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(reason ? { status, cancellationReason: reason } : { status }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -209,10 +240,11 @@ export default function PendenciasPage() {
     }
   }
 
-  async function applyBulkStatus(status: AppointmentStatus) {
+  async function applyBulkStatus(status: AppointmentStatus, reason?: string) {
     if (selected.size === 0) return
     const ids = Array.from(selected)
     const controller = new AbortController()
+    const payload = reason ? { status, cancellationReason: reason } : { status }
     setBulkBusy(true)
     setBusyIds((s) => {
       const n = new Set(s)
@@ -226,7 +258,7 @@ export default function PendenciasPage() {
           fetch(`/api/appointments/${id}/status`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status }),
+            body: JSON.stringify(payload),
             signal: controller.signal,
           }).then((res) => ({ id, ok: res.ok }))
         )
@@ -306,9 +338,7 @@ export default function PendenciasPage() {
         <PendenciasBulkBar
           count={selected.size}
           busy={bulkBusy}
-          onFinalize={() => applyBulkStatus(AppointmentStatus.FINALIZADO)}
-          onMarkNoShow={() => applyBulkStatus(AppointmentStatus.CANCELADO_FALTA)}
-          onCancel={() => applyBulkStatus(AppointmentStatus.CANCELADO_PROFISSIONAL)}
+          onSelectStatus={handleBulkSelectStatus}
           onClear={() => setSelected(new Set())}
         />
         <PendenciasTable
@@ -331,12 +361,7 @@ export default function PendenciasPage() {
               })
             }
           }}
-          onFinalize={(a) => applySingleStatus(a, AppointmentStatus.FINALIZADO)}
-          onMarkNoShow={(a) => applySingleStatus(a, AppointmentStatus.CANCELADO_FALTA)}
-          onCancel={(a) => {
-            if (confirm(`Cancelar "${a.patient?.name ?? a.title ?? "agendamento"}"?`))
-              applySingleStatus(a, AppointmentStatus.CANCELADO_PROFISSIONAL)
-          }}
+          onSelectStatus={handleSelectStatus}
           sort={sort}
           onSort={toggleSort}
           rounded={tableRounded}
@@ -348,6 +373,34 @@ export default function PendenciasPage() {
           onPage={setPage}
         />
       </div>
+
+      {singleCancel && (
+        <CancelConfirmDialog
+          isOpen
+          onClose={() => setSingleCancel(null)}
+          variant={singleCancel.variant}
+          onConfirm={async (status, reason) => {
+            await applySingleStatus(
+              singleCancel.appt,
+              status as AppointmentStatus,
+              reason || undefined
+            )
+            setSingleCancel(null)
+          }}
+        />
+      )}
+
+      {bulkCancel && (
+        <CancelConfirmDialog
+          isOpen
+          onClose={() => setBulkCancel(null)}
+          variant={bulkCancel}
+          onConfirm={async (status, reason) => {
+            await applyBulkStatus(status as AppointmentStatus, reason || undefined)
+            setBulkCancel(null)
+          }}
+        />
+      )}
     </div>
   )
 }

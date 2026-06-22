@@ -4,9 +4,13 @@ import {
   CheckIcon,
   XIcon,
   BanIcon,
+  RotateCcwIcon,
   AlertCircleIcon,
 } from "@/shared/components/ui/icons"
-import { STATUS_LABELS } from "@/lib/appointments/status-transitions"
+import {
+  STATUS_LABELS,
+  type AppointmentStatusType,
+} from "@/lib/appointments/status-transitions"
 import type { PendingAppointment, SortKey, SortState } from "../types"
 
 interface Props {
@@ -15,9 +19,7 @@ interface Props {
   busyIds: Set<string>
   onToggleSelect: (id: string) => void
   onSelectAllVisible: () => void
-  onFinalize: (a: PendingAppointment) => void
-  onMarkNoShow: (a: PendingAppointment) => void
-  onCancel: (a: PendingAppointment) => void
+  onSelectStatus: (a: PendingAppointment, status: AppointmentStatusType) => void
   sort: SortState
   onSort: (key: SortKey) => void
   rounded?: "full" | "bottom" | "top" | "middle"
@@ -55,9 +57,7 @@ export function PendenciasTable({
   busyIds,
   onToggleSelect,
   onSelectAllVisible,
-  onFinalize,
-  onMarkNoShow,
-  onCancel,
+  onSelectStatus,
   sort,
   onSort,
   rounded = "full",
@@ -161,7 +161,7 @@ export function PendenciasTable({
                 <td className="px-3.5 py-3">
                   <div className="flex items-center justify-end gap-1.5">
                     <ActionBtn
-                      onClick={() => onFinalize(r)}
+                      onClick={() => onSelectStatus(r, "FINALIZADO")}
                       busy={busy}
                       title="Finalizar"
                       tone="ok"
@@ -170,7 +170,7 @@ export function PendenciasTable({
                       <span className="hidden md:inline">Finalizar</span>
                     </ActionBtn>
                     <ActionBtn
-                      onClick={() => onMarkNoShow(r)}
+                      onClick={() => onSelectStatus(r, "CANCELADO_FALTA")}
                       busy={busy}
                       title="Marcar como falta"
                       tone="warn"
@@ -179,13 +179,22 @@ export function PendenciasTable({
                       <span className="hidden md:inline">Faltou</span>
                     </ActionBtn>
                     <ActionBtn
-                      onClick={() => onCancel(r)}
+                      onClick={() => onSelectStatus(r, "CANCELADO_ACORDADO")}
                       busy={busy}
-                      title="Cancelar"
+                      title="Marcar como desmarcou"
+                      tone="brand"
+                    >
+                      <RotateCcwIcon className="w-3.5 h-3.5" />
+                      <span className="hidden md:inline">Desmarcou</span>
+                    </ActionBtn>
+                    <ActionBtn
+                      onClick={() => onSelectStatus(r, "CANCELADO_PROFISSIONAL")}
+                      busy={busy}
+                      title="Cancelar sem cobrança"
                       tone="danger"
                     >
                       <BanIcon className="w-3.5 h-3.5" />
-                      <span className="hidden md:inline">Cancelar</span>
+                      <span className="hidden md:inline">Sem cobrança</span>
                     </ActionBtn>
                   </div>
                 </td>
@@ -243,6 +252,13 @@ function Check({ checked, onClick }: { checked: boolean; onClick: () => void }) 
   )
 }
 
+const ACTION_TONE: Record<"ok" | "warn" | "brand" | "danger", string> = {
+  ok: "border-ok-200 text-ok-700 hover:bg-ok-50",
+  warn: "border-warn-200 text-warn-700 hover:bg-warn-50",
+  brand: "border-brand-200 text-brand-700 hover:bg-brand-50",
+  danger: "border-err-200 text-err-700 hover:bg-err-50",
+}
+
 function ActionBtn({
   onClick,
   busy,
@@ -253,23 +269,18 @@ function ActionBtn({
   onClick: () => void
   busy: boolean
   title: string
-  tone: "ok" | "warn" | "danger"
+  tone: "ok" | "warn" | "brand" | "danger"
   children: React.ReactNode
 }) {
-  const toneClass =
-    tone === "ok"
-      ? "border-ok-200 text-ok-700 hover:bg-ok-50"
-      : tone === "warn"
-        ? "border-warn-200 text-warn-700 hover:bg-warn-50"
-        : "border-err-200 text-err-700 hover:bg-err-50"
   return (
     <button
       onClick={onClick}
       disabled={busy}
       title={title}
-      className={`inline-flex items-center gap-1 px-2 py-1 rounded-[6px] border bg-card text-[11.5px] font-medium disabled:opacity-50 ${toneClass}`}
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-[6px] border bg-card text-[11.5px] font-medium disabled:opacity-50 ${ACTION_TONE[tone]}`}
     >
       {children}
     </button>
   )
 }
+

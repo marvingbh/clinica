@@ -1,22 +1,15 @@
 "use client"
 
+import { type AppointmentStatusType } from "@/lib/appointments/status-transitions"
+
 interface Props {
   count: number
   busy: boolean
-  onFinalize: () => void
-  onMarkNoShow: () => void
-  onCancel: () => void
+  onSelectStatus: (status: AppointmentStatusType) => void
   onClear: () => void
 }
 
-export function PendenciasBulkBar({
-  count,
-  busy,
-  onFinalize,
-  onMarkNoShow,
-  onCancel,
-  onClear,
-}: Props) {
+export function PendenciasBulkBar({ count, busy, onSelectStatus, onClear }: Props) {
   if (count === 0) return null
   return (
     <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-ink-900 text-white rounded-t-[12px]">
@@ -31,14 +24,17 @@ export function PendenciasBulkBar({
         limpar
       </button>
       <div className="flex-1" />
-      <Btn onClick={onFinalize} busy={busy}>
+      <Btn onClick={() => onSelectStatus("FINALIZADO")} busy={busy}>
         Finalizar
       </Btn>
-      <Btn onClick={onMarkNoShow} busy={busy}>
+      <Btn onClick={() => onSelectStatus("CANCELADO_FALTA")} busy={busy}>
         Faltou
       </Btn>
-      <Btn onClick={onCancel} busy={busy} danger>
-        Cancelar
+      <Btn onClick={() => onSelectStatus("CANCELADO_ACORDADO")} busy={busy}>
+        Desmarcou
+      </Btn>
+      <Btn onClick={() => onSelectStatus("CANCELADO_PROFISSIONAL")} busy={busy} danger>
+        Sem cobrança
       </Btn>
     </div>
   )
