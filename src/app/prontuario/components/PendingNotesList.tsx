@@ -14,9 +14,11 @@ interface PendingItem {
 
 interface PendingNotesListProps {
   pending: PendingItem[]
+  /** Only the treating professional can author a note; admins view read-only. */
+  canRegister?: boolean
 }
 
-export function PendingNotesList({ pending }: PendingNotesListProps) {
+export function PendingNotesList({ pending, canRegister = true }: PendingNotesListProps) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -33,10 +35,10 @@ export function PendingNotesList({ pending }: PendingNotesListProps) {
         router.push(`/prontuario/${data.existingNoteId}`)
         return
       }
-      if (!res.ok) throw new Error()
+      if (!res.ok) throw new Error(data.error || "Não foi possível abrir a evolução.")
       router.push(`/prontuario/${data.note.id}`)
-    } catch {
-      toast.error("Não foi possível abrir a evolução.")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível abrir a evolução.")
     } finally {
       setBusyId(null)
     }
@@ -57,14 +59,20 @@ export function PendingNotesList({ pending }: PendingNotesListProps) {
             <p className="text-sm font-medium text-foreground">{item.patientName ?? "Paciente"}</p>
             <p className="text-xs text-muted-foreground">{formatSessionDateTime(item.scheduledAt)}</p>
           </div>
-          <button
-            type="button"
-            onClick={() => register(item)}
-            disabled={busyId === item.appointmentId}
-            className="h-9 rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-          >
-            Registrar evolução
-          </button>
+          {canRegister ? (
+            <button
+              type="button"
+              onClick={() => register(item)}
+              disabled={busyId === item.appointmentId}
+              className="h-9 rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              Registrar evolução
+            </button>
+          ) : (
+            <span className="whitespace-nowrap text-xs italic text-muted-foreground">
+              Só o profissional responsável registra
+            </span>
+          )}
         </div>
       ))}
     </div>
