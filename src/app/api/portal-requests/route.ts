@@ -35,6 +35,7 @@ export const GET = withFeatureAuth(
     const url = new URL(req.url)
     const statusParam = url.searchParams.get("status")
     const page = Math.max(1, Number(url.searchParams.get("page") ?? "1") || 1)
+    const search = (url.searchParams.get("search") ?? "").trim()
 
     const where: Prisma.PortalRequestWhereInput = {
       clinicId: user.clinicId,
@@ -42,6 +43,18 @@ export const GET = withFeatureAuth(
         ? { status: statusParam }
         : {}),
       ...patientScopeWhere(user.role, user.professionalProfileId),
+      // Text filter: patient name, mother/father name, and the request message
+      // (the patient's free-text description, e.g. a reschedule reason).
+      ...(search
+        ? {
+            OR: [
+              { patient: { name: { contains: search, mode: "insensitive" } } },
+              { patient: { motherName: { contains: search, mode: "insensitive" } } },
+              { patient: { fatherName: { contains: search, mode: "insensitive" } } },
+              { payload: { path: ["message"], string_contains: search } },
+            ],
+          }
+        : {}),
     }
 
     const [requests, total] = await Promise.all([

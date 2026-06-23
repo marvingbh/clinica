@@ -10,6 +10,7 @@ import { SidebarProvider } from "@/shared/components/ui/sidebar-context";
 import { SubscriptionBanner } from "@/shared/components/SubscriptionBanner";
 import { PendingIntakeProvider } from "@/shared/components/PendingIntakeProvider";
 import { PendingIntakeBanner } from "@/shared/components/PendingIntakeBanner";
+import { PendingPortalRequestsBanner } from "@/shared/components/PendingPortalRequestsBanner";
 import CookieConsentBanner from "@/shared/components/CookieConsentBanner";
 import "./globals.css";
 
@@ -77,6 +78,7 @@ export default function RootLayout({
               <AppShell>
                 <SubscriptionBanner />
                 <PendingIntakeBanner />
+                <PendingPortalRequestsBanner />
                 <PageTransition>
                   {children}
                 </PageTransition>
