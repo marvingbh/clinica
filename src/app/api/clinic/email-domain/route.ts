@@ -3,7 +3,7 @@ import { z } from "zod"
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
-import { createResendDomain, deleteResendDomain, ResendDomainError } from "@/lib/email/resend-domains"
+import { getOrCreateResendDomain, ResendDomainError } from "@/lib/email/resend-domains"
 
 const bodySchema = z.object({
   domain: z
@@ -49,7 +49,7 @@ export const POST = withFeatureAuth(
     }
     const domain = parsed.data.domain
     try {
-      const created = await createResendDomain(domain)
+      const created = await getOrCreateResendDomain(domain)
       const updated = await prisma.clinic.update({
         where: { id: user.clinicId },
         data: {
@@ -79,18 +79,10 @@ export const POST = withFeatureAuth(
 /** Remove the custom domain (revert to the shared SaaS sender). */
 export const DELETE = withFeatureAuth(
   { feature: "clinic_settings", minAccess: "WRITE" },
-  async (req, { user }) => {
-    const clinic = await prisma.clinic.findUnique({
-      where: { id: user.clinicId },
-      select: { emailDomainResendId: true },
-    })
-    if (clinic?.emailDomainResendId) {
-      try {
-        await deleteResendDomain(clinic.emailDomainResendId)
-      } catch {
-        // best-effort remote delete; always clear locally below
-      }
-    }
+  async (_req, { user }) => {
+    // Unlink only — we intentionally do NOT delete the domain from Resend, so a
+    // later re-add re-attaches with its existing (verified) status instead of a
+    // fresh pending one.
     await prisma.clinic.update({
       where: { id: user.clinicId },
       data: {

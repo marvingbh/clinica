@@ -77,8 +77,32 @@ export async function getResendDomain(id: string): Promise<ResendDomain> {
   return toDomain(await handle(res))
 }
 
-/** Triggers verification, then returns the freshly-fetched status + records. */
+export async function listResendDomains(): Promise<ResendDomain[]> {
+  const res = await fetch(`${API}/domains`, { headers: authHeaders() })
+  const data = await handle(res)
+  const arr = Array.isArray(data) ? data : ((data.data as Record<string, unknown>[] | undefined) ?? [])
+  return arr.map(toDomain)
+}
+
+/**
+ * Link to an existing domain in the account (matched by name) or create a new
+ * one. Avoids "already registered" errors and lets a previously-verified domain
+ * be re-attached with its real (verified) status instead of a fresh pending one.
+ */
+export async function getOrCreateResendDomain(name: string, region = "sa-east-1"): Promise<ResendDomain> {
+  const existing = (await listResendDomains()).find((d) => d.name.toLowerCase() === name.toLowerCase())
+  if (existing) return getResendDomain(existing.id)
+  return createResendDomain(name, region)
+}
+
+/**
+ * Returns the current status + records. If Resend already considers the domain
+ * verified, we do NOT re-trigger verification — `POST /verify` resets the status
+ * to "pending" while it re-checks DNS, which looks like a regression to the user.
+ */
 export async function verifyResendDomain(id: string): Promise<ResendDomain> {
+  const current = await getResendDomain(id)
+  if (current.status === "verified") return current
   const res = await fetch(`${API}/domains/${id}/verify`, { method: "POST", headers: authHeaders() })
   await handle(res)
   return getResendDomain(id)
