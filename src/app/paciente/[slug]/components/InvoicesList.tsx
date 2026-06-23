@@ -4,7 +4,9 @@ import { useState } from "react"
 import { useMountEffect } from "@/shared/hooks"
 import { usePortal } from "./PortalSessionProvider"
 import { InvoiceCard } from "./InvoiceCard"
-import type { PortalInvoiceView } from "./format"
+import { FilteredPagedList } from "./FilteredPagedList"
+import { MONTH_LABEL } from "./months"
+import { invoiceStatusLabel, type PortalInvoiceView } from "./format"
 
 export function InvoicesList() {
   const { slug, activeProfileId } = usePortal()
@@ -38,15 +40,17 @@ export function InvoicesList() {
 
   if (loading) return <div className="text-sm text-muted-foreground py-8 text-center">Carregando...</div>
 
-  if (invoices.length === 0) {
-    return <div className="text-sm text-muted-foreground py-8 text-center">Você não tem faturas.</div>
-  }
-
   return (
-    <div className="space-y-3">
-      {invoices.map((inv) => (
-        <InvoiceCard key={inv.id} invoice={inv} />
-      ))}
-    </div>
+    <FilteredPagedList
+      items={invoices}
+      getKey={(i) => i.id}
+      getSearchText={(i) =>
+        `${MONTH_LABEL[i.referenceMonth - 1]} ${i.referenceYear} ${invoiceStatusLabel(i.status)}`
+      }
+      getMonth={(i) => ({ month: i.referenceMonth, year: i.referenceYear })}
+      renderItem={(i) => <InvoiceCard invoice={i} />}
+      searchPlaceholder="Buscar por mês, ano, status…"
+      emptyText="Você não tem faturas."
+    />
   )
 }

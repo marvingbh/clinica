@@ -91,11 +91,13 @@ export function PortalLogin({ clinicName, hasLogo }: PortalLoginProps) {
             </label>
             <input
               value={identifier}
-              onChange={(e) =>
-                setIdentifier(
-                  e.target.value.includes("@") ? e.target.value : formatPhoneInput(e.target.value),
-                )
-              }
+              onChange={(e) => {
+                const v = e.target.value
+                // Only phone-format pure-numeric input; the moment a letter or
+                // "@" appears, treat it as an email and keep the raw value
+                // (otherwise formatPhoneInput strips the letters as you type).
+                setIdentifier(/[a-zA-Z@]/.test(v) ? v : formatPhoneInput(v))
+              }}
               className="w-full px-4 py-3 border border-border rounded bg-card text-foreground"
               placeholder="(11) 99999-9999 ou voce@email.com"
               autoComplete={isEmail ? "email" : "tel"}

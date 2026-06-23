@@ -29,16 +29,16 @@ export function InvoiceCard({ invoice }: { invoice: PortalInvoiceView }) {
       <div className="text-xs text-muted-foreground">
         Vencimento: {formatDate(invoice.dueDate)}
       </div>
-      <div className="flex flex-wrap gap-2 pt-1">
+      <div className="flex flex-wrap items-center gap-2 pt-1">
         <a href={`${base}/pdf`} target="_blank" rel="noopener noreferrer">
-          <Button size="sm" variant="outlined">
-            <Download className="w-4 h-4 mr-1" /> Baixar fatura (PDF)
+          <Button size="sm" variant="outlined" leftIcon={<Download className="w-4 h-4" />}>
+            Baixar fatura (PDF)
           </Button>
         </a>
         {invoice.hasNfse && (
           <a href={`${base}/danfse`} target="_blank" rel="noopener noreferrer">
-            <Button size="sm" variant="text">
-              <Download className="w-4 h-4 mr-1" /> Baixar NFS-e
+            <Button size="sm" variant="outlined" leftIcon={<Download className="w-4 h-4" />}>
+              Baixar NFS-e
             </Button>
           </a>
         )}

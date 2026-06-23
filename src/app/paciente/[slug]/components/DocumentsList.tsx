@@ -5,6 +5,7 @@ import { useMountEffect } from "@/shared/hooks"
 import { FileText, Download } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { usePortal } from "./PortalSessionProvider"
+import { FilteredPagedList } from "./FilteredPagedList"
 import { MONTH_LABEL } from "./months"
 import type { PortalInvoiceView } from "./format"
 
@@ -34,25 +35,23 @@ export function DocumentsList() {
 
   useMountEffect(() => {
     void load()
+    const onFocus = () => void load()
+    window.addEventListener("focus", onFocus)
+    return () => window.removeEventListener("focus", onFocus)
   })
 
   if (loading) return <div className="text-sm text-muted-foreground py-8 text-center">Carregando...</div>
 
-  if (invoices.length === 0) {
-    return (
-      <div className="text-sm text-muted-foreground py-8 text-center">
-        Nenhum recibo disponível no momento.
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-3">
-      {invoices.map((inv) => (
-        <div
-          key={inv.id}
-          className="bg-card border border-border rounded-lg p-4 flex items-center justify-between"
-        >
+    <FilteredPagedList
+      items={invoices}
+      getKey={(inv) => inv.id}
+      getSearchText={(inv) => `recibo ${MONTH_LABEL[inv.referenceMonth - 1]} ${inv.referenceYear}`}
+      getMonth={(inv) => ({ month: inv.referenceMonth, year: inv.referenceYear })}
+      searchPlaceholder="Buscar recibo por mês, ano…"
+      emptyText="Nenhum recibo disponível no momento."
+      renderItem={(inv) => (
+        <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <FileText className="w-5 h-5 text-muted-foreground" />
             <div>
@@ -67,12 +66,12 @@ export function DocumentsList() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            <Button size="sm" variant="outlined">
-              <Download className="w-4 h-4 mr-1" /> Baixar
+            <Button size="sm" variant="outlined" leftIcon={<Download className="w-4 h-4" />}>
+              Baixar
             </Button>
           </a>
         </div>
-      ))}
-    </div>
+      )}
+    />
   )
 }
