@@ -23,6 +23,10 @@ export const authConfig: NextAuthConfig = {
       const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth")
       const isPublicApiRoute = nextUrl.pathname.startsWith("/api/public")
       const isWebhookRoute = nextUrl.pathname.startsWith("/api/webhooks")
+      // Cron job routes self-guard with CRON_SECRET (Bearer token), not a
+      // session. They must bypass the session middleware or Vercel Cron
+      // requests get redirected to /login and never execute.
+      const isCronRoute = nextUrl.pathname.startsWith("/api/jobs")
       const isConfirmPage = nextUrl.pathname === "/confirm"
       const isCancelPage = nextUrl.pathname === "/cancel"
       const isIntakePage = nextUrl.pathname.startsWith("/intake")
@@ -30,7 +34,7 @@ export const authConfig: NextAuthConfig = {
         nextUrl.pathname.startsWith("/api/superadmin")
       const isPublicRoute =
         isHomePage || isLoginPage || isSignupPage || isApiAuthRoute || isPublicApiRoute ||
-        isWebhookRoute || isConfirmPage || isCancelPage || isIntakePage || isSuperAdminRoute
+        isWebhookRoute || isCronRoute || isConfirmPage || isCancelPage || isIntakePage || isSuperAdminRoute
 
       if (isPublicRoute) {
         if (isLoggedIn && isLoginPage) {
