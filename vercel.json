@@ -4,8 +4,12 @@
   "framework": "nextjs",
   "crons": [
     {
-      "path": "/api/jobs/run-daily",
+      "path": "/api/jobs/extend-recurrences",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/jobs/run-daily",
+      "schedule": "0 3 * * *"
     }
   ]
 }

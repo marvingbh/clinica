@@ -93,7 +93,6 @@ beforeEach(() => {
   mockPrisma.appointmentRecurrence.findMany.mockResolvedValue([])
   mockPrisma.appointmentRecurrence.update.mockResolvedValue({})
   mockPrisma.appointment.findMany.mockResolvedValue([])
-  mockPrisma.appointment.findFirst.mockResolvedValue(null)
   mockPrisma.appointment.createMany.mockResolvedValue({ count: 0 })
   mockPrisma.todoRecurrence.findMany.mockResolvedValue([])
   mockPrisma.todoRecurrence.update.mockResolvedValue({})
@@ -155,9 +154,13 @@ describe("GET /api/jobs/extend-recurrences", () => {
       // is NOT using it as the anchor — only the actual last appointment.
       makeRecurrence({ lastGeneratedDate: "2026-03-01" }),
     ])
-    mockPrisma.appointment.findFirst.mockResolvedValue({
-      scheduledAt: new Date("2026-07-01T09:00:00"),
-    })
+    mockPrisma.appointment.findMany.mockImplementation((args?: { distinct?: unknown }) =>
+      Promise.resolve(
+        args?.distinct
+          ? [{ recurrenceId: "rec-1", scheduledAt: new Date("2026-07-01T09:00:00"), endAt: new Date("2026-07-01T09:50:00"), type: "CONSULTA", title: null, blocksTime: true, modality: "PRESENCIAL" }]
+          : []
+      )
+    )
 
     const res = await GET(makeRequest(CRON_SECRET))
     const body = await res.json()
@@ -204,17 +207,20 @@ describe("GET /api/jobs/extend-recurrences", () => {
     })
     mockPrisma.appointmentRecurrence.findMany.mockResolvedValue([recurrence])
     // After a +7d swap, the actual last appointment shifted from 2026-04-01
-    // to 2026-04-08. Pretend the appointments table reflects that.
-    mockPrisma.appointment.findFirst.mockResolvedValue({
-      scheduledAt: new Date("2026-04-08T14:45:00"),
-      endAt: new Date("2026-04-08T15:35:00"),
-      type: "CONSULTA",
-      title: null,
-      blocksTime: true,
-      modality: "PRESENCIAL",
-    })
+    // to 2026-04-08. The job reads it via the batched distinct query.
+    mockPrisma.appointment.findMany.mockImplementation((args?: { distinct?: unknown }) =>
+      Promise.resolve(
+        args?.distinct
+          ? [{
+              recurrenceId: "rec-1",
+              scheduledAt: new Date("2026-04-08T14:45:00"),
+              endAt: new Date("2026-04-08T15:35:00"),
+              type: "CONSULTA", title: null, blocksTime: true, modality: "PRESENCIAL",
+            }]
+          : []
+      )
+    )
     calculateNextWindowDates.mockReturnValue([makeDateInfo("2026-04-22", 14)])
-    mockPrisma.appointment.findMany.mockResolvedValue([])
 
     await GET(makeRequest(CRON_SECRET))
 
@@ -381,16 +387,19 @@ describe("GET /api/jobs/extend-recurrences", () => {
     const dates = [makeDateInfo("2026-04-20", 11, 90)]
     mockPrisma.appointmentRecurrence.findMany.mockResolvedValue([recurrence])
     calculateNextWindowDates.mockReturnValue(dates)
-    mockPrisma.appointment.findMany.mockResolvedValue([])
-    // Latest real appointment is a 90-min titled REUNIAO.
-    mockPrisma.appointment.findFirst.mockResolvedValue({
-      scheduledAt: new Date("2026-04-13T11:45:00"),
-      endAt: new Date("2026-04-13T13:15:00"),
-      type: "REUNIAO",
-      title: "SUPERVISAO CHERLEN",
-      blocksTime: true,
-      modality: "PRESENCIAL",
-    })
+    // Latest real appointment is a 90-min titled REUNIAO (via batched query).
+    mockPrisma.appointment.findMany.mockImplementation((args?: { distinct?: unknown }) =>
+      Promise.resolve(
+        args?.distinct
+          ? [{
+              recurrenceId: "rec-1",
+              scheduledAt: new Date("2026-04-13T11:45:00"),
+              endAt: new Date("2026-04-13T13:15:00"),
+              type: "REUNIAO", title: "SUPERVISAO CHERLEN", blocksTime: true, modality: "PRESENCIAL",
+            }]
+          : []
+      )
+    )
 
     await GET(makeRequest(CRON_SECRET))
 

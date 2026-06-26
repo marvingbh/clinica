@@ -18,14 +18,17 @@ import {
  * GET /api/jobs/extend-recurrences
  * Vercel Cron job to extend INDEFINITE recurrences
  *
- * Runs weekly (every Monday at 2am) via Vercel Cron configuration.
- * For each active INDEFINITE recurrence:
- * - Checks if appointments need to be generated
- * - Generates next 3 months of appointments
- * - Updates lastGeneratedDate
+ * Runs daily in its OWN cron slot (the agenda is the critical flow, so it is
+ * never queued behind slower maintenance jobs). For each active INDEFINITE
+ * recurrence: checks if appointments need generating, generates the next 3
+ * months, and updates lastGeneratedDate.
  *
- * Schedule: 0 2 * * 1 (every Monday at 2:00 AM)
+ * Schedule: 0 2 * * * (every day at 2:00 AM UTC)
  */
+
+// This job iterates every clinic's recurrences; give it the full Hobby budget.
+export const maxDuration = 60
+
 export async function GET(req: Request) {
   // Verify Vercel Cron secret to prevent unauthorized access
   const authHeader = req.headers.get("authorization")
@@ -67,6 +70,36 @@ export async function GET(req: Request) {
       },
     })
 
+    // Batch-fetch the latest appointment per recurrence in ONE query
+    // (Postgres DISTINCT ON, via Prisma distinct + ordering) instead of a
+    // findFirst per recurrence. With hundreds of recurrences and ~100ms of
+    // round-trip latency each, the old per-recurrence query was the bulk of
+    // the cron's runtime and pushed it past the serverless time limit.
+    //
+    // Anchor source-of-truth = the actual latest appointment row, NOT
+    // recurrence.lastGeneratedDate. A "Trocar semana quinzenal" swap (or any
+    // per-appointment edit) shifts appointment dates but does NOT touch the
+    // recurrence row — so trusting lastGeneratedDate would extend on the OLD
+    // cycle and put new sessions on the wrong week.
+    const now = new Date()
+    const latestRows = await prisma.appointment.findMany({
+      where: { recurrenceId: { in: recurrences.map((r) => r.id) } },
+      distinct: ["recurrenceId"],
+      orderBy: [{ recurrenceId: "asc" }, { scheduledAt: "desc" }],
+      select: {
+        recurrenceId: true,
+        scheduledAt: true,
+        endAt: true,
+        type: true,
+        title: true,
+        blocksTime: true,
+        modality: true,
+      },
+    })
+    const latestByRecurrence = new Map(
+      latestRows.map((row) => [row.recurrenceId, row])
+    )
+
     for (const recurrence of recurrences) {
       try {
         // Skip if clinic is inactive
@@ -75,28 +108,7 @@ export async function GET(req: Request) {
           continue
         }
 
-        // Check if we need to extend.
-        //
-        // Anchor source-of-truth = the actual latest appointment row, NOT
-        // recurrence.lastGeneratedDate. A "Trocar semana quinzenal" swap
-        // (or any per-appointment edit) shifts appointment dates but does
-        // NOT touch the recurrence row — so trusting lastGeneratedDate
-        // would extend on the OLD cycle and put new sessions on the wrong
-        // week. Querying the real last appointment keeps the rhythm in
-        // sync with whatever the user has actually scheduled.
-        const now = new Date()
-        const lastAppointment = await prisma.appointment.findFirst({
-          where: { recurrenceId: recurrence.id },
-          orderBy: { scheduledAt: "desc" },
-          select: {
-            scheduledAt: true,
-            endAt: true,
-            type: true,
-            title: true,
-            blocksTime: true,
-            modality: true,
-          },
-        })
+        const lastAppointment = latestByRecurrence.get(recurrence.id) ?? null
         const lastApptDate = lastAppointment?.scheduledAt ?? null
         const startDate = new Date(recurrence.startDate)
 
@@ -202,19 +214,6 @@ export async function GET(req: Request) {
 
         await prisma.$transaction(async (tx) => {
           await tx.appointment.createMany({ data: appointmentData })
-
-          // Fetch created appointment IDs for token creation
-          await tx.appointment.findMany({
-            where: {
-              recurrenceId: recurrence.id,
-              scheduledAt: {
-                gte: nonConflictingDates[0].scheduledAt,
-                lte: nonConflictingDates[nonConflictingDates.length - 1].scheduledAt,
-              },
-            },
-            select: { id: true, scheduledAt: true },
-            orderBy: { scheduledAt: "asc" },
-          })
 
           results.appointmentsCreated += nonConflictingDates.length
 

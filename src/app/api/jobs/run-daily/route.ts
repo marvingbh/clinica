@@ -1,29 +1,28 @@
 import { NextResponse } from "next/server"
 import { GET as sendReminders } from "../send-reminders/route"
-import { GET as extendRecurrences } from "../extend-recurrences/route"
 import { GET as generateRecurringExpenses } from "../generate-recurring-expenses/route"
 import { GET as markOverdueExpenses } from "../mark-overdue-expenses/route"
 
 /**
  * GET /api/jobs/run-daily
  *
- * Single daily dispatcher cron. The Vercel Hobby plan allows only 2 cron
- * jobs per project, so the four periodic jobs are consolidated here and run
- * sequentially from one daily invocation. Each underlying job is idempotent,
- * so running them daily (rather than on their original individual cadences)
- * is safe.
+ * Daily dispatcher for the lightweight maintenance jobs. The Vercel Hobby
+ * plan allows only 2 cron jobs per project AND caps each function at 60s, so
+ * the agenda-critical extend-recurrences job runs in its OWN cron slot (so a
+ * slow maintenance job can never starve it / time it out), and the three
+ * cheaper jobs share this one. Each underlying job is idempotent, so running
+ * them daily is safe.
  *
  * The individual /api/jobs/* routes remain callable for manual triggering.
  *
- * Schedule: 0 2 * * * (every day at 2:00 AM UTC)
+ * Schedule: 0 3 * * * (every day at 3:00 AM UTC)
  */
 
-// Each job iterates every clinic/recurrence, so give the dispatcher the full
-// Hobby duration budget.
+// These jobs iterate every clinic, so give the dispatcher the full Hobby
+// duration budget.
 export const maxDuration = 60
 
 const JOBS = [
-  { name: "extend-recurrences", run: extendRecurrences },
   { name: "send-reminders", run: sendReminders },
   { name: "generate-recurring-expenses", run: generateRecurringExpenses },
   { name: "mark-overdue-expenses", run: markOverdueExpenses },
