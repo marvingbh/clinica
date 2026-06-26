@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
-const { mockPrisma, calculateNextWindowDates } = vi.hoisted(() => {
+const { mockPrisma, calculateNextWindowDates, blocksTimeForType } = vi.hoisted(() => {
   const mp: Record<string, unknown> = {
     appointmentRecurrence: { findMany: vi.fn(), update: vi.fn() },
     appointment: { findMany: vi.fn(), findFirst: vi.fn(), createMany: vi.fn() },
@@ -21,11 +21,13 @@ const { mockPrisma, calculateNextWindowDates } = vi.hoisted(() => {
       $transaction: ReturnType<typeof vi.fn>
     },
     calculateNextWindowDates: vi.fn().mockReturnValue([]),
+    blocksTimeForType: (type: string) =>
+      type === "CONSULTA" || type === "TAREFA" || type === "REUNIAO",
   }
 })
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }))
-vi.mock("@/lib/appointments", () => ({ calculateNextWindowDates }))
+vi.mock("@/lib/appointments", () => ({ calculateNextWindowDates, blocksTimeForType }))
 
 import { GET } from "./route"
 
@@ -53,6 +55,8 @@ function makeRecurrence(overrides: Record<string, unknown> = {}) {
     recurrenceType: "WEEKLY",
     dayOfWeek: 1,
     modality: "PRESENCIAL",
+    type: "CONSULTA",
+    title: null,
     exceptions: [],
     lastGeneratedDate: "2026-03-01",
     isActive: true,
@@ -203,6 +207,11 @@ describe("GET /api/jobs/extend-recurrences", () => {
     // to 2026-04-08. Pretend the appointments table reflects that.
     mockPrisma.appointment.findFirst.mockResolvedValue({
       scheduledAt: new Date("2026-04-08T14:45:00"),
+      endAt: new Date("2026-04-08T15:35:00"),
+      type: "CONSULTA",
+      title: null,
+      blocksTime: true,
+      modality: "PRESENCIAL",
     })
     calculateNextWindowDates.mockReturnValue([makeDateInfo("2026-04-22", 14)])
     mockPrisma.appointment.findMany.mockResolvedValue([])
@@ -356,10 +365,44 @@ describe("GET /api/jobs/extend-recurrences", () => {
           scheduledAt: dates[0].scheduledAt,
           endAt: dates[0].endAt,
           modality: "ONLINE",
+          type: "CONSULTA",
+          title: null,
+          blocksTime: true,
           status: "AGENDADO",
         },
       ],
     })
+  })
+
+  // 11b — regression: extended occurrences must inherit the recurrence's
+  // type/title (a REUNIAO "SUPERVISAO" must not become an untitled CONSULTA).
+  it("carries type and title from the latest appointment onto new occurrences", async () => {
+    const recurrence = makeRecurrence({ patientId: null, type: "REUNIAO", title: "SUPERVISAO CHERLEN" })
+    const dates = [makeDateInfo("2026-04-20", 11, 90)]
+    mockPrisma.appointmentRecurrence.findMany.mockResolvedValue([recurrence])
+    calculateNextWindowDates.mockReturnValue(dates)
+    mockPrisma.appointment.findMany.mockResolvedValue([])
+    // Latest real appointment is a 90-min titled REUNIAO.
+    mockPrisma.appointment.findFirst.mockResolvedValue({
+      scheduledAt: new Date("2026-04-13T11:45:00"),
+      endAt: new Date("2026-04-13T13:15:00"),
+      type: "REUNIAO",
+      title: "SUPERVISAO CHERLEN",
+      blocksTime: true,
+      modality: "PRESENCIAL",
+    })
+
+    await GET(makeRequest(CRON_SECRET))
+
+    const created = mockPrisma.appointment.createMany.mock.calls[0][0].data[0]
+    expect(created.type).toBe("REUNIAO")
+    expect(created.title).toBe("SUPERVISAO CHERLEN")
+    expect(created.blocksTime).toBe(true)
+    expect(created.patientId).toBeNull()
+    // duration derived from the real appointment (90 min), not recurrence.duration (50)
+    expect(calculateNextWindowDates).toHaveBeenCalledWith(
+      expect.any(Date), "09:00", 90, "WEEKLY", 1, 3
+    )
   })
 
   // 12

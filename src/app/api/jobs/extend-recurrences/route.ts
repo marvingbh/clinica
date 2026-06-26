@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { RecurrenceEndType, AppointmentStatus } from "@prisma/client"
-import { calculateNextWindowDates } from "@/lib/appointments"
+import { calculateNextWindowDates, blocksTimeForType } from "@/lib/appointments"
 import {
   needsExtension,
   filterExceptions,
@@ -88,7 +88,14 @@ export async function GET(req: Request) {
         const lastAppointment = await prisma.appointment.findFirst({
           where: { recurrenceId: recurrence.id },
           orderBy: { scheduledAt: "desc" },
-          select: { scheduledAt: true },
+          select: {
+            scheduledAt: true,
+            endAt: true,
+            type: true,
+            title: true,
+            blocksTime: true,
+            modality: true,
+          },
         })
         const lastApptDate = lastAppointment?.scheduledAt ?? null
         const startDate = new Date(recurrence.startDate)
@@ -98,13 +105,33 @@ export async function GET(req: Request) {
           continue
         }
 
+        // Session shape (type/title/duration/blocksTime/modality) is cloned
+        // from the actual latest appointment — same source-of-truth rationale
+        // as the date anchor above. The recurrence row's `duration` can drift
+        // out of sync with its real sessions (e.g. an edited end time), and it
+        // doesn't carry type/title at all, so trusting it would turn a titled
+        // REUNIAO into an untitled CONSULTA on the wrong duration.
+        const durationMinutes = lastAppointment
+          ? Math.round(
+              (lastAppointment.endAt.getTime() -
+                lastAppointment.scheduledAt.getTime()) /
+                60000
+            )
+          : recurrence.duration
+        const entryType = lastAppointment?.type ?? recurrence.type
+        const entryTitle = lastAppointment?.title ?? recurrence.title
+        const entryBlocksTime =
+          lastAppointment?.blocksTime ?? blocksTimeForType(recurrence.type)
+        const entryModality =
+          lastAppointment?.modality ?? recurrence.modality ?? "PRESENCIAL"
+
         // Calculate new appointment dates (next 3 months from the actual
         // last appointment, falling back to startDate when none exist yet).
         const effectiveDate = lastApptDate ?? startDate
         const newDates = calculateNextWindowDates(
           effectiveDate,
           recurrence.startTime,
-          recurrence.duration,
+          durationMinutes,
           recurrence.recurrenceType,
           recurrence.dayOfWeek,
           3 // 3 months extension
@@ -167,7 +194,10 @@ export async function GET(req: Request) {
           clinicId: recurrence.clinicId,
           professionalProfileId: recurrence.professionalProfileId,
           patientId: recurrence.patientId,
-          modality: recurrence.modality ?? "PRESENCIAL" as const,
+          modality: entryModality,
+          type: entryType,
+          title: entryTitle,
+          blocksTime: entryBlocksTime,
         })
 
         await prisma.$transaction(async (tx) => {

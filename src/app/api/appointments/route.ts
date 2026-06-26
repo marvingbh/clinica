@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { meetsMinAccess } from "@/lib/rbac"
-import { checkConflictsBulk, formatConflictError, validateRecurrenceOptions, calculateRecurrenceDates } from "@/lib/appointments"
+import { checkConflictsBulk, formatConflictError, validateRecurrenceOptions, calculateRecurrenceDates, blocksTimeForType } from "@/lib/appointments"
 import { buildConfirmUrl, buildCancelUrl } from "@/lib/appointments/appointment-links"
 import {
   buildSlotKey,
@@ -94,11 +94,6 @@ const createCalendarEntrySchema = z.object({
   recurrence: calendarEntryRecurrenceSchema.optional(),
   skipAvailabilityCheck: z.boolean().optional(),
 })
-
-// Determine if entry type blocks time
-function getBlocksTime(type: AppointmentType): boolean {
-  return type === "TAREFA" || type === "REUNIAO" || type === "CONSULTA"
-}
 
 // Default durations for non-blocking entry types only.
 // Time-blocking types (TAREFA, REUNIAO) use the professional's configured appointmentDuration.
@@ -565,7 +560,7 @@ async function handleCreateCalendarEntry(
   }
 
   const entryDuration = duration || DEFAULT_DURATIONS[type] || professional.appointmentDuration || 60
-  const blocksTime = getBlocksTime(type as AppointmentType)
+  const blocksTime = blocksTimeForType(type as AppointmentType)
 
   // Calculate dates
   const appointmentDates = recurrence

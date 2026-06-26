@@ -48,6 +48,9 @@ function makeRecurrence(
     professionalProfileId: "prof-1",
     patientId: "patient-1",
     modality: "PRESENCIAL",
+    type: "CONSULTA",
+    title: null,
+    blocksTime: true,
     ...overrides,
   }
 }
@@ -217,8 +220,41 @@ describe("buildAppointmentData", () => {
       scheduledAt: dates[0].scheduledAt,
       endAt: dates[0].endAt,
       modality: "ONLINE",
+      type: "CONSULTA",
+      title: null,
+      blocksTime: true,
       status: "AGENDADO",
     })
+  })
+
+  it("carries type, title and blocksTime onto generated appointments", () => {
+    // Regression: a titled REUNIAO recurrence must not be materialized as an
+    // untitled CONSULTA (the "sem título" bug).
+    const dates = [makeDateInfo("2026-04-20", 11, 90)]
+    const recurrence = makeRecurrence({
+      patientId: null,
+      type: "REUNIAO",
+      title: "SUPERVISAO CHERLEN",
+      blocksTime: true,
+    })
+    const result = buildAppointmentData(dates, recurrence)
+    expect(result[0].type).toBe("REUNIAO")
+    expect(result[0].title).toBe("SUPERVISAO CHERLEN")
+    expect(result[0].blocksTime).toBe(true)
+  })
+
+  it("preserves non-blocking entry types (LEMBRETE)", () => {
+    const dates = [makeDateInfo("2026-04-20")]
+    const recurrence = makeRecurrence({
+      patientId: null,
+      type: "LEMBRETE",
+      title: "Pagar aluguel",
+      blocksTime: false,
+    })
+    const result = buildAppointmentData(dates, recurrence)
+    expect(result[0].type).toBe("LEMBRETE")
+    expect(result[0].title).toBe("Pagar aluguel")
+    expect(result[0].blocksTime).toBe(false)
   })
 
   it("handles multiple dates", () => {

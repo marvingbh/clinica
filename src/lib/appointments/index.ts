@@ -60,3 +60,8 @@ export {
   isDraggable,
   computeNewTimeRange,
 } from "./drag-constraints"
+
+export {
+  blocksTimeForType,
+  type AppointmentEntryType,
+} from "./entry-types"

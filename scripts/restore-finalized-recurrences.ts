@@ -19,7 +19,7 @@
  */
 
 import { PrismaClient, RecurrenceEndType, AppointmentStatus } from "@prisma/client"
-import { calculateNextWindowDates } from "../src/lib/appointments"
+import { calculateNextWindowDates, blocksTimeForType } from "../src/lib/appointments"
 import { filterConflicts, buildAppointmentData } from "../src/lib/jobs/extend-recurrences"
 
 const prisma = new PrismaClient()
@@ -131,6 +131,9 @@ async function restoreRecurrence(recurrenceId: string) {
         professionalProfileId: recurrence.professionalProfileId,
         patientId: recurrence.patientId,
         modality: recurrence.modality ?? "PRESENCIAL",
+        type: recurrence.type,
+        title: recurrence.title,
+        blocksTime: blocksTimeForType(recurrence.type),
       })
       await tx.appointment.createMany({ data })
     }

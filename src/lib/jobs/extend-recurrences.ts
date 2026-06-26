@@ -12,12 +12,20 @@ export interface DateInfo {
 
 type Modality = "ONLINE" | "PRESENCIAL"
 
+import type { AppointmentEntryType } from "@/lib/appointments"
+
 export interface RecurrenceInfo {
   id: string
   clinicId: string
   professionalProfileId: string
   patientId: string | null
   modality: Modality
+  // Session shape carried onto generated appointments. Without these the
+  // cron would default every extended occurrence to an untitled CONSULTA
+  // (e.g. a "SUPERVISAO" REUNIAO would silently become "sem título").
+  type: AppointmentEntryType
+  title: string | null
+  blocksTime: boolean
 }
 
 export interface AppointmentData {
@@ -28,6 +36,9 @@ export interface AppointmentData {
   scheduledAt: Date
   endAt: Date
   modality: Modality
+  type: AppointmentEntryType
+  title: string | null
+  blocksTime: boolean
   status: "AGENDADO"
 }
 
@@ -96,6 +107,9 @@ export function buildAppointmentData(
     scheduledAt: dateInfo.scheduledAt,
     endAt: dateInfo.endAt,
     modality: recurrence.modality,
+    type: recurrence.type,
+    title: recurrence.title,
+    blocksTime: recurrence.blocksTime,
     status: "AGENDADO" as const,
   }))
 }
