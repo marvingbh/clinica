@@ -47,23 +47,25 @@ export const POST = withFeatureAuth(
         status: { in: ["OPEN", "OVERDUE"] },
         reconciliationLinks: { none: {} },
       },
-      select: { id: true, amount: true, dueDate: true, recurrenceId: true, categoryId: true, supplierName: true, status: true },
+      select: { id: true, amount: true, dueDate: true, recurrenceId: true, categoryId: true, supplierName: true, description: true, status: true },
     })
 
     const reuseTarget = findReconcilableExpense(
-      { amount, date: transaction.date },
-      openExpenses.map((e) => ({ id: e.id, amount: Number(e.amount), dueDate: e.dueDate, recurrenceId: e.recurrenceId }))
+      { amount, date: transaction.date, description: transaction.description },
+      openExpenses.map((e) => ({ id: e.id, amount: Number(e.amount), dueDate: e.dueDate, recurrenceId: e.recurrenceId, description: e.description }))
     )
 
     const result = await prisma.$transaction(async (tx) => {
       if (reuseTarget) {
-        // Reconcile against the existing expense — no duplicate created.
-        const existing = openExpenses.find((e) => e.id === reuseTarget.id)!
-        const expense = isValidTransition(existing.status, "PAID")
-          ? await tx.expense.update({
-              where: { id: existing.id },
-              data: { status: "PAID", paidAt: transaction.date },
-            })
+        // Reconcile against the existing expense — no duplicate created. The imported transaction
+        // is the source of truth, so adopt its amount for variable bills (adoptAmount).
+        const existing = openExpenses.find((e) => e.id === reuseTarget.expense.id)!
+        const paidData = {
+          ...(isValidTransition(existing.status, "PAID") ? { status: "PAID" as const, paidAt: transaction.date } : {}),
+          ...(reuseTarget.adoptAmount ? { amount: transaction.amount } : {}),
+        }
+        const expense = Object.keys(paidData).length > 0
+          ? await tx.expense.update({ where: { id: existing.id }, data: paidData })
           : await tx.expense.findUniqueOrThrow({ where: { id: existing.id } })
 
         await tx.expenseReconciliationLink.create({

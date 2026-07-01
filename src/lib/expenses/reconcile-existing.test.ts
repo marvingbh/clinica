@@ -2,42 +2,60 @@ import { describe, it, expect } from "vitest"
 import { findReconcilableExpense } from "./reconcile-existing"
 
 const utc = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d))
+const CEMIG = "DEBITO CEMIG - 008108759559"
+const PACTO_AMP = "PAGAMENTO DE TITULO - PACTO ADMINISTRADORA & CORRETORA DE SEGUROS LTDA"
+const PACTO_E = "PAGAMENTO DE TITULO - PACTO ADMINISTRADORA E CORRETORA DE SEGUROS LTDA"
 
 describe("findReconcilableExpense", () => {
-  it("matches an open expense with exact amount within the date window", () => {
-    const match = findReconcilableExpense({ amount: 1299.28, date: utc(2026, 5, 5) }, [
-      { id: "e1", amount: 1299.28, dueDate: utc(2026, 5, 2), recurrenceId: "r1" },
+  it("matches the same supplier and adopts the imported amount (variable bill)", () => {
+    // Utility: recurrence estimated R$102,54 but the real bill imported is R$149,72.
+    const match = findReconcilableExpense({ amount: 149.72, date: utc(2026, 5, 10), description: CEMIG }, [
+      { id: "e1", amount: 102.54, dueDate: utc(2026, 5, 10), recurrenceId: "r1", description: CEMIG },
     ])
-    expect(match?.id).toBe("e1")
+    expect(match?.expense.id).toBe("e1")
+    expect(match?.adoptAmount).toBe(true)
   })
 
-  it("returns null when no amount matches", () => {
-    const match = findReconcilableExpense({ amount: 1000, date: utc(2026, 5, 5) }, [
-      { id: "e1", amount: 1299.28, dueDate: utc(2026, 5, 2), recurrenceId: "r1" },
+  it("prefers an exact-amount match and keeps the amount (fixed obligation)", () => {
+    // Two distinct insurance policies from the same supplier in the same month.
+    const match = findReconcilableExpense({ amount: 481.46, date: utc(2026, 5, 10), description: PACTO_AMP }, [
+      { id: "policyA", amount: 481.46, dueDate: utc(2026, 5, 10), recurrenceId: "rA", description: PACTO_AMP },
+      { id: "policyB", amount: 528.86, dueDate: utc(2026, 5, 10), recurrenceId: "rB", description: PACTO_AMP },
+    ])
+    expect(match?.expense.id).toBe("policyA")
+    expect(match?.adoptAmount).toBe(false)
+  })
+
+  it("does not reconcile when 2+ non-exact candidates make it ambiguous", () => {
+    const match = findReconcilableExpense({ amount: 600, date: utc(2026, 5, 10), description: PACTO_AMP }, [
+      { id: "policyA", amount: 481.46, dueDate: utc(2026, 5, 10), recurrenceId: "rA", description: PACTO_AMP },
+      { id: "policyB", amount: 528.86, dueDate: utc(2026, 5, 10), recurrenceId: "rB", description: PACTO_AMP },
     ])
     expect(match).toBeNull()
   })
 
-  it("returns null when the only amount match is outside the date window", () => {
-    const match = findReconcilableExpense({ amount: 500, date: utc(2026, 5, 28) }, [
-      { id: "e1", amount: 500, dueDate: utc(2026, 5, 1), recurrenceId: null },
+  it("matches across cosmetic name differences (& vs E)", () => {
+    const match = findReconcilableExpense({ amount: 528.86, date: utc(2026, 5, 10), description: PACTO_AMP }, [
+      { id: "e1", amount: 528.86, dueDate: utc(2026, 5, 11), recurrenceId: "r1", description: PACTO_E },
+    ])
+    expect(match?.expense.id).toBe("e1")
+  })
+
+  it("does not match a different supplier", () => {
+    const match = findReconcilableExpense({ amount: 149.72, date: utc(2026, 5, 10), description: CEMIG }, [
+      { id: "e1", amount: 149.72, dueDate: utc(2026, 5, 10), recurrenceId: "r1", description: "DEBITO CEMIG - 000000000000" },
     ])
     expect(match).toBeNull()
   })
 
-  it("prefers a recurring expense over a one-off when both match", () => {
-    const match = findReconcilableExpense({ amount: 500, date: utc(2026, 5, 10) }, [
-      { id: "avulsa", amount: 500, dueDate: utc(2026, 5, 10), recurrenceId: null },
-      { id: "rec", amount: 500, dueDate: utc(2026, 5, 12), recurrenceId: "r1" },
+  it("does not match outside the date window", () => {
+    const match = findReconcilableExpense({ amount: 149.72, date: utc(2026, 5, 28), description: CEMIG }, [
+      { id: "e1", amount: 102.54, dueDate: utc(2026, 5, 1), recurrenceId: "r1", description: CEMIG },
     ])
-    expect(match?.id).toBe("rec")
+    expect(match).toBeNull()
   })
 
-  it("prefers the closest due date among same-kind matches", () => {
-    const match = findReconcilableExpense({ amount: 500, date: utc(2026, 5, 10) }, [
-      { id: "far", amount: 500, dueDate: utc(2026, 5, 1), recurrenceId: "r1" },
-      { id: "near", amount: 500, dueDate: utc(2026, 5, 9), recurrenceId: "r2" },
-    ])
-    expect(match?.id).toBe("near")
+  it("returns null when there are no open expenses", () => {
+    expect(findReconcilableExpense({ amount: 100, date: utc(2026, 5, 10), description: CEMIG }, [])).toBeNull()
   })
 })

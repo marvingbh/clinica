@@ -6,7 +6,8 @@ export type { AutoReconcileMatch, RecurrenceCreationCandidate } from "./auto-rec
 export { findMatchingRecurrence } from "./match-recurrence"
 export type { RecurrenceCandidate, ExistingRecurrence } from "./match-recurrence"
 export { findReconcilableExpense } from "./reconcile-existing"
-export type { ReconcileCandidate, OpenExpenseForReconcile } from "./reconcile-existing"
+export type { ReconcileCandidate, OpenExpenseForReconcile, ReconcileMatch } from "./reconcile-existing"
+export { supplierKey } from "./supplier-key"
 export { DEFAULT_CATEGORIES } from "./seed-categories"
 export type { DefaultCategory } from "./seed-categories"
 export type {
