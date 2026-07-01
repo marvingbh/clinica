@@ -3,6 +3,10 @@ export { calculateNextDueDate, generateExpensesFromRecurrence } from "./recurren
 export { formatExpenseStatus, formatFrequency } from "./format"
 export { findAutoReconcileMatches, findRecurrenceCreationCandidates } from "./auto-reconcile"
 export type { AutoReconcileMatch, RecurrenceCreationCandidate } from "./auto-reconcile"
+export { findMatchingRecurrence } from "./match-recurrence"
+export type { RecurrenceCandidate, ExistingRecurrence } from "./match-recurrence"
+export { findReconcilableExpense } from "./reconcile-existing"
+export type { ReconcileCandidate, OpenExpenseForReconcile } from "./reconcile-existing"
 export { DEFAULT_CATEGORIES } from "./seed-categories"
 export type { DefaultCategory } from "./seed-categories"
 export type {

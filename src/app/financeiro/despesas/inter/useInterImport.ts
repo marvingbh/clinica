@@ -155,15 +155,15 @@ export function useInterImport() {
   async function handleCreateExpense(tx: DebitTransaction) {
     setCreating(tx.id)
     try {
-      const res = await fetch("/api/financeiro/despesas", {
+      // Single endpoint reconciles against an existing open expense if one matches this payment
+      // (avoids duplicating a recurring expense), otherwise creates the avulsa.
+      const res = await fetch("/api/financeiro/despesas/from-transaction", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: tx.description, supplierName: tx.suggestion?.supplierName ?? null, categoryId: tx.suggestion?.categoryId ?? null, amount: tx.amount, dueDate: tx.date.split("T")[0] }),
+        body: JSON.stringify({ transactionId: tx.id, description: tx.description, supplierName: tx.suggestion?.supplierName ?? null, categoryId: tx.suggestion?.categoryId ?? null, amount: tx.amount, dueDate: tx.date.split("T")[0] }),
       })
       if (!res.ok) throw new Error((await res.json()).error)
-      const expense = await res.json()
-      await fetch(`/api/financeiro/despesas/${expense.id}/pay`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paidAt: tx.date }) })
-      await fetch("/api/financeiro/conciliacao/match-expense", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionId: tx.id, expenseId: expense.id }) })
-      toast.success("Despesa criada e vinculada")
+      const { reused } = await res.json()
+      toast.success(reused ? "Vinculada a uma despesa existente" : "Despesa avulsa criada e vinculada")
       setTransactions((prev) => prev.filter((t) => t.id !== tx.id))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao criar despesa")

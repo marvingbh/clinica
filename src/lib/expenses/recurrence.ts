@@ -19,34 +19,36 @@ interface RecurrenceTemplate {
 /**
  * Calculate the next due date for a given frequency and day of month,
  * starting after `afterDate`. Handles month-end clamping (e.g., day 31 in Feb → 28/29).
+ *
+ * All dates are built in UTC to align with how `dueDate` / `lastGeneratedDate` are stored
+ * (Prisma `@db.Date`, read back as UTC midnight). Using local-time constructors here caused a
+ * boundary bug in negative-offset timezones (e.g. BRT, UTC-3): a locally-built "Sep 1" is
+ * `Sep 1 03:00Z`, always greater than the stored `Sep 1 00:00Z`, so the "skip already generated"
+ * guard never fired and the daily cron re-created the same expense every run.
  */
 export function calculateNextDueDate(
   frequency: ExpenseFrequency,
   dayOfMonth: number,
   afterDate: Date
 ): Date {
-  const year = afterDate.getFullYear()
-  const month = afterDate.getMonth()
+  const year = afterDate.getUTCFullYear()
+  const month = afterDate.getUTCMonth()
 
   if (frequency === "YEARLY") {
     // Next occurrence is January of the next year (or same year if afterDate is before Jan dayOfMonth)
-    const thisYear = new Date(year, 0, Math.min(dayOfMonth, daysInMonth(year, 0)))
+    const thisYear = utcDate(year, 0, Math.min(dayOfMonth, daysInMonth(year, 0)))
     if (thisYear > afterDate) return thisYear
-    const nextYear = year + 1
-    return new Date(nextYear, 0, Math.min(dayOfMonth, daysInMonth(nextYear, 0)))
+    return utcDate(year + 1, 0, Math.min(dayOfMonth, daysInMonth(year + 1, 0)))
   }
 
   // MONTHLY: find the next month where dayOfMonth hasn't passed yet
-  const thisMonth = new Date(year, month, Math.min(dayOfMonth, daysInMonth(year, month)))
+  const thisMonth = utcDate(year, month, Math.min(dayOfMonth, daysInMonth(year, month)))
   if (thisMonth > afterDate) return thisMonth
 
-  const nextMonth = month + 1
-  const nextDate = new Date(year, nextMonth, 1) // handles year rollover
-  return new Date(
-    nextDate.getFullYear(),
-    nextDate.getMonth(),
-    Math.min(dayOfMonth, daysInMonth(nextDate.getFullYear(), nextDate.getMonth()))
-  )
+  // Advance one month, handling year rollover
+  const nextYear = month === 11 ? year + 1 : year
+  const nextMonth = month === 11 ? 0 : month + 1
+  return utcDate(nextYear, nextMonth, Math.min(dayOfMonth, daysInMonth(nextYear, nextMonth)))
 }
 
 /**
@@ -104,6 +106,10 @@ export function generateExpensesFromRecurrence(
   return expenses
 }
 
+function utcDate(year: number, month: number, day: number): Date {
+  return new Date(Date.UTC(year, month, day))
+}
+
 function daysInMonth(year: number, month: number): number {
-  return new Date(year, month + 1, 0).getDate()
+  return new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
 }

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { withFeatureAuth } from "@/lib/api"
 import { audit, AuditAction } from "@/lib/rbac/audit"
 import { upsertCategoryPattern } from "@/lib/expense-matcher"
+import { findMatchingRecurrence } from "@/lib/expenses/match-recurrence"
 
 const schema = z.object({
   // Transaction details
@@ -36,39 +37,75 @@ export const POST = withFeatureAuth(
     const { transactionId, description, supplierName, categoryId, amount, dueDate, paymentMethod, frequency, dayOfMonth } = parsed.data
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Create the recurrence template
-      const recurrence = await tx.expenseRecurrence.create({
-        data: {
-          clinicId: user.clinicId,
-          description,
-          supplierName: supplierName ?? null,
-          categoryId: categoryId ?? null,
-          amount,
-          paymentMethod: paymentMethod ?? null,
-          frequency,
-          dayOfMonth,
-          startDate: new Date(dueDate),
-          active: true,
-        },
+      // 1. Reuse an existing active recurrence for the same payment if one exists, otherwise
+      // create a new template. Avoids the duplicate-template proliferation that produced
+      // parallel monthly expenses (e.g. the same supplier on days 2/4/30).
+      const activeRecurrences = await tx.expenseRecurrence.findMany({
+        where: { clinicId: user.clinicId, active: true },
+        select: { id: true, description: true, amount: true, frequency: true },
       })
+      const existingMatch = findMatchingRecurrence(
+        { description, amount, frequency },
+        activeRecurrences.map((r) => ({ ...r, amount: Number(r.amount) }))
+      )
 
-      // 2. Create the first expense (PAID if from transaction, OPEN if manual)
+      const recurrence = existingMatch
+        ? await tx.expenseRecurrence.findUniqueOrThrow({ where: { id: existingMatch.id } })
+        : await tx.expenseRecurrence.create({
+            data: {
+              clinicId: user.clinicId,
+              description,
+              supplierName: supplierName ?? null,
+              categoryId: categoryId ?? null,
+              amount,
+              paymentMethod: paymentMethod ?? null,
+              frequency,
+              dayOfMonth,
+              startDate: new Date(dueDate),
+              active: true,
+            },
+          })
+
+      // 2. Resolve the expense for this payment. When reusing an existing recurrence the cron
+      // may already have generated an OPEN/OVERDUE expense for this month — reconcile against it
+      // instead of creating a duplicate. Otherwise create a fresh one.
       const isPaid = !!transactionId
-      const expense = await tx.expense.create({
-        data: {
-          clinicId: user.clinicId,
-          description,
-          supplierName: supplierName ?? null,
-          categoryId: categoryId ?? null,
-          amount,
-          dueDate: new Date(dueDate),
-          status: isPaid ? "PAID" : "OPEN",
-          paidAt: isPaid ? new Date(dueDate) : null,
-          paymentMethod: paymentMethod ?? null,
-          recurrenceId: recurrence.id,
-          createdByUserId: user.id,
-        },
-      })
+      const due = new Date(dueDate)
+      const monthStart = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), 1))
+      const monthEnd = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth() + 1, 0))
+
+      const openForMonth = existingMatch
+        ? await tx.expense.findFirst({
+            where: {
+              clinicId: user.clinicId,
+              recurrenceId: recurrence.id,
+              status: { in: ["OPEN", "OVERDUE"] },
+              dueDate: { gte: monthStart, lte: monthEnd },
+            },
+            orderBy: { dueDate: "asc" },
+          })
+        : null
+
+      const expense = openForMonth
+        ? await tx.expense.update({
+            where: { id: openForMonth.id },
+            data: isPaid ? { status: "PAID", paidAt: due } : {},
+          })
+        : await tx.expense.create({
+            data: {
+              clinicId: user.clinicId,
+              description,
+              supplierName: supplierName ?? null,
+              categoryId: categoryId ?? null,
+              amount,
+              dueDate: due,
+              status: isPaid ? "PAID" : "OPEN",
+              paidAt: isPaid ? due : null,
+              paymentMethod: paymentMethod ?? null,
+              recurrenceId: recurrence.id,
+              createdByUserId: user.id,
+            },
+          })
 
       // 3. Link to bank transaction if provided
       if (transactionId) {

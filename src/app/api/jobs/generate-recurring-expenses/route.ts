@@ -30,7 +30,9 @@ export async function GET(req: Request) {
     })
 
     const now = new Date()
-    const threeMonthsAhead = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate())
+    // Build the horizon in UTC to match the UTC date math in generateExpensesFromRecurrence
+    // (dueDate / lastGeneratedDate are @db.Date, i.e. UTC midnight).
+    const threeMonthsAhead = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 3, now.getUTCDate()))
 
     for (const recurrence of recurrences) {
       try {
@@ -47,8 +49,27 @@ export async function GET(req: Request) {
           continue
         }
 
+        // Defense in depth: never create a second expense for the same recurrence + dueDate,
+        // even if the date math regresses. (Mirrors the existence check in the auto-reconcile route.)
+        const existing = await prisma.expense.findMany({
+          where: { recurrenceId: recurrence.id, dueDate: { in: inputs.map((i) => i.dueDate) } },
+          select: { dueDate: true },
+        })
+        const existingDueDates = new Set(existing.map((e) => e.dueDate.getTime()))
+        const newInputs = inputs.filter((i) => !existingDueDates.has(i.dueDate.getTime()))
+
+        if (newInputs.length === 0) {
+          // Still advance lastGeneratedDate so the cursor doesn't re-scan these every run.
+          await prisma.expenseRecurrence.update({
+            where: { id: recurrence.id },
+            data: { lastGeneratedDate: inputs[inputs.length - 1].dueDate },
+          })
+          results.recurrencesSkipped++
+          continue
+        }
+
         await prisma.$transaction(async (tx) => {
-          for (const input of inputs) {
+          for (const input of newInputs) {
             await tx.expense.create({
               data: {
                 clinicId: input.clinicId,
@@ -73,7 +94,7 @@ export async function GET(req: Request) {
         })
 
         results.recurrencesProcessed++
-        results.expensesCreated += inputs.length
+        results.expensesCreated += newInputs.length
 
         // Audit log per clinic
         await prisma.auditLog.create({
@@ -83,7 +104,7 @@ export async function GET(req: Request) {
             action: "RECURRING_EXPENSES_GENERATED",
             entityType: "ExpenseRecurrence",
             entityId: recurrence.id,
-            newValues: { count: inputs.length, recurrence: recurrence.description },
+            newValues: { count: newInputs.length, recurrence: recurrence.description },
           },
         }).catch(() => {})
       } catch (err) {
