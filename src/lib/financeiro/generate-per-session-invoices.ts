@@ -1,4 +1,4 @@
-import { AppointmentForInvoice, classifyAppointments, calculateInvoiceTotals, InvoiceItemData } from "./invoice-generator"
+import { AppointmentForInvoice, classifyAppointments, calculateInvoiceTotals, InvoiceItemData, BILLABLE_STATUSES } from "./invoice-generator"
 import { renderInvoiceTemplate, buildDetailBlock, DEFAULT_INVOICE_TEMPLATE } from "./invoice-template"
 import { getMonthName, formatCurrencyBRL, formatDateBR, formatDateShort } from "./format"
 import { shouldSkipInvoice } from "./invoice-generation"
@@ -92,7 +92,10 @@ export async function generatePerSessionInvoices(
       .map((i: { appointmentId: string }) => i.appointmentId)
   )
 
-  // Filter out appointments already billed on non-PER_SESSION invoices
+  // Filter out appointments already billed on non-PER_SESSION invoices.
+  // Non-billable statuses (e.g. CANCELADO_PROFISSIONAL) are kept here so that
+  // processAppointment can CANCEL any stale invoice previously generated for
+  // them; they are simply never created in the first place (see below).
   const available = sorted.filter(a => !invoicedAptIds.has(a.id))
 
   // Fetch unconsumed session credits for this patient (cross-professional).
@@ -156,7 +159,8 @@ async function processAppointment(
     referenceProfessional: { user: { name: string } } | null
   },
 ): Promise<{ outcome: "generated" | "updated" | "skipped"; creditIndex: number }> {
-  let { creditIndex } = ctx
+  const { creditIndex } = ctx
+  const isBillable = BILLABLE_STATUSES.includes(apt.status)
 
   // Check for existing PER_SESSION invoice for this appointment
   const existingItem = await tx.invoiceItem.findFirst({
@@ -168,10 +172,44 @@ async function processAppointment(
   })
 
   if (existingItem) {
+    // A session that is no longer billable (e.g. cancelled by the professional)
+    // must have its previously generated invoice deleted, not recalculated.
+    if (!isBillable) {
+      return deleteNonBillableInvoice(tx, existingItem.invoice, creditIndex)
+    }
     return handleExistingInvoice(tx, apt, existingItem.invoice, ctx, creditIndex)
   }
 
+  // Never create an invoice for a non-billable appointment.
+  if (!isBillable) {
+    return { outcome: "skipped", creditIndex }
+  }
+
   return createPerSessionInvoice(tx, apt, ctx, creditIndex)
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function deleteNonBillableInvoice(
+  tx: any,
+  invoice: { id: string; status: string },
+  creditIndex: number,
+): Promise<{ outcome: "skipped"; creditIndex: number }> {
+  // Leave paid/sent invoices untouched — they represent real money.
+  if (shouldSkipInvoice(invoice.status)) {
+    return { outcome: "skipped", creditIndex }
+  }
+
+  // Release any credits this invoice consumed so they can be reused.
+  await tx.sessionCredit.updateMany({
+    where: { consumedByInvoiceId: invoice.id },
+    data: { consumedByInvoiceId: null, consumedAt: null },
+  })
+  // Delete only this invoice. Its own line items go with it (they cannot exist
+  // without their invoice); the linked appointment and session credit are left
+  // intact (both FKs are onDelete: SetNull).
+  await tx.invoice.delete({ where: { id: invoice.id } })
+
+  return { outcome: "skipped", creditIndex }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

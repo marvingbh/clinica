@@ -56,6 +56,7 @@ function createMockTx() {
         return Promise.resolve(inv)
       }),
       update: vi.fn().mockResolvedValue({}),
+      delete: vi.fn().mockResolvedValue({}),
     },
     invoiceItem: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -321,10 +322,10 @@ describe("generatePerSessionInvoices", () => {
   })
 
   describe("non-billable appointments", () => {
-    it("processes all appointments passed in (filtering is upstream)", async () => {
+    it("skips non-billable statuses (e.g. CANCELADO_PROFISSIONAL)", async () => {
       const tx = createMockTx()
-      // The function creates invoices for all appointments it receives.
-      // Non-billable filtering (by status) happens at the API route level.
+      // A session cancelled by the professional must NOT be invoiced, even
+      // though the caller passes it in unfiltered.
       const apts = [
         makeApt({ id: "a1", scheduledAt: new Date("2026-03-05T10:00:00Z"), status: "CANCELADO_PROFISSIONAL" }),
         makeApt({ id: "a2", scheduledAt: new Date("2026-03-12T10:00:00Z"), status: "CONFIRMADO" }),
@@ -332,8 +333,57 @@ describe("generatePerSessionInvoices", () => {
 
       const result = await generatePerSessionInvoices(tx, makeParams({ appointments: apts }))
 
-      // Both get invoices — the classification just affects the item type label
+      // Only the billable CONFIRMADO session is invoiced.
+      expect(result.generated).toBe(1)
+      expect(tx.invoice.create).toHaveBeenCalledTimes(1)
+    })
+
+    it("invoices billable cancellations (CANCELADO_FALTA, CANCELADO_ACORDADO)", async () => {
+      const tx = createMockTx()
+      const apts = [
+        makeApt({ id: "a1", scheduledAt: new Date("2026-03-05T10:00:00Z"), status: "CANCELADO_FALTA" }),
+        makeApt({ id: "a2", scheduledAt: new Date("2026-03-12T10:00:00Z"), status: "CANCELADO_ACORDADO" }),
+      ]
+
+      const result = await generatePerSessionInvoices(tx, makeParams({ appointments: apts }))
+
       expect(result.generated).toBe(2)
+    })
+
+    it("deletes an existing PENDENTE invoice when its appointment became non-billable", async () => {
+      const tx = createMockTx()
+      tx.invoiceItem.findFirst.mockResolvedValueOnce({
+        invoice: { id: "inv-old", status: "PENDENTE" },
+      })
+      const apts = [
+        makeApt({ id: "a1", scheduledAt: new Date("2026-03-05T10:00:00Z"), status: "CANCELADO_PROFISSIONAL" }),
+      ]
+
+      const result = await generatePerSessionInvoices(tx, makeParams({ appointments: apts }))
+
+      expect(result.generated).toBe(0)
+      expect(tx.invoice.create).not.toHaveBeenCalled()
+      expect(tx.invoice.delete).toHaveBeenCalledWith({ where: { id: "inv-old" } })
+      // Credits consumed by the deleted invoice are released first.
+      expect(tx.sessionCredit.updateMany).toHaveBeenCalledWith({
+        where: { consumedByInvoiceId: "inv-old" },
+        data: { consumedByInvoiceId: null, consumedAt: null },
+      })
+    })
+
+    it("does NOT delete an existing PAGO invoice for a non-billable appointment", async () => {
+      const tx = createMockTx()
+      tx.invoiceItem.findFirst.mockResolvedValueOnce({
+        invoice: { id: "inv-paid", status: "PAGO" },
+      })
+      const apts = [
+        makeApt({ id: "a1", scheduledAt: new Date("2026-03-05T10:00:00Z"), status: "CANCELADO_PROFISSIONAL" }),
+      ]
+
+      const result = await generatePerSessionInvoices(tx, makeParams({ appointments: apts }))
+
+      expect(result.skipped).toBe(1)
+      expect(tx.invoice.delete).not.toHaveBeenCalled()
     })
   })
 
